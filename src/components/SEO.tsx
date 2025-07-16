@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import StructuredData from './SEO/StructuredData';
 
 interface SEOProps {
   title?: string;
@@ -8,6 +9,10 @@ interface SEOProps {
   image?: string;
   url?: string;
   type?: string;
+  structuredData?: {
+    type: 'website' | 'article' | 'person' | 'organization' | 'project';
+    data: any;
+  };
 }
 
 const SEO = ({
@@ -17,7 +22,8 @@ const SEO = ({
   author = 'Dan Pearson',
   image = '/placeholder.svg',
   url = 'https://danpearson.net',
-  type = 'website'
+  type = 'website',
+  structuredData
 }: SEOProps) => {
   useEffect(() => {
     // Update title
@@ -71,7 +77,16 @@ const SEO = ({
     }
   }, [title, description, keywords, author, image, url, type]);
 
-  return null;
+  return (
+    <>
+      {structuredData && (
+        <StructuredData 
+          type={structuredData.type} 
+          data={structuredData.data} 
+        />
+      )}
+    </>
+  );
 };
 
 export default SEO;

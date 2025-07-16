@@ -21,6 +21,7 @@ import { ArticleManager } from '@/components/admin/ArticleManager';
 import { ProjectManager } from '@/components/admin/ProjectManager';
 import { AIToolsManager } from '@/components/admin/AIToolsManager';
 import AnalyticsSettings from '@/components/admin/AnalyticsSettings';
+import SEOManager from '@/components/admin/SEOManager';
 
 interface AdminUser {
   id: string;
@@ -202,11 +203,12 @@ const AdminDashboard = () => {
 
         {/* Management Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             <TabsTrigger value="articles">Articles</TabsTrigger>
             <TabsTrigger value="tools">AI Tools</TabsTrigger>
+            <TabsTrigger value="seo">SEO</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -268,6 +270,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="tools">
             <AIToolsManager />
+          </TabsContent>
+
+          <TabsContent value="seo">
+            <SEOManager />
           </TabsContent>
 
           <TabsContent value="settings">

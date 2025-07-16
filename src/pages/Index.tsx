@@ -13,7 +13,12 @@ const Index = () => {
   const { trackClick } = useAnalytics();
   return (
     <div className="min-h-screen flex flex-col">
-      <SEO />
+      <SEO 
+        structuredData={{
+          type: 'website',
+          data: {}
+        }}
+      />
       <Navigation />
       <HeroSection />
       
