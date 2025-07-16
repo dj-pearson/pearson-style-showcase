@@ -53,21 +53,18 @@ const AdminDashboard = () => {
 
   const checkAdminAuth = async () => {
     try {
-      const response = await fetch(`https://qazhdcqvjppbbjxzvisp.supabase.co/functions/v1/admin-auth/me`, {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhemhkY3F2anBwYmJqeHp2aXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM5NzEsImV4cCI6MjA2ODA4OTk3MX0.-axZYOX3tBQDUy2EWuG5kNvswOc4iRq0QMFcGkQeRlM`
-        }
+      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+        body: { action: 'me' }
       });
       
-      if (!response.ok) {
+      if (functionError || data?.error) {
         navigate('/admin/login');
         return;
       }
       
-      const userData = await response.json();
-      setAdminUser(userData);
+      setAdminUser(data);
     } catch (error) {
+      console.error('Auth check error:', error);
       navigate('/admin/login');
     }
   };
@@ -97,12 +94,8 @@ const AdminDashboard = () => {
 
   const handleLogout = async () => {
     try {
-      await fetch(`https://qazhdcqvjppbbjxzvisp.supabase.co/functions/v1/admin-auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhemhkY3F2anBwYmJqeHp2aXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM5NzEsImV4cCI6MjA2ODA4OTk3MX0.-axZYOX3tBQDUy2EWuG5kNvswOc4iRq0QMFcGkQeRlM`
-        }
+      await supabase.functions.invoke('admin-auth', {
+        body: { action: 'logout' }
       });
       
       toast({

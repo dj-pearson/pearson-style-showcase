@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Shield, Lock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const AdminLogin = () => {
   const [formData, setFormData] = useState({
@@ -35,27 +36,28 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      const response = await fetch(`https://qazhdcqvjppbbjxzvisp.supabase.co/functions/v1/admin-auth/login`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhemhkY3F2anBwYmJqeHp2aXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM5NzEsImV4cCI6MjA2ODA4OTk3MX0.-axZYOX3tBQDUy2EWuG5kNvswOc4iRq0QMFcGkQeRlM`
-        },
-        body: JSON.stringify({
+      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+        body: {
+          action: 'login',
           email: formData.email,
           password: formData.password,
           totpCode: requiresTOTP ? formData.totpCode : undefined
-        })
+        }
       });
 
-      const data = await response.json();
+      if (functionError) {
+        console.error('Function error:', functionError);
+        setError(functionError.message || 'Login failed');
+        return;
+      }
 
-      if (!response.ok) {
-        if (data.requiresTOTP) {
-          setRequiresTOTP(true);
-        } else {
-          setError(data.message || 'Login failed');
-        }
+      if (data?.requiresTOTP) {
+        setRequiresTOTP(true);
+        return;
+      }
+
+      if (data?.error) {
+        setError(data.error);
         return;
       }
 
@@ -66,6 +68,7 @@ const AdminLogin = () => {
 
       navigate('/admin/dashboard');
     } catch (error) {
+      console.error('Login error:', error);
       setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
@@ -78,28 +81,32 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      const response = await fetch(`https://qazhdcqvjppbbjxzvisp.supabase.co/functions/v1/admin-auth/forgot-password`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhemhkY3F2anBwYmJqeHp2aXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM5NzEsImV4cCI6MjA2ODA4OTk3MX0.-axZYOX3tBQDUy2EWuG5kNvswOc4iRq0QMFcGkQeRlM`
-        },
-        body: JSON.stringify({ email: forgotPasswordEmail })
+      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+        body: {
+          action: 'forgot-password',
+          email: forgotPasswordEmail
+        }
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Password reset email sent",
-          description: "Check your email for reset instructions",
-        });
-        setShowForgotPassword(false);
-        setForgotPasswordEmail('');
-      } else {
-        setError(data.message || 'Failed to send reset email');
+      if (functionError) {
+        console.error('Function error:', functionError);
+        setError(functionError.message || 'Failed to send reset email');
+        return;
       }
+
+      if (data?.error) {
+        setError(data.error);
+        return;
+      }
+
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for reset instructions",
+      });
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
     } catch (error) {
+      console.error('Forgot password error:', error);
       setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);

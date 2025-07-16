@@ -59,7 +59,7 @@ function clearFailedAttempts(ip: string): void {
   loginAttempts.delete(ip);
 }
 
-async function handleLogin(request: Request): Promise<Response> {
+async function handleLogin(request: Request, data?: any): Promise<Response> {
   const clientIP = request.headers.get("x-forwarded-for") || "unknown";
   
   // Check rate limiting
@@ -75,7 +75,8 @@ async function handleLogin(request: Request): Promise<Response> {
     );
   }
 
-  const { email, password, totpCode }: LoginRequest = await request.json();
+  const requestData = data || await request.json();
+  const { email, password, totpCode } = requestData;
 
   try {
     // Get user from database
@@ -216,8 +217,9 @@ async function handleLogin(request: Request): Promise<Response> {
   }
 }
 
-async function handleForgotPassword(request: Request): Promise<Response> {
-  const { email }: ForgotPasswordRequest = await request.json();
+async function handleForgotPassword(request: Request, data?: any): Promise<Response> {
+  const requestData = data || await request.json();
+  const { email } = requestData;
 
   try {
     // Check if user exists
@@ -380,22 +382,49 @@ serve(async (req) => {
   console.log(`Admin Auth Request: ${req.method} ${path}`);
 
   try {
-    // Route to different handlers based on path
-    if (path.endsWith("/login") && req.method === "POST") {
-      return await handleLogin(req);
-    }
-    
-    if (path.endsWith("/forgot-password") && req.method === "POST") {
-      return await handleForgotPassword(req);
-    }
-    
-    if (path.endsWith("/me") && req.method === "GET") {
-      return await handleGetUser(req);
-    }
-    
-    if (path.endsWith("/logout") && req.method === "POST") {
-      return await handleLogout(req);
-    }
+  if (path.endsWith("/login") && req.method === "POST") {
+    const { action, email, password, totpCode } = await req.json();
+    return await handleLogin(req, { email, password, totpCode });
+  }
+  
+  if (path.endsWith("/forgot-password") && req.method === "POST") {
+    const { action, email } = await req.json();
+    return await handleForgotPassword(req, { email });
+  }
+  
+  if (path.endsWith("/me") && req.method === "GET") {
+    return await handleGetUser(req);
+  }
+  
+  if (path.endsWith("/logout") && req.method === "POST") {
+    return await handleLogout(req);
+  }
+
+  // Handle actions from function body for Supabase client calls  
+  const requestBody = await req.text();
+  let bodyData = {};
+  
+  try {
+    bodyData = requestBody ? JSON.parse(requestBody) : {};
+  } catch (e) {
+    // Handle non-JSON requests
+  }
+
+  if (bodyData.action === 'login') {
+    return await handleLogin(req, bodyData);
+  }
+  
+  if (bodyData.action === 'forgot-password') {
+    return await handleForgotPassword(req, bodyData);
+  }
+  
+  if (bodyData.action === 'me') {
+    return await handleGetUser(req);
+  }
+  
+  if (bodyData.action === 'logout') {
+    return await handleLogout(req);
+  }
 
     return new Response(
       JSON.stringify({ error: "Not found", path, method: req.method }),
