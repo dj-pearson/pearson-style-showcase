@@ -306,6 +306,48 @@ export type Database = {
           },
         ]
       }
+      projects: {
+        Row: {
+          created_at: string
+          description: string
+          featured: boolean | null
+          github_link: string | null
+          id: string
+          image_url: string | null
+          live_link: string | null
+          status: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          featured?: boolean | null
+          github_link?: string | null
+          id?: string
+          image_url?: string | null
+          live_link?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          featured?: boolean | null
+          github_link?: string | null
+          id?: string
+          image_url?: string | null
+          live_link?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smtp_settings: {
         Row: {
           created_at: string | null
