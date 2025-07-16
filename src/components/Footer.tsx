@@ -41,9 +41,11 @@ const Footer = () => {
             <h3 className="text-xl font-bold hero-gradient-text">
               Dan Pearson
             </h3>
+            <p className="text-primary font-medium mb-2">
+              Sales Leader • NFT Developer • AI Enthusiast
+            </p>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Full-stack developer, AI enthusiast, and technology innovator. 
-              Building the future one project at a time.
+              Driving innovation through technology and building lasting client relationships.
             </p>
           </div>
 
@@ -84,7 +86,7 @@ const Footer = () => {
               })}
             </div>
             <p className="text-xs text-muted-foreground">
-              Let's build something amazing together
+              Ready to collaborate? Let's build something amazing together.
             </p>
           </div>
         </div>
@@ -95,7 +97,7 @@ const Footer = () => {
         {/* Bottom Section */}
         <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
           <div className="text-xs text-muted-foreground">
-            © {currentYear} Dan Pearson. All rights reserved.
+            © {currentYear} Dan Pearson. All rights reserved. Built with passion for innovation.
           </div>
           
           <div className="flex items-center space-x-4 text-xs text-muted-foreground">
