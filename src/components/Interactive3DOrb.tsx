@@ -127,9 +127,9 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
   className = ""
 }) => {
   return (
-    <div className={`${className}`} style={{ width, height }}>
+    <div className={`${className} opacity-90`} style={{ width, height }}>
       <Canvas
-        camera={{ position: [0, 0, 5], fov: 60 }}
+        camera={{ position: [0, 0, 8], fov: 50 }}
         style={{ background: 'transparent' }}
         dpr={[1, 2]}
       >
@@ -148,9 +148,11 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
         <OrbitControls 
           enableZoom={false}
           enablePan={false}
-          enableRotate={true}
+          enableRotate={false}
           autoRotate={true}
-          autoRotateSpeed={0.5}
+          autoRotateSpeed={0.3}
+          maxPolarAngle={Math.PI}
+          minPolarAngle={0}
         />
       </Canvas>
     </div>

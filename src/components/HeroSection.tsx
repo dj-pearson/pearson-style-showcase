@@ -28,7 +28,7 @@ const HeroSection = () => {
       </div>
 
       {/* Interactive 3D Particle Orb */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] opacity-90 pointer-events-auto">
+      <div className="absolute inset-0 pointer-events-none">
         <Interactive3DOrb />
       </div>
 
