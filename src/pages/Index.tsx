@@ -1,6 +1,9 @@
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import Footer from '../components/Footer';
+import SEO from '../components/SEO';
+import CaseStudies from '../components/CaseStudies';
+import NewsletterSignup from '../components/NewsletterSignup';
 import { Code, Zap, Globe, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO />
       <Navigation />
       <HeroSection />
       
@@ -107,6 +111,16 @@ const Index = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* Case Studies Section */}
+      <CaseStudies />
+
+      {/* Newsletter Signup Section */}
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
+        <div className="max-w-2xl mx-auto">
+          <NewsletterSignup />
         </div>
       </section>
 
