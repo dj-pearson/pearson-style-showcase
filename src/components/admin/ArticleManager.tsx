@@ -454,13 +454,14 @@ export const ArticleManager: React.FC = () => {
                         className="font-mono text-sm"
                       />
                     </div>
-                    <div className="border rounded-md p-4 bg-muted/10 overflow-auto max-h-96">
-                      <h4 className="text-sm font-medium mb-2">Preview</h4>
-                      <div className="prose prose-sm max-w-none">
-                          {formData.content || '*Preview will appear here...*'}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
+                     <div className="border rounded-md p-4 bg-muted/10 overflow-auto max-h-96">
+                       <h4 className="text-sm font-medium mb-2">Preview</h4>
+                       <div className="prose prose-sm max-w-none">
+                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                           {formData.content || '*Preview will appear here...*'}
+                         </ReactMarkdown>
+                       </div>
+                     </div>
                   </div>
                 </div>
               </TabsContent>
