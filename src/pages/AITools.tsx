@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import Navigation from '../components/Navigation';
+import Footer from '../components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,9 +43,9 @@ const AITools = () => {
   };
 
   return (
-    <>
+    <div className="min-h-screen flex flex-col">
       <Navigation />
-      <div className="min-h-screen pt-20 px-4 md:px-6">
+      <div className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center py-16">
@@ -186,7 +187,8 @@ const AITools = () => {
           </div>
         </div>
       </div>
-    </>
+      <Footer />
+    </div>
   );
 };
 
