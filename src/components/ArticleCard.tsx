@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Eye } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
+import { Link } from "react-router-dom";
 
 type Article = Tables<"articles">;
 
@@ -71,13 +72,15 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
             ))}
           </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full border-gray-600 hover:border-cyan-500/50 hover:bg-cyan-500/10"
-          >
-            Read More
-          </Button>
+          <Link to={`/news/${article.slug}`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full border-gray-600 hover:border-cyan-500/50 hover:bg-cyan-500/10"
+            >
+              Read More
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

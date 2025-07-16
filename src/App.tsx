@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import About from "./pages/About";
 import Projects from "./pages/Projects";
 import News from "./pages/News";
+import Article from "./pages/Article";
 import AITools from "./pages/AITools";
 import Connect from "./pages/Connect";
 import AdminLogin from "./pages/AdminLogin";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/about" element={<About />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/news" element={<News />} />
+          <Route path="/news/:slug" element={<Article />} />
           <Route path="/ai-tools" element={<AITools />} />
           <Route path="/connect" element={<Connect />} />
           <Route path="/admin/login" element={<AdminLogin />} />
