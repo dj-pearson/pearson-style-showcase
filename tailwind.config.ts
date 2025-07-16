@@ -94,11 +94,58 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				// Orb animations
+				'pulse-slow': {
+					'0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+					'50%': { opacity: '0.8', transform: 'scale(1.05)' }
+				},
+				'pulse-slower': {
+					'0%, 100%': { opacity: '0.3', transform: 'scale(0.95)' },
+					'50%': { opacity: '0.7', transform: 'scale(1.1)' }
+				},
+				'pulse-fastest': {
+					'0%, 100%': { opacity: '0.6', transform: 'scale(1)' },
+					'50%': { opacity: '1', transform: 'scale(1.02)' }
+				},
+				'shimmer': {
+					'0%, 100%': { opacity: '0.8', transform: 'rotate(0deg)' },
+					'50%': { opacity: '1', transform: 'rotate(180deg)' }
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0px) translateX(0px)' },
+					'25%': { transform: 'translateY(-5px) translateX(2px)' },
+					'50%': { transform: 'translateY(-2px) translateX(-3px)' },
+					'75%': { transform: 'translateY(-7px) translateX(1px)' }
+				},
+				'twinkle': {
+					'0%, 100%': { opacity: '0', transform: 'scale(0.5)' },
+					'50%': { opacity: '1', transform: 'scale(1.5)' }
+				},
+				'spin-slow': {
+					from: { transform: 'rotate(0deg)' },
+					to: { transform: 'rotate(360deg)' }
+				},
+				'spin-reverse': {
+					from: { transform: 'rotate(360deg)' },
+					to: { transform: 'rotate(0deg)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				// Orb animations
+				'pulse-slow': 'pulse-slow 4s ease-in-out infinite',
+				'pulse-slower': 'pulse-slower 6s ease-in-out infinite',
+				'pulse-fastest': 'pulse-fastest 2s ease-in-out infinite',
+				'shimmer': 'shimmer 3s ease-in-out infinite',
+				'float': 'float 4s ease-in-out infinite',
+				'twinkle': 'twinkle 2s ease-in-out infinite',
+				'spin-slow': 'spin-slow 10s linear infinite',
+				'spin-reverse': 'spin-reverse 8s linear infinite'
+			},
+			backgroundImage: {
+				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))'
 			}
 		}
 	},

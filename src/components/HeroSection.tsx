@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import { LightBlueOrb } from './LightBlueOrb';
 
 const HeroSection = () => {
   return (
@@ -24,6 +25,11 @@ const HeroSection = () => {
           Explore My Work
           <ArrowRight className="inline-block ml-2 w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
         </button>
+      </div>
+
+      {/* Light Blue Orb - Background decoration */}
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-30 -z-10">
+        <LightBlueOrb size="xl" />
       </div>
 
       {/* Decorative elements - Mobile optimized */}
