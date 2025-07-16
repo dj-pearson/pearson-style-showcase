@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Mail, ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -31,19 +32,26 @@ const NewsletterSignup = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate newsletter signup - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { data: result, error } = await supabase.functions.invoke('newsletter-signup', {
+        body: { email: data.email }
+      });
+
+      if (error) {
+        console.error('Newsletter signup error:', error);
+        throw new Error(error.message || 'Failed to subscribe');
+      }
       
       toast({
         title: "Successfully subscribed!",
-        description: "Thank you for subscribing. You'll receive updates about my latest projects and insights.",
+        description: result.message || "Thank you for subscribing. Check your inbox for a welcome email!",
       });
       
       reset();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Newsletter signup failed:', error);
       toast({
         title: "Subscription failed",
-        description: "Please try again later or contact me directly.",
+        description: error.message || "Please try again later or contact me directly.",
         variant: "destructive",
       });
     } finally {

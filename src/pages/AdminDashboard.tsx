@@ -13,7 +13,9 @@ import {
   FileText, 
   Wrench,
   BarChart3,
-  Activity
+  Activity,
+  Search,
+  Mail
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +24,7 @@ import { ProjectManager } from '@/components/admin/ProjectManager';
 import { AIToolsManager } from '@/components/admin/AIToolsManager';
 import AnalyticsSettings from '@/components/admin/AnalyticsSettings';
 import SEOManager from '@/components/admin/SEOManager';
+import NewsletterManager from '@/components/admin/NewsletterManager';
 
 interface AdminUser {
   id: string;
@@ -203,12 +206,19 @@ const AdminDashboard = () => {
 
         {/* Management Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             <TabsTrigger value="articles">Articles</TabsTrigger>
             <TabsTrigger value="tools">AI Tools</TabsTrigger>
-            <TabsTrigger value="seo">SEO</TabsTrigger>
+            <TabsTrigger value="newsletter">
+              <Mail className="h-4 w-4 mr-1" />
+              Newsletter
+            </TabsTrigger>
+            <TabsTrigger value="seo">
+              <Search className="h-4 w-4 mr-1" />
+              SEO
+            </TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -270,6 +280,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="tools">
             <AIToolsManager />
+          </TabsContent>
+
+          <TabsContent value="newsletter">
+            <NewsletterManager />
           </TabsContent>
 
           <TabsContent value="seo">
