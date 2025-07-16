@@ -271,6 +271,36 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_subscribers: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+          subscribed_at: string
+          updated_at: string
+          welcome_email_sent: boolean
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          subscribed_at?: string
+          updated_at?: string
+          welcome_email_sent?: boolean
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          subscribed_at?: string
+          updated_at?: string
+          welcome_email_sent?: boolean
+        }
+        Relationships: []
+      }
       password_reset_tokens: {
         Row: {
           created_at: string | null
