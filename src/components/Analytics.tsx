@@ -63,14 +63,30 @@ export const useAnalytics = () => {
   };
 };
 
-const Analytics = ({ trackingId = 'G-XXXXXXXXXX' }: AnalyticsProps) => {
+const Analytics = ({ trackingId }: AnalyticsProps) => {
   useEffect(() => {
-    // Only load in production or when tracking ID is provided
-    if (process.env.NODE_ENV === 'production' || trackingId !== 'G-XXXXXXXXXX') {
+    // Load configuration from localStorage
+    let config = { enabled: false, trackingId: '', trackEvents: true, trackScrolling: true, trackFormSubmissions: true };
+    
+    try {
+      const savedConfig = localStorage.getItem('analytics_config');
+      if (savedConfig) {
+        config = JSON.parse(savedConfig);
+      }
+    } catch (error) {
+      console.error('Error loading analytics config:', error);
+    }
+
+    // Use stored config or fallback to prop
+    const finalTrackingId = config.trackingId || trackingId || 'G-XXXXXXXXXX';
+    const isEnabled = config.enabled && config.trackingId;
+
+    // Only load in production or when enabled with valid tracking ID
+    if ((process.env.NODE_ENV === 'production' || isEnabled) && finalTrackingId !== 'G-XXXXXXXXXX') {
       // Load Google Analytics script
       const script1 = document.createElement('script');
       script1.async = true;
-      script1.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
+      script1.src = `https://www.googletagmanager.com/gtag/js?id=${finalTrackingId}`;
       document.head.appendChild(script1);
 
       // Initialize gtag
@@ -81,7 +97,7 @@ const Analytics = ({ trackingId = 'G-XXXXXXXXXX' }: AnalyticsProps) => {
       window.gtag = gtag;
 
       gtag('js', new Date());
-      gtag('config', trackingId, {
+      gtag('config', finalTrackingId, {
         page_title: document.title,
         page_location: window.location.href,
       });
@@ -92,7 +108,7 @@ const Analytics = ({ trackingId = 'G-XXXXXXXXXX' }: AnalyticsProps) => {
         page_location: window.location.href,
       });
 
-      console.log('📊 Analytics initialized');
+      console.log('📊 Analytics initialized with tracking ID:', finalTrackingId);
     }
   }, [trackingId]);
 

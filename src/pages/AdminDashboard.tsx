@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArticleManager } from '@/components/admin/ArticleManager';
 import { ProjectManager } from '@/components/admin/ProjectManager';
 import { AIToolsManager } from '@/components/admin/AIToolsManager';
+import AnalyticsSettings from '@/components/admin/AnalyticsSettings';
 
 interface AdminUser {
   id: string;
@@ -270,43 +271,49 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Admin Settings</CardTitle>
-                <CardDescription>Configure your admin account and security</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-medium">Two-Factor Authentication</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Secure your account with TOTP authentication
-                      </p>
+            <div className="space-y-6">
+              {/* Google Analytics Settings */}
+              <AnalyticsSettings />
+              
+              {/* Admin Account Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Admin Account Settings</CardTitle>
+                  <CardDescription>Configure your admin account and security</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-medium">Two-Factor Authentication</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Secure your account with TOTP authentication
+                        </p>
+                      </div>
+                      <Badge variant={adminUser?.two_factor_enabled ? "default" : "secondary"}>
+                        {adminUser?.two_factor_enabled ? "Enabled" : "Disabled"}
+                      </Badge>
                     </div>
-                    <Badge variant={adminUser?.two_factor_enabled ? "default" : "secondary"}>
-                      {adminUser?.two_factor_enabled ? "Enabled" : "Disabled"}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-medium">Account Information</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Email: {adminUser?.email}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Last login: {adminUser?.last_login ? new Date(adminUser.last_login).toLocaleDateString() : 'Never'}
-                      </p>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-medium">Account Information</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Email: {adminUser?.email}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Last login: {adminUser?.last_login ? new Date(adminUser.last_login).toLocaleDateString() : 'Never'}
+                        </p>
+                      </div>
+                      <Button variant="outline">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Edit Profile
+                      </Button>
                     </div>
-                    <Button variant="outline">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Edit Profile
-                    </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
