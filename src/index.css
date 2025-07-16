@@ -2,41 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Dan Pearson Portfolio Design System - Futuristic Tech Theme */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Dark tech theme colors */
+    --background: 220 40% 8%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 220 35% 10%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 35% 10%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 195 100% 50%;
+    --primary-foreground: 220 40% 8%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 30% 15%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 30% 15%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 195 100% 50%;
+    --accent-foreground: 220 40% 8%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 30% 20%;
+    --input: 220 30% 15%;
+    --ring: 195 100% 50%;
 
     --radius: 0.5rem;
+
+    /* Custom tech theme colors */
+    --tech-cyan: 195 100% 50%;
+    --tech-cyan-glow: 195 100% 60%;
+    --tech-blue: 210 100% 60%;
+    --tech-purple: 280 100% 70%;
+    --tech-orange: 25 100% 60%;
+    --tech-green: 150 100% 50%;
+    --tech-red: 0 100% 60%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(195 100% 50%), hsl(210 100% 60%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 40% 8%), hsl(220 35% 12%));
+    --gradient-glow: radial-gradient(circle at center, hsl(195 100% 50% / 0.3), transparent 70%);
+    
+    /* Shadows and glows */
+    --shadow-glow: 0 0 30px hsl(195 100% 50% / 0.3);
+    --shadow-card: 0 8px 32px hsl(220 40% 2% / 0.5);
+    --shadow-floating: 0 20px 60px hsl(195 100% 50% / 0.2);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-glow: all 0.5s ease-in-out;
 
     --sidebar-background: 0 0% 98%;
 
@@ -101,5 +123,132 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* Binary code animation */
+  .binary-code {
+    position: absolute;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: hsl(195 100% 50% / 0.3);
+    animation: float 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Floating animation */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(180deg); }
+  }
+
+  /* Glow effect */
+  .glow-effect {
+    position: relative;
+  }
+
+  .glow-effect::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-glow);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+  }
+
+  /* Futuristic button */
+  .btn-futuristic {
+    @apply relative px-8 py-3 font-semibold text-sm uppercase tracking-wider;
+    background: var(--gradient-primary);
+    border: 1px solid hsl(195 100% 50%);
+    border-radius: 0.5rem;
+    color: hsl(220 40% 8%);
+    transition: var(--transition-smooth);
+    overflow: hidden;
+  }
+
+  .btn-futuristic::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, hsl(210 40% 98% / 0.4), transparent);
+    transition: left 0.5s;
+  }
+
+  .btn-futuristic:hover::before {
+    left: 100%;
+  }
+
+  .btn-futuristic:hover {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-2px);
+  }
+
+  /* Tech badge */
+  .tech-badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+    background: hsl(220 30% 15% / 0.8);
+    border: 1px solid hsl(195 100% 50% / 0.3);
+    color: hsl(195 100% 50%);
+    backdrop-filter: blur(10px);
+    transition: var(--transition-smooth);
+  }
+
+  .tech-badge:hover {
+    background: hsl(195 100% 50% / 0.1);
+    border-color: hsl(195 100% 50%);
+    box-shadow: 0 0 20px hsl(195 100% 50% / 0.3);
+  }
+
+  /* Navbar blur effect */
+  .navbar-blur {
+    backdrop-filter: blur(20px);
+    background: hsl(220 40% 8% / 0.8);
+    border-bottom: 1px solid hsl(220 30% 20%);
+  }
+
+  /* Hero text gradient */
+  .hero-gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Floating circle animation */
+  .floating-circle {
+    position: absolute;
+    border: 2px solid hsl(195 100% 50% / 0.3);
+    border-radius: 50%;
+    animation: rotate 20s linear infinite;
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Hover scale effect */
+  .hover-scale {
+    transition: var(--transition-smooth);
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.05);
   }
 }

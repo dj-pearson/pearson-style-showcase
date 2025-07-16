@@ -61,6 +61,16 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Custom tech theme colors
+				tech: {
+					cyan: 'hsl(var(--tech-cyan))',
+					'cyan-glow': 'hsl(var(--tech-cyan-glow))',
+					blue: 'hsl(var(--tech-blue))',
+					purple: 'hsl(var(--tech-purple))',
+					orange: 'hsl(var(--tech-orange))',
+					green: 'hsl(var(--tech-green))',
+					red: 'hsl(var(--tech-red))'
 				}
 			},
 			borderRadius: {
