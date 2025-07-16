@@ -104,10 +104,10 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.02}
+        size={0.04}
         color={color}
         transparent
-        opacity={0.8}
+        opacity={1}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
       />
@@ -137,13 +137,13 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
         <pointLight position={[10, 10, 10]} intensity={1} />
         
         {/* Main particle system */}
-        <ParticleSystem count={2000} radius={2} color="#00bfff" />
+        <ParticleSystem count={3000} radius={2} color="#00d4ff" />
         
         {/* Inner core particles */}
-        <ParticleSystem count={500} radius={1.2} color="#87ceeb" />
+        <ParticleSystem count={800} radius={1.2} color="#40e0ff" />
         
         {/* Outer shell particles */}
-        <ParticleSystem count={800} radius={2.8} color="#4682b4" />
+        <ParticleSystem count={1200} radius={2.8} color="#0099cc" />
         
         <OrbitControls 
           enableZoom={false}
