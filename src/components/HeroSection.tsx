@@ -9,19 +9,30 @@ const HeroSection = () => {
 
       {/* Main content - Mobile First Typography */}
       <div className="relative z-10 text-center max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6">
-        {/* Main title - Mobile First Sizing */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 glow-effect leading-tight">
-          <span className="hero-gradient-text">Dan</span>
-          <span className="text-foreground">Pearson</span>
+        {/* Text background overlay for better readability */}
+        <div className="absolute inset-0 bg-background/20 backdrop-blur-sm rounded-2xl"></div>
+        
+        {/* Main title - Mobile First Sizing with enhanced readability */}
+        <h1 className="relative text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 leading-tight">
+          <span className="hero-gradient-text drop-shadow-2xl" style={{
+            textShadow: '0 0 20px rgba(0, 191, 255, 0.8), 0 0 40px rgba(0, 191, 255, 0.6), 0 4px 8px rgba(0, 0, 0, 0.8)'
+          }}>Dan</span>
+          <span className="text-foreground drop-shadow-2xl" style={{
+            textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 4px 8px rgba(0, 0, 0, 0.8)'
+          }}>Pearson</span>
         </h1>
 
-        {/* Subtitle - Mobile First */}
-        <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-6 sm:mb-8 font-light leading-relaxed">
-          Sales Leader <span className="text-primary">•</span> NFT Developer <span className="text-primary">•</span> AI Enthusiast
+        {/* Subtitle - Mobile First with enhanced contrast */}
+        <p className="relative text-base sm:text-lg md:text-xl lg:text-2xl text-foreground mb-6 sm:mb-8 font-light leading-relaxed drop-shadow-lg" style={{
+          textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 255, 255, 0.3)'
+        }}>
+          Sales Leader <span className="text-primary font-semibold">•</span> NFT Developer <span className="text-primary font-semibold">•</span> AI Enthusiast
         </p>
 
-        {/* CTA Button - Touch Optimized */}
-        <button className="btn-futuristic group min-h-[44px] px-6 sm:px-8 text-sm sm:text-base">
+        {/* CTA Button - Touch Optimized with enhanced visibility */}
+        <button className="relative btn-futuristic group min-h-[44px] px-6 sm:px-8 text-sm sm:text-base shadow-2xl" style={{
+          boxShadow: '0 0 30px rgba(0, 191, 255, 0.6), 0 8px 16px rgba(0, 0, 0, 0.4)'
+        }}>
           Explore My Work
           <ArrowRight className="inline-block ml-2 w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
         </button>
