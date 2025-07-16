@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://danpearson.net", // TODO: Update to your domain
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, cookie",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Credentials": "true",
