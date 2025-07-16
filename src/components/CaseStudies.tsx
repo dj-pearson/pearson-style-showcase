@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, ArrowRight, Code, Zap, TrendingUp } from 'lucide-react';
+import { useAnalytics } from './Analytics';
 
 interface CaseStudy {
   id: string;
@@ -71,6 +72,7 @@ const caseStudies: CaseStudy[] = [
 ];
 
 const CaseStudies = () => {
+  const { trackClick } = useAnalytics();
   return (
     <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
@@ -175,7 +177,10 @@ const CaseStudies = () => {
         <div className="text-center mt-12 sm:mt-16">
           <Button 
             size="lg"
-            onClick={() => window.location.href = '/connect'}
+            onClick={() => {
+              trackClick('Discuss Your Project CTA', 'Case Studies');
+              window.location.href = '/connect';
+            }}
             className="btn-futuristic"
           >
             Discuss Your Project

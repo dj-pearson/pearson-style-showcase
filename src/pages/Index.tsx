@@ -7,8 +7,10 @@ import NewsletterSignup from '../components/NewsletterSignup';
 import { Code, Zap, Globe, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useAnalytics } from '../components/Analytics';
 
 const Index = () => {
+  const { trackClick } = useAnalytics();
   return (
     <div className="min-h-screen flex flex-col">
       <SEO />
@@ -95,7 +97,10 @@ const Index = () => {
                 <Button 
                   size="lg" 
                   className="btn-futuristic min-h-[50px] px-8 text-base"
-                  onClick={() => window.location.href = '/projects'}
+                  onClick={() => {
+                    trackClick('View Projects CTA', 'Homepage');
+                    window.location.href = '/projects';
+                  }}
                 >
                   View My Projects
                   <ArrowRight className="ml-2 w-5 h-5" />
@@ -104,7 +109,10 @@ const Index = () => {
                   variant="outline" 
                   size="lg" 
                   className="min-h-[50px] px-8 text-base border-primary/50 hover:bg-primary/10"
-                  onClick={() => window.location.href = '/connect'}
+                  onClick={() => {
+                    trackClick('Get In Touch CTA', 'Homepage');
+                    window.location.href = '/connect';
+                  }}
                 >
                   Get In Touch
                 </Button>
