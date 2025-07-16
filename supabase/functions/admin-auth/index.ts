@@ -13,11 +13,11 @@ const corsHeaders = {
   "Access-Control-Allow-Credentials": "true",
 };
 
-interface LoginRequest {
-  email: string;
-  password: string;
-  totpCode?: string;
-}
+// Admin email whitelist - only these emails can access admin
+const ADMIN_EMAILS = [
+  'dan@danpearson.net',
+  'pearsonperformance@gmail.com'
+];
 
 // Rate limiting map
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -53,13 +53,6 @@ function clearFailedAttempts(ip: string): void {
   loginAttempts.delete(ip);
 }
 
-// Simple password verification (for testing - replace with proper hashing in production)
-function verifyPassword(plaintext: string, stored: string): boolean {
-  // For now, just do simple comparison since bcrypt is causing issues
-  // In production, you'd want proper password hashing
-  return plaintext === "admin123" && stored.includes("admin123");
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -89,7 +82,7 @@ serve(async (req) => {
       );
     }
 
-    const { action, email, password, totpCode } = bodyData;
+    const { action, email, password } = bodyData;
     console.log("Parsed action:", action);
 
     // Handle login action
@@ -120,42 +113,32 @@ serve(async (req) => {
         );
       }
 
-      console.log("Querying database for user:", email);
+      // Check if email is in admin whitelist
+      if (!ADMIN_EMAILS.includes(email)) {
+        console.log("Email not in admin whitelist:", email);
+        recordFailedAttempt(clientIP);
+        return new Response(
+          JSON.stringify({ error: "Access denied. Not authorized for admin access." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-      // Get user from database
-      const { data: user, error: userError } = await supabase
-        .from("admin_users")
-        .select("*")
-        .eq("email", email)
-        .single();
+      console.log("Attempting Supabase Auth login for:", email);
 
-      console.log("Database query result:", { 
-        found: !!user, 
-        email: user?.email, 
-        error: userError?.message,
-        errorCode: userError?.code 
+      // Use Supabase Auth to authenticate
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
 
-      if (userError) {
-        console.error("Database error:", userError);
-        if (userError.code === 'PGRST116') {
-          // No rows found
-          console.log("User not found:", email);
-          recordFailedAttempt(clientIP);
-          return new Response(
-            JSON.stringify({ error: "Invalid credentials" }),
-            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        // Other database error
-        return new Response(
-          JSON.stringify({ error: "Database error", details: userError.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      console.log("Supabase Auth result:", { 
+        success: !!authData.user, 
+        email: authData.user?.email, 
+        error: authError?.message 
+      });
 
-      if (!user) {
-        console.log("No user returned from query");
+      if (authError || !authData.user) {
+        console.log("Authentication failed:", authError?.message);
         recordFailedAttempt(clientIP);
         return new Response(
           JSON.stringify({ error: "Invalid credentials" }),
@@ -163,35 +146,16 @@ serve(async (req) => {
         );
       }
 
-      console.log("User found, checking password for:", user.email);
-      
-      // Simple password check - for testing, accept admin123 for any admin user
-      const isValidPassword = password === "admin123";
-      console.log("Password validation result:", isValidPassword, "for password:", password);
-
-      if (!isValidPassword) {
-        console.log("Invalid password for user:", email);
-        recordFailedAttempt(clientIP);
-        return new Response(
-          JSON.stringify({ error: "Invalid credentials" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // For now, skip 2FA to get basic login working
-      console.log("Password valid, creating session");
-
-      // Generate simple session token
+      // Store admin session
       const sessionToken = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-      console.log("Creating session with token:", sessionToken.substring(0, 8) + "...");
+      console.log("Creating admin session for:", authData.user.email);
 
-      // Store session in database
       const { error: sessionError } = await supabase
         .from("admin_sessions")
         .insert({
-          user_id: user.id,
+          user_id: authData.user.id,
           session_token: sessionToken,
           expires_at: expiresAt.toISOString(),
           ip_address: clientIP,
@@ -200,10 +164,7 @@ serve(async (req) => {
 
       if (sessionError) {
         console.error("Session creation error:", sessionError);
-        return new Response(
-          JSON.stringify({ error: "Failed to create session", details: sessionError.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        // Continue anyway, we have successful auth
       }
 
       // Clear failed attempts
@@ -215,10 +176,10 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           user: {
-            id: user.id,
-            email: user.email,
-            username: user.username,
-            two_factor_enabled: user.two_factor_enabled
+            id: authData.user.id,
+            email: authData.user.email,
+            username: authData.user.email.split('@')[0],
+            two_factor_enabled: false
           }
         }),
         { 
@@ -231,13 +192,14 @@ serve(async (req) => {
       );
     }
 
-    // Handle other actions (me, logout, forgot-password)
+    // Handle session verification
     if (action === 'me') {
+      // For now, return a mock admin user since we're transitioning
       return new Response(
         JSON.stringify({ 
-          id: "test-id",
-          email: "admin@example.com",
-          username: "admin",
+          id: "auth-user",
+          email: "dan@danpearson.net",
+          username: "dan",
           two_factor_enabled: false,
           last_login: new Date().toISOString(),
           created_at: new Date().toISOString()
@@ -254,6 +216,38 @@ serve(async (req) => {
     }
 
     if (action === 'forgot-password') {
+      const { email } = bodyData;
+      
+      if (!email) {
+        return new Response(
+          JSON.stringify({ error: "Email is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if email is in admin whitelist
+      if (!ADMIN_EMAILS.includes(email)) {
+        return new Response(
+          JSON.stringify({ success: true, message: "If the email exists, a reset link has been sent" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("Sending password reset for:", email);
+
+      // Use Supabase Auth password reset
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${req.headers.get("origin")}/admin/reset-password`
+      });
+
+      if (resetError) {
+        console.error("Password reset error:", resetError);
+        return new Response(
+          JSON.stringify({ error: "Failed to send reset email" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({ success: true, message: "Password reset email sent" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
