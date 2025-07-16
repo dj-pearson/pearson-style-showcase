@@ -128,14 +128,21 @@
 }
 
 @layer components {
-  /* Binary code animation */
+  /* Binary code animation - Mobile optimized */
   .binary-code {
     position: absolute;
     font-family: 'Courier New', monospace;
-    font-size: 0.8rem;
-    color: hsl(195 100% 50% / 0.3);
+    font-size: 0.7rem;
+    color: hsl(195 100% 50% / 0.2);
     animation: float 6s ease-in-out infinite;
     pointer-events: none;
+  }
+
+  @media (min-width: 640px) {
+    .binary-code {
+      font-size: 0.8rem;
+      color: hsl(195 100% 50% / 0.3);
+    }
   }
 
   /* Floating animation */
@@ -168,15 +175,16 @@
     50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
   }
 
-  /* Futuristic button */
+  /* Futuristic button - Mobile First */
   .btn-futuristic {
-    @apply relative px-8 py-3 font-semibold text-sm uppercase tracking-wider;
+    @apply relative px-6 py-3 sm:px-8 sm:py-3 font-semibold text-sm sm:text-sm uppercase tracking-wider;
     background: var(--gradient-primary);
     border: 1px solid hsl(195 100% 50%);
     border-radius: 0.5rem;
     color: hsl(220 40% 8%);
     transition: var(--transition-smooth);
     overflow: hidden;
+    min-height: 44px; /* Touch target optimization */
   }
 
   .btn-futuristic::before {
@@ -199,14 +207,15 @@
     transform: translateY(-2px);
   }
 
-  /* Tech badge */
+  /* Tech badge - Mobile First */
   .tech-badge {
-    @apply px-3 py-1 rounded-full text-xs font-medium;
+    @apply px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-xs font-medium;
     background: hsl(220 30% 15% / 0.8);
     border: 1px solid hsl(195 100% 50% / 0.3);
     color: hsl(195 100% 50%);
     backdrop-filter: blur(10px);
     transition: var(--transition-smooth);
+    min-height: 24px; /* Better touch target */
   }
 
   .tech-badge:hover {
