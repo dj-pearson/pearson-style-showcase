@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { ArticleManager } from '@/components/admin/ArticleManager';
+import { ProjectManager } from '@/components/admin/ProjectManager';
+import { AIToolsManager } from '@/components/admin/AIToolsManager';
 
 interface AdminUser {
   id: string;
@@ -255,60 +258,15 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="projects">
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Management</CardTitle>
-                <CardDescription>Manage your portfolio projects</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Database className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Project Management</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create, edit, and organize your portfolio projects
-                  </p>
-                  <Button>Add New Project</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ProjectManager />
           </TabsContent>
 
           <TabsContent value="articles">
-            <Card>
-              <CardHeader>
-                <CardTitle>Article Management</CardTitle>
-                <CardDescription>Manage your blog articles and news</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Article Management</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create, edit, and publish articles and news posts
-                  </p>
-                  <Button>Create Article</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ArticleManager />
           </TabsContent>
 
           <TabsContent value="tools">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Tools Management</CardTitle>
-                <CardDescription>Manage your AI tools and resources</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">AI Tools Management</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Add, edit, and organize your AI tools collection
-                  </p>
-                  <Button>Add AI Tool</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <AIToolsManager />
           </TabsContent>
 
           <TabsContent value="settings">
