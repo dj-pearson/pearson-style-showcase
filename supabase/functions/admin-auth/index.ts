@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { authenticator } from "https://esm.sh/otplib@12.0.1";
+import * as otplib from "https://esm.sh/otplib@12.0.1";
 import { hash, verify } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const supabase = createClient(
@@ -136,7 +136,7 @@ async function handleLogin(request: Request, data?: any): Promise<Response> {
         );
       }
 
-      const isValidTOTP = authenticator.verify({
+      const isValidTOTP = otplib.authenticator.verify({
         token: totpCode,
         secret: user.two_factor_secret
       });
