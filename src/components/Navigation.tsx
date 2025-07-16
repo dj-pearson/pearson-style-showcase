@@ -47,10 +47,13 @@ const Navigation = () => {
               </Link>
             ))}
             
-            <div className="flex items-center space-x-2 ml-4">
+            <Link 
+              to="/admin/login" 
+              className="flex items-center space-x-2 ml-4 px-3 py-2 text-xs text-muted-foreground hover:text-primary transition-colors duration-200 rounded-md hover:bg-muted/20"
+            >
               <div className="w-3 h-3 rounded-full border border-primary/50"></div>
-              <span className="text-xs text-muted-foreground">Admin</span>
-            </div>
+              <span>Admin</span>
+            </Link>
           </div>
 
           {/* Mobile Menu Button - Touch Optimized */}
@@ -89,10 +92,14 @@ const Navigation = () => {
                 </Link>
               ))}
               
-              <div className="flex items-center space-x-2 px-4 py-3 mt-2 border-t border-border mx-2">
+              <Link
+                to="/admin/login"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center space-x-2 px-4 py-3 mt-2 border-t border-border mx-2 text-sm text-muted-foreground hover:text-primary transition-colors duration-200 rounded-lg hover:bg-muted/20"
+              >
                 <div className="w-3 h-3 rounded-full border border-primary/50"></div>
-                <span className="text-sm text-muted-foreground">Admin</span>
-              </div>
+                <span>Admin</span>
+              </Link>
             </div>
           </div>
         )}

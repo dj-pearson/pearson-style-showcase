@@ -9,6 +9,8 @@ import Projects from "./pages/Projects";
 import News from "./pages/News";
 import AITools from "./pages/AITools";
 import Connect from "./pages/Connect";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
           <Route path="/news" element={<News />} />
           <Route path="/ai-tools" element={<AITools />} />
           <Route path="/connect" element={<Connect />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
