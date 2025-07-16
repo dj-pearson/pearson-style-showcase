@@ -28,8 +28,8 @@ const HeroSection = () => {
       </div>
 
       {/* Light Blue Orb - Background decoration */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-30 -z-10">
-        <LightBlueOrb size="xl" />
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-60 z-0">
+        <LightBlueOrb size="lg" />
       </div>
 
       {/* Decorative elements - Mobile optimized */}
