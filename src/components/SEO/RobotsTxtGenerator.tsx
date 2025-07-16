@@ -85,12 +85,9 @@ Allow: /`);
         </div>
 
         <div className="text-sm text-muted-foreground space-y-2">
-          <p><strong>Instructions:</strong></p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Download and upload robots.txt to your website's root directory</li>
-            <li>Update the sitemap URL to match your actual domain</li>
-            <li>The file blocks crawlers from admin areas while allowing all other content</li>
-          </ul>
+          <p><strong>Live Robots.txt:</strong> Your robots.txt is automatically available at <a href="/robots.txt" target="_blank" className="text-primary underline">/robots.txt</a></p>
+          <p><strong>Download:</strong> Use the button above to download a local copy for manual upload to other hosting services.</p>
+          <p><strong>Note:</strong> This automatically includes your sitemap URL and blocks admin areas from crawlers.</p>
         </div>
       </CardContent>
     </Card>
