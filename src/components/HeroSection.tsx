@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { LightBlueOrb } from './LightBlueOrb';
+import { Interactive3DOrb } from './Interactive3DOrb';
 
 const HeroSection = () => {
   return (
@@ -27,9 +27,9 @@ const HeroSection = () => {
         </button>
       </div>
 
-      {/* Light Blue Orb - Background decoration */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-60 z-0">
-        <LightBlueOrb size="lg" />
+      {/* Interactive 3D Particle Orb */}
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 opacity-70 pointer-events-auto">
+        <Interactive3DOrb />
       </div>
 
       {/* Decorative elements - Mobile optimized */}
