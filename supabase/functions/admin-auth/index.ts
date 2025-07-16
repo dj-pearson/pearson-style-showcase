@@ -10,7 +10,7 @@ const supabase = createClient(
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, cookie",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Credentials": "true",
 };
@@ -364,38 +364,47 @@ async function handleLogout(request: Request): Promise<Response> {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: {
+        ...corsHeaders,
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
+      } 
+    });
   }
 
   const url = new URL(req.url);
   const path = url.pathname;
 
+  console.log(`Admin Auth Request: ${req.method} ${path}`);
+
   try {
-    if (path === "/admin-auth/login" && req.method === "POST") {
+    // Route to different handlers based on path
+    if (path.endsWith("/login") && req.method === "POST") {
       return await handleLogin(req);
     }
     
-    if (path === "/admin-auth/forgot-password" && req.method === "POST") {
+    if (path.endsWith("/forgot-password") && req.method === "POST") {
       return await handleForgotPassword(req);
     }
     
-    if (path === "/admin-auth/me" && req.method === "GET") {
+    if (path.endsWith("/me") && req.method === "GET") {
       return await handleGetUser(req);
     }
     
-    if (path === "/admin-auth/logout" && req.method === "POST") {
+    if (path.endsWith("/logout") && req.method === "POST") {
       return await handleLogout(req);
     }
 
     return new Response(
-      JSON.stringify({ error: "Not found" }),
+      JSON.stringify({ error: "Not found", path, method: req.method }),
       { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Request error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ error: "Internal server error", details: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
