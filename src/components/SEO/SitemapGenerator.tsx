@@ -161,7 +161,8 @@ ${allUrls.map(url => `  <url>
         </div>
         
         <div className="text-sm text-muted-foreground space-y-2">
-          <p><strong>Note:</strong> After generating, upload the sitemap.xml file to your website's root directory and submit it to Google Search Console.</p>
+          <p><strong>Live Sitemap:</strong> Your sitemap is automatically available at <a href="/sitemap.xml" target="_blank" className="text-primary underline">/sitemap.xml</a></p>
+          <p><strong>Download:</strong> Use the button above to download a local copy for manual upload to other hosting services.</p>
           <p><strong>Includes:</strong> Homepage, About, Projects, News, AI Tools, Connect, and all published articles.</p>
         </div>
       </CardContent>
