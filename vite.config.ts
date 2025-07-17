@@ -27,9 +27,13 @@ export default defineConfig(({ mode }) => ({
       external: [],
       output: {
         manualChunks: undefined,
+        entryFileNames: "assets/[name]-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash].[ext]",
       },
     },
     target: "es2015",
     sourcemap: false,
+    modulePreload: { polyfill: false },
   },
 }));
