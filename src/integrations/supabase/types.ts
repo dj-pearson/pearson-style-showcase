@@ -148,6 +148,36 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_data: {
+        Row: {
+          created_at: string
+          date: string
+          dimensions: Json | null
+          id: string
+          metric_name: string
+          metric_value: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          dimensions?: Json | null
+          id?: string
+          metric_name: string
+          metric_value: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          dimensions?: Json | null
+          id?: string
+          metric_name?: string
+          metric_value?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       article_categories: {
         Row: {
           color: string | null
@@ -271,6 +301,36 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_subscribers: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+          subscribed_at: string
+          updated_at: string
+          welcome_email_sent: boolean
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          subscribed_at?: string
+          updated_at?: string
+          welcome_email_sent?: boolean
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          subscribed_at?: string
+          updated_at?: string
+          welcome_email_sent?: boolean
+        }
+        Relationships: []
+      }
       password_reset_tokens: {
         Row: {
           created_at: string | null
@@ -305,6 +365,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string
+          featured: boolean | null
+          github_link: string | null
+          id: string
+          image_url: string | null
+          live_link: string | null
+          status: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          featured?: boolean | null
+          github_link?: string | null
+          id?: string
+          image_url?: string | null
+          live_link?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          featured?: boolean | null
+          github_link?: string | null
+          id?: string
+          image_url?: string | null
+          live_link?: string | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       smtp_settings: {
         Row: {

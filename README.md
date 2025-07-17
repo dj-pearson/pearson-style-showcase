@@ -1,73 +1,120 @@
-# Welcome to your Lovable project
+# Dan Pearson Style Showcase
 
-## Project info
+A modern React application built with Vite, TypeScript, and shadcn/ui components.
 
-**URL**: https://lovable.dev/projects/53293242-1a3e-40cf-bf21-2a4867985711
+## 🚀 Quick Start
 
-## How can I edit this code?
+### Prerequisites
 
-There are several ways of editing your application.
+- Node.js 18+
+- npm or yarn
 
-**Use Lovable**
+### Local Development
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/53293242-1a3e-40cf-bf21-2a4867985711) and start prompting.
+```bash
+# Install dependencies
+npm install
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-**Edit a file directly in GitHub**
+## 🌐 Deployment
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Cloudflare Pages
 
-**Use GitHub Codespaces**
+This project is configured for deployment on Cloudflare Pages with the following settings:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+**Build Configuration:**
 
-## What technologies are used for this project?
+- **Build command:** `npm run build`
+- **Build output directory:** `dist`
+- **Node.js version:** 18
 
-This project is built with:
+**Environment Variables (if needed):**
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- No environment variables required for basic deployment
+- Supabase configuration is handled via hardcoded public keys
 
-## How can I deploy this project?
+**Deployment Steps:**
 
-Simply open [Lovable](https://lovable.dev/projects/53293242-1a3e-40cf-bf21-2a4867985711) and click on Share -> Publish.
+1. Connect your GitHub repository to Cloudflare Pages
+2. Set the build command to: `npm run build`
+3. Set the publish directory to: `dist`
+4. Deploy!
 
-## Can I connect a custom domain to my Lovable project?
+### Manual Deployment
 
-Yes, you can!
+```bash
+# Build the project
+npm run build
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# The built files will be in the `dist` directory
+# Upload the contents of `dist` to your web server
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 🛠️ Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   └── admin/          # Admin-specific components
+├── pages/              # Page components
+├── hooks/              # Custom React hooks
+├── integrations/       # External service integrations
+│   └── supabase/       # Supabase client and types
+└── lib/                # Utility functions
+```
+
+## 🎨 Technologies Used
+
+- **Framework:** React 18 with TypeScript
+- **Build Tool:** Vite
+- **Styling:** Tailwind CSS
+- **UI Components:** shadcn/ui
+- **Routing:** React Router DOM
+- **State Management:** TanStack Query
+- **Backend:** Supabase
+- **3D Graphics:** Three.js with React Three Fiber
+
+## 📝 Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+
+## 🔧 Configuration Files
+
+- `wrangler.toml` - Cloudflare Pages configuration
+- `vite.config.ts` - Vite build configuration
+- `tailwind.config.ts` - Tailwind CSS configuration
+- `tsconfig.json` - TypeScript configuration
+
+## 🚨 Troubleshooting
+
+### Build Issues
+
+If you encounter build issues on Cloudflare Pages:
+
+1. **Lockfile conflicts:** Ensure only one lockfile exists (package-lock.json)
+2. **Node version:** Make sure Node.js 18+ is specified
+3. **Build command:** Verify `npm run build` works locally first
+
+### Common Issues
+
+- **404 errors on refresh:** Handled by `_redirects` file for client-side routing
+- **Large bundle size:** Consider code splitting for better performance
+- **Environment variables:** Add any required env vars in Cloudflare Pages settings
+
+## 📄 License
+
+This project is private and proprietary.

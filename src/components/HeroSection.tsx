@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import { Interactive3DOrb } from './Interactive3DOrb';
 
 const HeroSection = () => {
   return (
@@ -8,22 +9,39 @@ const HeroSection = () => {
 
       {/* Main content - Mobile First Typography */}
       <div className="relative z-10 text-center max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6">
-        {/* Main title - Mobile First Sizing */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 glow-effect leading-tight">
-          <span className="hero-gradient-text">Dan</span>
-          <span className="text-foreground">Pearson</span>
+        {/* Main title - Mobile First Sizing with strong contrast */}
+        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 leading-tight">
+          <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-white bg-clip-text text-transparent" style={{
+            textShadow: '0 0 30px rgba(96, 165, 250, 0.8), 0 0 60px rgba(96, 165, 250, 0.6), 0 4px 12px rgba(0, 0, 0, 1)'
+          }}>Dan</span>
+          <span className="bg-gradient-to-r from-blue-200 to-white bg-clip-text text-transparent" style={{
+            textShadow: '0 0 20px rgba(219, 234, 254, 0.9), 0 4px 12px rgba(0, 0, 0, 1)'
+          }}>Pearson</span>
         </h1>
 
-        {/* Subtitle - Mobile First */}
-        <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-6 sm:mb-8 font-light leading-relaxed">
-          Sales Leader <span className="text-primary">•</span> NFT Developer <span className="text-primary">•</span> AI Enthusiast
+        {/* Subtitle - Strong white text with black outline */}
+        <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white mb-6 sm:mb-8 font-medium leading-relaxed" style={{
+          textShadow: '2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0 0 15px rgba(255, 255, 255, 0.7)'
+        }}>
+          Sales Leader <span className="text-primary font-bold" style={{
+            textShadow: '0 0 20px rgba(0, 212, 255, 1), 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000'
+          }}>•</span> NFT Developer <span className="text-primary font-bold" style={{
+            textShadow: '0 0 20px rgba(0, 212, 255, 1), 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000'
+          }}>•</span> AI Enthusiast
         </p>
 
-        {/* CTA Button - Touch Optimized */}
-        <button className="btn-futuristic group min-h-[44px] px-6 sm:px-8 text-sm sm:text-base">
+        {/* CTA Button - Enhanced with strong glow */}
+        <button className="btn-futuristic group min-h-[44px] px-6 sm:px-8 text-sm sm:text-base" style={{
+          boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)'
+        }}>
           Explore My Work
           <ArrowRight className="inline-block ml-2 w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
         </button>
+      </div>
+
+      {/* Interactive 3D Particle Orb */}
+      <div className="absolute inset-0 pointer-events-none">
+        <Interactive3DOrb />
       </div>
 
       {/* Decorative elements - Mobile optimized */}
