@@ -74,7 +74,8 @@ const AnalyticsSettings = () => {
   };
 
   const isValidTrackingId = (id: string) => {
-    return /^(GA|G)-[A-Z0-9-]+$/i.test(id);
+    // For GA4 Property ID (numeric) or tracking ID format
+    return /^(G-[A-Z0-9-]+|\d+)$/i.test(id);
   };
 
   const getAnalyticsStatus = () => {
@@ -112,9 +113,9 @@ const AnalyticsSettings = () => {
           {/* Enable/Disable Analytics */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label className="text-base font-medium">Enable Analytics</Label>
+              <Label className="text-base font-medium">Enable Analytics Data Collection</Label>
               <p className="text-sm text-muted-foreground">
-                Turn on Google Analytics tracking for your website
+                Enable backend collection of Google Analytics data for dashboard metrics
               </p>
             </div>
             <Switch
@@ -126,14 +127,14 @@ const AnalyticsSettings = () => {
           {/* Tracking ID Input */}
           <div className="space-y-2">
             <Label htmlFor="trackingId" className="text-base font-medium">
-              Google Analytics Tracking ID
+              Google Analytics Property ID
             </Label>
             <div className="flex space-x-2">
               <div className="relative flex-1">
                 <Input
                   id="trackingId"
                   type={showTrackingId ? 'text' : 'password'}
-                  placeholder="G-XXXXXXXXXX or GA-XXXXXXXXX"
+                  placeholder="GA4 Property ID (e.g., 123456789)"
                   value={config.trackingId}
                   onChange={(e) => setConfig(prev => ({ ...prev, trackingId: e.target.value }))}
                   className={!isValidTrackingId(config.trackingId) && config.trackingId ? 'border-destructive' : ''}
@@ -158,11 +159,11 @@ const AnalyticsSettings = () => {
             </div>
             {config.trackingId && !isValidTrackingId(config.trackingId) && (
               <p className="text-sm text-destructive">
-                Please enter a valid Google Analytics tracking ID (e.g., G-XXXXXXXXXX)
+                Please enter a valid GA4 Property ID (e.g., 123456789) or tracking ID (e.g., G-XXXXXXXXXX)
               </p>
             )}
             <p className="text-sm text-muted-foreground">
-              Find your tracking ID in Google Analytics: Admin → Data Streams → Your Stream
+              Find your Property ID in Google Analytics: Admin → Data Streams → Your Stream → Property ID
             </p>
           </div>
 
