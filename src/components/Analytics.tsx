@@ -18,7 +18,21 @@ export const useAnalytics = () => {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('config', 'GA_MEASUREMENT_ID', {
+      // Get the current tracking ID from localStorage
+      let trackingId = 'GA_MEASUREMENT_ID';
+      try {
+        const savedConfig = localStorage.getItem('analytics_config');
+        if (savedConfig) {
+          const config = JSON.parse(savedConfig);
+          if (config.enabled && config.trackingId) {
+            trackingId = config.trackingId;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading analytics config in hook:', error);
+      }
+
+      window.gtag('config', trackingId, {
         page_path: location.pathname,
       });
       
