@@ -4,14 +4,14 @@
 /*.mjs
   Content-Type: application/javascript
 
-/*.ts
-  Content-Type: application/javascript
-
-/*.tsx
-  Content-Type: application/javascript
-
 /*.css
   Content-Type: text/css
 
 /*.svg
-  Content-Type: image/svg+xml 
+  Content-Type: image/svg+xml
+
+/assets/*.js
+  Content-Type: application/javascript
+
+/assets/*.mjs
+  Content-Type: application/javascript
