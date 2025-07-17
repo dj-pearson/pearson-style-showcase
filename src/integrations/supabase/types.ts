@@ -107,6 +107,7 @@ export type Database = {
           link: string | null
           metrics: Json | null
           pricing: string | null
+          sort_order: number | null
           status: string | null
           tags: string[] | null
           title: string
@@ -124,6 +125,7 @@ export type Database = {
           link?: string | null
           metrics?: Json | null
           pricing?: string | null
+          sort_order?: number | null
           status?: string | null
           tags?: string[] | null
           title: string
@@ -141,6 +143,7 @@ export type Database = {
           link?: string | null
           metrics?: Json | null
           pricing?: string | null
+          sort_order?: number | null
           status?: string | null
           tags?: string[] | null
           title?: string
@@ -375,6 +378,7 @@ export type Database = {
           id: string
           image_url: string | null
           live_link: string | null
+          sort_order: number | null
           status: string | null
           tags: string[] | null
           title: string
@@ -388,6 +392,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           live_link?: string | null
+          sort_order?: number | null
           status?: string | null
           tags?: string[] | null
           title: string
@@ -401,6 +406,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           live_link?: string | null
+          sort_order?: number | null
           status?: string | null
           tags?: string[] | null
           title?: string

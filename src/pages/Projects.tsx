@@ -27,6 +27,7 @@ const Projects = () => {
         .from('projects')
         .select('*')
         .order('featured', { ascending: false })
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
       
       if (error) throw error;

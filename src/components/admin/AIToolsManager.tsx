@@ -22,7 +22,10 @@ import {
   ExternalLink,
   Github,
   Search,
-  Calendar
+  Calendar,
+  ChevronUp,
+  ChevronDown,
+  GripVertical
 } from 'lucide-react';
 
 interface AITool {
@@ -39,6 +42,7 @@ interface AITool {
   status: string | null;
   tags: string[] | null;
   metrics: any;
+  sort_order: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -95,6 +99,7 @@ export const AIToolsManager: React.FC = () => {
       const { data, error } = await supabase
         .from('ai_tools')
         .select('*')
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -201,6 +206,7 @@ export const AIToolsManager: React.FC = () => {
         status: formData.status || 'Active',
         tags: formData.tags || null,
         metrics: formData.metrics || null,
+        sort_order: formData.sort_order || 0,
         updated_at: new Date().toISOString()
       };
 
@@ -218,7 +224,16 @@ export const AIToolsManager: React.FC = () => {
           description: "Your AI tool has been updated successfully.",
         });
       } else {
-        // Create new tool
+        // Create new tool - get max sort_order and add 1
+        const { data: maxSortOrder } = await supabase
+          .from('ai_tools')
+          .select('sort_order')
+          .order('sort_order', { ascending: false })
+          .limit(1)
+          .single();
+
+        toolData.sort_order = (maxSortOrder?.sort_order || 0) + 1;
+
         const { error } = await supabase
           .from('ai_tools')
           .insert([toolData]);
@@ -299,6 +314,44 @@ export const AIToolsManager: React.FC = () => {
       tag.toLowerCase().includes(searchTerm.toLowerCase())
     ))
   );
+
+  const moveTool = async (toolId: string, direction: 'up' | 'down') => {
+    const toolIndex = tools.findIndex(t => t.id === toolId);
+    if (toolIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? toolIndex - 1 : toolIndex + 1;
+    if (targetIndex < 0 || targetIndex >= tools.length) return;
+
+    const tool = tools[toolIndex];
+    const targetTool = tools[targetIndex];
+
+    try {
+      // Swap sort_order values
+      await supabase
+        .from('ai_tools')
+        .update({ sort_order: targetTool.sort_order })
+        .eq('id', tool.id);
+
+      await supabase
+        .from('ai_tools')
+        .update({ sort_order: tool.sort_order })
+        .eq('id', targetTool.id);
+
+      toast({
+        title: "AI tool reordered",
+        description: `Tool moved ${direction}.`,
+      });
+
+      loadTools();
+    } catch (error) {
+      console.error('Error reordering AI tool:', error);
+      toast({
+        variant: "destructive",
+        title: "Reorder failed",
+        description: "Could not reorder AI tool. Please try again.",
+      });
+    }
+  };
 
   const openNewToolDialog = () => {
     setSelectedTool(null);
@@ -568,83 +621,112 @@ export const AIToolsManager: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          filteredTools.map((tool) => (
-            <Card key={tool.id}>
+          filteredTools.map((tool, index) => (
+            <Card key={tool.id} className="group">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-semibold text-lg">{tool.title}</h3>
-                      <Badge variant="outline">{tool.category}</Badge>
-                      <Badge variant="secondary">{tool.pricing}</Badge>
-                      <Badge variant="outline">{tool.complexity}</Badge>
-                      <Badge 
-                        variant={tool.status === 'Active' ? 'default' : 'secondary'}
-                      >
-                        {tool.status}
-                      </Badge>
+                  <div className="flex items-start space-x-3">
+                    <div className="flex flex-col space-y-1 mt-2">
+                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
+                      <div className="flex flex-col space-y-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => moveTool(tool.id, 'up')}
+                          disabled={index === 0}
+                          className="h-6 w-6 p-0"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => moveTool(tool.id, 'down')}
+                          disabled={index === filteredTools.length - 1}
+                          className="h-6 w-6 p-0"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                     
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {tool.description}
-                    </p>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="font-semibold text-lg">{tool.title}</h3>
+                        <Badge variant="outline">{tool.category}</Badge>
+                        <Badge variant="secondary">{tool.pricing}</Badge>
+                        <Badge variant="outline">{tool.complexity}</Badge>
+                        <Badge 
+                          variant={tool.status === 'Active' ? 'default' : 'secondary'}
+                        >
+                          {tool.status}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          #{tool.sort_order || 0}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {tool.description}
+                      </p>
 
-                    {tool.features && tool.features.length > 0 && (
-                      <div className="mb-3">
-                        <p className="text-xs text-muted-foreground mb-1">Features:</p>
+                      {tool.features && tool.features.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs text-muted-foreground mb-1">Features:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {tool.features.slice(0, 3).map((feature, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {feature}
+                              </Badge>
+                            ))}
+                            {tool.features.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{tool.features.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center space-x-4 text-xs text-muted-foreground mb-3">
+                        <span className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {new Date(tool.created_at || '').toLocaleDateString()}
+                        </span>
+                        {tool.link && (
+                          <a 
+                            href={tool.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center hover:text-foreground"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Website
+                          </a>
+                        )}
+                        {tool.github_link && (
+                          <a 
+                            href={tool.github_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center hover:text-foreground"
+                          >
+                            <Github className="h-3 w-3 mr-1" />
+                            GitHub
+                          </a>
+                        )}
+                      </div>
+
+                      {tool.tags && tool.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          {tool.features.slice(0, 3).map((feature, index) => (
+                          {tool.tags.map((tag, index) => (
                             <Badge key={index} variant="outline" className="text-xs">
-                              {feature}
+                              {tag}
                             </Badge>
                           ))}
-                          {tool.features.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{tool.features.length - 3} more
-                            </Badge>
-                          )}
                         </div>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center space-x-4 text-xs text-muted-foreground mb-3">
-                      <span className="flex items-center">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(tool.created_at || '').toLocaleDateString()}
-                      </span>
-                      {tool.link && (
-                        <a 
-                          href={tool.link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center hover:text-foreground"
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Website
-                        </a>
-                      )}
-                      {tool.github_link && (
-                        <a 
-                          href={tool.github_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center hover:text-foreground"
-                        >
-                          <Github className="h-3 w-3 mr-1" />
-                          GitHub
-                        </a>
                       )}
                     </div>
-
-                    {tool.tags && tool.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {tool.tags.map((tag, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">

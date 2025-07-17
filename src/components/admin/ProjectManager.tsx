@@ -23,7 +23,10 @@ import {
   ExternalLink,
   Github,
   Search,
-  Calendar
+  Calendar,
+  ChevronUp,
+  ChevronDown,
+  GripVertical
 } from 'lucide-react';
 
 interface Project {
@@ -36,6 +39,7 @@ interface Project {
   tags: string[] | null;
   status: string | null;
   featured: boolean | null;
+  sort_order: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +76,7 @@ export const ProjectManager: React.FC = () => {
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -171,6 +176,7 @@ export const ProjectManager: React.FC = () => {
         tags: formData.tags || null,
         status: formData.status || 'Active',
         featured: formData.featured || false,
+        sort_order: formData.sort_order || 0,
         updated_at: new Date().toISOString()
       };
 
@@ -188,7 +194,16 @@ export const ProjectManager: React.FC = () => {
           description: "Your project has been updated successfully.",
         });
       } else {
-        // Create new project
+        // Create new project - get max sort_order and add 1
+        const { data: maxSortOrder } = await supabase
+          .from('projects')
+          .select('sort_order')
+          .order('sort_order', { ascending: false })
+          .limit(1)
+          .single();
+
+        projectData.sort_order = (maxSortOrder?.sort_order || 0) + 1;
+
         const { error } = await supabase
           .from('projects')
           .insert([projectData]);
@@ -264,6 +279,44 @@ export const ProjectManager: React.FC = () => {
       tag.toLowerCase().includes(searchTerm.toLowerCase())
     ))
   );
+
+  const moveProject = async (projectId: string, direction: 'up' | 'down') => {
+    const projectIndex = projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? projectIndex - 1 : projectIndex + 1;
+    if (targetIndex < 0 || targetIndex >= projects.length) return;
+
+    const project = projects[projectIndex];
+    const targetProject = projects[targetIndex];
+
+    try {
+      // Swap sort_order values
+      await supabase
+        .from('projects')
+        .update({ sort_order: targetProject.sort_order })
+        .eq('id', project.id);
+
+      await supabase
+        .from('projects')
+        .update({ sort_order: project.sort_order })
+        .eq('id', targetProject.id);
+
+      toast({
+        title: "Project reordered",
+        description: `Project moved ${direction}.`,
+      });
+
+      loadProjects();
+    } catch (error) {
+      console.error('Error reordering project:', error);
+      toast({
+        variant: "destructive",
+        title: "Reorder failed",
+        description: "Could not reorder project. Please try again.",
+      });
+    }
+  };
 
   const openNewProjectDialog = () => {
     setSelectedProject(null);
@@ -470,59 +523,88 @@ export const ProjectManager: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          filteredProjects.map((project) => (
-            <Card key={project.id}>
+          filteredProjects.map((project, index) => (
+            <Card key={project.id} className="group">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-semibold text-lg">{project.title}</h3>
-                      {project.featured && <Badge variant="secondary">Featured</Badge>}
-                      <Badge variant="outline">{project.status}</Badge>
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {project.description}
-                    </p>
-                    
-                    <div className="flex items-center space-x-4 text-xs text-muted-foreground mb-3">
-                      <span className="flex items-center">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(project.created_at).toLocaleDateString()}
-                      </span>
-                      {project.github_link && (
-                        <a 
-                          href={project.github_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center hover:text-foreground"
+                  <div className="flex items-start space-x-3">
+                    <div className="flex flex-col space-y-1 mt-2">
+                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
+                      <div className="flex flex-col space-y-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => moveProject(project.id, 'up')}
+                          disabled={index === 0}
+                          className="h-6 w-6 p-0"
                         >
-                          <Github className="h-3 w-3 mr-1" />
-                          GitHub
-                        </a>
-                      )}
-                      {project.live_link && (
-                        <a 
-                          href={project.live_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center hover:text-foreground"
+                          <ChevronUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => moveProject(project.id, 'down')}
+                          disabled={index === filteredProjects.length - 1}
+                          className="h-6 w-6 p-0"
                         >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Live Demo
-                        </a>
-                      )}
-                    </div>
-
-                    {project.tags && project.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {project.tags.map((tag, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
                       </div>
-                    )}
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="font-semibold text-lg">{project.title}</h3>
+                        {project.featured && <Badge variant="secondary">Featured</Badge>}
+                        <Badge variant="outline">{project.status}</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          #{project.sort_order || 0}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {project.description}
+                      </p>
+                      
+                      <div className="flex items-center space-x-4 text-xs text-muted-foreground mb-3">
+                        <span className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {new Date(project.created_at).toLocaleDateString()}
+                        </span>
+                        {project.github_link && (
+                          <a 
+                            href={project.github_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center hover:text-foreground"
+                          >
+                            <Github className="h-3 w-3 mr-1" />
+                            GitHub
+                          </a>
+                        )}
+                        {project.live_link && (
+                          <a 
+                            href={project.live_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center hover:text-foreground"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Live Demo
+                          </a>
+                        )}
+                      </div>
+
+                      {project.tags && project.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {project.tags.map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
