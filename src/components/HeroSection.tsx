@@ -11,11 +11,11 @@ const HeroSection = () => {
       <div className="relative z-10 text-center max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6">
         {/* Main title - Mobile First Sizing with strong contrast */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 leading-tight">
-          <span className="hero-gradient-text" style={{
-            textShadow: '0 0 30px rgba(0, 212, 255, 1), 0 0 60px rgba(0, 212, 255, 0.8), 0 4px 12px rgba(0, 0, 0, 1)'
+          <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-white bg-clip-text text-transparent" style={{
+            textShadow: '0 0 30px rgba(96, 165, 250, 0.8), 0 0 60px rgba(96, 165, 250, 0.6), 0 4px 12px rgba(0, 0, 0, 1)'
           }}>Dan</span>
-          <span className="text-white" style={{
-            textShadow: '0 0 20px rgba(255, 255, 255, 0.9), 0 4px 12px rgba(0, 0, 0, 1)'
+          <span className="bg-gradient-to-r from-blue-200 to-white bg-clip-text text-transparent" style={{
+            textShadow: '0 0 20px rgba(219, 234, 254, 0.9), 0 4px 12px rgba(0, 0, 0, 1)'
           }}>Pearson</span>
         </h1>
 
