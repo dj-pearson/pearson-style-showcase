@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import SEO from '../components/SEO';
 import { ArticleCard } from '../components/ArticleCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
-import { useState } from 'react';
 
 type Article = Tables<"articles">;
 
@@ -37,6 +38,27 @@ const News = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO 
+        title="AI & Tech News | Latest AI Developments & Business Technology Insights"
+        description="Stay updated with the latest AI developments, tech innovations, and business technology insights. Expert analysis on AI tools, machine learning trends, and digital transformation strategies."
+        keywords="AI news, tech news, artificial intelligence updates, machine learning trends, business technology, AI developments, tech insights, digital transformation, AI industry news"
+        url="https://danpearson.net/news"
+        type="website"
+        structuredData={{
+          type: 'website',
+          data: {
+            name: 'AI & Tech News',
+            description: 'Latest news and insights on AI developments, tech innovations, and business technology trends',
+            url: 'https://danpearson.net/news',
+            mainEntity: {
+              '@type': 'ItemList',
+              name: 'Tech News Articles',
+              description: 'Collection of articles about AI and technology developments',
+              numberOfItems: articles?.length || 0
+            }
+          }
+        }}
+      />
       <Navigation />
       <div className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-7xl">

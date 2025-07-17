@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import SEO from '../components/SEO';
 import { ProjectCard } from '../components/ProjectCard';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, ExternalLink, Github } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -68,6 +70,27 @@ const Projects = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO 
+        title="AI & Tech Projects Portfolio | NFT Development & Business Solutions"
+        description="Explore Dan Pearson's portfolio of AI projects, NFT developments, and innovative business solutions. See case studies of successful AI integrations, blockchain projects, and tech innovations."
+        keywords="AI projects portfolio, NFT development projects, business solutions, AI case studies, blockchain development, tech innovation portfolio, React projects, AI integration examples"
+        url="https://danpearson.net/projects"
+        type="website"
+        structuredData={{
+          type: 'website',
+          data: {
+            name: 'Projects Portfolio',
+            description: 'Portfolio of AI projects, NFT developments, and innovative business solutions by Dan Pearson',
+            url: 'https://danpearson.net/projects',
+            mainEntity: {
+              '@type': 'ItemList',
+              name: 'Tech Projects',
+              description: 'Collection of AI, NFT, and business technology projects',
+              numberOfItems: projects?.length || 0
+            }
+          }
+        }}
+      />
       <Navigation />
       <main className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-7xl">

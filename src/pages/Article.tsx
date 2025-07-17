@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, Navigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import SEO from '../components/SEO';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, Eye, ArrowLeft } from 'lucide-react';
@@ -93,6 +94,40 @@ const Article = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO 
+        title={`${article.seo_title || article.title} | Dan Pearson Tech Blog`}
+        description={article.seo_description || article.excerpt}
+        keywords={article.seo_keywords ? article.seo_keywords.join(', ') : `${article.title}, AI, tech, ${article.category}`}
+        url={`https://danpearson.net/article/${article.slug}`}
+        type="article"
+        image={article.image_url || '/placeholder.svg'}
+        structuredData={{
+          type: 'article',
+          data: {
+            headline: article.title,
+            description: article.excerpt,
+            image: article.image_url || '/placeholder.svg',
+            author: {
+              '@type': 'Person',
+              name: article.author || 'Dan Pearson'
+            },
+            publisher: {
+              '@type': 'Organization',
+              name: 'Dan Pearson Tech Blog',
+              logo: {
+                '@type': 'ImageObject',
+                url: '/placeholder.svg'
+              }
+            },
+            datePublished: article.created_at,
+            dateModified: article.updated_at,
+            mainEntityOfPage: {
+              '@type': 'WebPage',
+              '@id': `https://danpearson.net/article/${article.slug}`
+            }
+          }
+        }}
+      />
       <Navigation />
       <div className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-4xl">

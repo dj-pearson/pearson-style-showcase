@@ -14,9 +14,32 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <SEO 
+        title="Dan Pearson - AI Engineer & Business Development Expert | AI Solutions & NFT Development"
+        description="Expert AI engineer and business development leader specializing in AI integration, NFT development, and innovative tech solutions. Transform your business with cutting-edge AI technologies and strategic development."
+        keywords="AI engineer, business development, NFT development, AI integration, artificial intelligence, machine learning, blockchain development, React developer, tech innovation, AI solutions, business transformation, software development"
+        url="https://danpearson.net"
+        type="website"
         structuredData={{
-          type: 'website',
-          data: {}
+          type: 'person',
+          data: {
+            name: 'Dan Pearson',
+            jobTitle: 'AI Engineer & Business Development Expert',
+            description: 'Expert AI engineer and business development leader specializing in AI integration, NFT development, and innovative tech solutions.',
+            url: 'https://danpearson.net',
+            image: '/placeholder.svg',
+            sameAs: [
+              'https://linkedin.com/in/danpearson',
+              'https://github.com/danpearson'
+            ],
+            worksFor: {
+              '@type': 'Organization',
+              name: 'Dan Pearson Consulting'
+            },
+            address: {
+              '@type': 'PostalAddress',
+              addressCountry: 'US'
+            }
+          }
         }}
       />
       <Navigation />

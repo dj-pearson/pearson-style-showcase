@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import SEO from '../components/SEO';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +62,27 @@ const AITools = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO 
+        title="AI Tools & Services 2025 | Revolutionary AI Solutions & Business Automation"
+        description="Discover 100+ revolutionary AI tools transforming business in 2025. From OpenAI Sora to Cursor IDE - comprehensive directory of AI solutions for content creation, development, automation, and more."
+        keywords="AI tools 2025, artificial intelligence software, business automation, AI content creation, OpenAI Sora, Cursor IDE, DeepSeek, AI development tools, machine learning platforms, AI image generation, business AI solutions"
+        url="https://danpearson.net/ai-tools"
+        type="website"
+        structuredData={{
+          type: 'website',
+          data: {
+            name: 'AI Tools & Services Directory',
+            description: 'Comprehensive directory of revolutionary AI tools and services for business transformation in 2025',
+            url: 'https://danpearson.net/ai-tools',
+            mainEntity: {
+              '@type': 'ItemList',
+              name: 'AI Tools Directory',
+              description: 'Curated collection of the best AI tools for business professionals',
+              numberOfItems: tools?.length || 0
+            }
+          }
+        }}
+      />
       <Navigation />
       <div className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-7xl">
