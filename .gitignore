@@ -14,7 +14,6 @@ dist-ssr
 *.local
 
 # Lockfiles (keep only one)
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
