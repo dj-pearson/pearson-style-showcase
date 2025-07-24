@@ -227,11 +227,57 @@ export const ArticleManager: React.FC = () => {
         return;
       }
 
+      // Check if this is a Build Desk article and add the HTML if needed
+      let content = formData.content || '';
+      const isBuildDeskArticle = formData.category === 'Build Desk' || formData.slug === 'build-desk' || formData.slug?.includes('build-desk');
+      
+      if (isBuildDeskArticle && content) {
+        const buildDeskHtml = `
+
+<div style="text-align: center; margin: 2rem 0;">
+  <a href="https://build-desk.com" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FF5C00; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; transition: background-color 0.3s ease; border: none; cursor: pointer;">
+    Learn More About Build-Desk
+  </a>
+</div>
+
+<style>
+.build-desk-btn {
+  display: inline-block;
+  background-color: #FF5C00;
+  color: white;
+  padding: 12px 24px;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.build-desk-btn:hover {
+  background-color: #E64A00;
+  color: white;
+  text-decoration: none;
+}
+
+.build-desk-btn:focus {
+  outline: 2px solid #E64A00;
+  outline-offset: 2px;
+}
+</style>`;
+
+        // Only add the HTML if it's not already present
+        if (!content.includes('Learn More About Build-Desk')) {
+          content = content + buildDeskHtml;
+        }
+      }
+
       const articleData = {
         title: formData.title!,
         slug: formData.slug!,
         excerpt: formData.excerpt!,
-        content: formData.content || '',
+        content: content,
         category: formData.category!,
         author: formData.author || 'Dan Pearson',
         image_url: formData.image_url || null,
@@ -432,16 +478,23 @@ export const ArticleManager: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label htmlFor="content">Content (Markdown)</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateContent('full')}
-                      disabled={isGenerating}
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      {isGenerating ? 'Generating...' : 'Generate with AI'}
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      {(formData.category === 'Build Desk' || formData.slug === 'build-desk' || formData.slug?.includes('build-desk')) && (
+                        <Badge variant="secondary" className="text-xs">
+                          Build-Desk link will be auto-added
+                        </Badge>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => generateContent('full')}
+                        disabled={isGenerating}
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        {isGenerating ? 'Generating...' : 'Generate with AI'}
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
