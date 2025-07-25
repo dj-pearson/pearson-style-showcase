@@ -177,7 +177,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   };
 
   // Process content to handle both Markdown and HTML
-  const processedContent = renderCustomHTML(content);
+  const containsHTML = /<[a-z][\s\S]*>/i.test(content);
+  const containsMarkdown = /[#*`[\]_~-]/.test(content) || content.includes('**') || content.includes('##') || content.includes('###');
+  
+  // Only process custom HTML syntax if we have HTML content or custom components
+  const hasCustomComponents = content.includes('[button:') || content.includes('[alert:') || content.includes('[badge:');
+  const processedContent = (containsHTML || hasCustomComponents) ? renderCustomHTML(content) : content;
 
   // Custom component to handle our special elements
   const CustomHTMLRenderer: React.FC<{ html: string }> = ({ html }) => {
@@ -271,10 +276,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     );
   };
 
-  // Check if content contains HTML tags
-  const containsHTML = /<[a-z][\s\S]*>/i.test(content);
-  const containsMarkdown = /[#*`[\]_~]/.test(content) && !/<[a-z][\s\S]*>/i.test(content);
-
   if (containsHTML && !containsMarkdown) {
     // Pure HTML content - render as HTML
     return (
@@ -294,7 +295,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     );
   }
 
-  // Otherwise, render as Markdown
+  // Pure Markdown content - render with ReactMarkdown
   return (
     <div className={`prose prose-lg prose-invert max-w-none ${className}`}>
       <ReactMarkdown 
