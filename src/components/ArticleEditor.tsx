@@ -41,7 +41,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   // Auto-detect content type
   React.useEffect(() => {
     const hasHTML = /<[a-z][\s\S]*>/i.test(content);
-    const hasMarkdown = /[#*`[\]]/g.test(content);
+    const hasMarkdown = /[#*`[\]_~]/.test(content) && (content.includes('#') || content.includes('**') || content.includes('```'));
     
     if (hasHTML && hasMarkdown) {
       setContentType('mixed');

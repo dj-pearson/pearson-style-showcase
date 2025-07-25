@@ -181,9 +181,15 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
   // Custom component to handle our special elements
   const CustomHTMLRenderer: React.FC<{ html: string }> = ({ html }) => {
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
     React.useEffect(() => {
+      if (!containerRef.current) return;
+
+      const container = containerRef.current;
+
       // Handle custom buttons
-      const customButtons = document.querySelectorAll('[data-custom-btn]');
+      const customButtons = container.querySelectorAll('[data-custom-btn]');
       customButtons.forEach((btn) => {
         const url = btn.getAttribute('data-url');
         const style = btn.getAttribute('data-style') || 'primary';
@@ -208,15 +214,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       });
 
       // Handle custom alerts
-      const customAlerts = document.querySelectorAll('[data-custom-alert]');
+      const customAlerts = container.querySelectorAll('[data-custom-alert]');
       customAlerts.forEach((alert) => {
         const type = alert.getAttribute('data-type') || 'info';
-        const iconMap = {
-          info: Info,
-          warning: AlertTriangle,
-          success: CheckCircle,
-          error: XCircle
-        };
         
         const colorMap = {
           info: 'border-blue-500/50 bg-blue-500/10 text-blue-400',
@@ -229,7 +229,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       });
 
       // Handle custom badges
-      const customBadges = document.querySelectorAll('[data-custom-badge]');
+      const customBadges = container.querySelectorAll('[data-custom-badge]');
       customBadges.forEach((badge) => {
         const variant = badge.getAttribute('data-variant') || 'default';
         
@@ -242,19 +242,54 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         
         badge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${variantMap[variant as keyof typeof variantMap] || variantMap.default} mx-1`;
       });
+
+      // Style any existing buttons to match our design system
+      const htmlButtons = container.querySelectorAll('button:not([data-custom-btn])');
+      htmlButtons.forEach((btn) => {
+        // Only apply default styling if button doesn't already have extensive styling
+        if (!btn.getAttribute('style')?.includes('background') && !btn.className.includes('bg-')) {
+          btn.className = `${btn.className} inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4`.trim();
+        }
+      });
+
+      // Style any links in HTML
+      const htmlLinks = container.querySelectorAll('a:not([data-custom-btn])');
+      htmlLinks.forEach((link) => {
+        if (!link.className.includes('text-') && !link.getAttribute('style')?.includes('color')) {
+          link.className = `${link.className} text-primary hover:text-primary/80 underline transition-colors`.trim();
+        }
+      });
+
     }, [html]);
 
-    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+    return (
+      <div 
+        ref={containerRef}
+        dangerouslySetInnerHTML={{ __html: html }} 
+        className="space-y-6 text-foreground/90 leading-relaxed"
+      />
+    );
   };
 
   // Check if content contains HTML tags
   const containsHTML = /<[a-z][\s\S]*>/i.test(content);
+  const containsMarkdown = /[#*`[\]_~]/.test(content) && !/<[a-z][\s\S]*>/i.test(content);
 
-  if (containsHTML) {
-    // If content contains HTML, render it as HTML with our custom processing
+  if (containsHTML && !containsMarkdown) {
+    // Pure HTML content - render as HTML
     return (
       <div className={`prose prose-lg prose-invert max-w-none ${className}`}>
         <CustomHTMLRenderer html={processedContent} />
+      </div>
+    );
+  } else if (containsHTML && containsMarkdown) {
+    // Mixed content - render HTML first, then process any remaining markdown
+    return (
+      <div className={`prose prose-lg prose-invert max-w-none ${className}`}>
+        <div 
+          dangerouslySetInnerHTML={{ __html: processedContent }}
+          className="space-y-6 text-foreground/90 leading-relaxed"
+        />
       </div>
     );
   }
