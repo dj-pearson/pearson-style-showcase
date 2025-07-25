@@ -3,6 +3,7 @@ import { useParams, Navigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, Eye, ArrowLeft } from 'lucide-react';
@@ -208,12 +209,9 @@ const Article = () => {
             )}
 
             {/* Article Content */}
-            <div className="prose prose-lg prose-invert max-w-none">
+            <div>
               {article.content ? (
-                <div 
-                  dangerouslySetInnerHTML={{ __html: article.content }}
-                  className="space-y-6 text-foreground/90 leading-relaxed"
-                />
+                <MarkdownRenderer content={article.content} />
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <p>Article content is not available.</p>

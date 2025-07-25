@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import ArticleEditor from '../ArticleEditor';
 
 interface Article {
   id: string;
@@ -79,12 +80,7 @@ export const ArticleManager: React.FC = () => {
     tags: []
   });
 
-  useEffect(() => {
-    loadArticles();
-    loadCategories();
-  }, []);
-
-  const loadArticles = async () => {
+  const loadArticles = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('articles')
@@ -103,9 +99,9 @@ export const ArticleManager: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('article_categories')
@@ -117,7 +113,12 @@ export const ArticleManager: React.FC = () => {
     } catch (error) {
       console.error('Error loading categories:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadArticles();
+    loadCategories();
+  }, [loadArticles, loadCategories]);
 
   const generateSlug = (title: string) => {
     return title
@@ -128,12 +129,12 @@ export const ArticleManager: React.FC = () => {
       .trim();
   };
 
-  const handleInputChange = (field: keyof Article, value: any) => {
+  const handleInputChange = (field: keyof Article, value: string | boolean | string[] | null) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
       
       // Auto-generate slug from title
-      if (field === 'title' && value) {
+      if (field === 'title' && typeof value === 'string' && value) {
         updated.slug = generateSlug(value);
       }
       
@@ -477,13 +478,8 @@ export const ArticleManager: React.FC = () => {
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label htmlFor="content">Content (Markdown)</Label>
+                    <Label htmlFor="content">Content (Markdown/HTML)</Label>
                     <div className="flex items-center space-x-2">
-                      {(formData.category === 'Build Desk' || formData.slug === 'build-desk' || formData.slug?.includes('build-desk')) && (
-                        <Badge variant="secondary" className="text-xs">
-                          Build-Desk link will be auto-added
-                        </Badge>
-                      )}
                       <Button
                         type="button"
                         variant="outline"
@@ -496,26 +492,11 @@ export const ArticleManager: React.FC = () => {
                       </Button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Textarea
-                        id="content"
-                        value={formData.content || ''}
-                        onChange={(e) => handleInputChange('content', e.target.value)}
-                        placeholder="Write your article content in Markdown..."
-                        rows={15}
-                        className="font-mono text-sm"
-                      />
-                    </div>
-                     <div className="border rounded-md p-4 bg-muted/10 overflow-auto max-h-96">
-                       <h4 className="text-sm font-medium mb-2">Preview</h4>
-                       <div className="prose prose-sm max-w-none">
-                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                           {formData.content || '*Preview will appear here...*'}
-                         </ReactMarkdown>
-                       </div>
-                     </div>
-                  </div>
+                  <ArticleEditor
+                    content={formData.content || ''}
+                    onChange={(content) => handleInputChange('content', content)}
+                    category={formData.category}
+                  />
                 </div>
               </TabsContent>
 
