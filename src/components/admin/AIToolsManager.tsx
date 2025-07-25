@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileUpload } from './FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Tables, Json } from '@/integrations/supabase/types';
 import { 
   Plus, 
   Edit, 
@@ -25,27 +27,12 @@ import {
   Calendar,
   ChevronUp,
   ChevronDown,
-  GripVertical
+  GripVertical,
+  CheckCircle,
+  Clock
 } from 'lucide-react';
 
-interface AITool {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  image_url: string | null;
-  link: string | null;
-  github_link: string | null;
-  features: string[] | null;
-  pricing: string | null;
-  complexity: string | null;
-  status: string | null;
-  tags: string[] | null;
-  metrics: any;
-  sort_order: number | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
+type AITool = Tables<"ai_tools">;
 
 const AI_CATEGORIES = [
   'Natural Language Processing',
@@ -63,15 +50,17 @@ const AI_CATEGORIES = [
 
 const COMPLEXITY_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
 const PRICING_OPTIONS = ['Free', 'Freemium', 'Paid', 'Open Source', 'Enterprise'];
-const STATUS_OPTIONS = ['Active', 'Beta', 'Coming Soon', 'Deprecated'];
+const STATUS_OPTIONS = ['Active', 'Beta', 'Coming Soon', 'Deprecated', 'Draft'];
 
 export const AIToolsManager: React.FC = () => {
   const [tools, setTools] = useState<AITool[]>([]);
+  const [draftTools, setDraftTools] = useState<AITool[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTool, setSelectedTool] = useState<AITool | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentTab, setCurrentTab] = useState<'active' | 'pending'>('active');
   const { toast } = useToast();
 
   // Form state
@@ -92,13 +81,16 @@ export const AIToolsManager: React.FC = () => {
 
   useEffect(() => {
     loadTools();
+    loadDraftTools();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadTools = async () => {
+  const loadTools = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('ai_tools')
         .select('*')
+        .neq('status', 'Draft')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
@@ -114,9 +106,24 @@ export const AIToolsManager: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const handleInputChange = (field: keyof AITool, value: any) => {
+  const loadDraftTools = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai_tools')
+        .select('*')
+        .eq('status', 'Draft')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDraftTools(data || []);
+    } catch (error) {
+      console.error('Error loading draft tools:', error);
+    }
+  }, []);
+
+  const handleInputChange = (field: keyof AITool, value: string | string[] | number | null) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -205,7 +212,7 @@ export const AIToolsManager: React.FC = () => {
         complexity: formData.complexity || 'Intermediate',
         status: formData.status || 'Active',
         tags: formData.tags || null,
-        metrics: formData.metrics || null,
+        metrics: (formData.metrics as Json) || null,
         sort_order: formData.sort_order || 0,
         updated_at: new Date().toISOString()
       };
@@ -349,6 +356,74 @@ export const AIToolsManager: React.FC = () => {
         variant: "destructive",
         title: "Reorder failed",
         description: "Could not reorder AI tool. Please try again.",
+      });
+    }
+  };
+
+  const approveTool = async (tool: AITool) => {
+    try {
+      // Get the highest sort_order
+      const { data: maxSortOrder } = await supabase
+        .from('ai_tools')
+        .select('sort_order')
+        .neq('status', 'Draft')
+        .order('sort_order', { ascending: false })
+        .limit(1)
+        .single();
+
+      const newSortOrder = (maxSortOrder?.sort_order || 0) + 1;
+
+      const { error } = await supabase
+        .from('ai_tools')
+        .update({ 
+          status: 'Active',
+          sort_order: newSortOrder,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tool.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tool approved",
+        description: `${tool.title} has been approved and is now live.`,
+      });
+
+      loadTools();
+      loadDraftTools();
+    } catch (error) {
+      console.error('Error approving tool:', error);
+      toast({
+        variant: "destructive",
+        title: "Approval failed",
+        description: "Could not approve the tool. Please try again.",
+      });
+    }
+  };
+
+  const rejectTool = async (tool: AITool) => {
+    if (!confirm(`Are you sure you want to reject "${tool.title}"? This will permanently delete it.`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('ai_tools')
+        .delete()
+        .eq('id', tool.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tool rejected",
+        description: `${tool.title} has been rejected and removed.`,
+      });
+
+      loadDraftTools();
+    } catch (error) {
+      console.error('Error rejecting tool:', error);
+      toast({
+        variant: "destructive",
+        title: "Rejection failed",
+        description: "Could not reject the tool. Please try again.",
       });
     }
   };
@@ -580,54 +655,68 @@ export const AIToolsManager: React.FC = () => {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search AI tools..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tabs for Active Tools and Pending Approvals */}
+      <Tabs value={currentTab} onValueChange={(value) => setCurrentTab(value as 'active' | 'pending')}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="active" className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            Active Tools ({tools.length})
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Pending Approval ({draftTools.length})
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tools List */}
-      <div className="grid gap-4">
-        {isLoading ? (
+        <TabsContent value="active" className="space-y-6">
+          {/* Search */}
           <Card>
-            <CardContent className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">Loading AI tools...</p>
+            <CardContent className="pt-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search AI tools..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </CardContent>
           </Card>
-        ) : filteredTools.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No AI tools found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm ? 'No tools match your search.' : 'Get started by adding your first AI tool.'}
-              </p>
-              {!searchTerm && (
-                <Button onClick={openNewToolDialog}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add First Tool
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          filteredTools.map((tool, index) => (
-            <Card key={tool.id} className="group">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex flex-col space-y-1 mt-2">
-                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
+
+          {/* Active Tools List */}
+          <div className="grid gap-4">
+            {isLoading ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-4 text-muted-foreground">Loading AI tools...</p>
+                </CardContent>
+              </Card>
+            ) : filteredTools.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No AI tools found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchTerm ? 'No tools match your search.' : 'Get started by adding your first AI tool.'}
+                  </p>
+                  {!searchTerm && (
+                    <Button onClick={openNewToolDialog}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add First Tool
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              filteredTools.map((tool, index) => (
+                <Card key={tool.id} className="group">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex flex-col space-y-1 mt-2">
+                          <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
                       <div className="flex flex-col space-y-1">
                         <Button
                           variant="ghost"
@@ -759,7 +848,151 @@ export const AIToolsManager: React.FC = () => {
             </Card>
           ))
         )}
-      </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="pending" className="space-y-6">
+          {/* Pending Tools List */}
+          <div className="grid gap-4">
+            {draftTools.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No pending submissions</h3>
+                  <p className="text-muted-foreground">
+                    All tool submissions have been reviewed.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              draftTools.map((tool) => (
+                <Card key={tool.id} className="group border-orange-200 dark:border-orange-800">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h3 className="font-semibold text-lg">{tool.title}</h3>
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                            Pending Review
+                          </Badge>
+                          <Badge variant="outline">{tool.category}</Badge>
+                          <Badge variant="secondary">{tool.pricing}</Badge>
+                          <Badge variant="outline">{tool.complexity}</Badge>
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
+                          {tool.description}
+                        </p>
+
+                        {tool.features && tool.features.length > 0 && (
+                          <div className="mb-3">
+                            <p className="text-xs text-muted-foreground mb-1">Features:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {tool.features.slice(0, 3).map((feature, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {feature}
+                                </Badge>
+                              ))}
+                              {tool.features.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{tool.features.length - 3} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center space-x-4 text-xs text-muted-foreground mb-3">
+                          <span className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {new Date(tool.created_at || '').toLocaleDateString()}
+                          </span>
+                          {tool.link && (
+                            <a 
+                              href={tool.link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center hover:text-foreground"
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              Website
+                            </a>
+                          )}
+                          {tool.github_link && (
+                            <a 
+                              href={tool.github_link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center hover:text-foreground"
+                            >
+                              <Github className="h-3 w-3 mr-1" />
+                              GitHub
+                            </a>
+                          )}
+                        </div>
+
+                        {tool.tags && tool.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {tool.tags.map((tag, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Submission metadata */}
+                        {tool.submission_metadata && (
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">Submission Info:</p>
+                            <p>Submitted by: {(tool.submission_metadata as Record<string, unknown>)?.submitter_name as string || 'Unknown'}</p>
+                            <p>Email: {(tool.submission_metadata as Record<string, unknown>)?.submitter_email as string || 'Not provided'}</p>
+                            <p>Date: {new Date((tool.submission_metadata as Record<string, unknown>)?.submission_date as string || tool.created_at || '').toLocaleDateString()}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center space-x-2 ml-4">
+                        {tool.link && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(tool.link!, '_blank')}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editTool(tool)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => approveTool(tool)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => rejectTool(tool)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

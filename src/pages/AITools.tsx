@@ -6,14 +6,17 @@ import SEO from '../components/SEO';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AIToolSubmissionForm } from '@/components/AIToolSubmissionForm';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
-import { Bot, Brain, Image, Code, FileText, Sparkles, Filter, ExternalLink } from 'lucide-react';
+import { Bot, Brain, Image, Code, FileText, Sparkles, Filter, ExternalLink, Plus } from 'lucide-react';
 
 type AITool = Tables<"ai_tools">;
 
 const AITools = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
   
   const { data: tools, isLoading, error } = useQuery({
     queryKey: ['ai_tools'],
@@ -95,6 +98,30 @@ const AITools = () => {
             <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8">
               Discover 100+ revolutionary AI tools transforming work in 2025. From agentic AI systems to specialized industry solutions.
             </p>
+            
+            {/* Submit Tool Button */}
+            <div className="mb-8">
+              <Dialog open={isSubmissionDialogOpen} onOpenChange={setIsSubmissionDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    size="lg"
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Submit Your AI Tool
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Submit an AI Tool</DialogTitle>
+                    <DialogDescription>
+                      Share your AI tool with our community. All submissions are reviewed before going live.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <AIToolSubmissionForm />
+                </DialogContent>
+              </Dialog>
+            </div>
             
             {/* Statistics */}
             {tools && tools.length > 0 && (
