@@ -941,15 +941,6 @@ export const AIToolsManager: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Submission metadata */}
-                        {tool.submission_metadata && (
-                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs">
-                            <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">Submission Info:</p>
-                            <p>Submitted by: {(tool.submission_metadata as Record<string, unknown>)?.submitter_name as string || 'Unknown'}</p>
-                            <p>Email: {(tool.submission_metadata as Record<string, unknown>)?.submitter_email as string || 'Not provided'}</p>
-                            <p>Date: {new Date((tool.submission_metadata as Record<string, unknown>)?.submission_date as string || tool.created_at || '').toLocaleDateString()}</p>
-                          </div>
-                        )}
                       </div>
 
                       <div className="flex items-center space-x-2 ml-4">
