@@ -1,14 +1,14 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+
+# Block date archives and admin routes from being indexed
+Disallow: /admin/
+Disallow: /2023/
+Disallow: /2025/
+Disallow: /*?ref=*
+
+# Sitemap location
+Sitemap: https://danpearson.net/sitemap.xml
+
+# Handle redirects for SEO (informational only - actual redirects handled by server)
+# Canonical domain: https://danpearson.net (no www, HTTPS only)
