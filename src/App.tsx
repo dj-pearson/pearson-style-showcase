@@ -17,6 +17,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import SitemapXML from "./pages/SitemapXML";
 import RobotsTxt from "./pages/RobotsTxt";
+import DateArchive from "./pages/DateArchive";
 
 const queryClient = new QueryClient();
 
@@ -41,9 +42,9 @@ const App = () => (
           <Route path="/sitemap.xml" element={<SitemapXML />} />
           <Route path="/robots.txt" element={<RobotsTxt />} />
           
-          {/* Legacy URL redirects - redirect old URLs to new structure */}
-          <Route path="/2023/*" element={<Navigate to="/news" replace />} />
-          <Route path="/2025/*" element={<Navigate to="/news" replace />} />
+          {/* Date archives - noindex and redirect */}
+          <Route path="/2023/*" element={<DateArchive />} />
+          <Route path="/2025/*" element={<DateArchive />} />
           <Route path="/article/*" element={<Navigate to="/news" replace />} />
           <Route path="/product/*" element={<Navigate to="/ai-tools" replace />} />
           <Route path="/unveiling-the-future-of-ai-prompt-engineering" element={<Navigate to="/news" replace />} />

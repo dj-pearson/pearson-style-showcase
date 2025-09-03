@@ -99,7 +99,7 @@ const Article = () => {
         title={`${article.seo_title || article.title} | Dan Pearson Tech Blog`}
         description={article.seo_description || article.excerpt}
         keywords={article.seo_keywords ? article.seo_keywords.join(', ') : `${article.title}, AI, tech, ${article.category}`}
-        url={`https://danpearson.net/article/${article.slug}`}
+        url={`https://danpearson.net/news/${article.slug}`}
         type="article"
         image={article.image_url || '/placeholder.svg'}
         structuredData={{
@@ -124,7 +124,7 @@ const Article = () => {
             dateModified: article.updated_at,
             mainEntityOfPage: {
               '@type': 'WebPage',
-              '@id': `https://danpearson.net/article/${article.slug}`
+              '@id': `https://danpearson.net/news/${article.slug}`
             }
           }
         }}
