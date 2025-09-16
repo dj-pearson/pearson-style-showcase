@@ -15,9 +15,30 @@ serve(async (req) => {
   }
 
   try {
-    const { type, prompt, context } = await req.json();
+    const requestBody = await req.json();
+    console.log('Full request body:', JSON.stringify(requestBody, null, 2));
     
-    console.log(`AI Content Generation Request - Type: ${type}, Prompt: ${prompt}`);
+    // Handle both direct API calls and Make.com integration
+    let type, prompt, context, webhookUrl, companyId, templateCategory;
+    
+    if (requestBody.company_id || requestBody.template_category) {
+      // Make.com integration format
+      companyId = requestBody.company_id;
+      templateCategory = requestBody.template_category || 'article';
+      webhookUrl = requestBody.webhook_url;
+      type = templateCategory;
+      prompt = requestBody.prompt || `Generate ${templateCategory} content for company ${companyId}`;
+      context = requestBody.context;
+      
+      console.log(`Make.com AI Content Request - Company: ${companyId}, Template: ${templateCategory}`);
+    } else {
+      // Direct API format
+      type = requestBody.type;
+      prompt = requestBody.prompt;
+      context = requestBody.context;
+      
+      console.log(`Direct AI Content Request - Type: ${type}, Prompt: ${prompt}`);
+    }
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not found');
@@ -114,8 +135,45 @@ serve(async (req) => {
       parsedContent = { content: generatedContent };
     }
 
+    // Prepare response data
+    const responseData = {
+      success: true,
+      data: parsedContent,
+      metadata: {
+        company_id: companyId,
+        template_category: templateCategory,
+        generated_at: new Date().toISOString(),
+        type: type
+      }
+    };
+
+    // Send webhook notification if Make.com integration
+    if (webhookUrl) {
+      try {
+        console.log(`Sending webhook notification to: ${webhookUrl}`);
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: 'completed',
+            company_id: companyId,
+            template_category: templateCategory,
+            generated_content: parsedContent,
+            timestamp: new Date().toISOString(),
+            webhook_source: 'ai-content-generator'
+          }),
+        });
+        console.log('Webhook notification sent successfully');
+      } catch (webhookError) {
+        console.error('Failed to send webhook notification:', webhookError);
+        // Don't fail the main request if webhook fails
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: parsedContent }), 
+      JSON.stringify(responseData), 
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
