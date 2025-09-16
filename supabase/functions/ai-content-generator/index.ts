@@ -15,8 +15,30 @@ serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json();
-    console.log('Full request body:', JSON.stringify(requestBody, null, 2));
+    // First get the raw text to debug JSON issues
+    const rawBody = await req.text();
+    console.log('Raw request body:', rawBody);
+    console.log('Raw body length:', rawBody.length);
+    
+    // Try to parse the JSON
+    let requestBody;
+    try {
+      requestBody = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Raw body that failed to parse:', rawBody);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON format', 
+          details: parseError.message,
+          receivedData: rawBody.substring(0, 500) // First 500 chars for debugging
+        }), 
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
     
     // Handle both direct API calls and Make.com integration
     let type, prompt, context, webhookUrl, companyId, templateCategory;
