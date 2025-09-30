@@ -1,5 +1,8 @@
 import { ArrowRight } from 'lucide-react';
-import { Interactive3DOrb } from './Interactive3DOrb';
+import { lazy, Suspense } from 'react';
+
+// Lazy load the 3D orb to prevent render blocking
+const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
 
 const HeroSection = () => {
   return (
@@ -8,7 +11,7 @@ const HeroSection = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-secondary/20"></div>
 
       {/* Main content - Mobile First Typography */}
-      <div className="relative z-10 text-center max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6">
+      <div className="relative z-10 text-center max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6" style={{ contentVisibility: 'auto' }}>
         {/* Main title - Mobile First Sizing with strong contrast */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 leading-tight">
           <span className="text-primary" style={{
@@ -47,9 +50,11 @@ const HeroSection = () => {
         </button>
       </div>
 
-      {/* Interactive 3D Particle Orb */}
-      <div className="absolute inset-0 pointer-events-none">
-        <Interactive3DOrb />
+      {/* Interactive 3D Particle Orb - Lazy loaded to prevent render blocking */}
+      <div className="absolute inset-0 pointer-events-none" style={{ contentVisibility: 'auto' }}>
+        <Suspense fallback={null}>
+          <Interactive3DOrb />
+        </Suspense>
       </div>
 
       {/* Decorative elements - Mobile optimized */}
