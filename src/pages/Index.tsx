@@ -1,13 +1,16 @@
+import { lazy, Suspense } from 'react';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
-import CaseStudies from '../components/CaseStudies';
-import NewsletterSignup from '../components/NewsletterSignup';
 import { Code, Zap, Globe, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAnalytics } from '../components/Analytics';
+
+// Lazy load below-the-fold components to improve FID
+const CaseStudies = lazy(() => import('../components/CaseStudies'));
+const NewsletterSignup = lazy(() => import('../components/NewsletterSignup'));
 
 const Index = () => {
   const { trackClick } = useAnalytics();
@@ -151,12 +154,16 @@ const Index = () => {
       </section>
 
       {/* Case Studies Section */}
-      <CaseStudies />
+      <Suspense fallback={<div className="py-16 text-center text-muted-foreground">Loading case studies...</div>}>
+        <CaseStudies />
+      </Suspense>
 
       {/* Newsletter Signup Section */}
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
         <div className="max-w-2xl mx-auto">
-          <NewsletterSignup />
+          <Suspense fallback={<div className="text-center text-muted-foreground">Loading newsletter...</div>}>
+            <NewsletterSignup />
+          </Suspense>
         </div>
       </section>
 

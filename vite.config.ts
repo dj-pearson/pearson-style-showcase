@@ -17,6 +17,14 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       external: [],
+      output: {
+        manualChunks: {
+          // Separate heavy vendor libraries to reduce initial bundle
+          'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+        },
+      },
     },
     target: "es2015",
   },
