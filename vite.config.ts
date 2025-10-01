@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
           'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          'icons-vendor': ['lucide-react'],
         },
       },
     },
