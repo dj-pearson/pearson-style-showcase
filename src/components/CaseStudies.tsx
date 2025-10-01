@@ -106,7 +106,7 @@ const CaseStudies = () => {
                         <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
                           <IconComponent className="w-10 h-10" />
                         </div>
-                        <h4 className="text-lg font-semibold">{study.category}</h4>
+                        <p className="text-lg font-semibold">{study.category}</p>
                       </div>
                     </div>
 
