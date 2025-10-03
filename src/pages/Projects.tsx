@@ -93,75 +93,78 @@ const Projects = () => {
         }}
       />
       <Navigation />
-      <main className="flex-1 pt-20 px-4 md:px-6">
+      <main className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
-          <div className="text-center py-16">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 hero-gradient-text">
+          <div className="text-center py-8 sm:py-12 lg:py-16">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 hero-gradient-text leading-tight">
               My Projects
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto px-2 leading-relaxed">
               Explore my portfolio of innovative projects spanning NFT development, AI integration, and cutting-edge web solutions.
             </p>
           </div>
 
           {/* Search and Filter Controls */}
-          <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-6 mb-8">
-            <div className="flex flex-col lg:flex-row gap-4 items-center">
+          <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+            <div className="flex flex-col gap-3 sm:gap-4">
               {/* Search */}
-              <div className="relative flex-1 w-full lg:max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <Input
                   placeholder="Search projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-gray-700/50 border-gray-600 focus:border-cyan-500"
+                  className="pl-10 bg-gray-700/50 border-gray-600 focus:border-cyan-500 min-h-[48px] text-base"
                 />
               </div>
 
-              {/* Tag Filter */}
-              <div className="w-full lg:w-auto">
-                <Select value={selectedTag} onValueChange={setSelectedTag}>
-                  <SelectTrigger className="w-full lg:w-[180px] bg-gray-700/50 border-gray-600">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Filter by tag" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Tags</SelectItem>
-                    {allTags.map(tag => (
-                      <SelectItem key={tag} value={tag}>{tag}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Filters row */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full">
+                {/* Tag Filter */}
+                <div className="flex-1 sm:flex-initial">
+                  <Select value={selectedTag} onValueChange={setSelectedTag}>
+                    <SelectTrigger className="w-full sm:w-[180px] bg-gray-700/50 border-gray-600 min-h-[48px]">
+                      <Filter className="h-5 w-5 mr-2" />
+                      <SelectValue placeholder="Filter by tag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tags</SelectItem>
+                      {allTags.map(tag => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Sort */}
-              <div className="w-full lg:w-auto">
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-full lg:w-[140px] bg-gray-700/50 border-gray-600">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest</SelectItem>
-                    <SelectItem value="oldest">Oldest</SelectItem>
-                    <SelectItem value="title">Title A-Z</SelectItem>
-                    <SelectItem value="featured">Featured</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                {/* Sort */}
+                <div className="flex-1 sm:flex-initial">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-full sm:w-[140px] bg-gray-700/50 border-gray-600 min-h-[48px]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest</SelectItem>
+                      <SelectItem value="oldest">Oldest</SelectItem>
+                      <SelectItem value="title">Title A-Z</SelectItem>
+                      <SelectItem value="featured">Featured</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Clear Filters */}
-              {(searchTerm || selectedTag !== 'all' || sortBy !== 'newest') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="border-gray-600 hover:border-cyan-500/50"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Clear
-                </Button>
-              )}
+                {/* Clear Filters */}
+                {(searchTerm || selectedTag !== 'all' || sortBy !== 'newest') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="border-gray-600 hover:border-cyan-500/50 min-h-[48px] w-full sm:w-auto"
+                  >
+                    <X className="h-5 w-5 mr-2" />
+                    Clear
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Active Filters Display */}
@@ -182,59 +185,59 @@ const Projects = () => {
             )}
 
             {/* Results Count */}
-            <div className="mt-4 text-sm text-gray-400">
+            <div className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-400">
               Showing {sortedProjects.length} of {projects?.length || 0} projects
             </div>
           </div>
 
           {/* Projects Grid */}
-          <div className="pb-16">
+          <div className="pb-12 sm:pb-16">
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="h-64 bg-gray-800/50 rounded-lg animate-pulse" />
                 ))}
               </div>
             ) : error ? (
               <div className="text-center py-12">
-                <p className="text-gray-400">Error loading projects. Please try again later.</p>
+                <p className="text-base text-gray-400 px-4">Error loading projects. Please try again later.</p>
               </div>
             ) : projects && projects.length > 0 ? (
               sortedProjects.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {sortedProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <p className="text-gray-400 mb-4">No projects match your current filters.</p>
+                <div className="text-center py-12 px-4">
+                  <p className="text-base text-gray-400 mb-4">No projects match your current filters.</p>
                   <Button
                     variant="outline"
                     onClick={clearFilters}
-                    className="border-gray-600 hover:border-cyan-500/50"
+                    className="border-gray-600 hover:border-cyan-500/50 min-h-[48px]"
                   >
                     Clear Filters
                   </Button>
                 </div>
               )
             ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-400">No projects found.</p>
+              <div className="text-center py-12 px-4">
+                <p className="text-base text-gray-400">No projects found.</p>
               </div>
             )}
           </div>
 
           {/* Bottom CTA */}
-          <div className="text-center py-16 border-t border-gray-800">
-            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-8 max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold mb-4 text-white">Ready to Start Your Project?</h2>
-              <p className="text-gray-400 mb-6">
+          <div className="text-center py-12 sm:py-16 border-t border-gray-800">
+            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-2xl mx-auto">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">Ready to Start Your Project?</h2>
+              <p className="text-base text-gray-400 mb-5 sm:mb-6 leading-relaxed">
                 Let's discuss how I can help bring your vision to life with innovative technology solutions.
               </p>
               <Button 
                 size="lg" 
-                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] sm:min-h-[52px] w-full sm:w-auto px-8"
                 onClick={() => window.location.href = '/connect'}
               >
                 Get In Touch
