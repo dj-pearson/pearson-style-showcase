@@ -124,21 +124,21 @@ const ContactForm = () => {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-card border rounded-lg p-6">
+      <div className="bg-card border rounded-lg p-5 sm:p-6">
         {/* Form Completion Indicator */}
-        <div className="mb-6">
+        <div className="mb-5 sm:mb-6">
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-xl font-semibold">Send a Message</h3>
-            <span className="text-sm text-muted-foreground">{completionPercentage()}% complete</span>
+            <h3 className="text-lg sm:text-xl font-semibold">Send a Message</h3>
+            <span className="text-xs sm:text-sm text-muted-foreground">{completionPercentage()}% complete</span>
           </div>
           <Progress value={completionPercentage()} className="h-2" />
         </div>
         
         {/* Submission Progress */}
         {isSubmitting && (
-          <div className="mb-6 p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-3 mb-2">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <div className="mb-5 sm:mb-6 p-3 sm:p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
               <span className="text-sm font-medium">Sending your message...</span>
             </div>
             <Progress value={submitProgress} className="h-2" />
@@ -146,18 +146,19 @@ const ContactForm = () => {
         )}
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-5">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel className="text-base">Name</FormLabel>
                   <FormControl>
                     <Input 
                       placeholder="Your full name" 
                       {...field}
                       disabled={isSubmitting}
+                      className="min-h-[48px] text-base"
                     />
                   </FormControl>
                   <FormMessage />
@@ -170,13 +171,14 @@ const ContactForm = () => {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel className="text-base">Email</FormLabel>
                   <FormControl>
                     <Input 
                       type="email"
                       placeholder="your.email@example.com" 
                       {...field}
                       disabled={isSubmitting}
+                      className="min-h-[48px] text-base"
                     />
                   </FormControl>
                   <FormMessage />
@@ -189,12 +191,13 @@ const ContactForm = () => {
               name="subject"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Subject</FormLabel>
+                  <FormLabel className="text-base">Subject</FormLabel>
                   <FormControl>
                     <Input 
                       placeholder="What's this about?" 
                       {...field}
                       disabled={isSubmitting}
+                      className="min-h-[48px] text-base"
                     />
                   </FormControl>
                   <FormMessage />
@@ -207,11 +210,11 @@ const ContactForm = () => {
               name="message"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Message</FormLabel>
+                  <FormLabel className="text-base">Message</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder="Tell me about your project or question..."
-                      className="min-h-[120px] resize-none"
+                      className="min-h-[140px] resize-none text-base"
                       {...field}
                       disabled={isSubmitting}
                     />
@@ -223,17 +226,17 @@ const ContactForm = () => {
 
             <Button 
               type="submit" 
-              className="w-full"
+              className="w-full min-h-[48px] sm:min-h-[52px] text-base"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Sending...
                 </>
               ) : (
                 <>
-                  <Send className="w-4 h-4 mr-2" />
+                  <Send className="w-5 h-5 mr-2" />
                   Send Message
                 </>
               )}
