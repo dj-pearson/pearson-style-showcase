@@ -6,14 +6,14 @@ const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => 
 
 const HeroSection = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16 sm:pt-20">
+    <section className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-20 sm:pt-24">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-secondary/20"></div>
 
       {/* Main content - Mobile First Typography */}
-      <div className="relative z-10 text-center max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6" style={{ contentVisibility: 'auto' }}>
+      <div className="relative z-10 text-center max-w-[90%] sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6" style={{ contentVisibility: 'auto' }}>
         {/* Main title - Mobile First Sizing with strong contrast */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 leading-tight">
+        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-4 sm:mb-6 leading-[1.1]">
           <span className="text-primary" style={{
             textShadow: '0 0 30px rgba(0, 212, 255, 1), 0 0 60px rgba(0, 212, 255, 0.8), 0 4px 12px rgba(0, 0, 0, 1)',
             background: 'linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)',
@@ -31,7 +31,7 @@ const HeroSection = () => {
         </h1>
 
         {/* Subtitle - Strong white text with black outline */}
-        <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white mb-6 sm:mb-8 font-medium leading-relaxed" style={{
+        <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-white mb-6 sm:mb-8 font-medium leading-relaxed px-2" style={{
           textShadow: '2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0 0 15px rgba(255, 255, 255, 0.7)'
         }}>
           Sales Leader <span className="text-primary font-bold" style={{
@@ -41,12 +41,12 @@ const HeroSection = () => {
           }}>•</span> AI Enthusiast
         </p>
 
-        {/* CTA Button - Enhanced with strong glow */}
-        <button className="btn-futuristic group min-h-[44px] px-6 sm:px-8 text-sm sm:text-base" style={{
+        {/* CTA Button - Enhanced with strong glow, mobile optimized */}
+        <button className="btn-futuristic group min-h-[48px] sm:min-h-[52px] px-8 sm:px-10 text-base sm:text-lg" style={{
           boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)'
         }}>
           Explore My Work
-          <ArrowRight className="inline-block ml-2 w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
+          <ArrowRight className="inline-block ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
         </button>
       </div>
 
@@ -58,10 +58,10 @@ const HeroSection = () => {
       </div>
 
       {/* Decorative elements - Mobile optimized */}
-      <div className="absolute top-4 sm:top-10 right-4 sm:right-10 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary rounded-full animate-ping"></div>
-      <div className="absolute bottom-16 sm:bottom-20 left-4 sm:left-10 w-1 h-1 bg-tech-cyan rounded-full animate-pulse"></div>
-      <div className="absolute top-1/4 right-1/4 w-1.5 h-1.5 bg-tech-purple rounded-full animate-ping" style={{ animationDelay: '1s' }}></div>
-      <div className="absolute bottom-1/3 left-1/3 w-1 h-1 bg-tech-orange rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute top-6 sm:top-10 right-6 sm:right-10 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-primary rounded-full animate-ping"></div>
+      <div className="absolute bottom-20 sm:bottom-24 left-6 sm:left-10 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-tech-cyan rounded-full animate-pulse"></div>
+      <div className="absolute top-1/4 right-1/4 w-2 h-2 bg-tech-purple rounded-full animate-ping" style={{ animationDelay: '1s' }}></div>
+      <div className="absolute bottom-1/3 left-1/3 w-1.5 h-1.5 bg-tech-orange rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
     </section>
   );
 };
