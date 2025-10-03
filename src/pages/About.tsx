@@ -39,23 +39,23 @@ const About = () => {
         }}
       />
       <Navigation />
-      <main className="flex-1 pt-20">
-        <div className="container mx-auto px-4 py-12">
+      <main className="flex-1 pt-20 sm:pt-24">
+        <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold mb-8 hero-gradient-text">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 sm:mb-8 hero-gradient-text leading-tight">
               About Me
             </h1>
             
             <div className="prose prose-gray dark:prose-invert max-w-none">
-              <p className="text-xl text-muted-foreground mb-8">
+              <p className="text-lg sm:text-xl text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
                 I'm a passionate full-stack developer with a deep interest in AI, web technologies, 
                 and creating innovative solutions that make a difference.
               </p>
               
-              <div className="grid md:grid-cols-2 gap-8 mb-12">
-                <div>
-                  <h2 className="text-2xl font-semibold mb-4">Technical Expertise</h2>
-                  <ul className="space-y-2 text-muted-foreground">
+              <div className="grid md:grid-cols-2 gap-6 sm:gap-8 mb-8 sm:mb-12">
+                <div className="bg-card/50 rounded-lg p-5 sm:p-6 border border-border">
+                  <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">Technical Expertise</h2>
+                  <ul className="space-y-2 sm:space-y-2.5 text-base text-muted-foreground">
                     <li>• Full-Stack Web Development</li>
                     <li>• AI & Machine Learning Integration</li>
                     <li>• Modern JavaScript/TypeScript</li>
@@ -65,9 +65,9 @@ const About = () => {
                   </ul>
                 </div>
                 
-                <div>
-                  <h2 className="text-2xl font-semibold mb-4">What Drives Me</h2>
-                  <p className="text-muted-foreground">
+                <div className="bg-card/50 rounded-lg p-5 sm:p-6 border border-border">
+                  <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">What Drives Me</h2>
+                  <p className="text-base text-muted-foreground leading-relaxed">
                     I believe technology should solve real problems and create value. 
                     Whether it's building scalable web applications, integrating AI capabilities, 
                     or optimizing complex systems, I'm always focused on delivering solutions 
@@ -76,9 +76,9 @@ const About = () => {
                 </div>
               </div>
               
-              <div className="bg-muted/50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold mb-3">Let's Connect</h3>
-                <p className="text-muted-foreground">
+              <div className="bg-muted/50 rounded-lg p-5 sm:p-6 border border-border">
+                <h3 className="text-lg sm:text-xl font-semibold mb-3">Let's Connect</h3>
+                <p className="text-base text-muted-foreground leading-relaxed">
                   I'm always interested in discussing new projects, innovative ideas, 
                   or opportunities to collaborate. Feel free to reach out through any 
                   of the channels in the footer below.
