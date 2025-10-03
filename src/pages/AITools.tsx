@@ -88,33 +88,33 @@ const AITools = () => {
         }}
       />
       <Navigation />
-      <div className="flex-1 pt-20 px-4 md:px-6">
+      <div className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
-          <div className="text-center py-16">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 hero-gradient-text">
+          <div className="text-center py-8 sm:py-12 lg:py-16">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 hero-gradient-text leading-tight">
               AI Tools & Services
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8">
+            <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto mb-6 sm:mb-8 px-2 leading-relaxed">
               Discover 100+ revolutionary AI tools transforming work in 2025. From agentic AI systems to specialized industry solutions.
             </p>
             
             {/* Submit Tool Button */}
-            <div className="mb-8">
+            <div className="mb-6 sm:mb-8">
               <Dialog open={isSubmissionDialogOpen} onOpenChange={setIsSubmissionDialogOpen}>
                 <DialogTrigger asChild>
                   <Button 
                     size="lg"
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-[48px] sm:min-h-[52px] w-full sm:w-auto px-6 sm:px-8"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-5 h-5 mr-2" />
                     Submit Your AI Tool
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Submit an AI Tool</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-lg sm:text-xl">Submit an AI Tool</DialogTitle>
+                    <DialogDescription className="text-sm sm:text-base">
                       Share your AI tool with our community. All submissions are reviewed before going live.
                     </DialogDescription>
                   </DialogHeader>
@@ -125,24 +125,24 @@ const AITools = () => {
             
             {/* Statistics */}
             {tools && tools.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-cyan-400">{tools.length}</div>
-                  <div className="text-sm text-gray-400">Total Tools</div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto">
+                <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
+                  <div className="text-xl sm:text-2xl font-bold text-cyan-400">{tools.length}</div>
+                  <div className="text-xs sm:text-sm text-gray-400">Total Tools</div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-cyan-400">{categories.length - 1}</div>
-                  <div className="text-sm text-gray-400">Categories</div>
+                <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
+                  <div className="text-xl sm:text-2xl font-bold text-cyan-400">{categories.length - 1}</div>
+                  <div className="text-xs sm:text-sm text-gray-400">Categories</div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-cyan-400">
+                <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
+                  <div className="text-xl sm:text-2xl font-bold text-cyan-400">
                     {tools.filter(tool => tool.pricing?.includes('Free') || tool.pricing === 'Freemium').length}
                   </div>
-                  <div className="text-sm text-gray-400">Free Tools</div>
+                  <div className="text-xs sm:text-sm text-gray-400">Free Tools</div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-cyan-400">2025</div>
-                  <div className="text-sm text-gray-400">Latest</div>
+                <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
+                  <div className="text-xl sm:text-2xl font-bold text-cyan-400">2025</div>
+                  <div className="text-xs sm:text-sm text-gray-400">Latest</div>
                 </div>
               </div>
             )}
@@ -150,14 +150,14 @@ const AITools = () => {
 
           {/* Category Filters */}
           {tools && tools.length > 0 && (
-            <div className="flex flex-wrap gap-3 justify-center mb-8">
+            <div className="flex flex-wrap gap-2 sm:gap-3 justify-center mb-6 sm:mb-8">
               <Button
                 variant={selectedCategory === 'all' ? 'default' : 'outline'}
                 onClick={() => setSelectedCategory('all')}
-                className={selectedCategory === 'all' 
+                className={`min-h-[44px] text-sm sm:text-base ${selectedCategory === 'all' 
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-600' 
                   : 'border-gray-600 hover:border-cyan-500/50'
-                }
+                }`}
               >
                 <Filter className="w-4 h-4 mr-2" />
                 All ({tools.length})
@@ -167,32 +167,32 @@ const AITools = () => {
                   key={category}
                   variant={selectedCategory === category ? 'default' : 'outline'}
                   onClick={() => setSelectedCategory(category)}
-                  className={selectedCategory === category 
+                  className={`min-h-[44px] text-sm sm:text-base ${selectedCategory === category 
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600' 
                     : 'border-gray-600 hover:border-cyan-500/50'
-                  }
+                  }`}
                 >
-                  {getIcon(category)}
-                  <span className="ml-2">{category} ({categoryStats[category] || 0})</span>
+                  <span className="hidden sm:inline">{getIcon(category)}</span>
+                  <span className="sm:ml-2">{category} ({categoryStats[category] || 0})</span>
                 </Button>
               ))}
             </div>
           )}
 
           {/* AI Tools Grid */}
-          <div className="pb-16">
+          <div className="pb-12 sm:pb-16">
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="h-80 bg-gray-800/50 rounded-lg animate-pulse" />
                 ))}
               </div>
             ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-gray-400">Error loading AI tools. Please try again later.</p>
+              <div className="text-center py-12 px-4">
+                <p className="text-base text-gray-400">Error loading AI tools. Please try again later.</p>
               </div>
             ) : filteredTools.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredTools.map((tool) => (
                   <Card key={tool.id} className="group h-full bg-gray-800/50 border-gray-700 hover:border-cyan-500/50 transition-all duration-300 animate-fade-in">
                     <CardHeader>
@@ -272,11 +272,11 @@ const AITools = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-400">No AI tools found in the {selectedCategory} category.</p>
+              <div className="text-center py-12 px-4">
+                <p className="text-base text-gray-400 mb-4">No AI tools found in the {selectedCategory} category.</p>
                 <Button 
                   variant="outline" 
-                  className="mt-4 border-gray-600 hover:border-cyan-500/50"
+                  className="mt-4 border-gray-600 hover:border-cyan-500/50 min-h-[48px]"
                   onClick={() => setSelectedCategory('all')}
                 >
                   View All Tools
@@ -286,28 +286,28 @@ const AITools = () => {
           </div>
 
           {/* Benefits Section */}
-          <div className="py-16 border-t border-gray-800">
-            <div className="bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 rounded-lg p-8 max-w-4xl mx-auto">
-              <h2 className="text-3xl font-bold mb-6 text-center text-white">Why Choose AI Solutions?</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
+          <div className="py-12 sm:py-16 border-t border-gray-800">
+            <div className="bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-4xl mx-auto">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-5 sm:mb-6 text-center text-white leading-tight">Why Choose AI Solutions?</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full" />
-                    <span className="text-gray-300">Increased productivity and efficiency</span>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-300">Increased productivity and efficiency</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full" />
-                    <span className="text-gray-300">Cost-effective automation solutions</span>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-300">Cost-effective automation solutions</span>
                   </div>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full" />
-                    <span className="text-gray-300">Competitive advantage through AI</span>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-300">Competitive advantage through AI</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full" />
-                    <span className="text-gray-300">Scalable and future-proof implementations</span>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-300">Scalable and future-proof implementations</span>
                   </div>
                 </div>
               </div>
@@ -315,16 +315,16 @@ const AITools = () => {
           </div>
 
           {/* CTA Section */}
-          <div className="text-center py-16">
-            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-8 max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold mb-4 text-white">Ready to Transform Your Business?</h2>
-              <p className="text-gray-400 mb-6">
+          <div className="text-center py-12 sm:py-16">
+            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-2xl mx-auto">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">Ready to Transform Your Business?</h2>
+              <p className="text-base text-gray-400 mb-5 sm:mb-6 leading-relaxed">
                 Let's discuss how AI can revolutionize your operations and give you a competitive edge in today's market.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <div className="flex flex-col gap-3 justify-center">
                 <Button 
                   size="lg"
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] sm:min-h-[52px] w-full"
                   onClick={() => window.location.href = '/connect'}
                 >
                   Schedule Consultation
@@ -332,7 +332,7 @@ const AITools = () => {
                 <Button 
                   variant="outline" 
                   size="lg"
-                  className="border-gray-600 hover:border-cyan-500/50 hover:bg-cyan-500/10"
+                  className="border-gray-600 hover:border-cyan-500/50 hover:bg-cyan-500/10 min-h-[48px] sm:min-h-[52px] w-full"
                   onClick={() => window.location.href = '/projects'}
                 >
                   View Case Studies
