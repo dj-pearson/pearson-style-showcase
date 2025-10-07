@@ -6,55 +6,66 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Save, Eye, EyeOff, ExternalLink } from 'lucide-react';
 
 interface AnalyticsConfig {
-  trackingId: string;
+  id?: string;
+  google_analytics_id: string;
   enabled: boolean;
-  trackEvents: boolean;
-  trackScrolling: boolean;
-  trackFormSubmissions: boolean;
 }
 
 const AnalyticsSettings = () => {
   const [config, setConfig] = useState<AnalyticsConfig>({
-    trackingId: '',
+    google_analytics_id: '',
     enabled: false,
-    trackEvents: true,
-    trackScrolling: true,
-    trackFormSubmissions: true,
   });
   const [showTrackingId, setShowTrackingId] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     loadAnalyticsConfig();
   }, []);
 
-  const loadAnalyticsConfig = () => {
-    const savedConfig = localStorage.getItem('analytics_config');
-    if (savedConfig) {
-      try {
-        setConfig(JSON.parse(savedConfig));
-      } catch (error) {
+  const loadAnalyticsConfig = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('analytics_settings')
+        .select('*')
+        .single();
+
+      if (error) {
         console.error('Error loading analytics config:', error);
+      } else if (data) {
+        setConfig({
+          id: data.id,
+          google_analytics_id: data.google_analytics_id || '',
+          enabled: data.enabled,
+        });
       }
+    } catch (error) {
+      console.error('Error loading analytics config:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const saveAnalyticsConfig = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('analytics_config', JSON.stringify(config));
-      
-      // Update the global analytics configuration
-      if (typeof window !== 'undefined' && config.enabled && config.trackingId) {
-        // Reload the page to apply new analytics settings
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      }
+      const { error } = await supabase
+        .from('analytics_settings')
+        .update({
+          google_analytics_id: config.google_analytics_id || null,
+          enabled: config.enabled,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', config.id!);
+
+      if (error) throw error;
       
       toast({
         title: "Analytics settings saved",
@@ -62,10 +73,17 @@ const AnalyticsSettings = () => {
           ? "Google Analytics is now active with your tracking ID" 
           : "Analytics tracking has been disabled",
       });
-    } catch (error) {
+
+      // Reload page to apply new analytics settings
+      if (config.enabled && config.google_analytics_id) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    } catch (error: any) {
       toast({
         title: "Error saving settings",
-        description: "Please try again",
+        description: error.message || "Please try again",
         variant: "destructive",
       });
     } finally {
@@ -74,19 +92,23 @@ const AnalyticsSettings = () => {
   };
 
   const isValidTrackingId = (id: string) => {
-    // For GA4 Property ID (numeric) or tracking ID format
+    // For GA4 Tracking ID format or Property ID
     return /^(G-[A-Z0-9-]+|\d+)$/i.test(id);
   };
 
   const getAnalyticsStatus = () => {
     if (!config.enabled) return { status: 'disabled', color: 'secondary' as const };
-    if (!config.trackingId || !isValidTrackingId(config.trackingId)) {
+    if (!config.google_analytics_id || !isValidTrackingId(config.google_analytics_id)) {
       return { status: 'invalid', color: 'destructive' as const };
     }
     return { status: 'active', color: 'default' as const };
   };
 
   const status = getAnalyticsStatus();
+
+  if (isLoading) {
+    return <div className="p-4">Loading analytics settings...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -113,9 +135,9 @@ const AnalyticsSettings = () => {
           {/* Enable/Disable Analytics */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label className="text-base font-medium">Enable Analytics Data Collection</Label>
+              <Label className="text-base font-medium">Enable Analytics Tracking</Label>
               <p className="text-sm text-muted-foreground">
-                Enable backend collection of Google Analytics data for dashboard metrics
+                Enable Google Analytics tracking for website visitors
               </p>
             </div>
             <Switch
@@ -127,17 +149,17 @@ const AnalyticsSettings = () => {
           {/* Tracking ID Input */}
           <div className="space-y-2">
             <Label htmlFor="trackingId" className="text-base font-medium">
-              Google Analytics Property ID
+              Google Analytics Tracking ID
             </Label>
             <div className="flex space-x-2">
               <div className="relative flex-1">
                 <Input
                   id="trackingId"
                   type={showTrackingId ? 'text' : 'password'}
-                  placeholder="GA4 Property ID (e.g., 123456789)"
-                  value={config.trackingId}
-                  onChange={(e) => setConfig(prev => ({ ...prev, trackingId: e.target.value }))}
-                  className={!isValidTrackingId(config.trackingId) && config.trackingId ? 'border-destructive' : ''}
+                  placeholder="G-XXXXXXXXXX or Property ID"
+                  value={config.google_analytics_id}
+                  onChange={(e) => setConfig(prev => ({ ...prev, google_analytics_id: e.target.value }))}
+                  className={!isValidTrackingId(config.google_analytics_id) && config.google_analytics_id ? 'border-destructive' : ''}
                 />
                 <Button
                   type="button"
@@ -157,68 +179,26 @@ const AnalyticsSettings = () => {
                 Get ID
               </Button>
             </div>
-            {config.trackingId && !isValidTrackingId(config.trackingId) && (
+            {config.google_analytics_id && !isValidTrackingId(config.google_analytics_id) && (
               <p className="text-sm text-destructive">
-                Please enter a valid GA4 Property ID (e.g., 123456789) or tracking ID (e.g., G-XXXXXXXXXX)
+                Please enter a valid GA4 Tracking ID (e.g., G-XXXXXXXXXX)
               </p>
             )}
             <p className="text-sm text-muted-foreground">
-              Find your Property ID in Google Analytics: Admin → Data Streams → Your Stream → Property ID
+              Find your Tracking ID in Google Analytics: Admin → Data Streams → Your Stream
             </p>
           </div>
-
-          {/* Advanced Settings */}
-          {config.enabled && (
-            <div className="space-y-4 pt-4 border-t">
-              <h4 className="text-base font-medium">Tracking Options</h4>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Event Tracking</Label>
-                    <p className="text-xs text-muted-foreground">Track button clicks and user interactions</p>
-                  </div>
-                  <Switch
-                    checked={config.trackEvents}
-                    onCheckedChange={(trackEvents) => setConfig(prev => ({ ...prev, trackEvents }))}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Scroll Tracking</Label>
-                    <p className="text-xs text-muted-foreground">Track how far users scroll on pages</p>
-                  </div>
-                  <Switch
-                    checked={config.trackScrolling}
-                    onCheckedChange={(trackScrolling) => setConfig(prev => ({ ...prev, trackScrolling }))}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Form Submissions</Label>
-                    <p className="text-xs text-muted-foreground">Track contact form and newsletter signups</p>
-                  </div>
-                  <Switch
-                    checked={config.trackFormSubmissions}
-                    onCheckedChange={(trackFormSubmissions) => setConfig(prev => ({ ...prev, trackFormSubmissions }))}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Save Button */}
           <div className="flex justify-between items-center pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              {config.enabled && config.trackingId && isValidTrackingId(config.trackingId) && (
+              {config.enabled && config.google_analytics_id && isValidTrackingId(config.google_analytics_id) && (
                 <span className="text-green-600">✓ Configuration is valid and ready to use</span>
               )}
             </div>
             <Button 
               onClick={saveAnalyticsConfig}
-              disabled={isSaving || (config.enabled && !isValidTrackingId(config.trackingId))}
+              disabled={isSaving || (config.enabled && !isValidTrackingId(config.google_analytics_id))}
             >
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save Settings'}
@@ -228,7 +208,7 @@ const AnalyticsSettings = () => {
       </Card>
 
       {/* Analytics Preview */}
-      {config.enabled && config.trackingId && isValidTrackingId(config.trackingId) && (
+      {config.enabled && config.google_analytics_id && isValidTrackingId(config.google_analytics_id) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Analytics Preview</CardTitle>
@@ -240,29 +220,15 @@ const AnalyticsSettings = () => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tracking ID:</span>
-                <span className="font-mono">{config.trackingId}</span>
+                <span className="font-mono">{config.google_analytics_id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Page Views:</span>
+                <span className="text-muted-foreground">Status:</span>
+                <span className="text-green-600">✓ Active</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Page View Tracking:</span>
                 <span className="text-green-600">✓ Enabled</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Event Tracking:</span>
-                <span className={config.trackEvents ? 'text-green-600' : 'text-muted-foreground'}>
-                  {config.trackEvents ? '✓ Enabled' : '○ Disabled'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Scroll Tracking:</span>
-                <span className={config.trackScrolling ? 'text-green-600' : 'text-muted-foreground'}>
-                  {config.trackScrolling ? '✓ Enabled' : '○ Disabled'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Form Tracking:</span>
-                <span className={config.trackFormSubmissions ? 'text-green-600' : 'text-muted-foreground'}>
-                  {config.trackFormSubmissions ? '✓ Enabled' : '○ Disabled'}
-                </span>
               </div>
             </div>
           </CardContent>

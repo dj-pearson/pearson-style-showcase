@@ -11,6 +11,56 @@ interface SubscribeRequest {
   email: string;
 }
 
+// Rate limiting map: IP -> { count, resetTime }
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_MAX = 5; // 5 requests
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+
+// Disposable email domains to block
+const DISPOSABLE_DOMAINS = ['tempmail.com', 'guerrillamail.com', '10minutemail.com', 'throwaway.email'];
+
+function validateEmail(email: string): { valid: boolean; error?: string } {
+  // Trim and lowercase
+  const normalized = email.trim().toLowerCase();
+  
+  // Length check
+  if (normalized.length > 255) {
+    return { valid: false, error: 'Email address is too long' };
+  }
+  
+  // Comprehensive email regex
+  const emailRegex = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+  
+  if (!emailRegex.test(normalized)) {
+    return { valid: false, error: 'Invalid email format' };
+  }
+  
+  // Check for disposable domains
+  const domain = normalized.split('@')[1];
+  if (DISPOSABLE_DOMAINS.includes(domain)) {
+    return { valid: false, error: 'Disposable email addresses are not allowed' };
+  }
+  
+  return { valid: true };
+}
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -18,14 +68,39 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email }: SubscribeRequest = await req.json();
-
-    if (!email || !email.includes('@')) {
+    // Get client IP for rate limiting
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+    
+    // Check rate limit
+    if (!checkRateLimit(clientIP)) {
+      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
       return new Response(
-        JSON.stringify({ error: "Valid email is required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        { 
+          status: 429, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
       );
     }
+
+    const { email: rawEmail }: SubscribeRequest = await req.json();
+
+    // Validate and normalize email
+    const validation = validateEmail(rawEmail);
+    if (!validation.valid) {
+      console.warn(`Invalid email submission: ${rawEmail} - ${validation.error}`);
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
+    const email = rawEmail.trim().toLowerCase();
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

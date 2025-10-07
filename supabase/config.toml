@@ -197,3 +197,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.admin-auth]
 verify_jwt = false
+
+[functions.newsletter-signup]
+verify_jwt = false

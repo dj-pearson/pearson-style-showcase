@@ -181,6 +181,30 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          google_analytics_id: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          google_analytics_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          google_analytics_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       article_categories: {
         Row: {
           color: string | null
