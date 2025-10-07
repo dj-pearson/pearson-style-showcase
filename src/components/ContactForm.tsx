@@ -63,9 +63,6 @@ const ContactForm = () => {
     setSubmitProgress(0);
     
     try {
-      // Simulate progressive form submission with analytics
-      setSubmitProgress(25);
-      
       // Track form submission attempt
       if (typeof window !== 'undefined' && (window as any).gtag) {
         (window as any).gtag('event', 'form_start', {
@@ -74,16 +71,27 @@ const ContactForm = () => {
         });
       }
       
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setSubmitProgress(50);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setSubmitProgress(75);
-      
-      // Simulate final processing
-      await new Promise(resolve => setTimeout(resolve, 400));
+      setSubmitProgress(25);
+
+      // Send email via edge function
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: response, error } = await supabase.functions.invoke(
+        "send-contact-email",
+        {
+          body: {
+            name: data.name,
+            email: data.email,
+            subject: data.subject,
+            message: data.message,
+          },
+        }
+      );
+
       setSubmitProgress(100);
+
+      if (error) {
+        throw error;
+      }
       
       // Track successful submission
       if (typeof window !== 'undefined' && (window as any).gtag) {
@@ -101,7 +109,7 @@ const ContactForm = () => {
       });
       
       form.reset();
-    } catch (error) {
+    } catch (error: any) {
       // Track failed submission
       if (typeof window !== 'undefined' && (window as any).gtag) {
         (window as any).gtag('event', 'form_error', {
@@ -112,7 +120,7 @@ const ContactForm = () => {
       
       toast({
         title: "Error sending message",
-        description: "Please try again or contact me directly via email.",
+        description: error.message || "Please try again or contact me directly via email.",
         variant: "destructive",
         action: <AlertCircle className="w-5 h-5 text-red-500" />,
       });
