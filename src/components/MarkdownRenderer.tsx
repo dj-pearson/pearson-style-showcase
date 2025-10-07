@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -184,9 +185,29 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const hasCustomComponents = content.includes('[button:') || content.includes('[alert:') || content.includes('[badge:');
   const processedContent = (containsHTML || hasCustomComponents) ? renderCustomHTML(content) : content;
 
-  // Custom component to handle our special elements
+  // Custom component to handle our special elements with sanitization
   const CustomHTMLRenderer: React.FC<{ html: string }> = ({ html }) => {
     const containerRef = React.useRef<HTMLDivElement>(null);
+
+    // Sanitize HTML to prevent XSS attacks
+    const sanitizedHtml = React.useMemo(() => {
+      return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [
+          'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+          'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
+          'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'button'
+        ],
+        ALLOWED_ATTR: [
+          'href', 'src', 'alt', 'title', 'class', 'id', 
+          'data-custom-btn', 'data-url', 'data-style',
+          'data-custom-alert', 'data-type',
+          'data-custom-badge', 'data-variant'
+        ],
+        ALLOW_DATA_ATTR: false,
+        ALLOW_UNKNOWN_PROTOCOLS: false,
+        ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+      });
+    }, [html]);
 
     React.useEffect(() => {
       if (!containerRef.current) return;
@@ -265,12 +286,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         }
       });
 
-    }, [html]);
+    }, [sanitizedHtml]);
 
     return (
       <div 
         ref={containerRef}
-        dangerouslySetInnerHTML={{ __html: html }} 
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }} 
         className="space-y-6 text-foreground/90 leading-relaxed"
       />
     );
@@ -284,11 +305,27 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       </div>
     );
   } else if (containsHTML && containsMarkdown) {
-    // Mixed content - render HTML first, then process any remaining markdown
+    // Mixed content - sanitize and render HTML first, then process any remaining markdown
+    const sanitizedContent = DOMPurify.sanitize(processedContent, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
+        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'button'
+      ],
+      ALLOWED_ATTR: [
+        'href', 'src', 'alt', 'title', 'class', 'id',
+        'data-custom-btn', 'data-url', 'data-style',
+        'data-custom-alert', 'data-type',
+        'data-custom-badge', 'data-variant'
+      ],
+      ALLOW_DATA_ATTR: false,
+      ALLOW_UNKNOWN_PROTOCOLS: false,
+    });
+    
     return (
       <div className={`prose prose-lg prose-invert max-w-none ${className}`}>
         <div 
-          dangerouslySetInnerHTML={{ __html: processedContent }}
+          dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           className="space-y-6 text-foreground/90 leading-relaxed"
         />
       </div>

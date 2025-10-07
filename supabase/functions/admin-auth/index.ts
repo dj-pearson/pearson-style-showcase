@@ -192,19 +192,65 @@ serve(async (req) => {
       );
     }
 
-    // Handle session verification
+    // Handle session verification - verify actual authentication
     if (action === 'me') {
-      // For now, return a mock admin user since we're transitioning
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader) {
+        console.error('No authorization header provided');
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify the JWT token and get the user
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+
+      if (error || !user) {
+        console.error('Invalid token or user not found:', error);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify user is in admin whitelist
+      if (!ADMIN_EMAILS.includes(user.email || '')) {
+        console.error('User not in admin whitelist:', user.email);
+        return new Response(
+          JSON.stringify({ error: 'Forbidden - Not an admin' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if user has admin role in user_roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      if (roleError || !roleData) {
+        console.error('User does not have admin role in database:', user.email);
+        return new Response(
+          JSON.stringify({ error: 'Forbidden - Admin role not assigned' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Admin authenticated successfully:', user.email);
       return new Response(
         JSON.stringify({ 
-          id: "auth-user",
-          email: "dan@danpearson.net",
-          username: "dan",
+          id: user.id,
+          email: user.email,
+          username: user.email?.split('@')[0] || 'admin',
           two_factor_enabled: false,
           last_login: new Date().toISOString(),
-          created_at: new Date().toISOString()
+          created_at: user.created_at
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
