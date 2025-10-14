@@ -36,27 +36,41 @@ const AdminLogin = () => {
     setError('');
 
     try {
+      // First authenticate with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        setError(authError.message || 'Login failed');
+        return;
+      }
+
+      if (!authData.session) {
+        setError('Login failed - no session created');
+        return;
+      }
+
+      // Then verify admin access via edge function
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: {
           action: 'login',
           email: formData.email,
-          password: formData.password,
-          totpCode: requiresTOTP ? formData.totpCode : undefined
+          password: formData.password
         }
       });
 
       if (functionError) {
         console.error('Function error:', functionError);
-        setError(functionError.message || 'Login failed');
-        return;
-      }
-
-      if (data?.requiresTOTP) {
-        setRequiresTOTP(true);
+        await supabase.auth.signOut();
+        setError(functionError.message || 'Not authorized for admin access');
         return;
       }
 
       if (data?.error) {
+        await supabase.auth.signOut();
         setError(data.error);
         return;
       }

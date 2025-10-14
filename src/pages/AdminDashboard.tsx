@@ -61,11 +61,23 @@ const AdminDashboard = () => {
 
   const checkAdminAuth = async () => {
     try {
+      // First check if we have a Supabase session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('No session found');
+        navigate('/admin/login');
+        return;
+      }
+
+      // Then verify admin access via edge function with the JWT token
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
       });
       
       if (functionError || data?.error) {
+        console.error('Admin verification failed:', functionError || data?.error);
+        await supabase.auth.signOut();
         navigate('/admin/login');
         return;
       }
@@ -73,6 +85,7 @@ const AdminDashboard = () => {
       setAdminUser(data);
     } catch (error) {
       console.error('Auth check error:', error);
+      await supabase.auth.signOut();
       navigate('/admin/login');
     }
   };
@@ -102,6 +115,10 @@ const AdminDashboard = () => {
 
   const handleLogout = async () => {
     try {
+      // Sign out from Supabase Auth
+      await supabase.auth.signOut();
+      
+      // Notify edge function (optional, for cleanup)
       await supabase.functions.invoke('admin-auth', {
         body: { action: 'logout' }
       });
