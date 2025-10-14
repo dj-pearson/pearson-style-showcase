@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArticleManager } from '@/components/admin/ArticleManager';
 import { ProjectManager } from '@/components/admin/ProjectManager';
 import { AIToolsManager } from '@/components/admin/AIToolsManager';
+import { AIArticleGenerator } from '@/components/admin/AIArticleGenerator';
 import AnalyticsSettings from '@/components/admin/AnalyticsSettings';
 import SEOManager from '@/components/admin/SEOManager';
 import NewsletterManager from '@/components/admin/NewsletterManager';
@@ -292,7 +293,10 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="articles">
-            <ArticleManager />
+            <div className="space-y-6">
+              <AIArticleGenerator />
+              <ArticleManager />
+            </div>
           </TabsContent>
 
           <TabsContent value="tools">
