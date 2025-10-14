@@ -166,7 +166,7 @@ Make sure the content is:
         tags: articleData.tags,
         author: 'AI Content Generator',
         read_time: readTime,
-        published: false, // Set to false so admin can review before publishing
+        published: true, // Auto-publish
         seo_title: articleData.title,
         seo_description: articleData.excerpt,
       })
@@ -185,7 +185,7 @@ Make sure the content is:
         success: true,
         article: newArticle,
         sourceUrl: randomUrl,
-        message: 'Article generated successfully and saved as draft for review',
+        message: 'Article generated and published successfully',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

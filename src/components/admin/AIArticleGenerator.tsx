@@ -23,8 +23,8 @@ export const AIArticleGenerator = () => {
       if (data?.success) {
         setGeneratedArticle(data.article);
         toast({
-          title: "Article Generated!",
-          description: "AI has created a new article based on the latest AI news. Review it in the Articles tab.",
+          title: "Article Published!",
+          description: "AI has created and published a new article based on the latest AI news.",
         });
       } else {
         throw new Error(data?.error || 'Failed to generate article');
@@ -95,7 +95,7 @@ export const AIArticleGenerator = () => {
                       {generatedArticle.read_time}
                     </span>
                     <span className="text-xs bg-muted px-2 py-1 rounded">
-                      Status: Draft
+                      Status: Published ✓
                     </span>
                   </div>
                   {generatedArticle.tags && (
@@ -110,7 +110,7 @@ export const AIArticleGenerator = () => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Article saved as draft. Review and publish from the Articles tab.
+                Article published and live on your blog!
               </p>
             </CardContent>
           </Card>
@@ -123,7 +123,7 @@ export const AIArticleGenerator = () => {
             <li>Selects a random trending topic</li>
             <li>AI researches and writes a unique 800-1200 word article</li>
             <li>Optimizes for SEO with keywords and metadata</li>
-            <li>Saves as draft for your review before publishing</li>
+            <li>Automatically publishes to your blog</li>
           </ul>
         </div>
       </CardContent>
