@@ -1,61 +1,32 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { AWSSignerV4 } from "https://deno.land/x/aws_sign_v4@1.0.2/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-pipeline-secret',
 };
 
-// AWS SigV4 signing for Amazon PA-API
-async function signRequest(method: string, url: string, headers: Record<string, string>, body: string) {
+// Fetch Amazon products using PA-API with proper AWS SigV4 signing
+async function fetchAmazonProducts(niche: string, itemCount: number = 5, partnerTag: string) {
   const accessKey = Deno.env.get('AMAZON_ACCESS_KEY');
   const secretKey = Deno.env.get('AMAZON_SECRET_KEY');
   
-  const encoder = new TextEncoder();
-  const algorithm = 'AWS4-HMAC-SHA256';
-  const service = 'ProductAdvertisingAPIv1';
-  const region = 'us-east-1';
-  
-  const now = new Date();
-  const dateStamp = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-  
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-  
-  // Canonical request
-  const canonicalHeaders = Object.keys(headers).sort().map(k => `${k.toLowerCase()}:${headers[k]}`).join('\n');
-  const signedHeaders = Object.keys(headers).sort().map(k => k.toLowerCase()).join(';');
-  const hashedPayload = await crypto.subtle.digest('SHA-256', encoder.encode(body));
-  const hexPayload = Array.from(new Uint8Array(hashedPayload)).map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  const canonicalRequest = `${method}\n/paapi5/searchitems\n\n${canonicalHeaders}\n\n${signedHeaders}\n${hexPayload}`;
-  const hashedCanonical = await crypto.subtle.digest('SHA-256', encoder.encode(canonicalRequest));
-  const hexCanonical = Array.from(new Uint8Array(hashedCanonical)).map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  // String to sign
-  const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${hexCanonical}`;
-  
-  // Signing key
-  const key = await crypto.subtle.importKey('raw', encoder.encode(`AWS4${secretKey}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const dateKey = await crypto.subtle.sign('HMAC', key, encoder.encode(dateStamp));
-  const dateRegionKey = await crypto.subtle.importKey('raw', dateKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const regionKey = await crypto.subtle.sign('HMAC', dateRegionKey, encoder.encode(region));
-  const regionServiceKey = await crypto.subtle.importKey('raw', regionKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const serviceKey = await crypto.subtle.sign('HMAC', regionServiceKey, encoder.encode(service));
-  const serviceRequestKey = await crypto.subtle.importKey('raw', serviceKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', serviceRequestKey, encoder.encode(stringToSign));
-  const hexSignature = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  return `${algorithm} Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${hexSignature}`;
-}
+  if (!accessKey || !secretKey) {
+    throw new Error('Amazon API credentials not configured');
+  }
 
-// Fetch Amazon products using PA-API
-async function fetchAmazonProducts(niche: string, itemCount: number = 5) {
   const host = 'webservices.amazon.com';
+  const region = 'us-east-1';
+  const service = 'ProductAdvertisingAPI';
+  const method = 'POST';
+  const path = '/paapi5/searchitems';
+  const url = `https://${host}${path}`;
+
   const body = JSON.stringify({
     Marketplace: 'www.amazon.com',
-    PartnerTag: 'your-tag-20', // Will be replaced with settings
+    PartnerTag: partnerTag,
     PartnerType: 'Associates',
     Keywords: niche,
     SearchIndex: 'All',
@@ -71,29 +42,33 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5) {
     ]
   });
 
-  const headers = {
-    'host': host,
-    'content-type': 'application/json; charset=utf-8',
-    'content-encoding': 'amz-1.0',
-    'x-amz-date': new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''),
-    'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems'
-  };
-
-  const authHeader = await signRequest('POST', `https://${host}/paapi5/searchitems`, headers, body);
-  headers['Authorization'] = authHeader;
-
-  const response = await fetch(`https://${host}/paapi5/searchitems`, {
-    method: 'POST',
-    headers,
-    body
+  const signer = new AWSSignerV4(region, {
+    awsAccessKeyId: accessKey,
+    awsSecretKey: secretKey,
   });
 
+  const request = new Request(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Encoding': 'amz-1.0',
+      'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
+    },
+    body,
+  });
+
+  const signedRequest = await signer.sign(service, request);
+
+  const response = await fetch(signedRequest);
+
   if (!response.ok) {
-    throw new Error(`Amazon API error: ${response.status} ${await response.text()}`);
+    const errorText = await response.text();
+    throw new Error(`Amazon API error: ${response.status} ${errorText}`);
   }
 
   return await response.json();
 }
+
 
 // Fetch SEO data from DataForSEO
 async function fetchSEOData(keyword: string) {
@@ -259,7 +234,7 @@ serve(async (req) => {
 
     // Fetch Amazon products
     await log('info', 'Fetching Amazon products');
-    const amazonData = await fetchAmazonProducts(niche, 5);
+    const amazonData = await fetchAmazonProducts(niche, 5, settings.amazon_tag);
     
     if (!amazonData.SearchResult?.Items) {
       throw new Error('No products found from Amazon');
