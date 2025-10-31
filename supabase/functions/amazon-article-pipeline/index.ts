@@ -48,18 +48,18 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
   });
 
   // Initial jitter to avoid bursting at exact second
-  await sleep(Math.floor(600 + Math.random() * 900));
+  await sleep(Math.floor(1300 + Math.random() * 700));
 
   // Retry with exponential backoff on 429/5xx
-  const maxAttempts = 4;
+  const maxAttempts = 1;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     // Recreate and sign request each attempt to refresh date headers/signature
     const req = new Request(url, {
       method,
       headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Content-Encoding': 'amz-1.0',
-        'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
+      'content-type': 'application/json; charset=utf-8',
+      'content-encoding': 'amz-1.0',
+      'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
       },
       body,
     });
@@ -207,6 +207,22 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Simple concurrency guard: if a run started in the last 10s and is still running, skip
+    const tenSecondsAgo = new Date(Date.now() - 10_000).toISOString();
+    const { data: running } = await supabase
+      .from('amazon_pipeline_runs')
+      .select('id, started_at')
+      .eq('status', 'running')
+      .gte('started_at', tenSecondsAgo)
+      .limit(1);
+
+    if (running && running.length) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Pipeline busy. Try again shortly.'
+      }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     // Create run record
     const { data: run, error: runError } = await supabase
