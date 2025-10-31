@@ -47,26 +47,40 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
     awsSecretKey: secretKey,
   });
 
-  const request = new Request(url, {
-    method,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Content-Encoding': 'amz-1.0',
-      'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
-    },
-    body,
-  });
+  // Retry with exponential backoff on 429/5xx
+  const maxAttempts = 4;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Recreate and sign request each attempt to refresh date headers/signature
+    const req = new Request(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Encoding': 'amz-1.0',
+        'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
+      },
+      body,
+    });
 
-  const signedRequest = await signer.sign(service, request);
+    const signed = await signer.sign(service, req);
+    const response = await fetch(signed);
 
-  const response = await fetch(signedRequest);
+    if (response.ok) {
+      return await response.json();
+    }
 
-  if (!response.ok) {
     const errorText = await response.text();
+    if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
+      // Exponential backoff with jitter (500–800ms base per PRD, doubled each retry)
+      const base = 700 * Math.pow(2, attempt);
+      const jitter = Math.floor(Math.random() * 300) + 100;
+      await new Promise((res) => setTimeout(res, base + jitter));
+      continue;
+    }
+
     throw new Error(`Amazon API error: ${response.status} ${errorText}`);
   }
 
-  return await response.json();
+  throw new Error('Amazon API throttled: exceeded retry attempts');
 }
 
 
