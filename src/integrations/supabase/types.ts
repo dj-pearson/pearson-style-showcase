@@ -151,6 +151,27 @@ export type Database = {
         }
         Relationships: []
       }
+      amazon_api_throttle: {
+        Row: {
+          day_key: string
+          id: number
+          last_call_at: string | null
+          used_today: number
+        }
+        Insert: {
+          day_key?: string
+          id: number
+          last_call_at?: string | null
+          used_today?: number
+        }
+        Update: {
+          day_key?: string
+          id?: number
+          last_call_at?: string | null
+          used_today?: number
+        }
+        Relationships: []
+      }
       amazon_pipeline_logs: {
         Row: {
           created_at: string
@@ -730,6 +751,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_amazon_throttle: {
+        Args: { min_interval_ms?: number }
+        Returns: {
+          day_key: string
+          used_today: number
+          wait_ms: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

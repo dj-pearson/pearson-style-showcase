@@ -11,7 +11,7 @@ const corsHeaders = {
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 // Fetch Amazon products using PA-API with proper AWS SigV4 signing
-async function fetchAmazonProducts(niche: string, itemCount: number = 5, partnerTag: string) {
+async function fetchAmazonProducts(niche: string, itemCount: number = 5, partnerTag: string, supabaseClient: any, minIntervalMs: number = 1100) {
   const accessKey = Deno.env.get('AMAZON_ACCESS_KEY');
   const secretKey = Deno.env.get('AMAZON_SECRET_KEY');
   
@@ -50,16 +50,27 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
   // Initial jitter to avoid bursting at exact second
   await sleep(Math.floor(1300 + Math.random() * 700));
 
-  // Retry with exponential backoff on 429/5xx
-  const maxAttempts = 1;
+  // Retry with paced throttle + backoff on 429/5xx
+  const maxAttempts = 5;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Global 1 TPS throttle claim (DB-backed)
+    try {
+      const { data: claim } = await supabaseClient.rpc('claim_amazon_throttle', { min_interval_ms: minIntervalMs });
+      const waitMs = Math.max(0, claim?.wait_ms ?? 0);
+      if (waitMs > 0) {
+        await sleep(waitMs + Math.floor(Math.random() * 150));
+      }
+    } catch (_e) {
+      // Fallback to safe spacing if RPC unavailable
+      await sleep(minIntervalMs);
+    }
+
     // Recreate and sign request each attempt to refresh date headers/signature
     const req = new Request(url, {
       method,
       headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'content-encoding': 'amz-1.0',
-      'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
+        'content-type': 'application/json; charset=utf-8',
+        'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
       },
       body,
     });
@@ -72,11 +83,25 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
     }
 
     const errorText = await response.text();
+
     if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
-      // Exponential backoff with jitter (500–800ms base per PRD, doubled each retry)
-      const base = 700 * Math.pow(2, attempt);
+      // Respect Retry-After when present; otherwise exponential backoff with jitter
+      const retryAfter = response.headers.get('retry-after');
+      let delayMs = 0;
+      if (retryAfter) {
+        const sec = parseInt(retryAfter, 10);
+        if (!isNaN(sec)) {
+          delayMs = sec * 1000;
+        } else {
+          const dateTs = new Date(retryAfter).getTime();
+          if (!isNaN(dateTs)) {
+            delayMs = Math.max(0, dateTs - Date.now());
+          }
+        }
+      }
+      const base = Math.max(minIntervalMs, 700 * Math.pow(2, attempt));
       const jitter = Math.floor(Math.random() * 300) + 100;
-      await new Promise((res) => setTimeout(res, base + jitter));
+      await sleep((delayMs || base) + jitter);
       continue;
     }
 
@@ -337,7 +362,7 @@ serve(async (req) => {
         // Fetch Amazon products (reduced payload + backoff)
         try {
           await log('info', 'Fetching Amazon products');
-          const amazonData = await fetchAmazonProducts(niche, 3, settings.amazon_tag);
+          const amazonData = await fetchAmazonProducts(niche, 3, settings.amazon_tag, supabase, 1100);
         
           if (!amazonData.SearchResult?.Items) {
             throw new Error('No products found from Amazon');
