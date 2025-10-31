@@ -335,30 +335,81 @@ serve(async (req) => {
       // Only call Amazon API if cache-only is false
       if (!effectiveCacheOnly) {
         // Fetch Amazon products (reduced payload + backoff)
-        await log('info', 'Fetching Amazon products');
-        const amazonData = await fetchAmazonProducts(niche, 3, settings.amazon_tag);
-      
-        if (!amazonData.SearchResult?.Items) {
-          throw new Error('No products found from Amazon');
-        }
+        try {
+          await log('info', 'Fetching Amazon products');
+          const amazonData = await fetchAmazonProducts(niche, 3, settings.amazon_tag);
+        
+          if (!amazonData.SearchResult?.Items) {
+            throw new Error('No products found from Amazon');
+          }
 
-        products = amazonData.SearchResult.Items.map((item: any) => ({
-          asin: item.ASIN,
-          title: item.ItemInfo?.Title?.DisplayValue || 'Unknown',
-          brand: item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue || '',
-          rating: parseFloat(item.CustomerReviews?.StarRating?.Value || '0'),
-          ratingCount: item.CustomerReviews?.Count || 0,
-          price: parseFloat(item.Offers?.Listings?.[0]?.Price?.Amount || '0'),
-          imageUrl: item.Images?.Primary?.Large?.URL || item.Images?.Primary?.Medium?.URL || '',
-          bulletPoints: item.ItemInfo?.Features?.DisplayValues || []
-        })).filter((p: any) => (
-          p.rating >= (settings.min_rating || 0) &&
-          p.price > 0 &&
-          (settings.price_min ? p.price >= settings.price_min : true) &&
-          (settings.price_max ? p.price <= settings.price_max : true)
-        ));
+          products = amazonData.SearchResult.Items.map((item: any) => ({
+            asin: item.ASIN,
+            title: item.ItemInfo?.Title?.DisplayValue || 'Unknown',
+            brand: item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue || '',
+            rating: parseFloat(item.CustomerReviews?.StarRating?.Value || '0'),
+            ratingCount: item.CustomerReviews?.Count || 0,
+            price: parseFloat(item.Offers?.Listings?.[0]?.Price?.Amount || '0'),
+            imageUrl: item.Images?.Primary?.Large?.URL || item.Images?.Primary?.Medium?.URL || '',
+            bulletPoints: item.ItemInfo?.Features?.DisplayValues || []
+          })).filter((p: any) => (
+            p.rating >= (settings.min_rating || 0) &&
+            p.price > 0 &&
+            (settings.price_min ? p.price >= settings.price_min : true) &&
+            (settings.price_max ? p.price <= settings.price_max : true)
+          ));
 
-        if (products.length === 0) {
+          if (products.length === 0) {
+            // Fallback to older cache (7 days)
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: oldCache } = await supabase
+              .from('amazon_products')
+              .select('asin, title, brand, rating, rating_count, price, image_url, bullet_points')
+              .eq('niche', niche)
+              .gte('last_seen_at', sevenDaysAgo)
+              .order('rating', { ascending: false })
+              .limit(5);
+
+            if (oldCache && oldCache.length) {
+              products = (oldCache as any[]).map((c) => ({
+                asin: c.asin,
+                title: c.title,
+                brand: c.brand,
+                rating: c.rating || 0,
+                ratingCount: c.rating_count || 0,
+                price: c.price || 0,
+                imageUrl: c.image_url || '',
+                bulletPoints: c.bullet_points || []
+              })).filter((p: any) => (
+                p.rating >= (settings.min_rating || 0) &&
+                p.price > 0 &&
+                (settings.price_min ? p.price >= settings.price_min : true) &&
+                (settings.price_max ? p.price <= settings.price_max : true)
+              ));
+
+              await log('info', `Using fallback cache: ${products.length} products`);
+            }
+          }
+
+          // Store newly fetched products in DB
+          if (products.length > 0) {
+            for (const product of products) {
+              await supabase.from('amazon_products').upsert({
+                asin: product.asin,
+                title: product.title,
+                brand: product.brand,
+                rating: product.rating,
+                rating_count: product.ratingCount,
+                price: product.price,
+                image_url: product.imageUrl,
+                niche: niche,
+                bullet_points: product.bulletPoints,
+                last_seen_at: new Date().toISOString()
+              }, { onConflict: 'asin' });
+            }
+          }
+        } catch (err) {
+          await log('warn', 'Amazon API failed; using fallback cache', { error: (err as Error)?.message ?? String(err) });
           // Fallback to older cache (7 days)
           const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
           const { data: oldCache } = await supabase
@@ -387,24 +438,6 @@ serve(async (req) => {
             ));
 
             await log('info', `Using fallback cache: ${products.length} products`);
-          }
-        }
-
-        // Store newly fetched products in DB
-        if (products.length > 0) {
-          for (const product of products) {
-            await supabase.from('amazon_products').upsert({
-              asin: product.asin,
-              title: product.title,
-              brand: product.brand,
-              rating: product.rating,
-              rating_count: product.ratingCount,
-              price: product.price,
-              image_url: product.imageUrl,
-              niche: niche,
-              bullet_points: product.bulletPoints,
-              last_seen_at: new Date().toISOString()
-            }, { onConflict: 'asin' });
           }
         }
       } else {
