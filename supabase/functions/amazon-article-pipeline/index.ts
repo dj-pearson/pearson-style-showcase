@@ -23,7 +23,7 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
   const region = 'us-east-1';
   const service = 'ProductAdvertisingAPI';
   const method = 'POST';
-  const path = '/';
+  const path = '/paapi5/searchitems';
   const url = `https://${host}${path}`;
 
   const body = JSON.stringify({
@@ -34,10 +34,13 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
     SearchIndex: 'All',
     ItemCount: itemCount,
     Resources: [
+      'Images.Primary.Large',
       'Images.Primary.Medium',
       'ItemInfo.Title',
       'ItemInfo.Features',
       'ItemInfo.ByLineInfo',
+      'CustomerReviews.Count',
+      'CustomerReviews.StarRating',
       'Offers.Listings.Price'
     ]
   });
@@ -70,7 +73,8 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
       method,
       headers: {
         'content-type': 'application/json; charset=utf-8',
-        'content-encoding': 'amz-1.0',
+        'accept': 'application/json',
+        'host': host,
         'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
       },
       body,
