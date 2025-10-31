@@ -208,6 +208,14 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Read optional body overrides
+    let bodyOverrides: any = {};
+    try {
+      if (req.method === 'POST') {
+        bodyOverrides = await req.json();
+      }
+    } catch (_) { /* ignore bad json */ }
+
     // Simple concurrency guard: if a run started in the last 10s and is still running, skip
     const tenSecondsAgo = new Date(Date.now() - 10_000).toISOString();
     const { data: running } = await supabase
@@ -248,16 +256,32 @@ serve(async (req) => {
     await log('info', 'Pipeline started');
 
     // Fetch settings
-    const { data: settings } = await supabase
+    const { data: settingsRow } = await supabase
       .from('amazon_pipeline_settings')
       .select('*')
-      .single();
+      .maybeSingle();
+
+    const settings = settingsRow || {
+      niches: ["home office", "travel gear", "fitness"],
+      daily_post_count: 1,
+      min_rating: 4.0,
+      price_min: null,
+      price_max: null,
+      review_required: false,
+      word_count_target: 1500,
+      amazon_tag: 'your-tag-20',
+      cache_only_mode: false,
+      id: null
+    };
+
+    const effectiveCacheOnly = Boolean(settings.cache_only_mode) || Boolean(bodyOverrides?.cacheOnly);
+
 
     if (!settings) {
       throw new Error('Pipeline settings not configured');
     }
 
-    await log('info', 'Settings loaded', { niches: settings.niches });
+    await log('info', 'Settings loaded', { niches: settings.niches, cache_only_mode: settings.cache_only_mode, override_cache_only: Boolean(bodyOverrides?.cacheOnly), effectiveCacheOnly });
 
     // Pick random niche
     const niches = settings.niches as string[];
@@ -308,8 +332,8 @@ serve(async (req) => {
     }
 
     if (products.length < 3) {
-      // Only call Amazon API if cache_only_mode is false
-      if (!settings.cache_only_mode) {
+      // Only call Amazon API if cache-only is false
+      if (!effectiveCacheOnly) {
         // Fetch Amazon products (reduced payload + backoff)
         await log('info', 'Fetching Amazon products');
         const amazonData = await fetchAmazonProducts(niche, 3, settings.amazon_tag);
@@ -389,9 +413,9 @@ serve(async (req) => {
     }
 
     if (products.length === 0) {
-      const message = settings.cache_only_mode 
-        ? 'No cached products for this niche. Disable cache-only mode or seed products first.'
-        : 'Amazon throttled; no products available and cache empty';
+    const message = effectiveCacheOnly 
+      ? 'No cached products for this niche. Disable cache-only mode or seed products first.'
+      : 'Amazon throttled; no products available and cache empty';
 
       await supabase
         .from('amazon_pipeline_runs')
