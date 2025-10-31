@@ -206,3 +206,6 @@ verify_jwt = false
 
 [functions.generate-ai-article]
 verify_jwt = true
+
+[functions.amazon-article-pipeline]
+verify_jwt = false

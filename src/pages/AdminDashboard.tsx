@@ -23,6 +23,7 @@ import { ArticleManager } from '@/components/admin/ArticleManager';
 import { ProjectManager } from '@/components/admin/ProjectManager';
 import { AIToolsManager } from '@/components/admin/AIToolsManager';
 import { AIArticleGenerator } from '@/components/admin/AIArticleGenerator';
+import { AmazonPipelineManager } from '@/components/admin/AmazonPipelineManager';
 import AnalyticsSettings from '@/components/admin/AnalyticsSettings';
 import SEOManager from '@/components/admin/SEOManager';
 import NewsletterManager from '@/components/admin/NewsletterManager';
@@ -224,11 +225,12 @@ const AdminDashboard = () => {
 
         {/* Management Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             <TabsTrigger value="articles">Articles</TabsTrigger>
             <TabsTrigger value="tools">AI Tools</TabsTrigger>
+            <TabsTrigger value="amazon">Amazon</TabsTrigger>
             <TabsTrigger value="newsletter">
               <Mail className="h-4 w-4 mr-1" />
               Newsletter
@@ -301,6 +303,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="tools">
             <AIToolsManager />
+          </TabsContent>
+
+          <TabsContent value="amazon">
+            <AmazonPipelineManager />
           </TabsContent>
 
           <TabsContent value="newsletter">

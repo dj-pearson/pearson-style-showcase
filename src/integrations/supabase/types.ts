@@ -151,6 +151,164 @@ export type Database = {
         }
         Relationships: []
       }
+      amazon_pipeline_logs: {
+        Row: {
+          created_at: string
+          ctx: Json | null
+          id: string
+          level: string
+          message: string
+          run_id: string
+        }
+        Insert: {
+          created_at?: string
+          ctx?: Json | null
+          id?: string
+          level: string
+          message: string
+          run_id: string
+        }
+        Update: {
+          created_at?: string
+          ctx?: Json | null
+          id?: string
+          level?: string
+          message?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amazon_pipeline_logs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "amazon_pipeline_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amazon_pipeline_runs: {
+        Row: {
+          errors: Json | null
+          finished_at: string | null
+          id: string
+          note: string | null
+          posts_created: number | null
+          posts_published: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          errors?: Json | null
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          posts_created?: number | null
+          posts_published?: number | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          errors?: Json | null
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          posts_created?: number | null
+          posts_published?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      amazon_pipeline_settings: {
+        Row: {
+          amazon_tag: string
+          created_at: string
+          daily_post_count: number
+          id: string
+          last_run_at: string | null
+          min_rating: number
+          niches: Json
+          price_max: number | null
+          price_min: number | null
+          review_required: boolean
+          updated_at: string
+          word_count_target: number
+        }
+        Insert: {
+          amazon_tag?: string
+          created_at?: string
+          daily_post_count?: number
+          id?: string
+          last_run_at?: string | null
+          min_rating?: number
+          niches?: Json
+          price_max?: number | null
+          price_min?: number | null
+          review_required?: boolean
+          updated_at?: string
+          word_count_target?: number
+        }
+        Update: {
+          amazon_tag?: string
+          created_at?: string
+          daily_post_count?: number
+          id?: string
+          last_run_at?: string | null
+          min_rating?: number
+          niches?: Json
+          price_max?: number | null
+          price_min?: number | null
+          review_required?: boolean
+          updated_at?: string
+          word_count_target?: number
+        }
+        Relationships: []
+      }
+      amazon_products: {
+        Row: {
+          asin: string
+          brand: string | null
+          bullet_points: Json | null
+          created_at: string
+          id: string
+          image_url: string | null
+          last_seen_at: string
+          niche: string | null
+          price: number | null
+          rating: number | null
+          rating_count: number | null
+          title: string
+        }
+        Insert: {
+          asin: string
+          brand?: string | null
+          bullet_points?: Json | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          last_seen_at?: string
+          niche?: string | null
+          price?: number | null
+          rating?: number | null
+          rating_count?: number | null
+          title: string
+        }
+        Update: {
+          asin?: string
+          brand?: string | null
+          bullet_points?: Json | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          last_seen_at?: string
+          niche?: string | null
+          price?: number | null
+          rating?: number | null
+          rating_count?: number | null
+          title?: string
+        }
+        Relationships: []
+      }
       analytics_data: {
         Row: {
           created_at: string
@@ -231,6 +389,60 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      article_products: {
+        Row: {
+          affiliate_url: string
+          article_id: string
+          asin: string
+          best_for: string | null
+          cons: Json | null
+          created_at: string
+          id: string
+          pros: Json | null
+          specs: Json | null
+          summary: string | null
+        }
+        Insert: {
+          affiliate_url: string
+          article_id: string
+          asin: string
+          best_for?: string | null
+          cons?: Json | null
+          created_at?: string
+          id?: string
+          pros?: Json | null
+          specs?: Json | null
+          summary?: string | null
+        }
+        Update: {
+          affiliate_url?: string
+          article_id?: string
+          asin?: string
+          best_for?: string | null
+          cons?: Json | null
+          created_at?: string
+          id?: string
+          pros?: Json | null
+          specs?: Json | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_products_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "article_products_asin_fkey"
+            columns: ["asin"]
+            isOneToOne: false
+            referencedRelation: "amazon_products"
+            referencedColumns: ["asin"]
+          },
+        ]
       }
       articles: {
         Row: {
