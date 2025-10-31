@@ -71,6 +71,7 @@ export const AmazonPipelineManager = () => {
           review_required: settings.review_required,
           word_count_target: settings.word_count_target,
           amazon_tag: settings.amazon_tag,
+          cache_only_mode: settings.cache_only_mode,
         })
         .eq("id", settings.id);
 
@@ -236,6 +237,20 @@ export const AmazonPipelineManager = () => {
 
               <div className="flex items-center space-x-2">
                 <Switch
+                  id="cache_only"
+                  checked={settings.cache_only_mode || false}
+                  onCheckedChange={(checked) => setSettings({ ...settings, cache_only_mode: checked })}
+                />
+                <div className="flex flex-col">
+                  <Label htmlFor="cache_only">Cache-only mode</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Skip Amazon API calls entirely. Uses cached products only (avoids throttling).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
                   id="review_required"
                   checked={settings.review_required}
                   onCheckedChange={(checked) => setSettings({ ...settings, review_required: checked })}
@@ -260,8 +275,12 @@ export const AmazonPipelineManager = () => {
             <CardContent className="space-y-4">
               <Alert>
                 <AlertDescription>
-                  This will fetch Amazon products, analyze SEO data, generate an article, and publish it
-                  immediately (unless review is required in settings).
+                  This will fetch Amazon products, analyze SEO data, and generate an article.
+                  {settings.cache_only_mode && (
+                    <span className="block mt-2 font-medium text-amber-600">
+                      Cache-only mode is ON. Will use cached products only (no API calls).
+                    </span>
+                  )}
                 </AlertDescription>
               </Alert>
 

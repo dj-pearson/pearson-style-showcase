@@ -222,6 +222,7 @@ export type Database = {
       amazon_pipeline_settings: {
         Row: {
           amazon_tag: string
+          cache_only_mode: boolean
           created_at: string
           daily_post_count: number
           id: string
@@ -236,6 +237,7 @@ export type Database = {
         }
         Insert: {
           amazon_tag?: string
+          cache_only_mode?: boolean
           created_at?: string
           daily_post_count?: number
           id?: string
@@ -250,6 +252,7 @@ export type Database = {
         }
         Update: {
           amazon_tag?: string
+          cache_only_mode?: boolean
           created_at?: string
           daily_post_count?: number
           id?: string
