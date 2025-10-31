@@ -21,7 +21,7 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
 
   const host = 'webservices.amazon.com';
   const region = 'us-east-1';
-  const service = 'ProductAdvertisingAPI';
+  const service = 'ProductAdvertisingAPIv1';
   const method = 'POST';
   const path = '/paapi5/searchitems';
   const url = `https://${host}${path}`;
@@ -73,8 +73,7 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
       method,
       headers: {
         'content-type': 'application/json; charset=utf-8',
-        'accept': 'application/json',
-        'host': host,
+        'content-encoding': 'amz-1.0',
         'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
       },
       body,
