@@ -23,7 +23,7 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
   const region = 'us-east-1';
   const service = 'ProductAdvertisingAPI';
   const method = 'POST';
-  const path = '/paapi5/searchitems';
+  const path = '/';
   const url = `https://${host}${path}`;
 
   const body = JSON.stringify({
@@ -70,6 +70,7 @@ async function fetchAmazonProducts(niche: string, itemCount: number = 5, partner
       method,
       headers: {
         'content-type': 'application/json; charset=utf-8',
+        'content-encoding': 'amz-1.0',
         'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
       },
       body,
