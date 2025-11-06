@@ -93,45 +93,45 @@ const Projects = () => {
         }}
       />
       <Navigation />
-      <main className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
+      <main className="flex-1 pt-20 sm:pt-24 mobile-container">
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
-          <div className="text-center py-8 sm:py-12 lg:py-16">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 hero-gradient-text leading-tight">
+          <div className="text-center mobile-section">
+            <h1 className="mobile-heading-lg hero-gradient-text mb-4">
               My Projects
             </h1>
-            <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto px-2 leading-relaxed">
+            <p className="mobile-body text-gray-400 max-w-2xl mx-auto">
               Explore my portfolio of innovative projects spanning NFT development, AI integration, and cutting-edge web solutions.
             </p>
           </div>
 
-          {/* Search and Filter Controls */}
-          <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
-            <div className="flex flex-col gap-3 sm:gap-4">
+          {/* Search and Filter Controls - Mobile First */}
+          <div className="mobile-card bg-gray-800/30 border border-gray-700 rounded-xl mb-6 sm:mb-8">
+            <div className="flex flex-col gap-4">
               {/* Search */}
               <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" />
                 <Input
                   placeholder="Search projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-gray-700/50 border-gray-600 focus:border-cyan-500 min-h-[48px] text-base"
+                  className="mobile-input pl-12 bg-gray-700/50 border-gray-600 focus:border-cyan-500 text-base"
                 />
               </div>
 
               {/* Filters row */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full">
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
                 {/* Tag Filter */}
                 <div className="flex-1 sm:flex-initial">
                   <Select value={selectedTag} onValueChange={setSelectedTag}>
-                    <SelectTrigger className="w-full sm:w-[180px] bg-gray-700/50 border-gray-600 min-h-[48px]">
+                    <SelectTrigger className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600">
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by tag" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="mobile-modal">
                       <SelectItem value="all">All Tags</SelectItem>
                       {allTags.map(tag => (
-                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                        <SelectItem key={tag} value={tag} className="touch-target">{tag}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -140,14 +140,14 @@ const Projects = () => {
                 {/* Sort */}
                 <div className="flex-1 sm:flex-initial">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-full sm:w-[140px] bg-gray-700/50 border-gray-600 min-h-[48px]">
+                    <SelectTrigger className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Newest</SelectItem>
-                      <SelectItem value="oldest">Oldest</SelectItem>
-                      <SelectItem value="title">Title A-Z</SelectItem>
-                      <SelectItem value="featured">Featured</SelectItem>
+                    <SelectContent className="mobile-modal">
+                      <SelectItem value="newest" className="touch-target">Newest</SelectItem>
+                      <SelectItem value="oldest" className="touch-target">Oldest</SelectItem>
+                      <SelectItem value="title" className="touch-target">Title A-Z</SelectItem>
+                      <SelectItem value="featured" className="touch-target">Featured</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -156,12 +156,11 @@ const Projects = () => {
                 {(searchTerm || selectedTag !== 'all' || sortBy !== 'newest') && (
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={clearFilters}
-                    className="border-gray-600 hover:border-cyan-500/50 min-h-[48px] w-full sm:w-auto"
+                    className="mobile-button border-gray-600 hover:border-cyan-500 active:border-cyan-500"
                   >
                     <X className="h-5 w-5 mr-2" />
-                    Clear
+                    Clear All
                   </Button>
                 )}
               </div>
@@ -170,14 +169,14 @@ const Projects = () => {
             {/* Active Filters Display */}
             {(searchTerm || selectedTag !== 'all') && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700">
-                <span className="text-sm text-gray-400">Active filters:</span>
+                <span className="text-sm text-gray-400 font-medium">Active filters:</span>
                 {searchTerm && (
-                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400">
+                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
                     Search: "{searchTerm}"
                   </Badge>
                 )}
                 {selectedTag !== 'all' && (
-                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400">
+                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
                     Tag: {selectedTag}
                   </Badge>
                 )}
@@ -185,59 +184,63 @@ const Projects = () => {
             )}
 
             {/* Results Count */}
-            <div className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-400">
+            <div className="mt-4 text-base text-gray-400 font-medium">
               Showing {sortedProjects.length} of {projects?.length || 0} projects
             </div>
           </div>
 
-          {/* Projects Grid */}
+          {/* Projects Grid - Mobile First */}
           <div className="pb-12 sm:pb-16">
             {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="mobile-grid">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-64 bg-gray-800/50 rounded-lg animate-pulse" />
+                  <div key={i} className="skeleton h-80 rounded-xl" />
                 ))}
               </div>
             ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-base text-gray-400 px-4">Error loading projects. Please try again later.</p>
+              <div className="text-center mobile-section">
+                <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
+                  <p className="text-base text-destructive">Error loading projects. Please try again later.</p>
+                </div>
               </div>
             ) : projects && projects.length > 0 ? (
               sortedProjects.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="mobile-grid">
                   {sortedProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 px-4">
-                  <p className="text-base text-gray-400 mb-4">No projects match your current filters.</p>
-                  <Button
-                    variant="outline"
-                    onClick={clearFilters}
-                    className="border-gray-600 hover:border-cyan-500/50 min-h-[48px]"
-                  >
-                    Clear Filters
-                  </Button>
+                <div className="text-center mobile-section">
+                  <div className="mobile-card bg-muted/30 max-w-md mx-auto">
+                    <p className="text-base text-gray-400 mb-4">No projects match your current filters.</p>
+                    <Button
+                      variant="outline"
+                      onClick={clearFilters}
+                      className="mobile-button border-gray-600 hover:border-cyan-500"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
                 </div>
               )
             ) : (
-              <div className="text-center py-12 px-4">
+              <div className="text-center mobile-section">
                 <p className="text-base text-gray-400">No projects found.</p>
               </div>
             )}
           </div>
 
           {/* Bottom CTA */}
-          <div className="text-center py-12 sm:py-16 border-t border-gray-800">
-            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-2xl mx-auto">
-              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">Ready to Start Your Project?</h2>
-              <p className="text-base text-gray-400 mb-5 sm:mb-6 leading-relaxed">
+          <div className="text-center mobile-section border-t border-gray-800">
+            <div className="mobile-card bg-gray-800/50 border border-cyan-500/20 max-w-2xl mx-auto">
+              <h2 className="mobile-heading-md text-white mb-4">Ready to Start Your Project?</h2>
+              <p className="text-base sm:text-lg text-gray-400 mb-6 leading-relaxed">
                 Let's discuss how I can help bring your vision to life with innovative technology solutions.
               </p>
-              <Button 
-                size="lg" 
-                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] sm:min-h-[52px] w-full sm:w-auto px-8"
+              <Button
+                size="lg"
+                className="mobile-button bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-base sm:text-lg font-bold"
                 onClick={() => window.location.href = '/connect'}
               >
                 Get In Touch

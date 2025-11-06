@@ -39,48 +39,66 @@ const About = () => {
         }}
       />
       <Navigation />
-      <main className="flex-1 pt-20 sm:pt-24">
-        <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16">
+      <main className="flex-1 pt-20 sm:pt-24 mobile-container">
+        <div className="container mx-auto mobile-section">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 sm:mb-8 hero-gradient-text leading-tight">
+            <h1 className="mobile-heading-lg hero-gradient-text mb-8 text-center sm:text-left">
               About Me
             </h1>
-            
+
             <div className="prose prose-gray dark:prose-invert max-w-none">
-              <p className="text-lg sm:text-xl text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
-                I'm a passionate full-stack developer with a deep interest in AI, web technologies, 
+              <p className="mobile-body text-muted-foreground mb-8 text-center sm:text-left">
+                I'm a passionate full-stack developer with a deep interest in AI, web technologies,
                 and creating innovative solutions that make a difference.
               </p>
-              
-              <div className="grid md:grid-cols-2 gap-6 sm:gap-8 mb-8 sm:mb-12">
-                <div className="bg-card/50 rounded-lg p-5 sm:p-6 border border-border">
-                  <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">Technical Expertise</h2>
-                  <ul className="space-y-2 sm:space-y-2.5 text-base text-muted-foreground">
-                    <li>• Full-Stack Web Development</li>
-                    <li>• AI & Machine Learning Integration</li>
-                    <li>• Modern JavaScript/TypeScript</li>
-                    <li>• React, Node.js, Python</li>
-                    <li>• Database Design & Optimization</li>
-                    <li>• Cloud Architecture & DevOps</li>
+
+              <div className="grid md:grid-cols-2 gap-6 mb-10">
+                <div className="mobile-card bg-card/50 border border-border hover:border-primary/30 transition-colors">
+                  <h2 className="mobile-heading-sm mb-4">Technical Expertise</h2>
+                  <ul className="space-y-3 text-base sm:text-lg text-muted-foreground">
+                    <li className="flex items-start">
+                      <span className="text-primary mr-2 mt-1">•</span>
+                      <span>Full-Stack Web Development</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-primary mr-2 mt-1">•</span>
+                      <span>AI & Machine Learning Integration</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-primary mr-2 mt-1">•</span>
+                      <span>Modern JavaScript/TypeScript</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-primary mr-2 mt-1">•</span>
+                      <span>React, Node.js, Python</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-primary mr-2 mt-1">•</span>
+                      <span>Database Design & Optimization</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-primary mr-2 mt-1">•</span>
+                      <span>Cloud Architecture & DevOps</span>
+                    </li>
                   </ul>
                 </div>
-                
-                <div className="bg-card/50 rounded-lg p-5 sm:p-6 border border-border">
-                  <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">What Drives Me</h2>
-                  <p className="text-base text-muted-foreground leading-relaxed">
-                    I believe technology should solve real problems and create value. 
-                    Whether it's building scalable web applications, integrating AI capabilities, 
-                    or optimizing complex systems, I'm always focused on delivering solutions 
+
+                <div className="mobile-card bg-card/50 border border-border hover:border-primary/30 transition-colors">
+                  <h2 className="mobile-heading-sm mb-4">What Drives Me</h2>
+                  <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                    I believe technology should solve real problems and create value.
+                    Whether it's building scalable web applications, integrating AI capabilities,
+                    or optimizing complex systems, I'm always focused on delivering solutions
                     that exceed expectations.
                   </p>
                 </div>
               </div>
-              
-              <div className="bg-muted/50 rounded-lg p-5 sm:p-6 border border-border">
-                <h3 className="text-lg sm:text-xl font-semibold mb-3">Let's Connect</h3>
-                <p className="text-base text-muted-foreground leading-relaxed">
-                  I'm always interested in discussing new projects, innovative ideas, 
-                  or opportunities to collaborate. Feel free to reach out through any 
+
+              <div className="mobile-card bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/30">
+                <h3 className="mobile-heading-sm mb-4">Let's Connect</h3>
+                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                  I'm always interested in discussing new projects, innovative ideas,
+                  or opportunities to collaborate. Feel free to reach out through any
                   of the channels in the footer below.
                 </p>
               </div>
