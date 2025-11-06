@@ -74,7 +74,7 @@ serve(async (req) => {
     }
 
     let systemPrompt = '';
-    let userPrompt = prompt;
+    const userPrompt = prompt;
 
     // Set system prompts based on content type
     switch (type) {
