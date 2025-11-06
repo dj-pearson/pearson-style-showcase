@@ -365,7 +365,7 @@ IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting,
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 8000, // Increased to avoid truncation
+      max_tokens: 20000, // Increased significantly to prevent truncation of detailed articles
       response_format: { type: "json_object" } // Force JSON mode
     })
   });
