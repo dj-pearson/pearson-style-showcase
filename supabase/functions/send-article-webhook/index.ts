@@ -81,12 +81,21 @@ Deno.serve(async (req) => {
       // Construct article URL with production domain
       const articleUrl = `https://danpearson.net/article/${article.slug}`;
 
+      // Get image URL with fallback, avoiding development URLs
+      let imageUrl = article.social_image_url || article.image_url;
+      const fallbackImage = 'https://scontent.fmkc1-1.fna.fbcdn.net/v/t39.30808-6/350526663_265361856015104_2511515537397835596_n.png?_nc_cat=100&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=_PDkKTskHscQ7kNvwHraKVB&_nc_oc=AdndVNO2DrOi5JevmH1yceOg7IO-o9OyWItYuOURwX-aM3YiF02tCo5m9p5igXx03fk&_nc_zt=23&_nc_ht=scontent.fmkc1-1.fna&_nc_gid=PRDn38SFrtGIBgimQFdCqg&oh=00_AfjZZm3QbIK1dT2hiZJm4x3kjkWq8-7QzQE2iS9dogCGtQ&oe=6912061C';
+      
+      // Replace development URLs or use fallback if no image
+      if (!imageUrl || imageUrl.includes('.lovable.app') || imageUrl.includes('localhost')) {
+        imageUrl = fallbackImage;
+      }
+
       payload = {
         articleTitle: article.title,
         articleUrl: articleUrl,
         shortForm: article.social_short_form,
         longForm: article.social_long_form,
-        imageUrl: article.social_image_url || article.image_url,
+        imageUrl: imageUrl,
         isTest: false
       };
     }
