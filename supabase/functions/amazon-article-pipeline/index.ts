@@ -384,12 +384,13 @@ IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting,
       messages: [
         {
           role: 'system',
-          content: 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. Always return valid JSON only, never markdown code blocks.'
+          content: 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.'
         },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.7, // Slightly lower for more focused, professional content
-      max_tokens: 4000
+      temperature: 0.7,
+      max_tokens: 8000, // Increased to avoid truncation
+      response_format: { type: "json_object" } // Force JSON mode
     })
   });
 
@@ -409,7 +410,34 @@ IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting,
     jsonContent = content.split('```')[1].split('```')[0].trim();
   }
 
-  return JSON.parse(jsonContent);
+  // Try to parse JSON with better error handling
+  try {
+    return JSON.parse(jsonContent);
+  } catch (parseError) {
+    // Log first 500 chars of the problematic content for debugging
+    console.error('[ERROR] JSON parse failed. Content preview:', jsonContent.substring(0, 500));
+    console.error('[ERROR] Parse error:', parseError);
+    
+    // Try to fix common JSON issues
+    // 1. Remove any leading/trailing whitespace or BOM
+    jsonContent = jsonContent.trim().replace(/^\uFEFF/, '');
+    
+    // 2. Try to find the JSON object boundaries
+    const jsonStart = jsonContent.indexOf('{');
+    const jsonEnd = jsonContent.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      jsonContent = jsonContent.substring(jsonStart, jsonEnd + 1);
+      
+      try {
+        return JSON.parse(jsonContent);
+      } catch (secondError) {
+        console.error('[ERROR] Second parse attempt failed:', secondError);
+      }
+    }
+    
+    throw new Error(`Failed to parse AI response as JSON: ${parseError.message}. Content length: ${content.length}`);
+  }
 }
 
 serve(async (req) => {
