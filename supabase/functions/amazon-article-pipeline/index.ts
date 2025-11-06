@@ -579,6 +579,7 @@ serve(async (req) => {
     let searchTermId = '';
     let retryCount = 0;
     const maxRetries = 5;
+    let products: any[] = [];
 
     while (retryCount < maxRetries) {
       // Get random unused term
@@ -615,7 +616,8 @@ serve(async (req) => {
       .order('rating', { ascending: false })
       .limit(5);
 
-    let products: any[] = [];
+    // Reset products for this attempt
+    products = [];
 
     if (cacheError) {
       await log('warn', 'Cache query failed', { error: cacheError.message });
