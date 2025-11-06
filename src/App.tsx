@@ -52,6 +52,7 @@ const App = () => (
             {/* Date archives - noindex and redirect */}
             <Route path="/2023/*" element={<DateArchive />} />
             <Route path="/2025/*" element={<DateArchive />} />
+            <Route path="/article/:slug" element={<Article />} />
             <Route path="/article/*" element={<Navigate to="/news" replace />} />
             <Route path="/product/*" element={<Navigate to="/ai-tools" replace />} />
             <Route path="/unveiling-the-future-of-ai-prompt-engineering" element={<Navigate to="/news" replace />} />

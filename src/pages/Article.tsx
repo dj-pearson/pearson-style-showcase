@@ -101,13 +101,13 @@ const Article = () => {
         keywords={article.seo_keywords ? article.seo_keywords.join(', ') : `${article.title}, AI, tech, ${article.category}`}
         url={`https://danpearson.net/news/${article.slug}`}
         type="article"
-        image={article.image_url || '/placeholder.svg'}
+        image={(article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg'))}
         structuredData={{
           type: 'article',
           data: {
             headline: article.title,
             description: article.excerpt,
-            image: article.image_url || '/placeholder.svg',
+            image: (article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg')),
             author: {
               '@type': 'Person',
               name: article.author || 'Dan Pearson'
@@ -117,7 +117,7 @@ const Article = () => {
               name: 'Dan Pearson Tech Blog',
               logo: {
                 '@type': 'ImageObject',
-                url: '/placeholder.svg'
+                url: 'https://danpearson.net/placeholder.svg'
               }
             },
             datePublished: article.created_at,
