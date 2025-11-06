@@ -76,16 +76,32 @@ Return ONLY valid JSON in this exact format:
     }
 
     const aiData = await aiResponse.json();
-    const generatedContent = aiData.choices[0].message.content;
-    
-    console.log('Generated content:', generatedContent);
+    const rawContent = aiData.choices?.[0]?.message?.content ?? '';
+
+    // Robust JSON extraction: handle code fences and extra text
+    let generatedContent = (rawContent as string).trim();
+    // Remove markdown code fences if present
+    const fenceMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch) {
+      generatedContent = fenceMatch[1].trim();
+    }
+    // If still not plain JSON, extract between first { and last }
+    if (!generatedContent.trim().startsWith('{')) {
+      const start = generatedContent.indexOf('{');
+      const end = generatedContent.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        generatedContent = generatedContent.slice(start, end + 1);
+      }
+    }
+
+    console.log('Generated content (cleaned):', generatedContent);
 
     // Parse the JSON response
     let socialContent;
     try {
       socialContent = JSON.parse(generatedContent);
     } catch (parseError) {
-      console.error('Failed to parse AI response:', generatedContent);
+      console.error('Failed to parse AI response:', rawContent);
       throw new Error('Invalid AI response format');
     }
 
