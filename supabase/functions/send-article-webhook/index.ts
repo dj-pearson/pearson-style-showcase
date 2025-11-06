@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Construct article URL with production domain
-      const articleUrl = `https://danpearson.net/article/${article.slug}`;
+      // Construct article URL with production domain (news route)
+      const articleUrl = `https://danpearson.net/news/${article.slug}`;
 
       // Get image URL with fallback, avoiding development URLs
       let imageUrl = article.social_image_url || article.image_url;
