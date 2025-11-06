@@ -1,19 +1,20 @@
 import { ArrowRight } from 'lucide-react';
 import { lazy, Suspense } from 'react';
+import { Link } from 'react-router-dom';
 
 // Lazy load the 3D orb to prevent render blocking
 const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
 
 const HeroSection = () => {
   return (
-    <section className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-20 sm:pt-24">
+    <section className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-20 sm:pt-24 mobile-container">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-secondary/20"></div>
 
       {/* Main content - Mobile First Typography */}
-      <div className="relative z-10 text-center max-w-[90%] sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6" style={{ contentVisibility: 'auto' }}>
+      <div className="relative z-10 text-center max-w-[95%] sm:max-w-2xl lg:max-w-4xl mx-auto" style={{ contentVisibility: 'auto' }}>
         {/* Main title - Mobile First Sizing with strong contrast */}
-        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-4 sm:mb-6 leading-[1.1]">
+        <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-5 sm:mb-6 leading-[1.1]">
           <span className="text-primary" style={{
             textShadow: '0 0 30px rgba(0, 212, 255, 1), 0 0 60px rgba(0, 212, 255, 0.8), 0 4px 12px rgba(0, 0, 0, 1)',
             background: 'linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)',
@@ -21,6 +22,7 @@ const HeroSection = () => {
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
           }}>Dan</span>
+          {' '}
           <span className="text-white" style={{
             textShadow: '0 0 20px rgba(255, 255, 255, 0.9), 0 4px 12px rgba(0, 0, 0, 1)',
             background: 'linear-gradient(135deg, #ffffff 0%, #cccccc 100%)',
@@ -31,7 +33,7 @@ const HeroSection = () => {
         </h1>
 
         {/* Subtitle - Strong white text with black outline */}
-        <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-white mb-6 sm:mb-8 font-medium leading-relaxed px-2" style={{
+        <p className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white mb-8 sm:mb-10 font-medium leading-relaxed px-2" style={{
           textShadow: '2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0 0 15px rgba(255, 255, 255, 0.7)'
         }}>
           Sales Leader <span className="text-primary font-bold" style={{
@@ -41,13 +43,23 @@ const HeroSection = () => {
           }}>•</span> AI Enthusiast
         </p>
 
-        {/* CTA Button - Enhanced with strong glow, mobile optimized */}
-        <button className="btn-futuristic group min-h-[48px] sm:min-h-[52px] px-8 sm:px-10 text-base sm:text-lg" style={{
-          boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)'
-        }}>
+        {/* CTA Button - Enhanced with strong glow, mobile optimized, fully functional */}
+        <Link
+          to="/projects"
+          className="btn-futuristic group mobile-button inline-flex items-center justify-center text-base sm:text-lg font-bold active:scale-95"
+          style={{
+            boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)'
+          }}
+        >
           Explore My Work
-          <ArrowRight className="inline-block ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
-        </button>
+          <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
+        </Link>
+
+        {/* Scroll indicator for mobile */}
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60 animate-bounce">
+          <span className="text-xs text-muted-foreground uppercase tracking-wider">Scroll</span>
+          <div className="w-0.5 h-8 bg-primary rounded-full"></div>
+        </div>
       </div>
 
       {/* Interactive 3D Particle Orb - Lazy loaded to prevent render blocking */}

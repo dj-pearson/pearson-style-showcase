@@ -13,58 +13,58 @@ const Connect = () => {
         url="https://danpearson.net/connect"
       />
       <Navigation />
-      <main className="flex-1 pt-20 sm:pt-24">
-        <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16">
+      <main className="flex-1 pt-20 sm:pt-24 mobile-container">
+        <div className="container mx-auto mobile-section">
           <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-8 sm:mb-12">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 hero-gradient-text leading-tight">
+            <div className="text-center mb-10">
+              <h1 className="mobile-heading-lg hero-gradient-text mb-4">
                 Let's Connect
               </h1>
-              <p className="text-base sm:text-lg lg:text-xl text-muted-foreground px-2 leading-relaxed">
+              <p className="mobile-body text-muted-foreground">
                 Ready to collaborate on your next project? I'd love to hear from you.
               </p>
             </div>
-            
+
             <div className="grid gap-6 sm:gap-8 lg:grid-cols-2 items-start">
               {/* Contact Form */}
               <div className="order-2 lg:order-1">
                 <ContactForm />
               </div>
-              
+
               {/* Contact Information */}
-              <div className="order-1 lg:order-2 space-y-4 sm:space-y-6">
-                <div className="p-5 sm:p-6 rounded-lg border bg-card">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-3">Email</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground mb-4 leading-relaxed">
+              <div className="order-1 lg:order-2 space-y-5">
+                <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
+                  <h3 className="mobile-heading-sm mb-3">Email</h3>
+                  <p className="text-base sm:text-base text-muted-foreground mb-4 leading-relaxed">
                     Drop me an email for project inquiries or collaboration opportunities.
                   </p>
-                  <a 
+                  <a
                     href="mailto:dan@danpearson.net"
-                    className="inline-flex items-center text-base text-primary hover:underline min-h-[44px] py-2"
+                    className="inline-flex items-center text-base sm:text-lg text-primary hover:underline touch-target font-medium"
                   >
                     dan@danpearson.net
                   </a>
                 </div>
-                
-                <div className="p-5 sm:p-6 rounded-lg border bg-card">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-3">LinkedIn</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground mb-4 leading-relaxed">
+
+                <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
+                  <h3 className="mobile-heading-sm mb-3">LinkedIn</h3>
+                  <p className="text-base sm:text-base text-muted-foreground mb-4 leading-relaxed">
                     Connect with me professionally and see my latest updates.
                   </p>
-                  <a 
+                  <a
                     href="https://www.linkedin.com/in/danpearson"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center text-base text-primary hover:underline min-h-[44px] py-2"
+                    className="inline-flex items-center text-base sm:text-lg text-primary hover:underline touch-target font-medium"
                   >
-                    View Profile
+                    View Profile →
                   </a>
                 </div>
-                
-                <div className="p-5 sm:p-6 rounded-lg border bg-card">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-3">Response Time</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                    I typically respond to messages within 24 hours. For urgent matters, 
+
+                <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
+                  <h3 className="mobile-heading-sm mb-3">Response Time</h3>
+                  <p className="text-base sm:text-base text-muted-foreground leading-relaxed">
+                    I typically respond to messages within 24 hours. For urgent matters,
                     feel free to reach out directly via email.
                   </p>
                 </div>
