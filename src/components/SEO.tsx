@@ -20,7 +20,7 @@ const SEO = ({
   description = 'Experienced AI engineer and business development leader specializing in NFT development, AI integration, and sales leadership. Building innovative solutions for the future.',
   keywords = 'AI engineer, business development, NFT development, AI integration, sales leadership, React developer, blockchain, artificial intelligence',
   author = 'Dan Pearson',
-  image = '/placeholder.svg',
+  image = 'https://danpearson.net/android-chrome-512x512.png',
   url = 'https://danpearson.net',
   type = 'website',
   structuredData

@@ -18,7 +18,7 @@ const SitemapXML = () => {
         // Get dynamic content
         const { data: articles } = await supabase
           .from('articles')
-          .select('slug, updated_at')
+          .select('slug, updated_at, created_at')
           .eq('published', true);
 
         const { data: projects } = await supabase
@@ -79,7 +79,7 @@ const SitemapXML = () => {
         articles?.forEach(article => {
           dynamicUrls.push({
             loc: `${baseUrl}/news/${article.slug}`,
-            lastmod: article.updated_at,
+            lastmod: article.updated_at || article.created_at || new Date().toISOString(),
             changefreq: 'monthly',
             priority: '0.8'
           });

@@ -67,14 +67,14 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
         schema = {
           "@context": "https://schema.org",
           "@type": "Article",
-          "headline": data.title,
-          "description": data.excerpt,
-          "image": data.image_url,
-          "datePublished": data.created_at,
-          "dateModified": data.updated_at,
+          "headline": data?.title,
+          "description": data?.excerpt,
+          "image": data?.image_url,
+          "datePublished": data?.created_at,
+          "dateModified": data?.updated_at,
           "author": {
             "@type": "Person",
-            "name": data.author || "Dan Pearson",
+            "name": data?.author || "Dan Pearson",
             "url": "https://danpearson.net/about"
           },
           "publisher": {
@@ -84,11 +84,11 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
           },
           "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": `https://danpearson.net/article/${data.slug}`
+            "@id": `https://danpearson.net/article/${data?.slug}`
           },
-          "keywords": data.tags?.join(', ') || '',
-          "articleSection": data.category,
-          "wordCount": data.content?.length || 0
+          "keywords": (data?.tags as string[])?.join(', ') || '',
+          "articleSection": data?.category,
+          "wordCount": (data?.content as string)?.length || 0
         };
         break;
 
@@ -96,20 +96,20 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
         schema = {
           "@context": "https://schema.org",
           "@type": "CreativeWork",
-          "name": data.title,
-          "description": data.description,
-          "image": data.image_url,
-          "url": data.live_link,
-          "codeRepository": data.github_link,
-          "dateCreated": data.created_at,
-          "dateModified": data.updated_at,
+          "name": data?.title,
+          "description": data?.description,
+          "image": data?.image_url,
+          "url": data?.live_link,
+          "codeRepository": data?.github_link,
+          "dateCreated": data?.created_at,
+          "dateModified": data?.updated_at,
           "creator": {
             "@type": "Person",
             "name": "Dan Pearson",
             "url": "https://danpearson.net/about"
           },
-          "keywords": data.tags?.join(', ') || '',
-          "programmingLanguage": data.technologies || []
+          "keywords": (data?.tags as string[])?.join(', ') || '',
+          "programmingLanguage": data?.technologies || []
         };
         break;
 

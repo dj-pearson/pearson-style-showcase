@@ -135,6 +135,7 @@ export const AmazonReportImporter = () => {
             date: record.date,
             asin: record.asin,
             article_id: articleProduct?.article_id || null,
+            clicks: 0,
             orders: 0,
             revenue: 0,
             commission: 0,
@@ -142,9 +143,11 @@ export const AmazonReportImporter = () => {
         }
 
         const stat = statsMap.get(key);
-        stat.orders += record.quantity;
-        stat.revenue += record.revenue;
-        stat.commission += record.commission;
+        if (stat) {
+          stat.orders += record.quantity;
+          stat.revenue += record.revenue;
+          stat.commission += record.commission;
+        }
       }
 
       const stats = Array.from(statsMap.values());
@@ -190,7 +193,7 @@ export const AmazonReportImporter = () => {
 
     } catch (error) {
       logger.error('Import error:', error);
-      toast.error(`Import failed: ${error.message}`);
+      toast.error(`Import failed: ${(error as Error).message}`);
     } finally {
       setIsImporting(false);
     }

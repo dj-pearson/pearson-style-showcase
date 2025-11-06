@@ -76,9 +76,9 @@ const News = () => {
   const sortedArticles = [...filteredArticles].sort((a, b) => {
     switch (sortBy) {
       case 'newest':
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       case 'oldest':
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       case 'most-viewed':
         return (b.view_count || 0) - (a.view_count || 0);
       case 'title':
