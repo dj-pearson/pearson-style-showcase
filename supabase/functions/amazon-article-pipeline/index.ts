@@ -286,8 +286,7 @@ ARTICLE STRUCTURE:
    - **Room for Improvement** section with <ul> list of 2-3 honest cons
    - **Key Specifications** table or list with most important specs
    - **Best For** paragraph describing specific use case/user type
-   - End with call-to-action: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">Check Price on Amazon →</a>
-   - Add spacing with <br> tags before and after the button for visual separation
+   - End with call-to-action: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">Check Price on Amazon</a>
 
 5. **Comparison & Winner Analysis** (200-300 words)
    - Direct comparisons between products
@@ -302,7 +301,7 @@ ARTICLE STRUCTURE:
 7. **Final Thoughts & Recommendation** (150-200 words)
    - Summarize key points
    - Clear recommendation
-   - Strong call-to-action with button: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">View Best Deals on Amazon →</a>
+   - Strong call-to-action with button: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">View Best Deals on Amazon</a>
    - Next steps for the reader
 
 SEO REQUIREMENTS:
@@ -813,8 +812,9 @@ serve(async (req) => {
     let finalContent = articleData.content;
     
     for (const productData of articleData.products) {
-      // Generate affiliate URL with your Amazon tag
-      const affiliateUrl = `https://www.amazon.com/dp/${productData.asin}/?tag=${settings.amazon_tag}`;
+      // Generate proper Amazon Associates affiliate URL with all required parameters
+      const linkId = Math.random().toString(36).substring(2, 15);
+      const affiliateUrl = `https://www.amazon.com/dp/${productData.asin}?&linkCode=ll1&tag=${settings.amazon_tag}&linkId=${linkId}&language=en_US&ref_=as_li_ss_tl`;
 
       // Replace placeholder in content with actual affiliate link
       finalContent = finalContent.replace(/AMAZON_LINK_PLACEHOLDER/g, affiliateUrl);
