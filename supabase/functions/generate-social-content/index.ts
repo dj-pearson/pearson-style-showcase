@@ -1,0 +1,138 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { articleId } = await req.json();
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Fetch article details
+    const { data: article, error: articleError } = await supabaseClient
+      .from('articles')
+      .select('*')
+      .eq('id', articleId)
+      .single();
+
+    if (articleError || !article) {
+      throw new Error('Article not found');
+    }
+
+    // Generate social media content using OpenAI
+    const openAIApiKey = Deno.env.get('OPENAI_API');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const prompt = `Based on this article, create engaging social media posts:
+
+Article Title: ${article.title}
+Article Excerpt: ${article.excerpt}
+
+Generate:
+1. SHORT FORM (for Twitter/X - max 280 characters): Create a punchy, engaging tweet with relevant hashtags
+2. LONG FORM (for Facebook - 300-500 characters): Create a detailed post that encourages engagement and sharing
+
+Return ONLY valid JSON in this exact format:
+{
+  "shortForm": "your twitter post here",
+  "longForm": "your facebook post here"
+}`;
+
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-mini-2025-08-07',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.' 
+          },
+          { role: 'user', content: prompt }
+        ],
+        max_completion_tokens: 1000,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('OpenAI API error:', errorText);
+      throw new Error('Failed to generate social content');
+    }
+
+    const aiData = await aiResponse.json();
+    const generatedContent = aiData.choices[0].message.content;
+    
+    console.log('Generated content:', generatedContent);
+
+    // Parse the JSON response
+    let socialContent;
+    try {
+      socialContent = JSON.parse(generatedContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', generatedContent);
+      throw new Error('Invalid AI response format');
+    }
+
+    // Determine social image URL (first image from article or featured image)
+    let socialImageUrl = article.image_url;
+    if (article.content) {
+      const imgMatch = article.content.match(/<img[^>]+src="([^">]+)"/);
+      if (imgMatch && imgMatch[1]) {
+        socialImageUrl = imgMatch[1];
+      }
+    }
+
+    // Update article with generated social content
+    const { error: updateError } = await supabaseClient
+      .from('articles')
+      .update({
+        social_short_form: socialContent.shortForm,
+        social_long_form: socialContent.longForm,
+        social_image_url: socialImageUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', articleId);
+
+    if (updateError) {
+      console.error('Failed to update article:', updateError);
+      throw updateError;
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        shortForm: socialContent.shortForm,
+        longForm: socialContent.longForm,
+        imageUrl: socialImageUrl,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error generating social content:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+});

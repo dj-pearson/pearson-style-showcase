@@ -209,3 +209,9 @@ verify_jwt = true
 
 [functions.amazon-article-pipeline]
 verify_jwt = false
+
+[functions.generate-social-content]
+verify_jwt = true
+
+[functions.send-article-webhook]
+verify_jwt = true

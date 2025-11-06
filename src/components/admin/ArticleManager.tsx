@@ -23,7 +23,8 @@ import {
   FileText,
   Image as ImageIcon,
   Search,
-  Calendar
+  Calendar,
+  Send
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -59,6 +60,7 @@ export const ArticleManager: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sendingWebhooks, setSendingWebhooks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Form state
@@ -301,23 +303,46 @@ export const ArticleManager: React.FC = () => {
           .eq('id', selectedArticle.id);
 
         if (error) throw error;
-        
-        toast({
-          title: "Article updated",
-          description: "Your article has been updated successfully.",
-        });
+
+        // If article was just published, send to webhook
+        const wasPublished = !selectedArticle.published && articleData.published;
+        if (wasPublished) {
+          toast({
+            title: "Article updated and publishing",
+            description: "Sending article to webhook for social media distribution...",
+          });
+          // Send to webhook in background
+          sendToWebhook(selectedArticle.id);
+        } else {
+          toast({
+            title: "Article updated",
+            description: "Your article has been updated successfully.",
+          });
+        }
       } else {
         // Create new article
-        const { error } = await supabase
+        const { data: newArticle, error } = await supabase
           .from('articles')
-          .insert([articleData]);
+          .insert([articleData])
+          .select()
+          .single();
 
         if (error) throw error;
-        
-        toast({
-          title: "Article created",
-          description: "Your new article has been created successfully.",
-        });
+
+        // If new article is published, send to webhook
+        if (articleData.published && newArticle) {
+          toast({
+            title: "Article created and publishing",
+            description: "Sending article to webhook for social media distribution...",
+          });
+          // Send to webhook in background
+          sendToWebhook(newArticle.id);
+        } else {
+          toast({
+            title: "Article created",
+            description: "Your new article has been created successfully.",
+          });
+        }
       }
 
       setIsDialogOpen(false);
@@ -346,6 +371,35 @@ export const ArticleManager: React.FC = () => {
         variant: "destructive",
         title: "Save failed",
         description: "Could not save article. Please try again.",
+      });
+    }
+  };
+
+  const sendToWebhook = async (articleId: string) => {
+    setSendingWebhooks(prev => new Set(prev).add(articleId));
+    try {
+      const { data, error } = await supabase.functions.invoke('send-article-webhook', {
+        body: { articleId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Webhook sent",
+        description: "Article has been sent to Make.com webhook successfully.",
+      });
+    } catch (error) {
+      console.error('Error sending webhook:', error);
+      toast({
+        variant: "destructive",
+        title: "Webhook failed",
+        description: "Could not send article to webhook. Please check webhook settings.",
+      });
+    } finally {
+      setSendingWebhooks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(articleId);
+        return newSet;
       });
     }
   };
@@ -750,6 +804,19 @@ export const ArticleManager: React.FC = () => {
                       onClick={() => window.open(`/news/${article.slug}`, '_blank')}
                     >
                       <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => sendToWebhook(article.id)}
+                      disabled={sendingWebhooks.has(article.id)}
+                      title="Send to webhook"
+                    >
+                      {sendingWebhooks.has(article.id) ? (
+                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
                     </Button>
                     <Button
                       variant="outline"

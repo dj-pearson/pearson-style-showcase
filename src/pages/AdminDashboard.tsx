@@ -27,6 +27,7 @@ import { AmazonPipelineManager } from '@/components/admin/AmazonPipelineManager'
 import AnalyticsSettings from '@/components/admin/AnalyticsSettings';
 import SEOManager from '@/components/admin/SEOManager';
 import NewsletterManager from '@/components/admin/NewsletterManager';
+import { WebhookSettings } from '@/components/admin/WebhookSettings';
 
 interface AdminUser {
   id: string;
@@ -319,6 +320,9 @@ const AdminDashboard = () => {
 
           <TabsContent value="settings">
             <div className="space-y-6">
+              {/* Webhook Settings */}
+              <WebhookSettings />
+
               {/* Google Analytics Settings */}
               <AnalyticsSettings />
               

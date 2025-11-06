@@ -522,6 +522,9 @@ export type Database = {
           seo_keywords: string[] | null
           seo_title: string | null
           slug: string
+          social_image_url: string | null
+          social_long_form: string | null
+          social_short_form: string | null
           tags: string[] | null
           target_keyword: string | null
           title: string
@@ -543,6 +546,9 @@ export type Database = {
           seo_keywords?: string[] | null
           seo_title?: string | null
           slug: string
+          social_image_url?: string | null
+          social_long_form?: string | null
+          social_short_form?: string | null
           tags?: string[] | null
           target_keyword?: string | null
           title: string
@@ -564,6 +570,9 @@ export type Database = {
           seo_keywords?: string[] | null
           seo_title?: string | null
           slug?: string
+          social_image_url?: string | null
+          social_long_form?: string | null
+          social_short_form?: string | null
           tags?: string[] | null
           target_keyword?: string | null
           title?: string
@@ -781,6 +790,30 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+          webhook_url?: string
         }
         Relationships: []
       }
