@@ -78,9 +78,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Construct article URL
-      const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '') || 'https://yourdomain.com';
-      const articleUrl = `${baseUrl}/article/${article.slug}`;
+      // Construct article URL with production domain
+      const articleUrl = `https://danpearson.net/article/${article.slug}`;
 
       payload = {
         articleTitle: article.title,
