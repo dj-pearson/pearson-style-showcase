@@ -10,6 +10,7 @@ import { Calendar, Clock, Eye, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
+import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 
 type Article = Tables<"articles">;
 
@@ -33,6 +34,9 @@ const Article = () => {
     },
     enabled: !!slug,
   });
+
+  // Track affiliate link clicks
+  useAffiliateTracking(article?.id || '');
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

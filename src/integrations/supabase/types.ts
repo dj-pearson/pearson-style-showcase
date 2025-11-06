@@ -151,6 +151,97 @@ export type Database = {
         }
         Relationships: []
       }
+      amazon_affiliate_clicks: {
+        Row: {
+          article_id: string | null
+          asin: string
+          clicked_at: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          referrer: string | null
+          session_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          asin: string
+          clicked_at?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          referrer?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          asin?: string
+          clicked_at?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          referrer?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amazon_affiliate_clicks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amazon_affiliate_stats: {
+        Row: {
+          article_id: string | null
+          asin: string
+          clicks: number
+          commission: number
+          created_at: string
+          date: string
+          id: string
+          orders: number
+          revenue: number
+          updated_at: string
+        }
+        Insert: {
+          article_id?: string | null
+          asin: string
+          clicks?: number
+          commission?: number
+          created_at?: string
+          date?: string
+          id?: string
+          orders?: number
+          revenue?: number
+          updated_at?: string
+        }
+        Update: {
+          article_id?: string | null
+          asin?: string
+          clicks?: number
+          commission?: number
+          created_at?: string
+          date?: string
+          id?: string
+          orders?: number
+          revenue?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amazon_affiliate_stats_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amazon_api_throttle: {
         Row: {
           day_key: string

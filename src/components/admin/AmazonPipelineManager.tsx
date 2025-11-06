@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Play, Settings, History, TrendingUp } from "lucide-react";
+import { Loader2, Play, Settings, History, TrendingUp, BarChart3 } from "lucide-react";
+import { AmazonAffiliateStats } from "./AmazonAffiliateStats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -223,7 +224,7 @@ export const AmazonPipelineManager = () => {
       </Card>
 
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="settings">
             <Settings className="h-4 w-4 mr-2" />
             Settings
@@ -231,6 +232,10 @@ export const AmazonPipelineManager = () => {
           <TabsTrigger value="run">
             <Play className="h-4 w-4 mr-2" />
             Run Pipeline
+          </TabsTrigger>
+          <TabsTrigger value="stats">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Affiliate Stats
           </TabsTrigger>
           <TabsTrigger value="history">
             <History className="h-4 w-4 mr-2" />
@@ -433,6 +438,10 @@ export const AmazonPipelineManager = () => {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="stats">
+          <AmazonAffiliateStats />
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
