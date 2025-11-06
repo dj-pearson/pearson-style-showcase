@@ -286,7 +286,8 @@ ARTICLE STRUCTURE:
    - **Room for Improvement** section with <ul> list of 2-3 honest cons
    - **Key Specifications** table or list with most important specs
    - **Best For** paragraph describing specific use case/user type
-   - End with call-to-action: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">Check Price on Amazon</a>
+   - End with call-to-action: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">Check Price on Amazon →</a>
+   - Add spacing with <br> tags before and after the button for visual separation
 
 5. **Comparison & Winner Analysis** (200-300 words)
    - Direct comparisons between products
@@ -301,7 +302,7 @@ ARTICLE STRUCTURE:
 7. **Final Thoughts & Recommendation** (150-200 words)
    - Summarize key points
    - Clear recommendation
-   - Strong call-to-action
+   - Strong call-to-action with button: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">View Best Deals on Amazon →</a>
    - Next steps for the reader
 
 SEO REQUIREMENTS:

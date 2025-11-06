@@ -265,30 +265,61 @@
     transform: scale(1.05);
   }
 
-  /* Amazon affiliate button - Mobile First */
+  /* Amazon affiliate button - Mobile First & Prominent */
   .amazon-button {
-    @apply inline-block px-6 py-3 sm:px-8 sm:py-4 font-bold text-sm sm:text-base rounded-lg;
-    background: hsl(var(--amazon-orange));
-    color: white;
+    @apply inline-block px-8 py-4 sm:px-10 sm:py-5 font-bold text-base sm:text-lg rounded-xl;
+    background: linear-gradient(135deg, hsl(var(--amazon-orange)), hsl(28 100% 45%));
+    color: white !important;
     text-align: center;
-    text-decoration: none;
+    text-decoration: none !important;
     transition: var(--transition-smooth);
-    box-shadow: 0 4px 12px hsl(var(--amazon-orange) / 0.3);
-    min-height: 44px; /* Touch target optimization */
+    box-shadow: 0 6px 20px hsl(var(--amazon-orange) / 0.4), 0 2px 8px hsl(0 0% 0% / 0.3);
+    min-height: 56px; /* Touch target optimization */
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: none;
+    border: 2px solid hsl(var(--amazon-orange));
+    position: relative;
+    overflow: hidden;
+    margin: 1.5rem 0;
+    width: 100%; /* Full width on mobile */
+    max-width: 400px; /* Max width on larger screens */
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  @media (min-width: 640px) {
+    .amazon-button {
+      width: auto;
+      min-width: 300px;
+    }
+  }
+
+  .amazon-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .amazon-button:hover::before {
+    left: 100%;
   }
 
   .amazon-button:hover {
-    background: hsl(var(--amazon-orange-hover));
-    box-shadow: 0 6px 20px hsl(var(--amazon-orange) / 0.5);
-    transform: translateY(-2px);
+    background: linear-gradient(135deg, hsl(28 100% 45%), hsl(28 100% 40%));
+    box-shadow: 0 8px 28px hsl(var(--amazon-orange) / 0.6), 0 4px 12px hsl(0 0% 0% / 0.4);
+    transform: translateY(-3px) scale(1.02);
+    border-color: hsl(28 100% 55%);
   }
 
   .amazon-button:active {
-    transform: translateY(0);
+    transform: translateY(-1px) scale(1);
   }
 
   /* Article product images */

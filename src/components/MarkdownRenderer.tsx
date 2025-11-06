@@ -278,11 +278,21 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         }
       });
 
-      // Style any links in HTML
+      // Style any links in HTML (but preserve amazon-button and other custom classes)
       const htmlLinks = container.querySelectorAll('a:not([data-custom-btn])');
       htmlLinks.forEach((link) => {
-        if (!link.className.includes('text-') && !link.getAttribute('style')?.includes('color')) {
+        // Don't override amazon-button or other custom styled links
+        if (!link.className.includes('amazon-button') && 
+            !link.className.includes('text-') && 
+            !link.getAttribute('style')?.includes('color')) {
           link.className = `${link.className} text-primary hover:text-primary/80 underline transition-colors`.trim();
+        }
+        
+        // Ensure external links open in new tab
+        const href = link.getAttribute('href');
+        if (href?.startsWith('http')) {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener noreferrer');
         }
       });
 
