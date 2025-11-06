@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -21,9 +22,9 @@ export const useAffiliateTracking = (articleId: string) => {
             // Track the click asynchronously (don't block navigation)
             supabase.functions.invoke('track-affiliate-click', {
               body: { articleId, asin }
-            }).catch(err => console.error('Failed to track click:', err));
+            }).catch(err => logger.error('Failed to track click:', err));
           } catch (error) {
-            console.error('Error tracking affiliate click:', error);
+            logger.error('Error tracking affiliate click:', error);
           }
         }
       }
@@ -48,6 +49,6 @@ export const trackAffiliateClick = async (articleId: string, asin: string) => {
       body: { articleId, asin }
     });
   } catch (error) {
-    console.error('Failed to track click:', error);
+    logger.error('Failed to track click:', error);
   }
 };

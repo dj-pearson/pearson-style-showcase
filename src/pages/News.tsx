@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { logger } from "@/lib/logger";
 import { useState, useEffect } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
@@ -100,7 +101,7 @@ const News = () => {
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Implement newsletter subscription
-    console.log('Subscribe:', email);
+    logger.log('Subscribe:', email);
     setEmail('');
   };
 

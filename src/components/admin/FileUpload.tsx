@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { logger } from "@/lib/logger";
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -61,7 +62,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       });
 
     } catch (error) {
-      console.error('Upload error:', error);
+      logger.error('Upload error:', error);
       toast({
         variant: "destructive",
         title: "Upload failed",

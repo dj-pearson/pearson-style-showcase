@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ export const AmazonPipelineManager = () => {
       .single();
 
     if (error) {
-      console.error("Error loading settings:", error);
+      logger.error("Error loading settings:", error);
       return;
     }
 
@@ -65,7 +66,7 @@ export const AmazonPipelineManager = () => {
       .limit(10);
 
     if (error) {
-      console.error("Error loading runs:", error);
+      logger.error("Error loading runs:", error);
       return;
     }
 
@@ -99,7 +100,7 @@ export const AmazonPipelineManager = () => {
       toast.success("Settings saved successfully");
       loadSettings();
     } catch (error: any) {
-      console.error("Error saving settings:", error);
+      logger.error("Error saving settings:", error);
       toast.error("Failed to save settings: " + error.message);
     } finally {
       setIsSaving(false);
@@ -144,7 +145,7 @@ export const AmazonPipelineManager = () => {
       toast.success(`Seeded ${inserted} search terms successfully`);
       loadSearchTermsStats();
     } catch (error: any) {
-      console.error('Seed error:', error);
+      logger.error('Seed error:', error);
       toast.error('Failed to seed search terms: ' + error.message);
     } finally {
       setIsSeeding(false);
@@ -165,7 +166,7 @@ export const AmazonPipelineManager = () => {
       toast.success('All search terms reset to unused');
       loadSearchTermsStats();
     } catch (error: any) {
-      console.error('Reset error:', error);
+      logger.error('Reset error:', error);
       toast.error('Failed to reset search terms: ' + error.message);
     }
   };
@@ -183,7 +184,7 @@ export const AmazonPipelineManager = () => {
       loadRuns();
       loadSearchTermsStats();
     } catch (error: any) {
-      console.error("Pipeline error:", error);
+      logger.error("Pipeline error:", error);
       toast.error("Pipeline failed: " + error.message);
     } finally {
       setIsRunning(false);

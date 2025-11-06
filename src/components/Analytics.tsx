@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { logger } from "@/lib/logger";
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -121,7 +122,7 @@ const Analytics = ({ trackingId: propTrackingId }: AnalyticsProps) => {
           page_location: window.location.href,
         });
 
-        console.log('📊 Analytics initialized with tracking ID:', trackingId);
+        logger.log('📊 Analytics initialized with tracking ID:', trackingId);
       }
     };
 

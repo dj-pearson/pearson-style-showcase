@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,7 @@ export const AmazonReportImporter = () => {
       if (fileInput) fileInput.value = '';
 
     } catch (error: any) {
-      console.error('Import error:', error);
+      logger.error('Import error:', error);
       toast.error(`Import failed: ${error.message}`);
     } finally {
       setIsImporting(false);

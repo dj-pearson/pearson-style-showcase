@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from "@/lib/logger";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -166,7 +167,7 @@ export const AIToolSubmissionForm: React.FC = () => {
       });
 
     } catch (error) {
-      console.error('Error submitting AI tool:', error);
+      logger.error('Error submitting AI tool:', error);
       toast({
         variant: "destructive",
         title: "Submission failed",

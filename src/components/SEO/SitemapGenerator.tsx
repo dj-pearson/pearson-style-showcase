@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from "@/lib/logger";
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,7 +122,7 @@ ${allUrls.map(url => `  <url>
       });
 
     } catch (error) {
-      console.error('Error generating sitemap:', error);
+      logger.error('Error generating sitemap:', error);
       toast({
         title: "Generation Failed",
         description: "Failed to generate sitemap. Please try again.",

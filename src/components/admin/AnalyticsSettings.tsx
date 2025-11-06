@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from "@/lib/logger";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,7 @@ const AnalyticsSettings = () => {
         .single();
 
       if (error) {
-        console.error('Error loading analytics config:', error);
+        logger.error('Error loading analytics config:', error);
       } else if (data) {
         setConfig({
           id: data.id,
@@ -47,7 +48,7 @@ const AnalyticsSettings = () => {
         });
       }
     } catch (error) {
-      console.error('Error loading analytics config:', error);
+      logger.error('Error loading analytics config:', error);
     } finally {
       setIsLoading(false);
     }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logger } from "@/lib/logger";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +31,7 @@ export const AIArticleGenerator = () => {
         throw new Error(data?.error || 'Failed to generate article');
       }
     } catch (error: any) {
-      console.error('Error generating article:', error);
+      logger.error('Error generating article:', error);
       toast({
         title: "Generation Failed",
         description: error.message || "Failed to generate article. Please try again.",

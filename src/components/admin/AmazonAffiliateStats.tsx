@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -147,7 +148,7 @@ export const AmazonAffiliateStats = () => {
         dailyStats,
       });
     } catch (error) {
-      console.error('Error loading affiliate stats:', error);
+      logger.error('Error loading affiliate stats:', error);
     } finally {
       setLoading(false);
     }
