@@ -30,7 +30,7 @@ export const AIArticleGenerator = () => {
       } else {
         throw new Error(data?.error || 'Failed to generate article');
       }
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Error generating article:', error);
       toast({
         title: "Generation Failed",

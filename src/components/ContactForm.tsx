@@ -17,6 +17,11 @@ import {
 } from '@/components/ui/form';
 import { Progress } from '@/components/ui/progress';
 
+// Type for gtag analytics
+type WindowWithGtag = Window & {
+  gtag?: (...args: unknown[]) => void;
+};
+
 const contactSchema = z.object({
   name: z.string()
     .min(2, 'Name must be at least 2 characters')
@@ -61,11 +66,13 @@ const ContactForm = () => {
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true);
     setSubmitProgress(0);
-    
+
+    const windowWithGtag = window as WindowWithGtag;
+
     try {
       // Track form submission attempt
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'form_start', {
+      if (typeof window !== 'undefined' && windowWithGtag.gtag) {
+        windowWithGtag.gtag('event', 'form_start', {
           event_category: 'Contact',
           event_label: 'Contact Form Submission Started'
         });
@@ -94,8 +101,8 @@ const ContactForm = () => {
       }
       
       // Track successful submission
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'form_submit', {
+      if (typeof window !== 'undefined' && windowWithGtag.gtag) {
+        windowWithGtag.gtag('event', 'form_submit', {
           event_category: 'Contact',
           event_label: 'Contact Form Submitted Successfully',
           value: 1
@@ -109,18 +116,18 @@ const ContactForm = () => {
       });
       
       form.reset();
-    } catch (error: any) {
+    } catch (error) {
       // Track failed submission
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'form_error', {
+      if (typeof window !== 'undefined' && windowWithGtag.gtag) {
+        windowWithGtag.gtag('event', 'form_error', {
           event_category: 'Contact',
           event_label: 'Contact Form Submission Failed'
         });
       }
-      
+
       toast({
         title: "Error sending message",
-        description: error.message || "Please try again or contact me directly via email.",
+        description: error instanceof Error ? error.message : "Please try again or contact me directly via email.",
         variant: "destructive",
         action: <AlertCircle className="w-5 h-5 text-red-500" />,
       });

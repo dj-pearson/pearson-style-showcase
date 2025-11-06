@@ -99,7 +99,7 @@ export const AmazonPipelineManager = () => {
 
       toast.success("Settings saved successfully");
       loadSettings();
-    } catch (error: any) {
+    } catch (error) {
       logger.error("Error saving settings:", error);
       toast.error("Failed to save settings: " + error.message);
     } finally {
@@ -144,7 +144,7 @@ export const AmazonPipelineManager = () => {
 
       toast.success(`Seeded ${inserted} search terms successfully`);
       loadSearchTermsStats();
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Seed error:', error);
       toast.error('Failed to seed search terms: ' + error.message);
     } finally {
@@ -165,7 +165,7 @@ export const AmazonPipelineManager = () => {
 
       toast.success('All search terms reset to unused');
       loadSearchTermsStats();
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Reset error:', error);
       toast.error('Failed to reset search terms: ' + error.message);
     }
@@ -183,7 +183,7 @@ export const AmazonPipelineManager = () => {
       toast.success(`Article created: ${data.article.title}`);
       loadRuns();
       loadSearchTermsStats();
-    } catch (error: any) {
+    } catch (error) {
       logger.error("Pipeline error:", error);
       toast.error("Pipeline failed: " + error.message);
     } finally {

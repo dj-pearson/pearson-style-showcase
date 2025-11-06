@@ -15,10 +15,9 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "strict": false,  // Enable gradually - currently 84 `any` type errors to fix
+    "strict": true,  // Enabled: Full type safety
     "noUnusedLocals": true,  // Enabled: Catch unused variables
     "noUnusedParameters": false,  // Keep disabled for callbacks/event handlers
-    "noImplicitAny": false,  // Keep disabled - would require fixing 84 `any` types
     "noFallthroughCasesInSwitch": true,  // Enabled: Prevent switch statement bugs
 
     "baseUrl": ".",

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 interface StructuredDataProps {
   type: 'website' | 'article' | 'person' | 'organization' | 'project';
-  data: any;
+  data?: Record<string, unknown>;
 }
 
 const StructuredData = ({ type, data }: StructuredDataProps) => {

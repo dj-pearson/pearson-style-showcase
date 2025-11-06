@@ -81,7 +81,7 @@ const AnalyticsSettings = () => {
           window.location.reload();
         }, 1000);
       }
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error saving settings",
         description: error.message || "Please try again",

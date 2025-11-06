@@ -8,12 +8,6 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "noImplicitAny": false,  // Keep disabled - would require fixing 84 `any` types
-    "noUnusedParameters": false,  // Keep disabled for callbacks/event handlers
-    "skipLibCheck": true,
-    "allowJs": true,
-    "noUnusedLocals": true,  // Enabled: Catch unused variables
-    "strictNullChecks": false  // Keep disabled - would require major refactoring
+    }
   }
 }

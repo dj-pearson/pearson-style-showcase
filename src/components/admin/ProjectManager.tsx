@@ -94,7 +94,7 @@ export const ProjectManager: React.FC = () => {
     loadProjects();
   }, [loadProjects]);
 
-  const handleInputChange = (field: keyof Project, value: any) => {
+  const handleInputChange = (field: keyof Project, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

@@ -217,7 +217,7 @@ const handler = async (req: Request): Promise<Response> => {
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in newsletter signup:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),

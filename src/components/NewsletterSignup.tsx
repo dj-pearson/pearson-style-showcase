@@ -48,11 +48,11 @@ const NewsletterSignup = () => {
       });
       
       reset();
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Newsletter signup failed:', error);
       toast({
         title: "Subscription failed",
-        description: error.message || "Please try again later or contact me directly.",
+        description: error instanceof Error ? error.message : "Please try again later or contact me directly.",
         variant: "destructive",
       });
     } finally {
