@@ -58,7 +58,7 @@ Return ONLY valid JSON in this exact format:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
