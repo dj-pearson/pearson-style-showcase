@@ -17,11 +17,29 @@ export const AmazonPipelineManager = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [niches, setNiches] = useState<string>("");
+  const [searchTermsCount, setSearchTermsCount] = useState<number>(0);
+  const [unusedTermsCount, setUnusedTermsCount] = useState<number>(0);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
     loadSettings();
     loadRuns();
+    loadSearchTermsStats();
   }, []);
+
+  const loadSearchTermsStats = async () => {
+    const { count: total } = await supabase
+      .from("amazon_search_terms")
+      .select("*", { count: 'exact', head: true });
+    
+    const { count: unused } = await supabase
+      .from("amazon_search_terms")
+      .select("*", { count: 'exact', head: true })
+      .is('used_at', null);
+
+    setSearchTermsCount(total || 0);
+    setUnusedTermsCount(unused || 0);
+  };
 
   const loadSettings = async () => {
     const { data, error } = await supabase
@@ -87,6 +105,70 @@ export const AmazonPipelineManager = () => {
     }
   };
 
+  const seedSearchTerms = async () => {
+    setIsSeeding(true);
+    try {
+      // Read the CSV file from public assets or fetch from a URL
+      const response = await fetch('/amazon_ideas.csv');
+      const csvText = await response.text();
+      
+      const lines = csvText.split('\n').slice(1); // Skip header
+      const terms = lines
+        .filter(line => line.trim())
+        .map(line => {
+          const [search_term, category] = line.split(',');
+          return { search_term: search_term?.trim(), category: category?.trim() };
+        })
+        .filter(t => t.search_term && t.category);
+
+      if (terms.length === 0) {
+        throw new Error('No valid terms found in CSV');
+      }
+
+      // Insert in batches
+      const batchSize = 100;
+      let inserted = 0;
+      for (let i = 0; i < terms.length; i += batchSize) {
+        const batch = terms.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from('amazon_search_terms')
+          .insert(batch);
+        
+        if (error && !error.message.includes('duplicate')) {
+          throw error;
+        }
+        inserted += batch.length;
+      }
+
+      toast.success(`Seeded ${inserted} search terms successfully`);
+      loadSearchTermsStats();
+    } catch (error: any) {
+      console.error('Seed error:', error);
+      toast.error('Failed to seed search terms: ' + error.message);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const resetSearchTerms = async () => {
+    if (!confirm('Are you sure? This will reset all search terms to unused.')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('amazon_search_terms')
+        .update({ used_at: null, article_id: null, product_count: 0 })
+        .not('id', 'is', null);
+
+      if (error) throw error;
+
+      toast.success('All search terms reset to unused');
+      loadSearchTermsStats();
+    } catch (error: any) {
+      console.error('Reset error:', error);
+      toast.error('Failed to reset search terms: ' + error.message);
+    }
+  };
+
   const runPipeline = async () => {
     setIsRunning(true);
     try {
@@ -98,6 +180,7 @@ export const AmazonPipelineManager = () => {
 
       toast.success(`Article created: ${data.article.title}`);
       loadRuns();
+      loadSearchTermsStats();
     } catch (error: any) {
       console.error("Pipeline error:", error);
       toast.error("Pipeline failed: " + error.message);
@@ -158,12 +241,48 @@ export const AmazonPipelineManager = () => {
         <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
+              <CardTitle>Search Terms Database</CardTitle>
+              <CardDescription>Manage CSV-based search terms for article generation</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  The pipeline uses search terms from amazon_ideas.csv. Each term is used once to ensure unique articles.
+                  <div className="mt-2 flex gap-4 text-sm font-medium">
+                    <span>Total Terms: {searchTermsCount}</span>
+                    <span className="text-green-600">Unused: {unusedTermsCount}</span>
+                    <span className="text-amber-600">Used: {searchTermsCount - unusedTermsCount}</span>
+                  </div>
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex gap-2">
+                <Button onClick={seedSearchTerms} disabled={isSeeding} variant="outline">
+                  {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Seed from CSV
+                </Button>
+                <Button onClick={resetSearchTerms} variant="outline">
+                  Reset All to Unused
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Pipeline Configuration</CardTitle>
-              <CardDescription>Configure niches, filters, and generation settings</CardDescription>
+              <CardDescription>Configure niches, filters, and generation settings (fallback only)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <Alert>
+                <AlertDescription className="text-xs">
+                  Note: These niches are now only used as fallback if CSV search terms are unavailable.
+                  The pipeline primarily uses terms from the CSV database.
+                </AlertDescription>
+              </Alert>
+              
               <div className="space-y-2">
-                <Label htmlFor="niches">Product Niches (comma-separated)</Label>
+                <Label htmlFor="niches">Product Niches (comma-separated, fallback)</Label>
                 <Input
                   id="niches"
                   value={niches}
@@ -289,12 +408,14 @@ export const AmazonPipelineManager = () => {
                   <strong>Process:</strong>
                 </p>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-                  <li>Select random niche from your configured list</li>
-                  <li>Fetch products from Amazon PA-API</li>
+                  <li>Select random unused search term from CSV database</li>
+                  <li>Fetch products using SerpAPI/Google Search</li>
+                  <li>Retry with different term if insufficient products found</li>
                   <li>Filter by rating, stock, and price criteria</li>
                   <li>Analyze SEO keywords with DataForSEO</li>
                   <li>Generate human-sounding article with Lovable AI</li>
                   <li>Insert affiliate links with your Amazon tag</li>
+                  <li>Mark search term as used to prevent duplicates</li>
                   <li>Publish to News section</li>
                 </ol>
               </div>

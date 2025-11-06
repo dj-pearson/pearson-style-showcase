@@ -333,6 +333,44 @@ export type Database = {
         }
         Relationships: []
       }
+      amazon_search_terms: {
+        Row: {
+          article_id: string | null
+          category: string
+          created_at: string
+          id: string
+          product_count: number | null
+          search_term: string
+          used_at: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          product_count?: number | null
+          search_term: string
+          used_at?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          product_count?: number | null
+          search_term?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amazon_search_terms_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_data: {
         Row: {
           created_at: string

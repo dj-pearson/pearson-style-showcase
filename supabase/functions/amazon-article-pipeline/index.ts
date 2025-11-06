@@ -528,11 +528,82 @@ serve(async (req) => {
       amazon_tag: settings.amazon_tag
     });
 
-    // Pick random niche
-    const niches = settings.niches as string[];
-    const niche = niches[Math.floor(Math.random() * niches.length)];
+    // Seed search terms from CSV if table is empty
+    const { count } = await supabase
+      .from('amazon_search_terms')
+      .select('*', { count: 'exact', head: true });
 
-    await log('info', `Selected niche: ${niche}`);
+    if (count === 0) {
+      await log('info', 'Seeding search terms from CSV in storage bucket');
+      
+      // Read CSV from Supabase storage (admin-uploads bucket)
+      // Note: You need to upload amazon_ideas.csv to the admin-uploads bucket first
+      const { data: csvData, error: csvError } = await supabase
+        .storage
+        .from('admin-uploads')
+        .download('amazon_ideas.csv');
+
+      if (csvError) {
+        await log('warn', 'CSV file not found in storage, using fallback niches', {
+          error: csvError.message,
+          note: 'Upload amazon_ideas.csv to admin-uploads bucket to use CSV search terms'
+        });
+        // Fall back to using settings niches if CSV not found
+        const niches = settings.niches as string[];
+        niche = niches[Math.floor(Math.random() * niches.length)];
+      } else {
+        const csvText = await csvData.text();
+        const lines = csvText.split('\n').slice(1); // Skip header
+        const terms = lines
+          .filter(line => line.trim())
+          .map(line => {
+            const [search_term, category] = line.split(',');
+            return { search_term: search_term?.trim(), category: category?.trim() };
+          })
+          .filter(t => t.search_term && t.category);
+
+        if (terms.length > 0) {
+          // Insert in batches to avoid payload size issues
+          const batchSize = 100;
+          for (let i = 0; i < terms.length; i += batchSize) {
+            const batch = terms.slice(i, i + batchSize);
+            await supabase.from('amazon_search_terms').insert(batch);
+          }
+          await log('info', `Seeded ${terms.length} search terms from CSV`);
+        }
+      }
+    }
+
+    // Pick random unused search term with retry logic
+    let niche = '';
+    let searchTermId = '';
+    let retryCount = 0;
+    const maxRetries = 5;
+
+    while (retryCount < maxRetries) {
+      // Get random unused term
+      const { data: unusedTerms } = await supabase
+        .from('amazon_search_terms')
+        .select('id, search_term, category')
+        .is('used_at', null)
+        .limit(50);
+
+      if (!unusedTerms || unusedTerms.length === 0) {
+        // Fallback to settings niches if no unused terms
+        await log('warn', 'No unused search terms available, using settings niches');
+        const niches = settings.niches as string[];
+        niche = niches[Math.floor(Math.random() * niches.length)];
+        searchTermId = ''; // No ID to mark as used
+        break;
+      }
+
+      const selectedTerm = unusedTerms[Math.floor(Math.random() * unusedTerms.length)];
+      niche = selectedTerm.search_term;
+      searchTermId = selectedTerm.id;
+
+      await log('info', `Selected search term (attempt ${retryCount + 1}): ${niche}`, {
+        category: selectedTerm.category
+      });
 
     // Try cached products first (24h window)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -658,10 +729,21 @@ serve(async (req) => {
       }
     }
 
+      // Check if we got enough products
+      if (products.length >= 3) {
+        await log('info', `Found ${products.length} products for "${niche}"`);
+        break; // Success, exit retry loop
+      } else {
+        await log('warn', `Insufficient products for "${niche}" (${products.length}), retrying with different term`);
+        retryCount++;
+        products = []; // Reset for next attempt
+      }
+    }
+
     if (products.length === 0) {
       const message = effectiveCacheOnly
-        ? 'No cached products for this niche. Disable cache-only mode or seed products first.'
-        : 'Product search failed; no products available and cache empty';
+        ? 'No cached products for available search terms. Disable cache-only mode or seed products first.'
+        : `Product search failed after ${maxRetries} attempts; no products available`;
 
       await supabase
         .from('amazon_pipeline_runs')
@@ -735,6 +817,20 @@ serve(async (req) => {
       slug: article.slug,
       published: article.published
     });
+
+    // Mark search term as used (if we have a searchTermId)
+    if (searchTermId) {
+      await supabase
+        .from('amazon_search_terms')
+        .update({
+          used_at: new Date().toISOString(),
+          article_id: article.id,
+          product_count: products.length
+        })
+        .eq('id', searchTermId);
+
+      await log('info', `Marked search term "${niche}" as used`);
+    }
 
     // Link products to article with affiliate URLs
     for (const productData of articleData.products) {
