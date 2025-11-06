@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { DollarSign, MousePointerClick, ShoppingCart, TrendingUp } from "lucide-react";
 import { format, subDays } from "date-fns";
+import { AmazonReportImporter } from "./AmazonReportImporter";
 
 interface AffiliateStats {
   totalClicks: number;
@@ -168,6 +169,9 @@ export const AmazonAffiliateStats = () => {
 
   return (
     <div className="space-y-6">
+      {/* Report Importer */}
+      <AmazonReportImporter />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
