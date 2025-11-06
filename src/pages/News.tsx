@@ -1,18 +1,45 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
 import { ArticleCard } from '../components/ArticleCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Search, Filter, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 
 type Article = Tables<"articles">;
 
+const STORAGE_KEY_PREFIX = 'newsFilters';
+
 const News = () => {
   const [email, setEmail] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return localStorage.getItem(`${STORAGE_KEY_PREFIX}_search`) || '';
+  });
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    return localStorage.getItem(`${STORAGE_KEY_PREFIX}_category`) || 'all';
+  });
+  const [sortBy, setSortBy] = useState<string>(() => {
+    return localStorage.getItem(`${STORAGE_KEY_PREFIX}_sort`) || 'newest';
+  });
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}_search`, searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}_category`, selectedCategory);
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}_sort`, sortBy);
+  }, [sortBy]);
 
   const { data: articles, isLoading, error } = useQuery({
     queryKey: ['articles'],
@@ -23,11 +50,52 @@ const News = () => {
         .eq('published', true)
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data as Article[];
     },
   });
+
+  // Get unique categories for filtering
+  const allCategories = articles
+    ? Array.from(new Set(articles.map(a => a.category))).sort()
+    : [];
+
+  // Filter and sort articles
+  const filteredArticles = articles?.filter(article => {
+    const matchesSearch =
+      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  }) || [];
+
+  const sortedArticles = [...filteredArticles].sort((a, b) => {
+    switch (sortBy) {
+      case 'newest':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'oldest':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'most-viewed':
+        return (b.view_count || 0) - (a.view_count || 0);
+      case 'title':
+        return a.title.localeCompare(b.title);
+      default:
+        return 0;
+    }
+  });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setSortBy('newest');
+    // Clear from localStorage
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}_search`);
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}_category`);
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}_sort`);
+  };
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +140,90 @@ const News = () => {
             </p>
           </div>
 
+          {/* Search and Filter Controls */}
+          <div className="mobile-card bg-gray-800/30 border border-gray-700 rounded-xl mb-6 sm:mb-8">
+            <div className="flex flex-col gap-4">
+              {/* Search */}
+              <div className="relative w-full">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" />
+                <Input
+                  placeholder="Search articles, tags, or content..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="mobile-input pl-12 bg-gray-700/50 border-gray-600 focus:border-cyan-500 text-base"
+                />
+              </div>
+
+              {/* Filters row */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                {/* Category Filter */}
+                <div className="flex-1 sm:flex-initial">
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600">
+                      <Filter className="h-5 w-5 mr-2" />
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent className="mobile-modal">
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {allCategories.map(category => (
+                        <SelectItem key={category} value={category} className="touch-target">{category}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sort */}
+                <div className="flex-1 sm:flex-initial">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent className="mobile-modal">
+                      <SelectItem value="newest" className="touch-target">Newest</SelectItem>
+                      <SelectItem value="oldest" className="touch-target">Oldest</SelectItem>
+                      <SelectItem value="most-viewed" className="touch-target">Most Viewed</SelectItem>
+                      <SelectItem value="title" className="touch-target">Title A-Z</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Clear Filters */}
+                {(searchTerm || selectedCategory !== 'all' || sortBy !== 'newest') && (
+                  <Button
+                    variant="outline"
+                    onClick={clearFilters}
+                    className="mobile-button border-gray-600 hover:border-cyan-500 active:border-cyan-500"
+                  >
+                    <X className="h-5 w-5 mr-2" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Active Filters Display */}
+            {(searchTerm || selectedCategory !== 'all') && (
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700">
+                <span className="text-sm text-gray-400 font-medium">Active filters:</span>
+                {searchTerm && (
+                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
+                    Search: "{searchTerm}"
+                  </Badge>
+                )}
+                {selectedCategory !== 'all' && (
+                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
+                    Category: {selectedCategory}
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {/* Results Count */}
+            <div className="mt-4 text-base text-gray-400 font-medium">
+              Showing {sortedArticles.length} of {articles?.length || 0} articles
+            </div>
+          </div>
+
           {/* Articles Grid */}
           <div className="pb-12 sm:pb-16">
             {isLoading ? (
@@ -82,14 +234,31 @@ const News = () => {
               </div>
             ) : error ? (
               <div className="text-center py-12 px-4">
-                <p className="text-base text-gray-400">Error loading articles. Please try again later.</p>
+                <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
+                  <p className="text-base text-destructive">Error loading articles. Please try again later.</p>
+                </div>
               </div>
             ) : articles && articles.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {articles.map((article) => (
-                  <ArticleCard key={article.id} article={article} />
-                ))}
-              </div>
+              sortedArticles.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {sortedArticles.map((article) => (
+                    <ArticleCard key={article.id} article={article} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 px-4">
+                  <div className="mobile-card bg-muted/30 max-w-md mx-auto">
+                    <p className="text-base text-gray-400 mb-4">No articles match your current filters.</p>
+                    <Button
+                      variant="outline"
+                      onClick={clearFilters}
+                      className="mobile-button border-gray-600 hover:border-cyan-500"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              )
             ) : (
               <div className="text-center py-12 px-4">
                 <p className="text-base text-gray-400">No articles found.</p>

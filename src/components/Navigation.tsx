@@ -25,6 +25,20 @@ const Navigation = () => {
     };
   }, [isMenuOpen, isMobile]);
 
+  // Keyboard navigation: ESC to close menu
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isMenuOpen) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isMenuOpen]);
+
   const navItems = [
     { name: 'Home', path: '/' },
     { name: 'About Me', path: '/about' },

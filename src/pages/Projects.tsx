@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
@@ -15,10 +15,31 @@ import { Tables } from '@/integrations/supabase/types';
 
 type Project = Tables<"projects">;
 
+const STORAGE_KEY_PREFIX = 'projectsFilters';
+
 const Projects = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('newest');
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return localStorage.getItem(`${STORAGE_KEY_PREFIX}_search`) || '';
+  });
+  const [selectedTag, setSelectedTag] = useState<string>(() => {
+    return localStorage.getItem(`${STORAGE_KEY_PREFIX}_tag`) || 'all';
+  });
+  const [sortBy, setSortBy] = useState<string>(() => {
+    return localStorage.getItem(`${STORAGE_KEY_PREFIX}_sort`) || 'newest';
+  });
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}_search`, searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}_tag`, selectedTag);
+  }, [selectedTag]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}_sort`, sortBy);
+  }, [sortBy]);
 
   const { data: projects, isLoading, error } = useQuery({
     queryKey: ['projects'],
@@ -67,6 +88,10 @@ const Projects = () => {
     setSearchTerm('');
     setSelectedTag('all');
     setSortBy('newest');
+    // Clear from localStorage
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}_search`);
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}_tag`);
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}_sort`);
   };
 
   return (

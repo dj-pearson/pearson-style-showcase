@@ -4,39 +4,90 @@ import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import { ReadingProgress } from '../components/ReadingProgress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Eye, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, Eye, ArrowLeft, Share2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 type Article = Tables<"articles">;
 
 const Article = () => {
   const { slug } = useParams<{ slug: string }>();
+  const { toast } = useToast();
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   const { data: article, isLoading, error } = useQuery({
     queryKey: ['article', slug],
     queryFn: async () => {
       if (!slug) throw new Error('No slug provided');
-      
+
       const { data, error } = await supabase
         .from('articles')
         .select('*')
         .eq('slug', slug)
         .eq('published', true)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data as Article | null;
     },
     enabled: !!slug,
   });
 
+  // Fetch related articles based on category and tags
+  const { data: relatedArticles } = useQuery({
+    queryKey: ['related-articles', article?.id, article?.category],
+    queryFn: async () => {
+      if (!article) return [];
+
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .eq('published', true)
+        .neq('id', article.id)
+        .or(`category.eq.${article.category}`)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      return data as Article[];
+    },
+    enabled: !!article,
+  });
+
   // Track affiliate link clicks
   useAffiliateTracking(article?.id || '');
+
+  const handleShare = async (platform: string) => {
+    const url = window.location.href;
+    const title = article?.title || '';
+
+    switch (platform) {
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`, '_blank');
+        break;
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+        break;
+      case 'linkedin':
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+        break;
+      case 'copy':
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: "Link copied!",
+          description: "Article link copied to clipboard",
+        });
+        setShowShareMenu(false);
+        break;
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -99,6 +150,7 @@ const Article = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <ReadingProgress />
       <SEO 
         title={`${article.seo_title || article.title} | Dan Pearson Tech Blog`}
         description={article.seo_description || article.excerpt}
@@ -213,22 +265,129 @@ const Article = () => {
             )}
 
             {/* Article Content */}
-            <div>
+            <div className="prose prose-invert max-w-none">
               {article.content ? (
-                <MarkdownRenderer content={article.content} />
+                <>
+                  <MarkdownRenderer content={article.content} />
+
+                  {/* Affiliate Disclosure */}
+                  {article.content.includes('amazon.com') && (
+                    <div className="mt-8 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <ExternalLink className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-gray-300">
+                          <strong className="text-cyan-400">Affiliate Disclosure:</strong> This article contains Amazon affiliate links.
+                          As an Amazon Associate, I earn from qualifying purchases at no extra cost to you.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <p>Article content is not available.</p>
                 </div>
               )}
             </div>
+
+            {/* Share Section */}
+            <div className="mt-12 pt-8 border-t border-border">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-lg font-semibold text-gray-300">Share this article</p>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => handleShare('twitter')}
+                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Twitter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => handleShare('linkedin')}
+                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    LinkedIn
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => handleShare('facebook')}
+                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Facebook
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => handleShare('copy')}
+                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Copy Link
+                  </Button>
+                </div>
+              </div>
+            </div>
           </article>
+
+          {/* Related Articles */}
+          {relatedArticles && relatedArticles.length > 0 && (
+            <div className="mt-16 pt-12 border-t border-border">
+              <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center">Related Articles</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {relatedArticles.map((relatedArticle) => (
+                  <Link
+                    key={relatedArticle.id}
+                    to={`/news/${relatedArticle.slug}`}
+                    className="group mobile-card bg-gray-800/50 border border-gray-700 hover:border-cyan-500/50 transition-all duration-200"
+                  >
+                    {relatedArticle.image_url && (
+                      <div className="aspect-video rounded-t-lg overflow-hidden">
+                        <img
+                          src={relatedArticle.image_url}
+                          alt={relatedArticle.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <Badge className="bg-primary/10 text-primary border-primary/20 mb-3">
+                        {relatedArticle.category}
+                      </Badge>
+                      <h3 className="text-lg font-semibold mb-2 group-hover:text-cyan-400 transition-colors">
+                        {relatedArticle.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {relatedArticle.excerpt}
+                      </p>
+                      <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {relatedArticle.read_time}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Eye className="w-3 h-3" />
+                          {relatedArticle.view_count || 0} views
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Article Footer */}
           <div className="mt-16 pt-8 border-t border-border">
             <div className="text-center">
               <Link to="/news">
-                <Button size="lg">
+                <Button size="lg" className="mobile-button">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to All Articles
                 </Button>
