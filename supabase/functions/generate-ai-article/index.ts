@@ -153,6 +153,10 @@ Make sure the content is:
     console.log('Saving article to database...');
 
     // Save the article to the database
+    const safeCategory = articleData.category || 'Artificial Intelligence';
+    const safeSeoKeywords = Array.isArray(articleData.seo_keywords) ? articleData.seo_keywords : [];
+    const safeTags = Array.isArray(articleData.tags) ? articleData.tags : [];
+
     const { data: newArticle, error: insertError } = await supabaseClient
       .from('articles')
       .insert({
@@ -160,10 +164,10 @@ Make sure the content is:
         slug: slug,
         excerpt: articleData.excerpt,
         content: articleData.content,
-        category: articleData.category,
+        category: safeCategory,
         target_keyword: articleData.target_keyword,
-        seo_keywords: articleData.seo_keywords,
-        tags: articleData.tags,
+        seo_keywords: safeSeoKeywords,
+        tags: safeTags,
         author: 'AI Content Generator',
         read_time: readTime,
         published: true, // Auto-publish
@@ -179,6 +183,18 @@ Make sure the content is:
     }
 
     console.log('Article created successfully:', newArticle.id);
+
+    // If published, trigger the webhook asynchronously (do not fail main flow)
+    if (newArticle.published) {
+      try {
+        await supabaseClient.functions.invoke('send-article-webhook', {
+          body: { articleId: newArticle.id, isTest: false }
+        });
+        console.log('Webhook invoked for article', newArticle.id);
+      } catch (e) {
+        console.error('Failed to invoke webhook for article', newArticle.id, e);
+      }
+    }
 
     return new Response(
       JSON.stringify({

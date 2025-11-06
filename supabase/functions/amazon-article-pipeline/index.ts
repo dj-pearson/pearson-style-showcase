@@ -842,6 +842,18 @@ serve(async (req) => {
       .update({ content: finalContent })
       .eq('id', article.id);
 
+    // If article is published, trigger webhook to distribute to social
+    if (article.published) {
+      try {
+        await supabase.functions.invoke('send-article-webhook', {
+          body: { articleId: article.id, isTest: false }
+        });
+        await log('info', 'Webhook invoked for article', { articleId: article.id });
+      } catch (e) {
+        await log('error', 'Failed to invoke webhook', { error: (e as Error)?.message || String(e) });
+      }
+    }
+
     // Update run status
     await supabase
       .from('amazon_pipeline_runs')
