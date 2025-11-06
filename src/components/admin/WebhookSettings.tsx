@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from "@/lib/logger";
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,7 @@ export const WebhookSettings = () => {
         setEnabled(data.enabled);
       }
     } catch (error) {
-      console.error('Error loading webhook settings:', error);
+      logger.error('Error loading webhook settings:', error);
       toast.error('Failed to load webhook settings');
     } finally {
       setLoading(false);
@@ -74,7 +75,7 @@ export const WebhookSettings = () => {
 
       toast.success('Webhook settings saved successfully');
     } catch (error) {
-      console.error('Error saving webhook settings:', error);
+      logger.error('Error saving webhook settings:', error);
       toast.error('Failed to save webhook settings');
     } finally {
       setSaving(false);
@@ -96,9 +97,9 @@ export const WebhookSettings = () => {
       if (error) throw error;
 
       toast.success('Test webhook sent! Check Make.com for the payload structure.');
-      console.log('Test webhook payload:', data.payload);
+      logger.log('Test webhook payload:', data.payload);
     } catch (error) {
-      console.error('Error testing webhook:', error);
+      logger.error('Error testing webhook:', error);
       toast.error('Failed to send test webhook');
     } finally {
       setTesting(false);

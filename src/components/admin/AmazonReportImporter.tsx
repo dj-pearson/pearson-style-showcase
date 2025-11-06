@@ -1,10 +1,29 @@
 import { useState } from "react";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Upload, FileText, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface AmazonReportRecord {
+  date: string;
+  asin: string;
+  quantity: number;
+  revenue: number;
+  commission: number;
+}
+
+interface AmazonAffiliateStats {
+  date: string;
+  asin: string;
+  article_id: string | null;
+  clicks: number;
+  orders: number;
+  revenue: number;
+  commission: number;
+}
 
 export const AmazonReportImporter = () => {
   const [isImporting, setIsImporting] = useState(false);
@@ -43,7 +62,7 @@ export const AmazonReportImporter = () => {
       throw new Error('Could not find required columns (Date, ASIN). Make sure you uploaded an Amazon Associates order report.');
     }
 
-    const records: any[] = [];
+    const records: AmazonReportRecord[] = [];
 
     // Parse data rows
     for (let i = 1; i < lines.length; i++) {
@@ -98,7 +117,7 @@ export const AmazonReportImporter = () => {
       }
 
       // Group by date + ASIN and aggregate
-      const statsMap = new Map<string, any>();
+      const statsMap = new Map<string, AmazonAffiliateStats>();
       
       for (const record of records) {
         const key = `${record.date}-${record.asin}`;
@@ -169,8 +188,8 @@ export const AmazonReportImporter = () => {
       const fileInput = document.getElementById('report-file') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
-    } catch (error: any) {
-      console.error('Import error:', error);
+    } catch (error) {
+      logger.error('Import error:', error);
       toast.error(`Import failed: ${error.message}`);
     } finally {
       setIsImporting(false);

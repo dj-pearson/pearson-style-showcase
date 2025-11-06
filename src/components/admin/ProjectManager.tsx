@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from "@/lib/logger";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -67,11 +68,7 @@ export const ProjectManager: React.FC = () => {
     featured: false
   });
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -82,7 +79,7 @@ export const ProjectManager: React.FC = () => {
       if (error) throw error;
       setProjects(data || []);
     } catch (error) {
-      console.error('Error loading projects:', error);
+      logger.error('Error loading projects:', error);
       toast({
         variant: "destructive",
         title: "Error loading projects",
@@ -91,9 +88,13 @@ export const ProjectManager: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const handleInputChange = (field: keyof Project, value: any) => {
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  const handleInputChange = (field: keyof Project, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -145,7 +146,7 @@ export const ProjectManager: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error generating content:', error);
+      logger.error('Error generating content:', error);
       toast({
         variant: "destructive",
         title: "Generation failed",
@@ -230,7 +231,7 @@ export const ProjectManager: React.FC = () => {
       });
       loadProjects();
     } catch (error) {
-      console.error('Error saving project:', error);
+      logger.error('Error saving project:', error);
       toast({
         variant: "destructive",
         title: "Save failed",
@@ -263,7 +264,7 @@ export const ProjectManager: React.FC = () => {
       
       loadProjects();
     } catch (error) {
-      console.error('Error deleting project:', error);
+      logger.error('Error deleting project:', error);
       toast({
         variant: "destructive",
         title: "Delete failed",
@@ -309,7 +310,7 @@ export const ProjectManager: React.FC = () => {
 
       loadProjects();
     } catch (error) {
-      console.error('Error reordering project:', error);
+      logger.error('Error reordering project:', error);
       toast({
         variant: "destructive",
         title: "Reorder failed",

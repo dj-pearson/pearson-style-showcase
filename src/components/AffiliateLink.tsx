@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface AffiliateLinkProps {
   href: string;
@@ -17,7 +18,7 @@ export const AffiliateLink = ({ href, asin, articleId, children, className = "" 
         body: { articleId, asin }
       });
     } catch (error) {
-      console.error('Failed to track click:', error);
+      logger.error('Failed to track click:', error);
       // Don't block navigation on tracking failure
     }
   };

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,11 +42,7 @@ export const AmazonAffiliateStats = () => {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState(30); // Last 30 days by default
 
-  useEffect(() => {
-    loadStats();
-  }, [dateRange]);
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setLoading(true);
     try {
       const startDate = format(subDays(new Date(), dateRange), 'yyyy-MM-dd');
@@ -151,11 +148,15 @@ export const AmazonAffiliateStats = () => {
         dailyStats,
       });
     } catch (error) {
-      console.error('Error loading affiliate stats:', error);
+      logger.error('Error loading affiliate stats:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   if (loading || !stats) {
     return (

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +44,7 @@ const AdminLogin = () => {
       });
 
       if (authError) {
-        console.error('Auth error:', authError);
+        logger.error('Auth error:', authError);
         setError(authError.message || 'Login failed');
         return;
       }
@@ -63,7 +64,7 @@ const AdminLogin = () => {
       });
 
       if (functionError) {
-        console.error('Function error:', functionError);
+        logger.error('Function error:', functionError);
         await supabase.auth.signOut();
         setError(functionError.message || 'Not authorized for admin access');
         return;
@@ -82,7 +83,7 @@ const AdminLogin = () => {
 
       navigate('/admin/dashboard');
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
@@ -103,7 +104,7 @@ const AdminLogin = () => {
       });
 
       if (functionError) {
-        console.error('Function error:', functionError);
+        logger.error('Function error:', functionError);
         setError(functionError.message || 'Failed to send reset email');
         return;
       }
@@ -120,7 +121,7 @@ const AdminLogin = () => {
       setShowForgotPassword(false);
       setForgotPasswordEmail('');
     } catch (error) {
-      console.error('Forgot password error:', error);
+      logger.error('Forgot password error:', error);
       setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);

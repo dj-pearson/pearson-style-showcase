@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from "@/lib/logger";
 import { supabase } from '@/integrations/supabase/client';
 
 interface SitemapUrl {
@@ -99,7 +100,7 @@ ${allUrls.map(url => `  <url>
 
         setSitemapXml(xml);
       } catch (error) {
-        console.error('Error generating sitemap:', error);
+        logger.error('Error generating sitemap:', error);
         setSitemapXml('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
       }
     };

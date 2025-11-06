@@ -68,8 +68,8 @@ export const withPerformance = <P extends object>(
 };
 
 // Debounce hook for performance
-export const useDebounce = (value: any, delay: number) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+export const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -85,7 +85,7 @@ export const useDebounce = (value: any, delay: number) => {
 };
 
 // Virtual scrolling for large lists
-export const useVirtualScroll = (items: any[], containerHeight: number, itemHeight: number) => {
+export const useVirtualScroll = <T,>(items: T[], containerHeight: number, itemHeight: number) => {
   const [scrollTop, setScrollTop] = useState(0);
   
   const visibleStart = Math.floor(scrollTop / itemHeight);

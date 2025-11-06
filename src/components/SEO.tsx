@@ -11,7 +11,7 @@ interface SEOProps {
   type?: string;
   structuredData?: {
     type: 'website' | 'article' | 'person' | 'organization' | 'project';
-    data: any;
+    data?: Record<string, unknown>;
   };
 }
 

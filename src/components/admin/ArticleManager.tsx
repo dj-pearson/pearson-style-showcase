@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from "@/lib/logger";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -92,7 +93,7 @@ export const ArticleManager: React.FC = () => {
       if (error) throw error;
       setArticles(data || []);
     } catch (error) {
-      console.error('Error loading articles:', error);
+      logger.error('Error loading articles:', error);
       toast({
         variant: "destructive",
         title: "Error loading articles",
@@ -113,7 +114,7 @@ export const ArticleManager: React.FC = () => {
       if (error) throw error;
       setCategories(data?.map(cat => cat.name) || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
     }
   }, []);
 
@@ -208,7 +209,7 @@ export const ArticleManager: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error generating content:', error);
+      logger.error('Error generating content:', error);
       toast({
         variant: "destructive",
         title: "Generation failed",
@@ -366,7 +367,7 @@ export const ArticleManager: React.FC = () => {
       });
       loadArticles();
     } catch (error) {
-      console.error('Error saving article:', error);
+      logger.error('Error saving article:', error);
       toast({
         variant: "destructive",
         title: "Save failed",
@@ -389,7 +390,7 @@ export const ArticleManager: React.FC = () => {
         description: "Article has been sent to Make.com webhook successfully.",
       });
     } catch (error) {
-      console.error('Error sending webhook:', error);
+      logger.error('Error sending webhook:', error);
       toast({
         variant: "destructive",
         title: "Webhook failed",
@@ -428,7 +429,7 @@ export const ArticleManager: React.FC = () => {
       
       loadArticles();
     } catch (error) {
-      console.error('Error deleting article:', error);
+      logger.error('Error deleting article:', error);
       toast({
         variant: "destructive",
         title: "Delete failed",

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logger } from "@/lib/logger";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -37,7 +38,7 @@ const NewsletterSignup = () => {
       });
 
       if (error) {
-        console.error('Newsletter signup error:', error);
+        logger.error('Newsletter signup error:', error);
         throw new Error(error.message || 'Failed to subscribe');
       }
       
@@ -47,11 +48,11 @@ const NewsletterSignup = () => {
       });
       
       reset();
-    } catch (error: any) {
-      console.error('Newsletter signup failed:', error);
+    } catch (error) {
+      logger.error('Newsletter signup failed:', error);
       toast({
         title: "Subscription failed",
-        description: error.message || "Please try again later or contact me directly.",
+        description: error instanceof Error ? error.message : "Please try again later or contact me directly.",
         variant: "destructive",
       });
     } finally {

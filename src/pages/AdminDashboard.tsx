@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from "@/lib/logger";
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -95,7 +96,7 @@ const AdminDashboard = () => {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError || !session) {
-        console.error('No session found');
+        logger.error('No session found');
         navigate('/admin/login');
         return;
       }
@@ -106,7 +107,7 @@ const AdminDashboard = () => {
       });
       
       if (functionError || data?.error) {
-        console.error('Admin verification failed:', functionError || data?.error);
+        logger.error('Admin verification failed:', functionError || data?.error);
         await supabase.auth.signOut();
         navigate('/admin/login');
         return;
@@ -114,7 +115,7 @@ const AdminDashboard = () => {
       
       setAdminUser(data);
     } catch (error) {
-      console.error('Auth check error:', error);
+      logger.error('Auth check error:', error);
       await supabase.auth.signOut();
       navigate('/admin/login');
     }
@@ -137,7 +138,7 @@ const AdminDashboard = () => {
         totalViews
       });
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      logger.error('Error loading dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +161,7 @@ const AdminDashboard = () => {
       
       navigate('/admin/login');
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
       navigate('/admin/login');
     }
   };

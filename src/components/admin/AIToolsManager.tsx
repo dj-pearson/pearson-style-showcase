@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from "@/lib/logger";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -97,7 +98,7 @@ export const AIToolsManager: React.FC = () => {
       if (error) throw error;
       setTools(data || []);
     } catch (error) {
-      console.error('Error loading AI tools:', error);
+      logger.error('Error loading AI tools:', error);
       toast({
         variant: "destructive",
         title: "Error loading AI tools",
@@ -119,7 +120,7 @@ export const AIToolsManager: React.FC = () => {
       if (error) throw error;
       setDraftTools(data || []);
     } catch (error) {
-      console.error('Error loading draft tools:', error);
+      logger.error('Error loading draft tools:', error);
     }
   }, []);
 
@@ -178,7 +179,7 @@ export const AIToolsManager: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error generating content:', error);
+      logger.error('Error generating content:', error);
       toast({
         variant: "destructive",
         title: "Generation failed",
@@ -271,7 +272,7 @@ export const AIToolsManager: React.FC = () => {
       });
       loadTools();
     } catch (error) {
-      console.error('Error saving AI tool:', error);
+      logger.error('Error saving AI tool:', error);
       toast({
         variant: "destructive",
         title: "Save failed",
@@ -304,7 +305,7 @@ export const AIToolsManager: React.FC = () => {
       
       loadTools();
     } catch (error) {
-      console.error('Error deleting AI tool:', error);
+      logger.error('Error deleting AI tool:', error);
       toast({
         variant: "destructive",
         title: "Delete failed",
@@ -351,7 +352,7 @@ export const AIToolsManager: React.FC = () => {
 
       loadTools();
     } catch (error) {
-      console.error('Error reordering AI tool:', error);
+      logger.error('Error reordering AI tool:', error);
       toast({
         variant: "destructive",
         title: "Reorder failed",
@@ -392,7 +393,7 @@ export const AIToolsManager: React.FC = () => {
       loadTools();
       loadDraftTools();
     } catch (error) {
-      console.error('Error approving tool:', error);
+      logger.error('Error approving tool:', error);
       toast({
         variant: "destructive",
         title: "Approval failed",
@@ -419,7 +420,7 @@ export const AIToolsManager: React.FC = () => {
 
       loadDraftTools();
     } catch (error) {
-      console.error('Error rejecting tool:', error);
+      logger.error('Error rejecting tool:', error);
       toast({
         variant: "destructive",
         title: "Rejection failed",

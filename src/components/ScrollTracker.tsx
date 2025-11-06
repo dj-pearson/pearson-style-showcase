@@ -37,13 +37,13 @@ const ScrollTracker = () => {
 };
 
 // Throttle function for performance
-const throttle = (func: Function, delay: number) => {
+const throttle = <T extends (...args: unknown[]) => void>(func: T, delay: number) => {
   let timeoutId: NodeJS.Timeout;
   let lastExecTime = 0;
-  
-  return function (...args: any[]) {
+
+  return function (...args: Parameters<T>) {
     const currentTime = Date.now();
-    
+
     if (currentTime - lastExecTime > delay) {
       func(...args);
       lastExecTime = currentTime;

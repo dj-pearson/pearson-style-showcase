@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 interface StructuredDataProps {
   type: 'website' | 'article' | 'person' | 'organization' | 'project';
-  data: any;
+  data?: Record<string, unknown>;
 }
 
 const StructuredData = ({ type, data }: StructuredDataProps) => {
@@ -144,7 +144,7 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
 
     // Create or update the script tag
     const scriptId = `structured-data-${type}`;
-    let existingScript = document.getElementById(scriptId);
+    const existingScript = document.getElementById(scriptId);
     
     if (existingScript) {
       existingScript.remove();
