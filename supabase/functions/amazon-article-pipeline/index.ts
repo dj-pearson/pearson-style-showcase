@@ -239,39 +239,10 @@ async function enrichProductData(products: any[], log: (level: string, message: 
   return enrichedProducts;
 }
 
-// Fetch SEO data from DataForSEO
-async function fetchSEOData(keyword: string) {
-  const login = Deno.env.get('DATAFORSEO_API_LOGIN');
-  const password = Deno.env.get('DATAFORSEO_API_PASSWORD');
-
-  if (!login || !password) {
-    return { searchVolume: 0, keywords: [] }; // Return empty data if not configured
-  }
-
-  const auth = btoa(`${login}:${password}`);
-
-  const response = await fetch('https://api.dataforseo.com/v3/keywords_data/google/search_volume/live', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify([{
-      keywords: [keyword],
-      language_code: 'en',
-      location_code: 2840 // United States
-    }])
-  });
-
-  if (!response.ok) {
-    throw new Error(`DataForSEO API error: ${response.status}`);
-  }
-
-  return await response.json();
-}
+// SEO data generation removed - focusing on core article generation
 
 // Enhanced AI prompt for better SEO and conversion optimization
-async function generateArticleContent(products: any[], niche: string, seoData: any, wordCount: number) {
+async function generateArticleContent(products: any[], niche: string, wordCount: number) {
   const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
   if (!lovableApiKey) {
@@ -283,7 +254,11 @@ async function generateArticleContent(products: any[], niche: string, seoData: a
 TARGET WORD COUNT: ${wordCount} words
 
 PRODUCTS TO REVIEW:
-${products.map((p, i) => `${i + 1}. ${p.title} (ASIN: ${p.asin})${p.price > 0 ? ` - $${p.price}` : ''}${p.rating > 0 ? ` - ${p.rating}/5 stars` : ''}`).join('\n')}
+${products.map((p, i) => `${i + 1}. ${p.title}
+   - ASIN: ${p.asin}
+   - Image URL: ${p.imageUrl || 'No image available'}
+   ${p.price > 0 ? `- Price: $${p.price}` : ''}
+   ${p.rating > 0 ? `- Rating: ${p.rating}/5 stars (${p.ratingCount || 0} reviews)` : ''}`).join('\n\n')}
 
 ARTICLE STRUCTURE:
 
@@ -305,12 +280,13 @@ ARTICLE STRUCTURE:
 
 4. **In-Depth Product Reviews** (Main body)
    For EACH product, include:
-   - Engaging overview (why it stands out)
-   - **What We Love** (4-5 specific pros with details)
-   - **Room for Improvement** (2-3 honest cons)
-   - **Key Specifications** (most important specs)
-   - **Best For** (specific use case/user type)
-   - Natural call-to-action mentioning Amazon
+   - Start with an <img> tag using the product's image URL: <img src="IMAGE_URL_HERE" alt="[Product Name] - [Main Feature]" />
+   - Engaging overview paragraph (why it stands out)
+   - **What We Love** section with <ul> list of 4-5 specific pros with details
+   - **Room for Improvement** section with <ul> list of 2-3 honest cons
+   - **Key Specifications** table or list with most important specs
+   - **Best For** paragraph describing specific use case/user type
+   - End with call-to-action: <a href="AMAZON_LINK_PLACEHOLDER" class="amazon-button">Check Price on Amazon</a>
 
 5. **Comparison & Winner Analysis** (200-300 words)
    - Direct comparisons between products
@@ -767,25 +743,23 @@ serve(async (req) => {
 
     await log('info', `Using ${products.length} products for article generation`);
 
-    // Fetch SEO data (optional - don't fail if it errors)
-    let seoData = { searchVolume: 0, keywords: [] };
-    try {
-      await log('info', 'Fetching SEO data');
-      seoData = await fetchSEOData(niche);
-    } catch (err) {
-      await log('warn', 'SEO data fetch failed, continuing without it', {
-        error: (err as Error)?.message
-      });
-    }
-
     // Generate article
     await log('info', 'Generating SEO-optimized article content with AI');
-    const articleData = await generateArticleContent(
-      products,
-      niche,
-      seoData,
-      settings.word_count_target
-    );
+    let articleData;
+    try {
+      articleData = await generateArticleContent(
+        products,
+        niche,
+        settings.word_count_target
+      );
+      await log('info', 'AI article generation completed successfully');
+    } catch (aiError) {
+      await log('error', 'AI generation failed', {
+        error: (aiError as Error)?.message,
+        stack: (aiError as Error)?.stack
+      });
+      throw new Error(`AI generation failed: ${(aiError as Error)?.message}`);
+    }
 
     // Create slug
     const slug = articleData.title.toLowerCase()
@@ -834,10 +808,15 @@ serve(async (req) => {
       await log('info', `Marked search term "${niche}" as used`);
     }
 
-    // Link products to article with affiliate URLs
+    // Link products to article with affiliate URLs and replace placeholders in content
+    let finalContent = articleData.content;
+    
     for (const productData of articleData.products) {
       // Generate affiliate URL with your Amazon tag
       const affiliateUrl = `https://www.amazon.com/dp/${productData.asin}/?tag=${settings.amazon_tag}`;
+
+      // Replace placeholder in content with actual affiliate link
+      finalContent = finalContent.replace(/AMAZON_LINK_PLACEHOLDER/g, affiliateUrl);
 
       await supabase.from('article_products').insert({
         article_id: article.id,
@@ -855,6 +834,12 @@ serve(async (req) => {
         tag: settings.amazon_tag
       });
     }
+
+    // Update article content with actual affiliate links
+    await supabase
+      .from('articles')
+      .update({ content: finalContent })
+      .eq('id', article.id);
 
     // Update run status
     await supabase

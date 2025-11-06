@@ -60,6 +60,10 @@
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-glow: all 0.5s ease-in-out;
 
+    /* Amazon button colors */
+    --amazon-orange: 28 100% 50%;
+    --amazon-orange-hover: 28 100% 45%;
+
     --sidebar-background: 0 0% 98%;
 
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -259,5 +263,41 @@
 
   .hover-scale:hover {
     transform: scale(1.05);
+  }
+
+  /* Amazon affiliate button - Mobile First */
+  .amazon-button {
+    @apply inline-block px-6 py-3 sm:px-8 sm:py-4 font-bold text-sm sm:text-base rounded-lg;
+    background: hsl(var(--amazon-orange));
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    transition: var(--transition-smooth);
+    box-shadow: 0 4px 12px hsl(var(--amazon-orange) / 0.3);
+    min-height: 44px; /* Touch target optimization */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+  }
+
+  .amazon-button:hover {
+    background: hsl(var(--amazon-orange-hover));
+    box-shadow: 0 6px 20px hsl(var(--amazon-orange) / 0.5);
+    transform: translateY(-2px);
+  }
+
+  .amazon-button:active {
+    transform: translateY(0);
+  }
+
+  /* Article product images */
+  article img {
+    @apply rounded-lg max-w-full h-auto my-4;
+    box-shadow: var(--shadow-card);
+  }
+
+  article img[alt] {
+    @apply mx-auto;
   }
 }
