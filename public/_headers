@@ -1,22 +1,36 @@
 # Cache static assets for 1 year (immutable content-hash based assets)
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
 
-# Cache images for 1 week
+# Cache JavaScript and CSS files with stale-while-revalidate
+/assets/*.js
+  Cache-Control: public, max-age=31536000, immutable, stale-while-revalidate=604800
+
+/assets/*.css
+  Cache-Control: public, max-age=31536000, immutable, stale-while-revalidate=604800
+
+# Cache images for 1 week with stale-while-revalidate
 /*.png
-  Cache-Control: public, max-age=604800, s-maxage=604800
+  Cache-Control: public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400
+
 /*.jpg
-  Cache-Control: public, max-age=604800, s-maxage=604800
+  Cache-Control: public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400
+
 /*.jpeg
-  Cache-Control: public, max-age=604800, s-maxage=604800
+  Cache-Control: public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400
+
 /*.svg
-  Cache-Control: public, max-age=604800, s-maxage=604800
+  Cache-Control: public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400
+
 /*.webp
-  Cache-Control: public, max-age=604800, s-maxage=604800
+  Cache-Control: public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400
+
 /*.gif
-  Cache-Control: public, max-age=604800, s-maxage=604800
+  Cache-Control: public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400
+
 /*.ico
-  Cache-Control: public, max-age=604800, s-maxage=604800
+  Cache-Control: public, max-age=2592000, immutable
 
 # Don't cache HTML to ensure fresh content
 /*.html
@@ -25,14 +39,27 @@
 # Cache fonts for 1 year
 /*.woff
   Cache-Control: public, max-age=31536000, immutable
+
 /*.woff2
   Cache-Control: public, max-age=31536000, immutable
+
 /*.ttf
   Cache-Control: public, max-age=31536000, immutable
 
-# Security headers for all pages
+# Cache manifest and other static files
+/*.json
+  Cache-Control: public, max-age=86400
+
+/*.xml
+  Cache-Control: public, max-age=86400
+
+/*.txt
+  Cache-Control: public, max-age=86400
+
+# Security and performance headers for all pages
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+  X-XSS-Protection: 1; mode=block

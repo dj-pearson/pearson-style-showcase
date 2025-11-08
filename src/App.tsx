@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Analytics from "./components/Analytics";
 import ScrollTracker from "./components/ScrollTracker";
 import LoadingSpinner from "./components/LoadingSpinner";
+import RoutePrefetcher from "./components/RoutePrefetcher";
 
 // Lazy load pages to reduce initial bundle and improve FID
 import Index from "./pages/Index";
@@ -49,6 +50,7 @@ const App = () => (
         <URLHandler>
         <Analytics />
         <ScrollTracker />
+        <RoutePrefetcher />
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
           <Routes>
             <Route path="/" element={<Index />} />
