@@ -44,6 +44,7 @@ import AnalyticsSettings from '@/components/admin/AnalyticsSettings';
 import SEOManager from '@/components/admin/SEOManager';
 import NewsletterManager from '@/components/admin/NewsletterManager';
 import { WebhookSettings } from '@/components/admin/WebhookSettings';
+import { CommandCenterDashboard } from '@/components/admin/CommandCenterDashboard';
 
 interface AdminUser {
   id: string;
@@ -76,6 +77,7 @@ const AdminDashboard = () => {
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'command-center', label: 'Command Center', icon: Activity },
     { id: 'projects', label: 'Projects', icon: FolderKanban },
     { id: 'articles', label: 'Articles', icon: FileText },
     { id: 'tools', label: 'AI Tools', icon: Wrench },
@@ -224,6 +226,8 @@ const AdminDashboard = () => {
             </Card>
           </div>
         );
+      case 'command-center':
+        return <CommandCenterDashboard />;
       case 'projects':
         return <ProjectManager />;
       case 'articles':
