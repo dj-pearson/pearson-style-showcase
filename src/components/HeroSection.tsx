@@ -1,11 +1,24 @@
 import { ArrowRight } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 // Lazy load the 3D orb to prevent render blocking
 const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
 
 const HeroSection = () => {
+  // Delay loading the 3D orb until after initial paint to improve FCP and LCP
+  const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
+
+  useEffect(() => {
+    // Only load the heavy 3D orb after the page has had time to render critical content
+    // This prevents the 995KB Three.js bundle from blocking initial render
+    const timer = setTimeout(() => {
+      setShouldLoadOrb(true);
+    }, 500); // Delay by 500ms to prioritize critical content
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <section className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-20 sm:pt-24 mobile-container">
       {/* Background gradient */}
@@ -62,12 +75,14 @@ const HeroSection = () => {
         </div>
       </div>
 
-      {/* Interactive 3D Particle Orb - Lazy loaded to prevent render blocking */}
-      <div className="absolute inset-0 pointer-events-none" style={{ contentVisibility: 'auto' }}>
-        <Suspense fallback={null}>
-          <Interactive3DOrb />
-        </Suspense>
-      </div>
+      {/* Interactive 3D Particle Orb - Delayed loading to prevent blocking initial render */}
+      {shouldLoadOrb && (
+        <div className="absolute inset-0 pointer-events-none" style={{ contentVisibility: 'auto' }}>
+          <Suspense fallback={null}>
+            <Interactive3DOrb />
+          </Suspense>
+        </div>
+      )}
 
       {/* Decorative elements - Mobile optimized */}
       <div className="absolute top-6 sm:top-10 right-6 sm:right-10 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-primary rounded-full animate-ping"></div>

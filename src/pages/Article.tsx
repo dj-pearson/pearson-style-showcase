@@ -46,9 +46,10 @@ const Article = () => {
     queryFn: async () => {
       if (!article) return [];
 
+      // Only select fields needed for related articles cards to reduce payload
       const { data, error } = await supabase
         .from('articles')
-        .select('*')
+        .select('id, slug, title, excerpt, category, image_url, created_at, read_time, view_count')
         .eq('published', true)
         .neq('id', article.id)
         .or(`category.eq.${article.category}`)

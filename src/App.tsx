@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Analytics from "./components/Analytics";
 import ScrollTracker from "./components/ScrollTracker";
 import LoadingSpinner from "./components/LoadingSpinner";
+import RoutePrefetcher from "./components/RoutePrefetcher";
 
 // Lazy load pages to reduce initial bundle and improve FID
 import Index from "./pages/Index";
@@ -24,7 +25,21 @@ const SitemapXML = lazy(() => import("./pages/SitemapXML"));
 const RobotsTxt = lazy(() => import("./pages/RobotsTxt"));
 const DateArchive = lazy(() => import("./pages/DateArchive"));
 
-const queryClient = new QueryClient();
+// Configure QueryClient with optimized defaults for better caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Cache data for 5 minutes before considering it stale
+      staleTime: 5 * 60 * 1000,
+      // Keep unused data in cache for 10 minutes
+      gcTime: 10 * 60 * 1000,
+      // Retry failed requests up to 1 time instead of 3
+      retry: 1,
+      // Don't refetch on window focus for better performance
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -35,6 +50,7 @@ const App = () => (
         <URLHandler>
         <Analytics />
         <ScrollTracker />
+        <RoutePrefetcher />
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
           <Routes>
             <Route path="/" element={<Index />} />

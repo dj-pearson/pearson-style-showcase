@@ -44,13 +44,14 @@ const Projects = () => {
   const { data: projects, isLoading, error } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
+      // Only select fields needed for project list view to reduce payload size
       const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, title, description, tags, image_url, demo_url, github_url, featured, sort_order, created_at, tech_stack')
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data as Project[];
     },

@@ -21,13 +21,14 @@ const AITools = () => {
   const { data: tools, isLoading, error } = useQuery({
     queryKey: ['ai_tools'],
     queryFn: async () => {
+      // Only select fields needed for AI tools list view to reduce payload size
       const { data, error } = await supabase
         .from('ai_tools')
-        .select('*')
+        .select('id, title, description, category, features, link, pricing, complexity, status, sort_order, created_at')
         .eq('status', 'Active')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data as AITool[];
     },
