@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Settings, 
-  LogOut, 
-  Shield, 
-  Database, 
-  Users, 
-  FileText, 
+import {
+  Settings,
+  LogOut,
+  Shield,
+  Database,
+  Users,
+  FileText,
   Wrench,
   BarChart3,
   Activity,
@@ -18,7 +18,8 @@ import {
   Mail,
   LayoutDashboard,
   FolderKanban,
-  ShoppingCart
+  ShoppingCart,
+  MessageSquare
 } from 'lucide-react';
 import {
   Sidebar,
@@ -45,6 +46,7 @@ import SEOManager from '@/components/admin/SEOManager';
 import NewsletterManager from '@/components/admin/NewsletterManager';
 import { WebhookSettings } from '@/components/admin/WebhookSettings';
 import { CommandCenterDashboard } from '@/components/admin/CommandCenterDashboard';
+import { SupportTicketDashboard } from '@/components/admin/SupportTicketDashboard';
 
 interface AdminUser {
   id: string;
@@ -78,6 +80,7 @@ const AdminDashboard = () => {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'command-center', label: 'Command Center', icon: Activity },
+    { id: 'support', label: 'Support Tickets', icon: MessageSquare },
     { id: 'projects', label: 'Projects', icon: FolderKanban },
     { id: 'articles', label: 'Articles', icon: FileText },
     { id: 'tools', label: 'AI Tools', icon: Wrench },
@@ -228,6 +231,8 @@ const AdminDashboard = () => {
         );
       case 'command-center':
         return <CommandCenterDashboard />;
+      case 'support':
+        return <SupportTicketDashboard />;
       case 'projects':
         return <ProjectManager />;
       case 'articles':
