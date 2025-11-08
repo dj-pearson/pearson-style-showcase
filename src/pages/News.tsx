@@ -45,9 +45,10 @@ const News = () => {
   const { data: articles, isLoading, error } = useQuery({
     queryKey: ['articles'],
     queryFn: async () => {
+      // Only select fields needed for article list view to reduce payload size
       const { data, error } = await supabase
         .from('articles')
-        .select('*')
+        .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
         .eq('published', true)
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false });
@@ -67,7 +68,6 @@ const News = () => {
     const matchesSearch =
       article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       article.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
     return matchesSearch && matchesCategory;

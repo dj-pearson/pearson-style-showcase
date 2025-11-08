@@ -1,0 +1,38 @@
+# Cache static assets for 1 year (immutable content-hash based assets)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Cache images for 1 week
+/*.png
+  Cache-Control: public, max-age=604800, s-maxage=604800
+/*.jpg
+  Cache-Control: public, max-age=604800, s-maxage=604800
+/*.jpeg
+  Cache-Control: public, max-age=604800, s-maxage=604800
+/*.svg
+  Cache-Control: public, max-age=604800, s-maxage=604800
+/*.webp
+  Cache-Control: public, max-age=604800, s-maxage=604800
+/*.gif
+  Cache-Control: public, max-age=604800, s-maxage=604800
+/*.ico
+  Cache-Control: public, max-age=604800, s-maxage=604800
+
+# Don't cache HTML to ensure fresh content
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Cache fonts for 1 year
+/*.woff
+  Cache-Control: public, max-age=31536000, immutable
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+/*.ttf
+  Cache-Control: public, max-age=31536000, immutable
+
+# Security headers for all pages
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()

@@ -24,7 +24,21 @@ const SitemapXML = lazy(() => import("./pages/SitemapXML"));
 const RobotsTxt = lazy(() => import("./pages/RobotsTxt"));
 const DateArchive = lazy(() => import("./pages/DateArchive"));
 
-const queryClient = new QueryClient();
+// Configure QueryClient with optimized defaults for better caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Cache data for 5 minutes before considering it stale
+      staleTime: 5 * 60 * 1000,
+      // Keep unused data in cache for 10 minutes
+      gcTime: 10 * 60 * 1000,
+      // Retry failed requests up to 1 time instead of 3
+      retry: 1,
+      // Don't refetch on window focus for better performance
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
