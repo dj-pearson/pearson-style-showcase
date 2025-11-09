@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { logger } from "@/lib/logger";
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Shield, Lock, User, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const AdminLogin = () => {
@@ -23,7 +24,18 @@ const AdminLogin = () => {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { signIn, isAuthenticated } = useAuth();
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+      sessionStorage.removeItem('auth_return_url');
+      navigate(returnUrl, { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -37,51 +49,26 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      // First authenticate with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password
-      });
+      // Use the AuthContext signIn method which handles both auth and admin verification
+      const result = await signIn(formData.email, formData.password);
 
-      if (authError) {
-        logger.error('Auth error:', authError);
-        setError(authError.message || 'Login failed');
+      if (!result.success) {
+        setError(result.error || 'Login failed');
         return;
       }
 
-      if (!authData.session) {
-        setError('Login failed - no session created');
-        return;
-      }
-
-      // Then verify admin access via edge function
-      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
-        body: {
-          action: 'login',
-          email: formData.email,
-          password: formData.password
-        }
-      });
-
-      if (functionError) {
-        logger.error('Function error:', functionError);
-        await supabase.auth.signOut();
-        setError(functionError.message || 'Not authorized for admin access');
-        return;
-      }
-
-      if (data?.error) {
-        await supabase.auth.signOut();
-        setError(data.error);
-        return;
-      }
-
+      // Success toast
       toast({
         title: "Login successful",
         description: "Welcome to the admin dashboard",
       });
 
-      navigate('/admin/dashboard');
+      // Get return URL from session storage or default to dashboard
+      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+      sessionStorage.removeItem('auth_return_url');
+
+      logger.info('Navigating to:', returnUrl);
+      navigate(returnUrl, { replace: true });
     } catch (error) {
       logger.error('Login error:', error);
       setError('Network error. Please try again.');
