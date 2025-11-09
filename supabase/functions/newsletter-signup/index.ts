@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://danpearson.net", // TODO: Update to your domain
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://danpearson.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

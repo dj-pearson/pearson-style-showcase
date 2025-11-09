@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://danpearson.net", // TODO: Update to your domain
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://danpearson.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, cookie",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Credentials": "true",
@@ -306,9 +306,12 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    // Log full error details server-side only for debugging
     console.error("Request error:", error);
+
+    // Return generic error message to client (security best practice)
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

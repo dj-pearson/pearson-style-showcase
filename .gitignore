@@ -13,6 +13,12 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (SECURITY: Never commit these!)
+.env
+.env.local
+.env.*.local
+.env.production
+
 # Lockfiles (keep only one)
 package-lock.json
 yarn.lock

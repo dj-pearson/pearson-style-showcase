@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from "@/lib/logger";
+import { validateTextInput, validateUrl, sanitizeStringArray, sanitizeHtml } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -201,18 +202,52 @@ export const AIToolsManager: React.FC = () => {
         return;
       }
 
+      // Validate and sanitize inputs (SECURITY: Prevent injection attacks)
+      const sanitizedTitle = validateTextInput(formData.title, 255);
+      const sanitizedDescription = sanitizeHtml(formData.description);
+      const sanitizedCategory = validateTextInput(formData.category, 100);
+
+      if (!sanitizedTitle || !sanitizedDescription || !sanitizedCategory) {
+        toast({
+          variant: "destructive",
+          title: "Invalid input",
+          description: "Please check your input for invalid characters or excessive length.",
+        });
+        return;
+      }
+
+      // Validate URLs if provided
+      const sanitizedLink = formData.link ? validateUrl(formData.link) : null;
+      const sanitizedGithubLink = formData.github_link ? validateUrl(formData.github_link) : null;
+      const sanitizedImageUrl = formData.image_url ? validateUrl(formData.image_url) : null;
+
+      if ((formData.link && !sanitizedLink) ||
+          (formData.github_link && !sanitizedGithubLink) ||
+          (formData.image_url && !sanitizedImageUrl)) {
+        toast({
+          variant: "destructive",
+          title: "Invalid URL",
+          description: "Please provide valid URLs for links and images.",
+        });
+        return;
+      }
+
+      // Sanitize arrays
+      const sanitizedFeatures = formData.features ? sanitizeStringArray(formData.features, 200) : null;
+      const sanitizedTags = formData.tags ? sanitizeStringArray(formData.tags, 50) : null;
+
       const toolData = {
-        title: formData.title!,
-        description: formData.description!,
-        category: formData.category!,
-        image_url: formData.image_url || null,
-        link: formData.link || null,
-        github_link: formData.github_link || null,
-        features: formData.features || null,
+        title: sanitizedTitle,
+        description: sanitizedDescription,
+        category: sanitizedCategory,
+        image_url: sanitizedImageUrl,
+        link: sanitizedLink,
+        github_link: sanitizedGithubLink,
+        features: sanitizedFeatures,
         pricing: formData.pricing || 'Free',
         complexity: formData.complexity || 'Intermediate',
         status: formData.status || 'Active',
-        tags: formData.tags || null,
+        tags: sanitizedTags,
         metrics: (formData.metrics as Json) || null,
         sort_order: formData.sort_order || 0,
         updated_at: new Date().toISOString()
