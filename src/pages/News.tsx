@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Filter, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { ArticleListSkeleton } from '@/components/skeletons';
 
 type Article = Tables<"articles">;
 
@@ -228,11 +229,7 @@ const News = () => {
           {/* Articles Grid */}
           <div className="pb-12 sm:pb-16">
             {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-80 bg-gray-800/50 rounded-lg animate-pulse" />
-                ))}
-              </div>
+              <ArticleListSkeleton count={6} />
             ) : error ? (
               <div className="text-center py-12 px-4">
                 <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">

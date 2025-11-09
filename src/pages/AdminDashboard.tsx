@@ -20,8 +20,11 @@ import {
   FolderKanban,
   ShoppingCart,
   MessageSquare,
-  Zap
+  Zap,
+  Keyboard
 } from 'lucide-react';
+import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
+import { KeyboardShortcutsHelp } from '@/components/admin/KeyboardShortcutsHelp';
 import {
   Sidebar,
   SidebarContent,
@@ -76,6 +79,7 @@ const AdminDashboard = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [activeView, setActiveView] = useState('overview');
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -92,6 +96,54 @@ const AdminDashboard = () => {
     { id: 'seo', label: 'SEO', icon: Search },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  // Keyboard shortcuts configuration
+  const shortcuts: KeyboardShortcut[] = [
+    {
+      key: '?',
+      description: 'Show keyboard shortcuts',
+      action: () => setShowShortcuts(true),
+    },
+    {
+      key: 'o',
+      ctrlKey: true,
+      description: 'Go to Overview',
+      action: () => setActiveView('overview'),
+      preventDefault: true,
+    },
+    {
+      key: 'p',
+      ctrlKey: true,
+      description: 'Go to Projects',
+      action: () => setActiveView('projects'),
+      preventDefault: true,
+    },
+    {
+      key: 'a',
+      ctrlKey: true,
+      description: 'Go to Articles',
+      action: () => setActiveView('articles'),
+      preventDefault: true,
+    },
+    {
+      key: 's',
+      ctrlKey: true,
+      description: 'Go to Settings',
+      action: () => setActiveView('settings'),
+      preventDefault: true,
+    },
+    {
+      key: 'Escape',
+      description: 'Close dialogs / Return to Overview',
+      action: () => {
+        setShowShortcuts(false);
+        setActiveView('overview');
+      },
+    },
+  ];
+
+  // Initialize keyboard shortcuts
+  useKeyboardShortcuts(shortcuts, !isLoading);
 
   useEffect(() => {
     checkAdminAuth();
@@ -354,6 +406,15 @@ const AdminDashboard = () => {
                   <span className="text-xs sm:text-sm text-muted-foreground hidden md:inline">
                     Welcome, {adminUser?.username}
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowShortcuts(true)}
+                    title="Keyboard Shortcuts (Press ?)"
+                    aria-label="Show keyboard shortcuts"
+                  >
+                    <Keyboard className="h-4 w-4" />
+                  </Button>
                   <Button variant="outline" size="sm" onClick={handleLogout}>
                     <LogOut className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Logout</span>
@@ -419,6 +480,13 @@ const AdminDashboard = () => {
           </main>
         </div>
       </div>
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsHelp
+        open={showShortcuts}
+        onOpenChange={setShowShortcuts}
+        shortcuts={shortcuts}
+      />
     </SidebarProvider>
   );
 };
