@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Settings,
   LogOut,
@@ -70,7 +71,7 @@ interface DashboardStats {
 }
 
 const AdminDashboard = () => {
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const { adminUser, signOut } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     projects: 0,
     articles: 0,
@@ -146,40 +147,10 @@ const AdminDashboard = () => {
   useKeyboardShortcuts(shortcuts, !isLoading);
 
   useEffect(() => {
-    checkAdminAuth();
+    // Auth is now handled by AuthContext and ProtectedRoute
+    // Just load dashboard data
     loadDashboardData();
   }, []);
-
-  const checkAdminAuth = async () => {
-    try {
-      // First check if we have a Supabase session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        logger.error('No session found');
-        navigate('/admin/login');
-        return;
-      }
-
-      // Then verify admin access via edge function with the JWT token
-      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
-        body: { action: 'me' }
-      });
-      
-      if (functionError || data?.error) {
-        logger.error('Admin verification failed:', functionError || data?.error);
-        await supabase.auth.signOut();
-        navigate('/admin/login');
-        return;
-      }
-      
-      setAdminUser(data);
-    } catch (error) {
-      logger.error('Auth check error:', error);
-      await supabase.auth.signOut();
-      navigate('/admin/login');
-    }
-  };
 
   const loadDashboardData = async () => {
     try {
@@ -206,19 +177,14 @@ const AdminDashboard = () => {
 
   const handleLogout = async () => {
     try {
-      // Sign out from Supabase Auth
-      await supabase.auth.signOut();
-      
-      // Notify edge function (optional, for cleanup)
-      await supabase.functions.invoke('admin-auth', {
-        body: { action: 'logout' }
-      });
-      
+      // Use AuthContext signOut method
+      await signOut();
+
       toast({
         title: "Logged out successfully",
         description: "You have been securely logged out",
       });
-      
+
       navigate('/admin/login');
     } catch (error) {
       logger.error('Logout error:', error);

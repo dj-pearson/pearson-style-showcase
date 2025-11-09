@@ -10,6 +10,8 @@ import ScrollTracker from "./components/ScrollTracker";
 import LoadingSpinner from "./components/LoadingSpinner";
 import RoutePrefetcher from "./components/RoutePrefetcher";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 // Lazy load pages to reduce initial bundle and improve FID
 import Index from "./pages/Index";
@@ -49,12 +51,13 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <URLHandler>
-          <Analytics />
-          <ScrollTracker />
-          <RoutePrefetcher />
-          <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
-            <Routes>
+          <AuthProvider>
+            <URLHandler>
+            <Analytics />
+            <ScrollTracker />
+            <RoutePrefetcher />
+            <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
+              <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/about" element={<About />} />
             <Route path="/projects" element={<Projects />} />
@@ -63,7 +66,14 @@ const App = () => (
             <Route path="/ai-tools" element={<AITools />} />
             <Route path="/connect" element={<Connect />} />
             <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/sitemap.xml" element={<SitemapXML />} />
             <Route path="/robots.txt" element={<RobotsTxt />} />
             
@@ -108,9 +118,10 @@ const App = () => (
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-          </URLHandler>
+              </Routes>
+            </Suspense>
+            </URLHandler>
+          </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
