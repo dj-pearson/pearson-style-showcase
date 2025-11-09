@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from "@/lib/logger";
+import { validateTextInput, validateUrl, validateSlug, sanitizeStringArray, sanitizeHtml } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -231,9 +232,46 @@ export const ArticleManager: React.FC = () => {
         return;
       }
 
+      // Validate and sanitize inputs (SECURITY: Prevent injection attacks)
+      const sanitizedTitle = validateTextInput(formData.title, 255);
+      const sanitizedSlug = validateSlug(formData.slug);
+      const sanitizedExcerpt = validateTextInput(formData.excerpt, 500);
+      const sanitizedCategory = validateTextInput(formData.category, 100);
+      const sanitizedAuthor = formData.author ? validateTextInput(formData.author, 100) : null;
+
+      if (!sanitizedTitle || !sanitizedSlug || !sanitizedExcerpt || !sanitizedCategory) {
+        toast({
+          variant: "destructive",
+          title: "Invalid input",
+          description: "Please check your input for invalid characters or excessive length.",
+        });
+        return;
+      }
+
+      // Sanitize optional text fields
+      const sanitizedSeoTitle = formData.seo_title ? validateTextInput(formData.seo_title, 255) : null;
+      const sanitizedSeoDescription = formData.seo_description ? validateTextInput(formData.seo_description, 500) : null;
+      const sanitizedTargetKeyword = formData.target_keyword ? validateTextInput(formData.target_keyword, 100) : null;
+      const sanitizedReadTime = formData.read_time ? validateTextInput(formData.read_time, 50) : null;
+
+      // Validate URL if provided
+      const sanitizedImageUrl = formData.image_url ? validateUrl(formData.image_url) : null;
+      if (formData.image_url && !sanitizedImageUrl) {
+        toast({
+          variant: "destructive",
+          title: "Invalid URL",
+          description: "Please provide a valid image URL.",
+        });
+        return;
+      }
+
+      // Sanitize arrays
+      const sanitizedTags = formData.tags ? sanitizeStringArray(formData.tags, 50) : null;
+      const sanitizedSeoKeywords = formData.seo_keywords ? sanitizeStringArray(formData.seo_keywords, 100) : null;
+
       // Check if this is a Build Desk article and add the HTML if needed
       let content = formData.content || '';
-      const isBuildDeskArticle = formData.category === 'Build Desk' || formData.slug === 'build-desk' || formData.slug?.includes('build-desk');
+      const isBuildDeskArticle = formData.category === 'Build Desk' || sanitizedSlug === 'build-desk' || sanitizedSlug?.includes('build-desk');
       
       if (isBuildDeskArticle && content) {
         const buildDeskHtml = `
@@ -277,22 +315,33 @@ export const ArticleManager: React.FC = () => {
         }
       }
 
+      // Sanitize HTML content while preserving allowed tags
+      const sanitizedContent = content ? sanitizeHtml(content, {
+        ALLOWED_TAGS: [
+          'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+          'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
+          'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'button', 'style'
+        ],
+        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style', 'target', 'rel'],
+        ALLOW_DATA_ATTR: false,
+      }) : '';
+
       const articleData = {
-        title: formData.title!,
-        slug: formData.slug!,
-        excerpt: formData.excerpt!,
-        content: content,
-        category: formData.category!,
-        author: formData.author || 'Dan Pearson',
-        image_url: formData.image_url || null,
+        title: sanitizedTitle,
+        slug: sanitizedSlug,
+        excerpt: sanitizedExcerpt,
+        content: sanitizedContent,
+        category: sanitizedCategory,
+        author: sanitizedAuthor || 'Dan Pearson',
+        image_url: sanitizedImageUrl,
         published: formData.published || false,
         featured: formData.featured || false,
-        read_time: formData.read_time || '5 min read',
-        seo_title: formData.seo_title || null,
-        seo_description: formData.seo_description || null,
-        seo_keywords: formData.seo_keywords || null,
-        target_keyword: formData.target_keyword || null,
-        tags: formData.tags || null,
+        read_time: sanitizedReadTime || '5 min read',
+        seo_title: sanitizedSeoTitle,
+        seo_description: sanitizedSeoDescription,
+        seo_keywords: sanitizedSeoKeywords,
+        target_keyword: sanitizedTargetKeyword,
+        tags: sanitizedTags,
         updated_at: new Date().toISOString()
       };
 
