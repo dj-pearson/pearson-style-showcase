@@ -9,6 +9,7 @@ import Analytics from "./components/Analytics";
 import ScrollTracker from "./components/ScrollTracker";
 import LoadingSpinner from "./components/LoadingSpinner";
 import RoutePrefetcher from "./components/RoutePrefetcher";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Lazy load pages to reduce initial bundle and improve FID
 import Index from "./pages/Index";
@@ -42,17 +43,18 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <URLHandler>
-        <Analytics />
-        <ScrollTracker />
-        <RoutePrefetcher />
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
-          <Routes>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <URLHandler>
+          <Analytics />
+          <ScrollTracker />
+          <RoutePrefetcher />
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
+            <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/about" element={<About />} />
             <Route path="/projects" element={<Projects />} />
@@ -106,12 +108,13 @@ const App = () => (
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-        </URLHandler>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+            </Routes>
+          </Suspense>
+          </URLHandler>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

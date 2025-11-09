@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, Filter, X, ExternalLink, Github } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { ProjectListSkeleton } from '@/components/skeletons';
 
 type Project = Tables<"projects">;
 
@@ -218,11 +219,7 @@ const Projects = () => {
           {/* Projects Grid - Mobile First */}
           <div className="pb-12 sm:pb-16">
             {isLoading ? (
-              <div className="mobile-grid">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="skeleton h-80 rounded-xl" />
-                ))}
-              </div>
+              <ProjectListSkeleton count={6} />
             ) : error ? (
               <div className="text-center mobile-section">
                 <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
