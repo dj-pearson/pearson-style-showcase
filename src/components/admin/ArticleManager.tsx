@@ -14,13 +14,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { FileUpload } from './FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Sparkles, 
-  Save, 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Sparkles,
+  Save,
   X,
   FileText,
   Image as ImageIcon,
@@ -64,6 +65,7 @@ export const ArticleManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingWebhooks, setSendingWebhooks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Form state
   const [formData, setFormData] = useState<Partial<Article>>({
@@ -123,6 +125,139 @@ export const ArticleManager: React.FC = () => {
     loadArticles();
     loadCategories();
   }, [loadArticles, loadCategories]);
+
+  // Optimistic UI: Toggle published status
+  const togglePublishedMutation = useMutation({
+    mutationFn: async ({ id, published }: { id: string; published: boolean }) => {
+      const { error } = await supabase
+        .from('articles')
+        .update({ published, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+      return { id, published };
+    },
+    onMutate: async ({ id, published }) => {
+      // Optimistically update the UI
+      setArticles(prev =>
+        prev.map(article =>
+          article.id === id ? { ...article, published } : article
+        )
+      );
+
+      toast({
+        title: published ? "Publishing article..." : "Unpublishing article...",
+        description: "Changes will be saved momentarily.",
+      });
+
+      // Return context for rollback
+      return { previousArticles: articles };
+    },
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousArticles) {
+        setArticles(context.previousArticles);
+      }
+      logger.error('Error toggling published status:', error);
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: "Could not update article status. Please try again.",
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: data.published ? "Article published" : "Article unpublished",
+        description: "Status updated successfully.",
+      });
+    },
+  });
+
+  // Optimistic UI: Toggle featured status
+  const toggleFeaturedMutation = useMutation({
+    mutationFn: async ({ id, featured }: { id: string; featured: boolean }) => {
+      const { error } = await supabase
+        .from('articles')
+        .update({ featured, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+      return { id, featured };
+    },
+    onMutate: async ({ id, featured }) => {
+      // Optimistically update the UI
+      setArticles(prev =>
+        prev.map(article =>
+          article.id === id ? { ...article, featured } : article
+        )
+      );
+
+      // Return context for rollback
+      return { previousArticles: articles };
+    },
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousArticles) {
+        setArticles(context.previousArticles);
+      }
+      logger.error('Error toggling featured status:', error);
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: "Could not update featured status. Please try again.",
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: data.featured ? "Article featured" : "Removed from featured",
+        description: "Status updated successfully.",
+      });
+    },
+  });
+
+  // Optimistic UI: Delete article
+  const deleteArticleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('articles')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return id;
+    },
+    onMutate: async (id) => {
+      // Optimistically remove from UI
+      const previousArticles = articles;
+      setArticles(prev => prev.filter(article => article.id !== id));
+
+      toast({
+        title: "Deleting article...",
+        description: "The article will be removed momentarily.",
+      });
+
+      // Return context for rollback
+      return { previousArticles };
+    },
+    onError: (error, id, context) => {
+      // Rollback on error
+      if (context?.previousArticles) {
+        setArticles(context.previousArticles);
+      }
+      logger.error('Error deleting article:', error);
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: "Could not delete article. Please try again.",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Article deleted",
+        description: "The article has been deleted successfully.",
+      });
+    },
+  });
 
   const generateSlug = (title: string) => {
     return title
@@ -462,29 +597,7 @@ export const ArticleManager: React.FC = () => {
 
   const deleteArticle = async (id: string) => {
     if (!confirm('Are you sure you want to delete this article?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('articles')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Article deleted",
-        description: "The article has been deleted successfully.",
-      });
-      
-      loadArticles();
-    } catch (error) {
-      logger.error('Error deleting article:', error);
-      toast({
-        variant: "destructive",
-        title: "Delete failed",
-        description: "Could not delete article. Please try again.",
-      });
-    }
+    deleteArticleMutation.mutate(id);
   };
 
   const filteredArticles = articles.filter(article =>
@@ -847,41 +960,71 @@ export const ArticleManager: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(`/news/${article.slug}`, '_blank')}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => sendToWebhook(article.id)}
-                      disabled={sendingWebhooks.has(article.id)}
-                      title="Send to webhook"
-                    >
-                      {sendingWebhooks.has(article.id) ? (
-                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => editArticle(article)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteArticle(article.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex flex-col space-y-3 ml-4">
+                    {/* Quick toggle switches for published and featured */}
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={article.published || false}
+                        onCheckedChange={(checked) =>
+                          togglePublishedMutation.mutate({ id: article.id, published: checked })
+                        }
+                        aria-label="Toggle published status"
+                      />
+                      <span className="text-xs text-muted-foreground">Published</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={article.featured || false}
+                        onCheckedChange={(checked) =>
+                          toggleFeaturedMutation.mutate({ id: article.id, featured: checked })
+                        }
+                        aria-label="Toggle featured status"
+                      />
+                      <span className="text-xs text-muted-foreground">Featured</span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`/news/${article.slug}`, '_blank')}
+                        title="Preview article"
+                        aria-label="Preview article"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendToWebhook(article.id)}
+                        disabled={sendingWebhooks.has(article.id)}
+                        title="Send to webhook"
+                        aria-label="Send to webhook"
+                      >
+                        {sendingWebhooks.has(article.id) ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => editArticle(article)}
+                        aria-label="Edit article"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteArticle(article.id)}
+                        aria-label="Delete article"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
