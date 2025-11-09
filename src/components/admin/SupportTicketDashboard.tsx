@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SupportTicketInbox } from './support/SupportTicketInbox';
 import { TicketDetailView } from './support/TicketDetailView';
+import { CannedResponseManager } from './support/CannedResponseManager';
+import { KnowledgeBaseManager } from './support/KnowledgeBaseManager';
 
 interface Ticket {
   id: string;
@@ -40,44 +43,65 @@ export const SupportTicketDashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Support Tickets</h1>
+        <h1 className="text-3xl font-bold">Support & Help Center</h1>
         <p className="text-muted-foreground mt-1">
-          Manage customer support requests and conversations
+          Manage customer support, quick responses, and help articles
         </p>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Inbox */}
-        <div className={selectedTicket ? 'lg:col-span-1' : 'lg:col-span-3'}>
-          <SupportTicketInbox
-            key={refreshKey}
-            onSelectTicket={handleSelectTicket}
-            selectedTicketId={selectedTicket?.id}
-          />
-        </div>
+      {/* Tabs */}
+      <Tabs defaultValue="tickets" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="tickets">Tickets</TabsTrigger>
+          <TabsTrigger value="canned">Canned Responses</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+        </TabsList>
 
-        {/* Ticket Detail */}
-        {selectedTicket && (
-          <div className="lg:col-span-2">
-            <TicketDetailView
-              ticket={selectedTicket}
-              onClose={handleCloseTicket}
-              onUpdate={handleUpdateTicket}
-            />
+        {/* Tickets Tab */}
+        <TabsContent value="tickets" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Inbox */}
+            <div className={selectedTicket ? 'lg:col-span-1' : 'lg:col-span-3'}>
+              <SupportTicketInbox
+                key={refreshKey}
+                onSelectTicket={handleSelectTicket}
+                selectedTicketId={selectedTicket?.id}
+              />
+            </div>
+
+            {/* Ticket Detail */}
+            {selectedTicket && (
+              <div className="lg:col-span-2">
+                <TicketDetailView
+                  ticket={selectedTicket}
+                  onClose={handleCloseTicket}
+                  onUpdate={handleUpdateTicket}
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Help Text */}
-      {!selectedTicket && (
-        <div className="text-center text-muted-foreground p-8 border rounded-lg bg-muted/20">
-          <p className="text-lg mb-2">Select a ticket to view details and respond</p>
-          <p className="text-sm">
-            Tickets are automatically created from contact form submissions. Use filters to find specific tickets.
-          </p>
-        </div>
-      )}
+          {/* Help Text */}
+          {!selectedTicket && (
+            <div className="text-center text-muted-foreground p-8 border rounded-lg bg-muted/20">
+              <p className="text-lg mb-2">Select a ticket to view details and respond</p>
+              <p className="text-sm">
+                Tickets are automatically created from contact form submissions. Use filters to find specific tickets.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Canned Responses Tab */}
+        <TabsContent value="canned">
+          <CannedResponseManager />
+        </TabsContent>
+
+        {/* Knowledge Base Tab */}
+        <TabsContent value="knowledge">
+          <KnowledgeBaseManager />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
