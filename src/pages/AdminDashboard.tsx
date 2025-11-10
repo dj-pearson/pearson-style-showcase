@@ -22,7 +22,10 @@ import {
   ShoppingCart,
   MessageSquare,
   Zap,
-  Keyboard
+  Keyboard,
+  MessageSquareQuote,
+  Rocket,
+  User
 } from 'lucide-react';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from '@/components/admin/KeyboardShortcutsHelp';
@@ -53,6 +56,9 @@ import { WebhookSettings } from '@/components/admin/WebhookSettings';
 import { CommandCenterDashboard } from '@/components/admin/CommandCenterDashboard';
 import { SupportTicketDashboard } from '@/components/admin/SupportTicketDashboard';
 import { MaintenanceDashboard } from '@/components/admin/MaintenanceDashboard';
+import TestimonialsManager from '@/components/admin/TestimonialsManager';
+import VenturesManager from '@/components/admin/VenturesManager';
+import ProfileSettingsManager from '@/components/admin/ProfileSettingsManager';
 
 interface AdminUser {
   id: string;
@@ -89,6 +95,9 @@ const AdminDashboard = () => {
     { id: 'command-center', label: 'Command Center', icon: Activity },
     { id: 'support', label: 'Support Tickets', icon: MessageSquare },
     { id: 'maintenance', label: 'Maintenance', icon: Zap },
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'testimonials', label: 'Testimonials', icon: MessageSquareQuote },
+    { id: 'ventures', label: 'Ventures', icon: Rocket },
     { id: 'projects', label: 'Projects', icon: FolderKanban },
     { id: 'articles', label: 'Articles', icon: FileText },
     { id: 'tools', label: 'AI Tools', icon: Wrench },
@@ -256,6 +265,12 @@ const AdminDashboard = () => {
         return <SupportTicketDashboard />;
       case 'maintenance':
         return <MaintenanceDashboard />;
+      case 'profile':
+        return <ProfileSettingsManager />;
+      case 'testimonials':
+        return <TestimonialsManager />;
+      case 'ventures':
+        return <VenturesManager />;
       case 'projects':
         return <ProjectManager />;
       case 'articles':
