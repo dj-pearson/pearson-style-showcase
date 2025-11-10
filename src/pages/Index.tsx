@@ -11,6 +11,8 @@ import { useAnalytics } from '../components/Analytics';
 // Lazy load below-the-fold components to improve FID
 const CaseStudies = lazy(() => import('../components/CaseStudies'));
 const NewsletterSignup = lazy(() => import('../components/NewsletterSignup'));
+const Testimonials = lazy(() => import('../components/Testimonials'));
+const CurrentVentures = lazy(() => import('../components/CurrentVentures'));
 
 const Index = () => {
   const { trackClick } = useAnalytics();
@@ -153,6 +155,29 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Current Ventures Section */}
+      <section className="mobile-section mobile-container">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="mobile-heading-lg text-primary mb-4">
+              Current Ventures
+            </h2>
+            <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
+              Building 7 AI-powered SaaS platforms under Pearson Media LLC. Here's what I'm working on right now.
+            </p>
+          </div>
+          <Suspense fallback={
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
+              ))}
+            </div>
+          }>
+            <CurrentVentures />
+          </Suspense>
+        </div>
+      </section>
+
       {/* Case Studies Section */}
       <Suspense fallback={
         <div className="mobile-section text-center">
@@ -162,6 +187,29 @@ const Index = () => {
       }>
         <CaseStudies />
       </Suspense>
+
+      {/* Testimonials Section */}
+      <section className="mobile-section mobile-container">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="mobile-heading-lg text-primary mb-4">
+              What Clients Say
+            </h2>
+            <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
+              Don't just take my word for it. Here's what people I've worked with have to say.
+            </p>
+          </div>
+          <Suspense fallback={
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton w-full h-64 rounded-lg"></div>
+              ))}
+            </div>
+          }>
+            <Testimonials />
+          </Suspense>
+        </div>
+      </section>
 
       {/* Newsletter Signup Section */}
       <section className="mobile-section mobile-container bg-muted/30">

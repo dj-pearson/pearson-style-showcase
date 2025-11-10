@@ -46,14 +46,19 @@ const HeroSection = () => {
         </h1>
 
         {/* Subtitle - Strong white text with black outline */}
-        <p className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white mb-8 sm:mb-10 font-medium leading-relaxed px-2" style={{
+        <p className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white mb-4 sm:mb-6 font-medium leading-relaxed px-2" style={{
           textShadow: '2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0 0 15px rgba(255, 255, 255, 0.7)'
         }}>
-          Sales Leader <span className="text-primary font-bold" style={{
-            textShadow: '0 0 20px rgba(0, 212, 255, 1), 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000'
-          }}>•</span> NFT Developer <span className="text-primary font-bold" style={{
-            textShadow: '0 0 20px rgba(0, 212, 255, 1), 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000'
-          }}>•</span> AI Enthusiast
+          Bridging the gap between sales and technology
+        </p>
+
+        {/* Value Prop - Smaller supporting text */}
+        <p className="text-sm sm:text-base md:text-lg text-white/90 mb-8 sm:mb-10 font-normal leading-relaxed px-4 max-w-3xl mx-auto" style={{
+          textShadow: '1px 1px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000'
+        }}>
+          With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.
+          <br />
+          <span className="text-primary font-semibold">Currently building 7 SaaS platforms</span> under Pearson Media LLC.
         </p>
 
         {/* CTA Button - Enhanced with strong glow, mobile optimized, fully functional */}
