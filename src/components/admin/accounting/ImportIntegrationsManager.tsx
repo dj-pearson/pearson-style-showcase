@@ -38,6 +38,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { createImporter, ManualCSVImporter } from '@/services/accounting/importers';
+import { FileUpload } from '@/components/admin/FileUpload';
 
 interface ImportSource {
   id: string;
@@ -154,6 +156,15 @@ export const ImportIntegrationsManager = () => {
   };
 
   const handleRunImport = async (source: ImportSource) => {
+    if (!source.api_key && source.source_type === 'api') {
+      toast({
+        title: 'Configuration Required',
+        description: `Please configure ${source.source_name} API key first`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       toast({
         title: 'Import Started',
@@ -167,7 +178,7 @@ export const ImportIntegrationsManager = () => {
           {
             import_source_id: source.id,
             import_type: 'invoice',
-            status: 'pending',
+            status: 'processing',
             records_total: 0,
           },
         ])
@@ -176,19 +187,75 @@ export const ImportIntegrationsManager = () => {
 
       if (logError) throw logError;
 
-      // Here you would call your import service
-      // For now, we'll just show a placeholder message
+      // Run the import
+      const importer = createImporter(source.source_name, source.api_key || '');
+      
+      if (!importer) {
+        throw new Error(`Importer not available for ${source.source_name}`);
+      }
+
+      const result = await importer.import();
+
+      // Update import log
+      await supabase
+        .from('import_logs')
+        .update({
+          status: result.success ? 'completed' : 'failed',
+          records_total: result.imported + result.failed,
+          records_imported: result.imported,
+          records_failed: result.failed,
+          completed_at: new Date().toISOString(),
+          error_message: result.errors.join(', ') || null,
+        })
+        .eq('id', logData.id);
+
+      // Update last import time
+      await supabase
+        .from('import_sources')
+        .update({ last_import_at: new Date().toISOString() })
+        .eq('id', source.id);
+
       toast({
-        title: 'Import Queued',
-        description: `Import from ${source.source_name} has been queued for processing.`,
+        title: result.success ? 'Import Completed' : 'Import Failed',
+        description: `Imported: ${result.imported}, Failed: ${result.failed}`,
+        variant: result.success ? 'default' : 'destructive',
+      });
+
+      loadLogs();
+      loadSources();
+    } catch (error) {
+      logger.error('Error running import:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to run import',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCSVUpload = async (file: File, sourceName: string) => {
+    try {
+      const content = await file.text();
+      
+      toast({
+        title: 'Processing CSV',
+        description: `Importing invoices from ${sourceName}...`,
+      });
+
+      const result = await ManualCSVImporter.import(content, sourceName);
+
+      toast({
+        title: result.success ? 'Import Completed' : 'Import Failed',
+        description: `Imported: ${result.imported}, Failed: ${result.failed}`,
+        variant: result.success ? 'default' : 'destructive',
       });
 
       loadLogs();
     } catch (error) {
-      logger.error('Error starting import:', error);
+      logger.error('Error importing CSV:', error);
       toast({
         title: 'Error',
-        description: 'Failed to start import',
+        description: 'Failed to import CSV file',
         variant: 'destructive',
       });
     }
@@ -284,15 +351,39 @@ export const ImportIntegrationsManager = () => {
                               />
                             </DialogContent>
                           </Dialog>
-                          <Button
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => handleRunImport(source)}
-                            disabled={!source.is_active}
-                          >
-                            <Play className="h-3 w-3 mr-1" />
-                            Import Now
-                          </Button>
+                          {source.source_type === 'api' ? (
+                            <Button
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => handleRunImport(source)}
+                              disabled={!source.is_active || !source.api_key}
+                            >
+                              <Play className="h-3 w-3 mr-1" />
+                              Import Now
+                            </Button>
+                          ) : (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button size="sm" className="flex-1">
+                                  <Upload className="h-3 w-3 mr-1" />
+                                  Upload CSV
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Upload {source.source_name} Invoice CSV</DialogTitle>
+                                  <DialogDescription>
+                                    Upload a CSV file with columns: Invoice Number, Date, Amount, Description, Currency
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <FileUpload
+                                  accept=".csv,.txt"
+                                  onUpload={(file) => handleCSVUpload(file, source.source_name)}
+                                  maxSize={5 * 1024 * 1024}
+                                />
+                              </DialogContent>
+                            </Dialog>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
