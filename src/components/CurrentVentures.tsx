@@ -44,7 +44,7 @@ const CurrentVentures = () => {
     queryKey: ['ventures'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('ventures')
+        .from('ventures' as any)
         .select('*')
         .order('display_order', { ascending: true });
 

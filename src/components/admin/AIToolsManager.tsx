@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from "@/lib/logger";
 import { validateTextInput, validateUrl, sanitizeStringArray, sanitizeHtml } from '@/lib/security';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';

@@ -167,7 +167,7 @@ export const AmazonPipelineManager = () => {
       loadSearchTermsStats();
     } catch (error) {
       logger.error('Reset error:', error);
-      toast.error('Failed to reset search terms: ' + error.message);
+      toast.error('Failed to reset search terms: ' + String(error));
     }
   };
 

@@ -29,7 +29,7 @@ const NewsletterManager = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
-  const { data: subscribers, isLoading, refetch } = useQuery({
+  const { data: subscribers, isLoading } = useQuery({
     queryKey: ['newsletter-subscribers'],
     queryFn: async () => {
       const { data, error } = await supabase

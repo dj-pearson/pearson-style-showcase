@@ -15,11 +15,11 @@ const Navigation = () => {
     queryKey: ['profile-settings-nav'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profile_settings')
+        .from('profile_settings' as any)
         .select('availability_status, availability_text')
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as { availability_status: string; availability_text: string } | null;
     },
   });
 

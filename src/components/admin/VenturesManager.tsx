@@ -69,9 +69,9 @@ const VenturesManager = () => {
     queryKey: ['ventures-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('ventures')
+        .from('ventures' as any)
         .select('*')
-        .order('display_order', { ascending: true });
+        .order('display_order', { ascending: true});
       if (error) throw error;
       return data as Venture[];
     },

@@ -64,7 +64,7 @@ const TestimonialsManager = () => {
     queryKey: ['testimonials-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('testimonials')
+        .from('testimonials' as any)
         .select('*')
         .order('display_order', { ascending: true });
       if (error) throw error;
@@ -74,7 +74,7 @@ const TestimonialsManager = () => {
 
   const createTestimonial = useMutation({
     mutationFn: async (data: any) => {
-      const { error } = await supabase.from('testimonials').insert([data]);
+      const { error } = await supabase.from('testimonials' as any).insert([data]);
       if (error) throw error;
     },
     onSuccess: () => {

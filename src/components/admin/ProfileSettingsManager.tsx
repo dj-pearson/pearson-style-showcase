@@ -24,20 +24,21 @@ const ProfileSettingsManager = () => {
     queryKey: ['profile-settings-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profile_settings')
+        .from('profile_settings' as any)
         .select('*')
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
 
-  const [formData, setFormData] = useState(profile || {});
+  const [formData, setFormData] = useState<any>(profile || {});
 
   const updateProfile = useMutation({
     mutationFn: async (data: any) => {
+      if (!profile?.id) throw new Error('Profile not found');
       const { error } = await supabase
-        .from('profile_settings')
+        .from('profile_settings' as any)
         .update(data)
         .eq('id', profile.id);
       if (error) throw error;
@@ -227,7 +228,7 @@ const ProfileSettingsManager = () => {
                 type="button"
                 onClick={() => {
                   setIsEditing(true);
-                  setFormData(profile);
+                  setFormData(profile || {});
                 }}
               >
                 Edit Profile
@@ -252,7 +253,7 @@ const ProfileSettingsManager = () => {
                   variant="outline"
                   onClick={() => {
                     setIsEditing(false);
-                    setFormData(profile);
+                    setFormData(profile || {});
                   }}
                 >
                   Cancel

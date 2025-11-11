@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from "@/lib/logger";
 import { validateTextInput, validateUrl, validateSlug, sanitizeStringArray, sanitizeHtml } from '@/lib/security';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { FileUpload } from './FileUpload';
+import ArticleEditor from '../ArticleEditor';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useMutation } from '@tanstack/react-query';
@@ -24,7 +25,6 @@ import {
   Save,
   X,
   FileText,
-  Image as ImageIcon,
   Search,
   Calendar,
   Send
@@ -559,7 +559,7 @@ export const ArticleManager: React.FC = () => {
   const sendToWebhook = async (articleId: string) => {
     setSendingWebhooks(prev => new Set(prev).add(articleId));
     try {
-      const { data, error } = await supabase.functions.invoke('send-article-webhook', {
+      const { error } = await supabase.functions.invoke('send-article-webhook', {
         body: { articleId }
       });
 
