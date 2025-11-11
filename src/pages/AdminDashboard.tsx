@@ -25,7 +25,8 @@ import {
   Keyboard,
   MessageSquareQuote,
   Rocket,
-  User
+  User,
+  Calculator
 } from 'lucide-react';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from '@/components/admin/KeyboardShortcutsHelp';
@@ -59,6 +60,7 @@ import { MaintenanceDashboard } from '@/components/admin/MaintenanceDashboard';
 import TestimonialsManager from '@/components/admin/TestimonialsManager';
 import VenturesManager from '@/components/admin/VenturesManager';
 import ProfileSettingsManager from '@/components/admin/ProfileSettingsManager';
+import { AccountingDashboard } from '@/components/admin/AccountingDashboard';
 
 interface AdminUser {
   id: string;
@@ -101,6 +103,7 @@ const AdminDashboard = () => {
     { id: 'projects', label: 'Projects', icon: FolderKanban },
     { id: 'articles', label: 'Articles', icon: FileText },
     { id: 'tools', label: 'AI Tools', icon: Wrench },
+    { id: 'accounting', label: 'Accounting', icon: Calculator },
     { id: 'amazon', label: 'Amazon', icon: ShoppingCart },
     { id: 'newsletter', label: 'Newsletter', icon: Mail },
     { id: 'seo', label: 'SEO', icon: Search },
@@ -282,6 +285,8 @@ const AdminDashboard = () => {
         );
       case 'tools':
         return <AIToolsManager />;
+      case 'accounting':
+        return <AccountingDashboard />;
       case 'amazon':
         return <AmazonPipelineManager />;
       case 'newsletter':
