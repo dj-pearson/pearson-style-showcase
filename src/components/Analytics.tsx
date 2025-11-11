@@ -14,10 +14,6 @@ interface AnalyticsProps {
   trackingId?: string;
 }
 
-interface AnalyticsSettings {
-  google_analytics_id: string | null;
-  enabled: boolean;
-}
 
 // Custom hook for analytics
 export const useAnalytics = () => {

@@ -84,7 +84,7 @@ const AnalyticsSettings = () => {
     } catch (error) {
       toast({
         title: "Error saving settings",
-        description: error.message || "Please try again",
+        description: (error instanceof Error ? error.message : String(error)) || "Please try again",
         variant: "destructive",
       });
     } finally {

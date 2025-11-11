@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Settings as SettingsIcon,
   Play,
   Clock,
   CheckCircle2,
@@ -13,9 +12,7 @@ import {
   AlertCircle,
   ExternalLink,
   TrendingUp,
-  TrendingDown,
   Zap,
-  Database,
   Link as LinkIcon,
   Activity
 } from 'lucide-react';

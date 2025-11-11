@@ -40,7 +40,7 @@ interface AffiliateStats {
 export const AmazonAffiliateStats = () => {
   const [stats, setStats] = useState<AffiliateStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState(30); // Last 30 days by default
+  const [dateRange] = useState(30); // Last 30 days by default
 
   const loadStats = useCallback(async () => {
     setLoading(true);

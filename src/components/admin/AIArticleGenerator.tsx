@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Sparkles, RefreshCw, ExternalLink, CheckCircle } from 'lucide-react';
+import { Sparkles, RefreshCw, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export const AIArticleGenerator = () => {
@@ -32,9 +32,10 @@ export const AIArticleGenerator = () => {
       }
     } catch (error) {
       logger.error('Error generating article:', error);
+      const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate article. Please try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {

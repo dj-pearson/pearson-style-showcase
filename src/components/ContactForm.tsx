@@ -81,8 +81,7 @@ const ContactForm = () => {
       setSubmitProgress(25);
 
       // Send email via edge function
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { data: response, error } = await supabase.functions.invoke(
+      const { error } = await supabase.functions.invoke(
         "send-contact-email",
         {
           body: {

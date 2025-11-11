@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Link } from 'react-router-dom';
 import { Github, Linkedin, Mail, ExternalLink } from 'lucide-react';
 

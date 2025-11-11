@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { FileUpload } from './FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import {
   Plus,
   Edit,
@@ -29,9 +29,6 @@ import {
   Calendar,
   Send
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import ArticleEditor from '../ArticleEditor';
 
 interface Article {
   id: string;
@@ -65,7 +62,6 @@ export const ArticleManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingWebhooks, setSendingWebhooks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Form state
   const [formData, setFormData] = useState<Partial<Article>>({

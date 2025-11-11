@@ -101,7 +101,7 @@ export const AmazonPipelineManager = () => {
       loadSettings();
     } catch (error) {
       logger.error("Error saving settings:", error);
-      toast.error("Failed to save settings: " + error.message);
+      toast.error("Failed to save settings: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsSaving(false);
     }
@@ -146,7 +146,7 @@ export const AmazonPipelineManager = () => {
       loadSearchTermsStats();
     } catch (error) {
       logger.error('Seed error:', error);
-      toast.error('Failed to seed search terms: ' + error.message);
+      toast.error('Failed to seed search terms: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsSeeding(false);
     }
@@ -185,7 +185,7 @@ export const AmazonPipelineManager = () => {
       loadSearchTermsStats();
     } catch (error) {
       logger.error("Pipeline error:", error);
-      toast.error("Pipeline failed: " + error.message);
+      toast.error("Pipeline failed: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsRunning(false);
     }

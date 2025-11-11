@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useCallback, useRef, Suspense } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 
 interface LazyImageProps {

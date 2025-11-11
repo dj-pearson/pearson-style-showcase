@@ -21,8 +21,8 @@ describe('OptimizedImage Component', () => {
     render(<OptimizedImage src="/test.jpg" alt="Priority image" priority={true} />);
 
     waitFor(() => {
-      const img = screen.getByAltText('Priority image');
-      expect(img).toHaveAttribute('loading', 'eager');
+      const img = screen.getByAltText('Priority image') as HTMLElement;
+      expect(img.getAttribute('loading')).toBe('eager');
     });
   });
 
@@ -31,8 +31,8 @@ describe('OptimizedImage Component', () => {
       <OptimizedImage src="/test.jpg" alt="Custom class" className="custom-class" />
     );
 
-    const wrapper = container.firstChild;
-    expect(wrapper).toHaveClass('custom-class');
+    const wrapper = container.firstChild as HTMLElement;
+    expect(wrapper?.className).toContain('custom-class');
   });
 
   it('should render with width and height', () => {
@@ -47,9 +47,9 @@ describe('OptimizedImage Component', () => {
     );
 
     waitFor(() => {
-      const img = screen.getByAltText('Sized image');
-      expect(img).toHaveAttribute('width', '800');
-      expect(img).toHaveAttribute('height', '600');
+      const img = screen.getByAltText('Sized image') as HTMLElement;
+      expect(img.getAttribute('width')).toBe('800');
+      expect(img.getAttribute('height')).toBe('600');
     });
   });
 
@@ -107,9 +107,9 @@ describe('OptimizedImage Component', () => {
 
     // Wait for intersection observer to trigger
     await waitFor(() => {
-      const img = screen.queryByAltText('Lazy image');
+      const img = screen.queryByAltText('Lazy image') as HTMLElement | null;
       if (img) {
-        expect(img).toHaveAttribute('loading', 'lazy');
+        expect(img.getAttribute('loading')).toBe('lazy');
       }
     });
   });

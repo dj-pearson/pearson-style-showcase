@@ -5,7 +5,7 @@ const URLHandler = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
 
   useEffect(() => {
-    const currentUrl = window.location.href;
+    
     const canonicalUrl = `https://danpearson.net${location.pathname}${location.search}`;
 
     // Handle case sensitivity redirects

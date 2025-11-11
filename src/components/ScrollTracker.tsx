@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useAnalytics } from './Analytics';
 
 const ScrollTracker = () => {
-  const [scrollPercentage, setScrollPercentage] = useState(0);
   const [milestones, setMilestones] = useState(new Set<number>());
   const { trackScroll } = useAnalytics();
 
@@ -14,8 +13,6 @@ const ScrollTracker = () => {
       
       const totalScrollable = documentHeight - windowHeight;
       const percentage = Math.round((scrollTop / totalScrollable) * 100);
-      
-      setScrollPercentage(percentage);
 
       // Track scroll milestones
       const milestonePoints = [25, 50, 75, 90, 100];
