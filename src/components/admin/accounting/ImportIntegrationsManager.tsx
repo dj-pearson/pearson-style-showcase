@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -67,8 +66,6 @@ export const ImportIntegrationsManager = () => {
   const [sources, setSources] = useState<ImportSource[]>([]);
   const [logs, setLogs] = useState<ImportLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedSource, setSelectedSource] = useState<ImportSource | null>(null);
-  const [showConfigDialog, setShowConfigDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -84,12 +81,12 @@ export const ImportIntegrationsManager = () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('import_sources')
+        .from('import_sources' as any)
         .select('*')
         .order('source_name', { ascending: true });
 
       if (error) throw error;
-      setSources(data || []);
+      setSources((data || []) as ImportSource[]);
     } catch (error) {
       logger.error('Error loading import sources:', error);
       toast({

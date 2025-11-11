@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,7 @@ export const ChartOfAccountsManager = () => {
     try {
       setIsLoading(true);
       let query = supabase
-        .from('accounts')
+        .from('accounts' as any)
         .select('*')
         .order('account_number', { ascending: true });
 
@@ -50,7 +50,7 @@ export const ChartOfAccountsManager = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setAccounts(data || []);
+      setAccounts((data || []) as Account[]);
     } catch (error) {
       logger.error('Error loading accounts:', error);
       toast({

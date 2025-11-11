@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,7 @@ export const ContactsManager = () => {
     try {
       setIsLoading(true);
       let query = supabase
-        .from('contacts')
+        .from('contacts' as any)
         .select('*')
         .order('contact_name', { ascending: true });
 
@@ -50,7 +50,7 @@ export const ContactsManager = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setContacts(data || []);
+      setContacts((data || []) as Contact[]);
     } catch (error) {
       logger.error('Error loading contacts:', error);
       toast({
