@@ -12,9 +12,9 @@ import DOMPurify from 'dompurify';
  */
 export function sanitizeHtml(
   dirty: string,
-  options?: DOMPurify.Config
+  options?: any
 ): string {
-  const defaultConfig: DOMPurify.Config = {
+  const defaultConfig: any = {
     ALLOWED_TAGS: [
       'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
@@ -25,7 +25,7 @@ export function sanitizeHtml(
     ALLOW_UNKNOWN_PROTOCOLS: false,
   };
 
-  return DOMPurify.sanitize(dirty, { ...defaultConfig, ...options });
+  return String(DOMPurify.sanitize(dirty, { ...defaultConfig, ...options }));
 }
 
 /**

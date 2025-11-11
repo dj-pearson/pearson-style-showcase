@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -17,10 +16,7 @@ import {
   Send,
   User,
   Globe,
-  Clock,
-  CheckCircle2,
   X,
-  Tag,
   Lightbulb
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,14 +85,14 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const loadResponses = async () => {
     try {
       const { data, error } = await supabase
-        .from('ticket_responses')
+        .from('ticket_responses' as any)
         .select('*')
         .eq('ticket_id', ticket.id)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
-      setResponses(data || []);
+      setResponses((data || []) as Response[]);
     } catch (error) {
       logger.error('Failed to load responses:', error);
     }
@@ -114,7 +110,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       const { data: { user } } = await supabase.auth.getUser();
 
       const { error } = await supabase
-        .from('ticket_responses')
+        .from('ticket_responses' as any)
         .insert({
           ticket_id: ticket.id,
           author_id: user?.id,
@@ -129,7 +125,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       // Update ticket status if first response
       if (!responses.length) {
         await supabase
-          .from('support_tickets')
+          .from('support_tickets' as any)
           .update({ first_response_at: new Date().toISOString() })
           .eq('id', ticket.id);
       }
@@ -155,7 +151,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const updateTicket = async (updates: Partial<Ticket>) => {
     try {
       const { error } = await supabase
-        .from('support_tickets')
+        .from('support_tickets' as any)
         .update(updates)
         .eq('id', ticket.id);
 

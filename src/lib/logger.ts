@@ -12,6 +12,12 @@ export const logger = {
     }
   },
 
+  info: (...args: unknown[]) => {
+    if (isDev) {
+      console.info(...args);
+    }
+  },
+
   error: (...args: unknown[]) => {
     if (isDev) {
       console.error(...args);

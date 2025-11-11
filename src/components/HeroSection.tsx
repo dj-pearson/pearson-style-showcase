@@ -25,41 +25,43 @@ const HeroSection = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-secondary/20"></div>
 
       {/* Main content - Mobile First Typography */}
-      <div className="relative z-10 text-center max-w-[95%] sm:max-w-2xl lg:max-w-4xl mx-auto" style={{ contentVisibility: 'auto' }}>
-        {/* Main title - Mobile First Sizing with strong contrast */}
-        <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-5 sm:mb-6 leading-[1.1]">
-          <span className="text-primary" style={{
-            textShadow: '0 0 30px rgba(0, 212, 255, 1), 0 0 60px rgba(0, 212, 255, 0.8), 0 4px 12px rgba(0, 0, 0, 1)',
-            background: 'linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
+      <div className="relative z-10 text-center max-w-[95%] sm:max-w-2xl lg:max-w-4xl mx-auto px-4" style={{ contentVisibility: 'auto' }}>
+        {/* Main title - Enhanced contrast and readability */}
+        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-5 sm:mb-6 leading-[1.1]">
+          <span style={{
+            display: 'inline-block',
+            color: '#00d4ff',
+            textShadow: '0 0 40px rgba(0, 212, 255, 1), 0 0 80px rgba(0, 212, 255, 0.8), 0 4px 20px rgba(0, 0, 0, 1), 3px 3px 6px rgba(0, 0, 0, 0.9)'
           }}>Dan</span>
           {' '}
-          <span className="text-white" style={{
-            textShadow: '0 0 20px rgba(255, 255, 255, 0.9), 0 4px 12px rgba(0, 0, 0, 1)',
-            background: 'linear-gradient(135deg, #ffffff 0%, #cccccc 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
+          <span style={{
+            display: 'inline-block',
+            color: '#ffffff',
+            textShadow: '0 0 30px rgba(255, 255, 255, 1), 0 4px 20px rgba(0, 0, 0, 1), 3px 3px 6px rgba(0, 0, 0, 0.9)'
           }}>Pearson</span>
         </h1>
 
-        {/* Subtitle - Strong white text with black outline */}
-        <p className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white mb-4 sm:mb-6 font-medium leading-relaxed px-2" style={{
-          textShadow: '2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0 0 15px rgba(255, 255, 255, 0.7)'
-        }}>
-          Bridging the gap between sales and technology
-        </p>
+        {/* Subtitle - Enhanced readability */}
+        <div className="mb-4 sm:mb-6 bg-black/60 backdrop-blur-sm rounded-2xl py-3 sm:py-4 px-4 sm:px-6 inline-block">
+          <p className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white font-semibold leading-relaxed" style={{
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 1)'
+          }}>
+            Bridging the gap between sales and technology
+          </p>
+        </div>
 
-        {/* Value Prop - Smaller supporting text */}
-        <p className="text-sm sm:text-base md:text-lg text-white/90 mb-8 sm:mb-10 font-normal leading-relaxed px-4 max-w-3xl mx-auto" style={{
-          textShadow: '1px 1px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000'
-        }}>
-          With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.
-          <br />
-          <span className="text-primary font-semibold">Currently building 7 SaaS platforms</span> under Pearson Media LLC.
-        </p>
+        {/* Value Prop - Enhanced readability */}
+        <div className="mb-8 sm:mb-10 bg-black/50 backdrop-blur-sm rounded-2xl py-4 px-5 max-w-3xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-white/95 font-normal leading-relaxed" style={{
+            textShadow: '1px 1px 3px rgba(0, 0, 0, 1)'
+          }}>
+            With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.
+            <br />
+            <span className="text-primary font-bold" style={{
+              textShadow: '0 0 20px rgba(0, 212, 255, 0.8), 1px 1px 3px rgba(0, 0, 0, 1)'
+            }}>Currently building 7 SaaS platforms</span> under Pearson Media LLC.
+          </p>
+        </div>
 
         {/* CTA Button - Enhanced with strong glow, mobile optimized, fully functional */}
         <Link

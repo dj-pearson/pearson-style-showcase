@@ -64,7 +64,7 @@ export const SystemHealthCard: React.FC = () => {
       const oneHourAgo = new Date();
       oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('system_metrics' as any)
         .select('*')
         .eq('metric_type', 'error_rate')

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,7 +13,6 @@ import {
 import {
   Inbox,
   Search,
-  Filter,
   AlertCircle,
   MessageSquare,
   Clock,
@@ -90,14 +88,14 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const loadTickets = async () => {
     try {
       const { data, error } = await supabase
-        .from('support_tickets')
+        .from('support_tickets' as any)
         .select('*')
         .order('last_activity_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
 
-      setTickets(data || []);
+      setTickets((data || []) as SupportTicket[]);
       setIsLoading(false);
     } catch (error) {
       logger.error('Failed to load tickets:', error);
@@ -189,9 +187,9 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     if (score === null) return null;
 
     if (score < -0.3) {
-      return <AlertCircle className="h-3 w-3 text-red-500" title="Negative sentiment" />;
+      return <AlertCircle className="h-3 w-3 text-red-500" />;
     } else if (score > 0.3) {
-      return <CheckCircle2 className="h-3 w-3 text-green-500" title="Positive sentiment" />;
+      return <CheckCircle2 className="h-3 w-3 text-green-500" />;
     }
     return null;
   };

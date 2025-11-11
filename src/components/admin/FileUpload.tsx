@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 interface FileUploadProps {
-  onUpload: (url: string) => void;
+  onUpload: (file: File) => void;
   acceptedTypes?: string[];
   maxSize?: number;
   currentImage?: string;
@@ -54,7 +54,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
       const publicUrl = publicUrlData.publicUrl;
       setPreview(publicUrl);
-      onUpload(publicUrl);
+      onUpload(file);
 
       toast({
         title: "File uploaded successfully",
@@ -82,7 +82,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   const removeImage = () => {
     setPreview(null);
-    onUpload('');
   };
 
   return (
