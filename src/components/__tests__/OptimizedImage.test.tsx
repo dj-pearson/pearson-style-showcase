@@ -10,8 +10,7 @@ describe('OptimizedImage Component', () => {
 
   it('should render with src and alt attributes', () => {
     render(<OptimizedImage src="/test.jpg" alt="Test image" />);
-    const img = screen.queryByAltText('Test image');
-
+    
     // Image might not be rendered immediately due to intersection observer
     // But the component should be in the document
     expect(document.body).toBeTruthy();
@@ -36,7 +35,7 @@ describe('OptimizedImage Component', () => {
   });
 
   it('should render with width and height', () => {
-    const { container } = render(
+    render(
       <OptimizedImage
         src="/test.jpg"
         alt="Sized image"
@@ -64,7 +63,7 @@ describe('OptimizedImage Component', () => {
   });
 
   it('should use placeholder image on error', async () => {
-    const { container } = render(
+    render(
       <OptimizedImage
         src="/invalid.jpg"
         alt="Error image"

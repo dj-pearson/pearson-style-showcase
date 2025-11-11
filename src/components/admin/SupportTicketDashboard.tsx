@@ -61,13 +61,13 @@ export const SupportTicketDashboard: React.FC = () => {
         <TabsContent value="tickets" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Inbox */}
-            <div className={selectedTicket ? 'lg:col-span-1' : 'lg:col-span-3'}>
-              <SupportTicketInbox
-                key={refreshKey}
-                onSelectTicket={handleSelectTicket}
-                selectedTicketId={selectedTicket?.id}
-              />
-            </div>
+          <div className={selectedTicket ? 'lg:col-span-1' : 'lg:col-span-3'}>
+            <SupportTicketInbox
+              key={refreshKey}
+              onSelectTicket={(ticket) => handleSelectTicket(ticket as any)}
+              selectedTicketId={selectedTicket?.id}
+            />
+          </div>
 
             {/* Ticket Detail */}
             {selectedTicket && (

@@ -1,18 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Activity,
-  FileText,
   MousePointerClick,
   Mail,
   MessageSquare,
   Wrench,
-  Eye,
   Settings,
-  User,
-  ExternalLink
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
@@ -98,7 +94,7 @@ export const LiveActivityFeed: React.FC = () => {
 
       // Fetch recent contact form submissions
       const { data: contacts } = await supabase
-        .from('contact_submissions')
+        .from('contact_submissions' as any)
         .select('*')
         .gte('submitted_at', thirtyMinutesAgo.toISOString())
         .order('submitted_at', { ascending: false })
@@ -106,7 +102,7 @@ export const LiveActivityFeed: React.FC = () => {
 
       // Fetch recent AI tool submissions
       const { data: toolSubmissions } = await supabase
-        .from('ai_tool_submissions')
+        .from('ai_tool_submissions' as any)
         .select('*')
         .gte('submitted_at', thirtyMinutesAgo.toISOString())
         .order('submitted_at', { ascending: false })
@@ -114,7 +110,7 @@ export const LiveActivityFeed: React.FC = () => {
 
       // Fetch recent admin actions
       const { data: adminActions } = await supabase
-        .from('admin_activity_log')
+        .from('admin_activity_log' as any)
         .select('*')
         .gte('timestamp', thirtyMinutesAgo.toISOString())
         .order('timestamp', { ascending: false })
@@ -148,38 +144,38 @@ export const LiveActivityFeed: React.FC = () => {
         });
       });
 
-      contacts?.forEach(contact => {
+      contacts?.forEach((contact: any) => {
         allActivities.push({
           id: `contact-${contact.id}`,
           type: 'contact_form',
           title: 'Contact Form Submitted',
-          description: contact.subject || contact.name,
-          timestamp: new Date(contact.submitted_at),
+          description: contact.subject || contact.name || 'New contact',
+          timestamp: new Date(contact.submitted_at || contact.created_at),
           icon: <MessageSquare className="h-4 w-4" />,
           color: 'text-purple-500'
         });
       });
 
-      toolSubmissions?.forEach(tool => {
+      toolSubmissions?.forEach((tool: any) => {
         allActivities.push({
           id: `tool-${tool.id}`,
           type: 'tool_submission',
           title: 'AI Tool Submitted',
-          description: tool.tool_name,
-          timestamp: new Date(tool.submitted_at),
+          description: tool.tool_name || 'New tool',
+          timestamp: new Date(tool.submitted_at || tool.created_at),
           icon: <Wrench className="h-4 w-4" />,
           color: 'text-orange-500'
         });
       });
 
-      adminActions?.forEach(action => {
+      adminActions?.forEach((action: any) => {
         allActivities.push({
           id: `admin-${action.id}`,
           type: 'admin_action',
-          title: formatActionName(action.action),
-          description: action.resource_title || action.action_category || '',
-          timestamp: new Date(action.timestamp),
-          metadata: { admin: action.admin_email },
+          title: formatActionName(action.action || 'action'),
+          description: action.resource_title || action.action_category || action.details || '',
+          timestamp: new Date(action.timestamp || action.created_at),
+          metadata: { admin: action.admin_email || 'admin' },
           icon: <Settings className="h-4 w-4" />,
           color: 'text-gray-500'
         });

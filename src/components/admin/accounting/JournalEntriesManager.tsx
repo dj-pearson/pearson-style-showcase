@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,12 +37,12 @@ export const JournalEntriesManager = () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('journal_entries')
+        .from('journal_entries' as any)
         .select('*')
         .order('entry_date', { ascending: false });
 
       if (error) throw error;
-      setEntries(data || []);
+      setEntries((data || []) as JournalEntry[]);
     } catch (error) {
       logger.error('Error loading journal entries:', error);
       toast({

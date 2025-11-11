@@ -64,18 +64,18 @@ export const SystemHealthCard: React.FC = () => {
       const oneHourAgo = new Date();
       oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-      const { data: errorMetrics, error: metricsError } = await supabase
-        .from('system_metrics')
+      const { data, error } = await supabase
+        .from('system_metrics' as any)
         .select('*')
         .eq('metric_type', 'error_rate')
         .gte('recorded_at', oneHourAgo.toISOString());
 
-      const errorCount = errorMetrics?.length || 0;
+      const errorCount = (data as any[])?.length || 0;
       const errorRate = errorCount / 60; // Errors per minute
 
       // Get API latency metrics
       const { data: latencyMetrics } = await supabase
-        .from('system_metrics')
+        .from('system_metrics' as any)
         .select('value')
         .eq('metric_type', 'api_latency')
         .gte('recorded_at', oneHourAgo.toISOString())
@@ -83,7 +83,7 @@ export const SystemHealthCard: React.FC = () => {
         .limit(10);
 
       const avgLatency = latencyMetrics && latencyMetrics.length > 0
-        ? latencyMetrics.reduce((sum, m) => sum + Number(m.value), 0) / latencyMetrics.length
+        ? (latencyMetrics as any[]).reduce((sum, m) => sum + Number(m.value), 0) / latencyMetrics.length
         : dbLatency;
 
       // Determine health status

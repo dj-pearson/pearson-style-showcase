@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,12 +38,12 @@ export const PaymentsManager = () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('payments')
+        .from('payments' as any)
         .select('*, contacts(contact_name)')
         .order('payment_date', { ascending: false });
 
       if (error) throw error;
-      setPayments(data || []);
+      setPayments((data || []) as Payment[]);
     } catch (error) {
       logger.error('Error loading payments:', error);
       toast({

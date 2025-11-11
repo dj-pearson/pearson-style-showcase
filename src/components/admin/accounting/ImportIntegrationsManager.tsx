@@ -102,13 +102,13 @@ export const ImportIntegrationsManager = () => {
   const loadLogs = async () => {
     try {
       const { data, error } = await supabase
-        .from('import_logs')
+        .from('import_logs' as any)
         .select('*, import_sources(source_name)')
         .order('started_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      setLogs(data || []);
+      setLogs((data || []) as ImportLog[]);
     } catch (error) {
       logger.error('Error loading import logs:', error);
     }
@@ -157,7 +157,8 @@ export const ImportIntegrationsManager = () => {
   };
 
   const handleRunImport = async (source: ImportSource) => {
-    if (!source.api_key && source.source_type === 'api') {
+    const config = source.configuration as any;
+    if (!config?.api_key && source.source_type === 'api') {
       toast({
         title: 'Configuration Required',
         description: `Please configure ${source.source_name} API key first`,
@@ -174,7 +175,7 @@ export const ImportIntegrationsManager = () => {
 
       // Create import log entry
       const { data: logData, error: logError } = await supabase
-        .from('import_logs')
+        .from('import_logs' as any)
         .insert([
           {
             import_source_id: source.id,
@@ -189,7 +190,8 @@ export const ImportIntegrationsManager = () => {
       if (logError) throw logError;
 
       // Run the import
-      const importer = createImporter(source.source_name, source.api_key || '');
+      const config = source.configuration as any;
+      const importer = createImporter(source.source_name, config?.api_key || '');
       
       if (!importer) {
         throw new Error(`Importer not available for ${source.source_name}`);
@@ -199,7 +201,7 @@ export const ImportIntegrationsManager = () => {
 
       // Update import log
       await supabase
-        .from('import_logs')
+        .from('import_logs' as any)
         .update({
           status: result.success ? 'completed' : 'failed',
           records_total: result.imported + result.failed,
@@ -212,7 +214,7 @@ export const ImportIntegrationsManager = () => {
 
       // Update last import time
       await supabase
-        .from('import_sources')
+        .from('import_sources' as any)
         .update({ last_import_at: new Date().toISOString() })
         .eq('id', source.id);
 
@@ -332,7 +334,6 @@ export const ImportIntegrationsManager = () => {
                                 variant="outline"
                                 size="sm"
                                 className="flex-1"
-                                onClick={() => setSelectedSource(source)}
                               >
                                 <Settings className="h-3 w-3 mr-1" />
                                 Configure
@@ -362,7 +363,7 @@ export const ImportIntegrationsManager = () => {
                               size="sm"
                               className="flex-1"
                               onClick={() => handleRunImport(source)}
-                              disabled={!source.is_active || !source.api_key}
+                              disabled={!source.is_active || !(source.configuration as any)?.api_key}
                             >
                               <Play className="h-3 w-3 mr-1" />
                               Import Now
@@ -383,7 +384,6 @@ export const ImportIntegrationsManager = () => {
                                   </DialogDescription>
                                 </DialogHeader>
                                 <FileUpload
-                                  accept=".csv,.txt"
                                   onUpload={(file) => handleCSVUpload(file, source.source_name)}
                                   maxSize={5 * 1024 * 1024}
                                 />

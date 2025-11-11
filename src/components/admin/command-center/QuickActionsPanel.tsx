@@ -7,12 +7,9 @@ import {
   Play,
   RefreshCw,
   Send,
-  FileText,
   Trash2,
   Download,
-  Database,
   Globe,
-  Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';

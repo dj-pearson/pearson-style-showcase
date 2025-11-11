@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, FileText, ExternalLink, Download, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, FileText, ExternalLink, Download, Edit, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -64,7 +64,7 @@ export const InvoicesManager = () => {
     try {
       setIsLoading(true);
       let query = supabase
-        .from('invoices')
+        .from('invoices' as any)
         .select('*, contacts(contact_name)')
         .order('invoice_date', { ascending: false });
 
@@ -79,7 +79,7 @@ export const InvoicesManager = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setInvoices(data || []);
+      setInvoices((data || []) as Invoice[]);
     } catch (error) {
       logger.error('Error loading invoices:', error);
       toast({
