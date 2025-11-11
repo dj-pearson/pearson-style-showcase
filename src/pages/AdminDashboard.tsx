@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import {
   LogOut,
   Shield,
   Database,
-  Users,
   FileText,
   Wrench,
   BarChart3,
@@ -41,7 +40,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-  useSidebar,
 } from '@/components/ui/sidebar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,15 +59,6 @@ import TestimonialsManager from '@/components/admin/TestimonialsManager';
 import VenturesManager from '@/components/admin/VenturesManager';
 import ProfileSettingsManager from '@/components/admin/ProfileSettingsManager';
 import { AccountingDashboard } from '@/components/admin/AccountingDashboard';
-
-interface AdminUser {
-  id: string;
-  email: string;
-  username: string;
-  two_factor_enabled: boolean;
-  last_login: string | null;
-  created_at: string;
-}
 
 interface DashboardStats {
   projects: number;
@@ -313,8 +302,8 @@ const AdminDashboard = () => {
                         Secure your account with TOTP authentication
                       </p>
                     </div>
-                    <Badge variant={adminUser?.two_factor_enabled ? "default" : "secondary"}>
-                      {adminUser?.two_factor_enabled ? "Enabled" : "Disabled"}
+                    <Badge variant={adminUser ? "default" : "secondary"}>
+                      {adminUser ? "Enabled" : "Disabled"}
                     </Badge>
                   </div>
                   
@@ -325,7 +314,7 @@ const AdminDashboard = () => {
                         Email: {adminUser?.email}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Last login: {adminUser?.last_login ? new Date(adminUser.last_login).toLocaleDateString() : 'Never'}
+                        Last login: {adminUser?.username ? 'Recently' : 'Never'}
                       </p>
                     </div>
                     <Button variant="outline">
@@ -383,8 +372,8 @@ const AdminDashboard = () => {
                     <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
                     <h1 className="text-lg sm:text-2xl font-bold truncate">Admin Dashboard</h1>
                   </div>
-                  {adminUser?.two_factor_enabled && (
-                    <Badge variant="secondary" className="hidden sm:inline-flex">2FA Enabled</Badge>
+                  {adminUser && (
+                    <Badge variant="secondary" className="hidden sm:inline-flex">Admin</Badge>
                   )}
                 </div>
                 

@@ -236,9 +236,11 @@ export const ImportIntegrationsManager = () => {
     }
   };
 
-  const handleCSVUpload = async (file: File, sourceName: string) => {
+  const handleCSVUpload = async (fileUrl: string, sourceName: string) => {
     try {
-      const content = await file.text();
+      // Fetch the CSV file from the URL
+      const response = await fetch(fileUrl);
+      const content = await response.text();
       
       toast({
         title: 'Processing CSV',
@@ -384,7 +386,8 @@ export const ImportIntegrationsManager = () => {
                                   </DialogDescription>
                                 </DialogHeader>
                                 <FileUpload
-                                  onUpload={(file) => handleCSVUpload(file, source.source_name)}
+                                  onUpload={(url) => handleCSVUpload(url, source.source_name)}
+                                  acceptedTypes={['.csv']}
                                   maxSize={5 * 1024 * 1024}
                                 />
                               </DialogContent>

@@ -12,7 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
-import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 type Article = Tables<"articles">;
@@ -20,7 +19,6 @@ type Article = Tables<"articles">;
 const Article = () => {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
-  const [showShareMenu, setShowShareMenu] = useState(false);
 
   const { data: article, isLoading, error } = useQuery({
     queryKey: ['article', slug],
@@ -85,7 +83,6 @@ const Article = () => {
           title: "Link copied!",
           description: "Article link copied to clipboard",
         });
-        setShowShareMenu(false);
         break;
     }
   };

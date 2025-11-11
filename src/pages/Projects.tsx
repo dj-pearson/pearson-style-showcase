@@ -5,11 +5,10 @@ import Footer from '../components/Footer';
 import SEO from '../components/SEO';
 import { ProjectCard } from '../components/ProjectCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, X, ExternalLink, Github } from 'lucide-react';
+import { Search, Filter, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ProjectListSkeleton } from '@/components/skeletons';
@@ -48,13 +47,13 @@ const Projects = () => {
       // Only select fields needed for project list view to reduce payload size
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, description, tags, image_url, demo_url, github_url, featured, sort_order, created_at, tech_stack')
+        .select('*')
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Project[];
+      return (data || []) as Project[];
     },
   });
 

@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { BookOpen, Plus, Trash2, Edit, Eye, ThumbsUp, ThumbsDown, ExternalLink } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Edit, Eye, ThumbsUp, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
