@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 interface StructuredDataProps {
-  type: 'website' | 'article' | 'person' | 'organization' | 'project';
+  type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review';
   data?: Record<string, unknown>;
 }
 
@@ -138,6 +138,113 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
             "email": data?.email || "dan@danpearson.net",
             "contactType": "business inquiry"
           }
+        };
+        break;
+
+      case 'faq':
+        schema = {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": (data?.questions as Array<{ question: string; answer: string }>)?.map(q => ({
+            "@type": "Question",
+            "name": q.question,
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": q.answer
+            }
+          })) || []
+        };
+        break;
+
+      case 'howto':
+        schema = {
+          "@context": "https://schema.org",
+          "@type": "HowTo",
+          "name": data?.title,
+          "description": data?.description,
+          "image": data?.image_url,
+          "totalTime": data?.totalTime || "PT30M",
+          "estimatedCost": {
+            "@type": "MonetaryAmount",
+            "currency": "USD",
+            "value": data?.cost || "0"
+          },
+          "step": (data?.steps as Array<{ name: string; text: string; image?: string }>)?.map((step, index) => ({
+            "@type": "HowToStep",
+            "position": index + 1,
+            "name": step.name,
+            "text": step.text,
+            "image": step.image
+          })) || []
+        };
+        break;
+
+      case 'product':
+        schema = {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": data?.title,
+          "description": data?.description,
+          "image": data?.image_url,
+          "brand": {
+            "@type": "Brand",
+            "name": data?.brand || "Generic"
+          },
+          "offers": {
+            "@type": "Offer",
+            "url": data?.affiliate_url,
+            "priceCurrency": "USD",
+            "price": data?.price,
+            "priceValidUntil": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@type": "Organization",
+              "name": "Amazon"
+            }
+          },
+          "aggregateRating": data?.rating ? {
+            "@type": "AggregateRating",
+            "ratingValue": data?.rating,
+            "reviewCount": data?.rating_count || 0,
+            "bestRating": "5",
+            "worstRating": "1"
+          } : undefined
+        };
+        break;
+
+      case 'breadcrumb':
+        schema = {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": (data?.items as Array<{ name: string; url: string }>)?.map((item, index) => ({
+            "@type": "ListItem",
+            "position": index + 1,
+            "name": item.name,
+            "item": item.url
+          })) || []
+        };
+        break;
+
+      case 'review':
+        schema = {
+          "@context": "https://schema.org",
+          "@type": "Review",
+          "itemReviewed": {
+            "@type": data?.itemType || "Thing",
+            "name": data?.itemName
+          },
+          "reviewRating": {
+            "@type": "Rating",
+            "ratingValue": data?.rating,
+            "bestRating": "5",
+            "worstRating": "1"
+          },
+          "author": {
+            "@type": "Person",
+            "name": data?.reviewerName || "Dan Pearson"
+          },
+          "reviewBody": data?.reviewText,
+          "datePublished": data?.datePublished
         };
         break;
     }
