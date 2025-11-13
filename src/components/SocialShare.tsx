@@ -127,7 +127,7 @@ const SocialShare = ({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           {/* Native share (mobile) */}
-          {navigator.share && (
+          {typeof navigator !== 'undefined' && 'share' in navigator && (
             <>
               <DropdownMenuItem onClick={handleNativeShare}>
                 <Share2 className="w-4 h-4 mr-2" />
@@ -188,7 +188,7 @@ const SocialShare = ({
       <span className="text-sm font-medium text-muted-foreground mr-2">Share:</span>
 
       {/* Native share button (mobile) */}
-      {navigator.share && (
+      {typeof navigator !== 'undefined' && 'share' in navigator && (
         <Button
           variant="outline"
           size="sm"
