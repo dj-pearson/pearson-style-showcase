@@ -58,8 +58,28 @@
 
 # Security and performance headers for all pages
 /*
+  # Prevent clickjacking attacks
   X-Frame-Options: DENY
+
+  # Prevent MIME type sniffing
   X-Content-Type-Options: nosniff
+
+  # Control referrer information
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+
+  # Restrict browser features and APIs
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=(), accelerometer=(), autoplay=(), encrypted-media=(), gyroscope=(), picture-in-picture=()
+
+  # XSS Protection (legacy, but still useful for older browsers)
   X-XSS-Protection: 1; mode=block
+
+  # Force HTTPS for 2 years (including subdomains)
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+  # Content Security Policy - Strict but allows necessary resources
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://*.supabase.co https://www.google-analytics.com; media-src 'self' https: data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content
+
+  # Cross-Origin policies for better security
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin

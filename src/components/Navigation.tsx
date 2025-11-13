@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, CheckCircle2 } from 'lucide-react';
+import { Menu, X, CheckCircle2, Search } from 'lucide-react';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
+import { useGlobalSearch } from '../hooks/useGlobalSearch';
+import GlobalSearch from './GlobalSearch';
+import { Button } from './ui/button';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen } = useGlobalSearch();
 
   // Fetch availability status from profile settings
   const { data: profile } = useQuery({
@@ -103,6 +107,18 @@ const Navigation = () => {
                 <span className="text-xs font-medium text-yellow-500">Limited</span>
               </div>
             )}
+
+            {/* Search Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSearchOpen(true)}
+              className="flex items-center gap-2 text-muted-foreground hover:text-primary"
+            >
+              <Search className="w-4 h-4" />
+              <span className="hidden xl:inline">Search</span>
+              <kbd className="hidden xl:inline px-1.5 py-0.5 text-xs bg-muted rounded">⌘K</kbd>
+            </Button>
 
             {navItems.map((item) => (
               <Link
@@ -239,6 +255,9 @@ const Navigation = () => {
         }
       `}</style>
     </nav>
+
+    {/* Global Search Dialog */}
+    <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
     </>
   );
 };

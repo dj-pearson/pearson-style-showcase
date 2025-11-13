@@ -10,7 +10,7 @@ interface SEOProps {
   url?: string;
   type?: string;
   structuredData?: {
-    type: 'website' | 'article' | 'person' | 'organization' | 'project';
+    type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review';
     data?: Record<string, unknown>;
   };
 }

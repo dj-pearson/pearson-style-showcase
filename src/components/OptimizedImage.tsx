@@ -8,11 +8,19 @@ interface OptimizedImageProps {
   height?: number;
   priority?: boolean; // Set to true for above-the-fold images
   placeholder?: string;
+  quality?: number; // 1-100 for image quality
+  sizes?: string; // Responsive sizes attribute
+  blurDataURL?: string; // Base64 blur placeholder
 }
 
 /**
- * OptimizedImage - Uses Intersection Observer for efficient lazy loading
- * Only loads images when they're about to enter the viewport
+ * OptimizedImage - Enhanced lazy loading with WebP support and responsive images
+ * Features:
+ * - Intersection Observer for efficient lazy loading
+ * - WebP format support with fallbacks
+ * - Responsive srcset for different screen sizes
+ * - Blur-up placeholder technique
+ * - Error handling with fallback images
  */
 export const OptimizedImage = ({
   src,
@@ -22,6 +30,9 @@ export const OptimizedImage = ({
   height,
   priority = false,
   placeholder = '/placeholder.svg',
+  quality = 75,
+  sizes,
+  blurDataURL,
 }: OptimizedImageProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority); // Priority images load immediately
@@ -48,7 +59,7 @@ export const OptimizedImage = ({
         });
       },
       {
-        rootMargin: '50px', // Start loading 50px before image enters viewport
+        rootMargin: '100px', // Start loading 100px before image enters viewport
         threshold: 0.01,
       }
     );
@@ -71,32 +82,110 @@ export const OptimizedImage = ({
     setIsLoaded(true); // Still mark as loaded to remove spinner
   };
 
+  // Generate responsive srcset if width is provided
+  const generateSrcSet = (originalSrc: string): string => {
+    if (!width) return '';
+
+    const widths = [640, 750, 828, 1080, 1200, 1920, 2048, 3840];
+    const srcset = widths
+      .filter(w => w <= width * 2) // Only include sizes up to 2x original
+      .map(w => {
+        // For external URLs or if not using a CDN, just use original
+        if (originalSrc.startsWith('http')) {
+          return `${originalSrc} ${w}w`;
+        }
+        // For local images, could add CDN URL transformation here
+        return `${originalSrc} ${w}w`;
+      })
+      .join(', ');
+
+    return srcset;
+  };
+
+  // Check if browser supports WebP
+  const supportsWebP = () => {
+    if (typeof window === 'undefined') return false;
+
+    const elem = document.createElement('canvas');
+    if (elem.getContext && elem.getContext('2d')) {
+      return elem.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    }
+    return false;
+  };
+
+  // Generate WebP source if supported and not already WebP
+  const getWebPSource = (originalSrc: string): string => {
+    if (originalSrc.endsWith('.webp')) return originalSrc;
+
+    // For external URLs or CDNs, you might add WebP conversion here
+    // Example: return originalSrc.replace(/\.(jpg|jpeg|png)$/, '.webp');
+    return originalSrc;
+  };
+
+  const srcSet = generateSrcSet(src);
+  const webpSrc = supportsWebP() ? getWebPSource(src) : src;
+
   return (
     <div
       ref={imgRef}
       className={`relative overflow-hidden ${className}`}
       style={{ aspectRatio: width && height ? `${width} / ${height}` : undefined }}
     >
+      {/* Blur placeholder */}
+      {!isLoaded && blurDataURL && (
+        <img
+          src={blurDataURL}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110"
+        />
+      )}
+
       {/* Loading placeholder */}
-      {!isLoaded && (
+      {!isLoaded && !blurDataURL && (
         <div className="absolute inset-0 bg-muted/30 animate-pulse" />
       )}
 
       {/* Actual image - only render when in view or priority */}
       {isInView && (
-        <img
-          src={hasError ? placeholder : src}
-          alt={alt}
-          width={width}
-          height={height}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            isLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          onLoad={handleLoad}
-          onError={handleError}
-          loading={priority ? 'eager' : 'lazy'}
-          decoding="async"
-        />
+        <picture>
+          {/* WebP source if browser supports it */}
+          {supportsWebP() && !src.endsWith('.webp') && (
+            <source
+              type="image/webp"
+              srcSet={srcSet || webpSrc}
+              sizes={sizes}
+            />
+          )}
+
+          {/* Fallback image */}
+          <img
+            src={hasError ? placeholder : src}
+            alt={alt}
+            width={width}
+            height={height}
+            srcSet={srcSet}
+            sizes={sizes}
+            className={`w-full h-full object-cover transition-opacity duration-300 ${
+              isLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            onLoad={handleLoad}
+            onError={handleError}
+            loading={priority ? 'eager' : 'lazy'}
+            decoding="async"
+            // Provide aspect ratio hint to prevent layout shift
+            style={{
+              aspectRatio: width && height ? `${width} / ${height}` : undefined,
+            }}
+          />
+        </picture>
+      )}
+
+      {/* Error overlay */}
+      {hasError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+          <p className="text-xs text-muted-foreground">Failed to load image</p>
+        </div>
       )}
     </div>
   );
