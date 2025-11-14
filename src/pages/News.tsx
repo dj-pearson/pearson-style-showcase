@@ -108,26 +108,12 @@ const News = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SEO 
-        title="AI & Tech News | Latest AI Developments & Business Technology Insights"
-        description="Stay updated with the latest AI developments, tech innovations, and business technology insights. Expert analysis on AI tools, machine learning trends, and digital transformation strategies."
-        keywords="AI news, tech news, artificial intelligence updates, machine learning trends, business technology, AI developments, tech insights, digital transformation, AI industry news"
+      <SEO
+        title="AI Automation & Business Technology Insights | Expert Analysis | Dan Pearson"
+        description="Expert insights on AI automation, business technology, and digital transformation. Learn proven strategies to implement AI, reduce costs, and streamline operations. Real-world case studies and practical guides from an experienced AI consultant serving 50+ businesses."
+        keywords="AI automation guides, business automation insights, AI implementation strategies, digital transformation tips, AI tools comparison, business process automation, AI consultant insights, automation case studies, AI integration tutorials, business technology trends"
         url="https://danpearson.net/news"
         type="website"
-        structuredData={{
-          type: 'website',
-          data: {
-            name: 'AI & Tech News',
-            description: 'Latest news and insights on AI developments, tech innovations, and business technology trends',
-            url: 'https://danpearson.net/news',
-            mainEntity: {
-              '@type': 'ItemList',
-              name: 'Tech News Articles',
-              description: 'Collection of articles about AI and technology developments',
-              numberOfItems: articles?.length || 0
-            }
-          }
-        }}
       />
       <Navigation />
       <div className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
