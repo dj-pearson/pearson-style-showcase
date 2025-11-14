@@ -13,6 +13,9 @@ import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { useToast } from '@/hooks/use-toast';
+import AuthorByline from '../components/article/AuthorByline';
+import Breadcrumbs from '../components/Breadcrumbs';
+import StructuredData from '../components/SEO/StructuredData';
 
 type Article = Tables<"articles">;
 
@@ -146,61 +149,90 @@ const Article = () => {
     );
   }
 
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'News', href: '/news' },
+    { label: article.title, href: `/news/${article.slug}` }
+  ];
+
   return (
     <div className="min-h-screen flex flex-col">
       <ReadingProgress />
-      <SEO 
-        title={`${article.seo_title || article.title} | Dan Pearson Tech Blog`}
+      <SEO
+        title={`${article.seo_title || article.title} | Dan Pearson`}
         description={article.seo_description || article.excerpt}
-        keywords={article.seo_keywords ? article.seo_keywords.join(', ') : `${article.title}, AI, tech, ${article.category}`}
+        keywords={article.seo_keywords ? article.seo_keywords.join(', ') : `${article.title}, AI automation, business automation, ${article.category}`}
         url={`https://danpearson.net/news/${article.slug}`}
         type="article"
         image={(article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg'))}
-        structuredData={{
-          type: 'article',
-          data: {
-            headline: article.title,
-            description: article.excerpt,
-            image: (article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg')),
-            author: {
-              '@type': 'Person',
-              name: article.author || 'Dan Pearson'
-            },
-            publisher: {
+      />
+
+      {/* Enhanced Article Schema with Author Authority */}
+      <StructuredData
+        type="article"
+        data={{
+          headline: article.title,
+          description: article.excerpt,
+          image: (article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg')),
+          author: {
+            '@type': 'Person',
+            name: article.author || 'Dan Pearson',
+            url: 'https://danpearson.net/about',
+            jobTitle: 'AI Solutions Consultant',
+            worksFor: {
               '@type': 'Organization',
-              name: 'Dan Pearson Tech Blog',
-              logo: {
-                '@type': 'ImageObject',
-                url: 'https://danpearson.net/placeholder.svg'
-              }
+              name: 'Pearson Media LLC'
             },
-            datePublished: article.created_at,
-            dateModified: article.updated_at,
-            mainEntityOfPage: {
-              '@type': 'WebPage',
-              '@id': `https://danpearson.net/news/${article.slug}`
+            sameAs: [
+              'https://linkedin.com/in/danpearson',
+              'https://github.com/dj-pearson'
+            ]
+          },
+          publisher: {
+            '@type': 'Person',
+            name: 'Dan Pearson',
+            url: 'https://danpearson.net',
+            logo: {
+              '@type': 'ImageObject',
+              url: 'https://danpearson.net/placeholder.svg'
             }
-          }
+          },
+          datePublished: article.created_at,
+          dateModified: article.updated_at || article.created_at,
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': `https://danpearson.net/news/${article.slug}`
+          },
+          keywords: (article.tags || []).join(', '),
+          articleSection: article.category,
+          wordCount: article.content?.length || 0
         }}
       />
+
+      {/* Breadcrumb Schema */}
+      <StructuredData
+        type="breadcrumb"
+        data={{
+          items: breadcrumbItems.map((item, index) => ({
+            name: item.label,
+            url: `https://danpearson.net${item.href}`
+          }))
+        }}
+      />
+
       <Navigation />
       <div className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-4xl">
-          {/* Back Button */}
-          <div className="mb-8">
-            <Link to="/news">
-              <Button variant="ghost" className="text-muted-foreground hover:text-primary">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to News
-              </Button>
-            </Link>
+          {/* Breadcrumbs */}
+          <div className="mb-6">
+            <Breadcrumbs items={breadcrumbItems} />
           </div>
 
-          {/* Article Header */}
-          <article className="space-y-8">
+          {/* Semantic Article Structure */}
+          <article className="space-y-8" itemScope itemType="https://schema.org/Article">
             <header className="space-y-6">
               <div className="flex flex-wrap gap-2">
-                <Badge className="bg-primary/10 text-primary border-primary/20">
+                <Badge className="bg-primary/10 text-primary border-primary/20" itemProp="articleSection">
                   {article.category}
                 </Badge>
                 {article.featured && (
@@ -210,30 +242,40 @@ const Article = () => {
                 )}
               </div>
 
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+              <h1 className="text-4xl md:text-5xl font-bold leading-tight" itemProp="headline">
                 {article.title}
               </h1>
 
-              <p className="text-xl text-muted-foreground leading-relaxed">
+              <p className="text-xl text-muted-foreground leading-relaxed" itemProp="description">
                 {article.excerpt}
               </p>
 
               <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  {formatDate(article.created_at!)}
+                  <time itemProp="datePublished" dateTime={article.created_at!}>
+                    {formatDate(article.created_at!)}
+                  </time>
                 </div>
+                {article.updated_at && article.updated_at !== article.created_at && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs">Updated:</span>
+                    <time itemProp="dateModified" dateTime={article.updated_at}>
+                      {formatDate(article.updated_at)}
+                    </time>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4" />
-                  {article.read_time}
+                  <span>{article.read_time}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Eye className="w-4 h-4" />
-                  {article.view_count || 0} views
+                  <span>{article.view_count || 0} views</span>
                 </div>
-                {article.author && (
-                  <div>By {article.author}</div>
-                )}
+                <div itemProp="author" itemScope itemType="https://schema.org/Person">
+                  <span>By <span itemProp="name">{article.author || 'Dan Pearson'}</span></span>
+                </div>
               </div>
 
               {article.tags && article.tags.length > 0 && (
@@ -263,7 +305,7 @@ const Article = () => {
             )}
 
             {/* Article Content */}
-            <div className="prose prose-invert max-w-none">
+            <div className="prose prose-invert max-w-none" itemProp="articleBody">
               {article.content ? (
                 <>
                   <MarkdownRenderer content={article.content} />
@@ -286,6 +328,11 @@ const Article = () => {
                   <p>Article content is not available.</p>
                 </div>
               )}
+            </div>
+
+            {/* Author Byline - E-E-A-T Signal */}
+            <div className="mt-12 pt-8 border-t border-border">
+              <AuthorByline authorName={article.author || 'Dan Pearson'} />
             </div>
 
             {/* Share Section */}

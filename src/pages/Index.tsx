@@ -3,6 +3,7 @@ import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
+import StructuredData from '../components/SEO/StructuredData';
 import { Code, Zap, Globe, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,43 +14,99 @@ const CaseStudies = lazy(() => import('../components/CaseStudies'));
 const NewsletterSignup = lazy(() => import('../components/NewsletterSignup'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
 const CurrentVentures = lazy(() => import('../components/CurrentVentures'));
+const AuthoritySection = lazy(() => import('../components/homepage/AuthoritySection'));
+const FAQSection = lazy(() => import('../components/homepage/FAQSection'));
 
 const Index = () => {
   const { trackClick } = useAnalytics();
   return (
     <div className="min-h-screen flex flex-col">
-      <SEO 
-        title="Dan Pearson - AI Engineer & Business Development Expert | AI Solutions & NFT Development"
-        description="Expert AI engineer and business development leader specializing in AI integration, NFT development, and innovative tech solutions. Transform your business with cutting-edge AI technologies and strategic development."
-        keywords="AI engineer, business development, NFT development, AI integration, artificial intelligence, machine learning, blockchain development, React developer, tech innovation, AI solutions, business transformation, software development"
+      <SEO
+        title="AI Business Automation Consultant | Reduce Costs 40% | Dan Pearson"
+        description="AI automation consultant helping businesses implement intelligent solutions that reduce operational costs by 40% on average. Serving 50+ clients with proven results. Get expert guidance on AI integration, workflow automation, and digital transformation. Based in Des Moines, serving businesses nationwide."
+        keywords="AI business automation, AI automation consultant, business process automation, AI integration services, AI consultant Des Moines, AI tools for business, business automation Iowa, digital transformation consultant, AI implementation, reduce business costs with AI"
         url="https://danpearson.net"
         type="website"
-        structuredData={{
-          type: 'person',
-          data: {
-            name: 'Dan Pearson',
-            jobTitle: 'AI Engineer & Business Development Expert',
-            description: 'Expert AI engineer and business development leader specializing in AI integration, NFT development, and innovative tech solutions.',
-            url: 'https://danpearson.net',
-            image: '/placeholder.svg',
-            sameAs: [
-              'https://linkedin.com/in/danpearson',
-              'https://github.com/danpearson'
-            ],
-            worksFor: {
-              '@type': 'Organization',
-              name: 'Dan Pearson Consulting'
-            },
-            address: {
-              '@type': 'PostalAddress',
-              addressCountry: 'US'
-            }
-          }
+      />
+
+      {/* Enhanced Person Schema for AI Citation */}
+      <StructuredData
+        type="person"
+        data={{
+          name: 'Dan Pearson',
+          jobTitle: 'AI Solutions Consultant & SaaS Developer',
+          description: 'AI Solutions Consultant with 15+ years of experience helping businesses implement automation that reduces costs by an average of 40%. Built 7 SaaS platforms serving 10,000+ users and generated $2.8M+ in revenue for clients through digital transformation.',
+          url: 'https://danpearson.net',
+          email: 'dan@danpearson.net',
+          sameAs: [
+            'https://linkedin.com/in/danpearson',
+            'https://github.com/dj-pearson'
+          ],
+          knowsAbout: [
+            'AI Business Automation',
+            'Artificial Intelligence Integration',
+            'Business Process Automation',
+            'SaaS Development',
+            'Digital Transformation',
+            'OpenAI Integration',
+            'Claude AI Integration',
+            'React Development',
+            'TypeScript',
+            'Cloud Architecture',
+            'Business Intelligence',
+            'Workflow Automation'
+          ],
+          worksFor: {
+            '@type': 'Organization',
+            name: 'Pearson Media LLC'
+          },
+          address: {
+            '@type': 'PostalAddress',
+            addressLocality: 'Des Moines',
+            addressRegion: 'IA',
+            addressCountry: 'US'
+          },
+          alumniOf: [],
+          awards: [
+            'Generated $2.8M+ in client revenue through AI automation',
+            'Built 7 successful SaaS platforms',
+            'Served 50+ businesses with AI implementation'
+          ]
         }}
       />
+
+      {/* Website Schema */}
+      <StructuredData
+        type="website"
+        data={{
+          name: 'Dan Pearson - AI Business Automation',
+          description: 'Expert AI automation consulting and SaaS development services',
+          url: 'https://danpearson.net'
+        }}
+      />
+
+      {/* Organization/Professional Service Schema */}
+      <StructuredData
+        type="organization"
+        data={{
+          name: 'Pearson Media LLC',
+          email: 'dan@danpearson.net',
+          phone: ''
+        }}
+      />
+
       <Navigation />
       <HeroSection />
-      
+
+      {/* Authority Section - SEO Enhancement */}
+      <Suspense fallback={
+        <div className="mobile-section text-center">
+          <div className="skeleton w-full h-96"></div>
+        </div>
+      }>
+        <AuthoritySection />
+      </Suspense>
+
       {/* Services Preview Section */}
       <section className="mobile-section mobile-container relative">
         <div className="max-w-6xl mx-auto">
@@ -210,6 +267,15 @@ const Index = () => {
           </Suspense>
         </div>
       </section>
+
+      {/* FAQ Section - SEO Enhancement */}
+      <Suspense fallback={
+        <div className="mobile-section text-center">
+          <div className="skeleton w-full h-96"></div>
+        </div>
+      }>
+        <FAQSection />
+      </Suspense>
 
       {/* Newsletter Signup Section */}
       <section className="mobile-section mobile-container bg-muted/30">
