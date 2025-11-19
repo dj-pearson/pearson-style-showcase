@@ -385,15 +385,23 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                     <User className="h-4 w-4 mr-2" />
                     Waiting for User
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => bulkUpdateStatus('waiting_for_agent')}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Waiting for Agent
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => bulkUpdateStatus('resolved')}>
                     <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Mark as Resolved
+                    Mark as Done/Resolved
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => bulkUpdateStatus('closed')}>
                     <XCircle className="h-4 w-4 mr-2" />
                     Close Tickets
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => bulkUpdateStatus('disregard')} className="text-gray-600">
+                    <XIcon className="h-4 w-4 mr-2" />
+                    Disregard
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => bulkUpdateStatus('spam')} className="text-orange-600">
                     <AlertCircle className="h-4 w-4 mr-2" />
                     Mark as Spam
