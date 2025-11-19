@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,23 +12,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const AdminLogin = () => {
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     email: '',
     password: '',
     totpCode: ''
   });
-  const [showPassword, setShowPassword] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [requiresTOTP] = React.useState(false);
-  const [showForgotPassword, setShowForgotPassword] = React.useState(false);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = React.useState('');
-  const [error, setError] = React.useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [requiresTOTP] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signIn, isAuthenticated } = useAuth();
 
   // Redirect to dashboard if already authenticated
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAuthenticated) {
       const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
       sessionStorage.removeItem('auth_return_url');
@@ -36,13 +36,13 @@ const AdminLogin = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -76,7 +76,7 @@ const AdminLogin = () => {
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
