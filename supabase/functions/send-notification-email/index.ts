@@ -77,6 +77,34 @@ serve(async (req: Request) => {
 
     const request: NotificationRequest = await req.json();
     
+    // Fetch ticket to check status
+    const { data: ticket, error: ticketError } = await supabase
+      .from('support_tickets')
+      .select('status')
+      .eq('id', request.ticket_id)
+      .single();
+
+    if (ticketError) {
+      console.error('Error fetching ticket:', ticketError);
+      throw ticketError;
+    }
+
+    // Skip notifications for spam and disregard statuses
+    if (ticket && (ticket.status === 'spam' || ticket.status === 'disregard')) {
+      console.log(`Skipping notification for ticket ${request.ticket_number} with status: ${ticket.status}`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          skipped: true, 
+          reason: `Ticket marked as ${ticket.status}` 
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
     // Default notification email
     const notificationEmail = request.notification_email || 'pearsonperformance@gmail.com';
 

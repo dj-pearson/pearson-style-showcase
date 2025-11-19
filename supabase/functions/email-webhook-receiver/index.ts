@@ -133,6 +133,25 @@ serve(async (req: Request) => {
 
       ticketId = ticket.id;
       console.log('Created new ticket:', ticketId);
+      
+      // Send notification for new ticket
+      try {
+        await supabase.functions.invoke('send-notification-email', {
+          body: {
+            type: 'new_ticket',
+            ticket_number: ticket.ticket_number,
+            ticket_id: ticket.id,
+            ticket_subject: payload.subject,
+            from_email: payload.from,
+            from_name: payload.from.split('@')[0],
+            message_preview: payload.body_text || payload.body_html || ''
+          }
+        });
+        console.log('Sent new ticket notification');
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+        // Don't fail the whole request if notification fails
+      }
     } else {
       // Update ticket with new activity
       await supabase
@@ -142,6 +161,33 @@ serve(async (req: Request) => {
           status: 'waiting_for_agent'
         })
         .eq('id', ticketId);
+      
+      // Send notification for new response
+      try {
+        const { data: ticket } = await supabase
+          .from('support_tickets')
+          .select('ticket_number, subject')
+          .eq('id', ticketId)
+          .single();
+        
+        if (ticket) {
+          await supabase.functions.invoke('send-notification-email', {
+            body: {
+              type: 'new_response',
+              ticket_number: ticket.ticket_number,
+              ticket_id: ticketId,
+              ticket_subject: ticket.subject,
+              from_email: payload.from,
+              from_name: payload.from.split('@')[0],
+              message_preview: payload.body_text || payload.body_html || ''
+            }
+          });
+          console.log('Sent new response notification');
+        }
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+        // Don't fail the whole request if notification fails
+      }
     }
 
     // Create email thread entry
