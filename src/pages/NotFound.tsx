@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Home, ArrowLeft, Search, FileQuestion } from "lucide-react";
+import { Home, ArrowLeft, FileQuestion } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
