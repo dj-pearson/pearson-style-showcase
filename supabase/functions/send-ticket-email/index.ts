@@ -30,11 +30,16 @@ async function sendEmailViaSMTP(
 ): Promise<{ messageId: string; success: boolean }> {
 
   // Use environment variables as defaults, but allow mailbox config to override
+  let smtpPort = mailboxConfig.smtp_port || 587;
   const smtpHost = mailboxConfig.smtp_host || Deno.env.get('AMAZON_SMTP_ENDPOINT');
-  const smtpPort = mailboxConfig.smtp_port || 587;
   const smtpUsername = mailboxConfig.smtp_username || Deno.env.get('AMAZON_SMTP_USER_NAME');
   const smtpPassword = mailboxConfig.smtp_password || Deno.env.get('AMAZON_SMTP_PASSWORD');
   const smtpUseTls = mailboxConfig.smtp_use_tls !== undefined ? mailboxConfig.smtp_use_tls : true;
+
+  // Work around Deno TLS bug on port 587 with some SMTP providers by switching to 465 when using TLS
+  if (smtpUseTls && smtpPort === 587) {
+    smtpPort = 465;
+  }
 
   if (!smtpHost || !smtpUsername || !smtpPassword) {
     throw new Error('SMTP configuration missing. Please configure mailbox or set environment variables.');
