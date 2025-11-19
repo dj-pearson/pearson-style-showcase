@@ -45,27 +45,48 @@ serve(async (req: Request) => {
 
         for (const key of candidates) {
           const value = formData.get(key);
-          if (typeof value === 'string') return value;
+          if (typeof value === 'string') return value.trim();
         }
         return '';
       };
 
+      const extractEmail = (value: string): string => {
+        if (!value) return '';
+        const trimmed = value.trim();
+        const match = trimmed.match(/<([^>]+)>/);
+        if (match && match[1]) return match[1].trim();
+        return trimmed;
+      };
+
+      const to = getField('to') || getField('To');
+      const fromRaw =
+        getField('from_email') ||
+        getField('From_email') ||
+        getField('fromEmail') ||
+        getField('FromEmail') ||
+        getField('from') ||
+        getField('From');
+      const fromEmail = extractEmail(fromRaw);
+
+      const bodyRaw =
+        getField('body') ||
+        getField('Body') ||
+        getField('text') ||
+        getField('Text') ||
+        getField('textbody') ||
+        getField('TextBody') ||
+        getField('html') ||
+        getField('Html') ||
+        getField('htmlbody') ||
+        getField('HtmlBody');
+
       payload = {
-        to: getField('to') || getField('To'),
-        from: getField('from') || getField('From'),
-        from_email:
-          getField('from_email') ||
-          getField('From_email') ||
-          getField('fromEmail') ||
-          getField('FromEmail'),
+        to,
+        from: getField('from') || getField('From') || fromEmail,
+        from_email: fromEmail,
         subject: getField('subject') || getField('Subject'),
         date: getField('date') || getField('Date'),
-        body:
-          getField('body') ||
-          getField('text') ||
-          getField('Text') ||
-          getField('html') ||
-          getField('Html'),
+        body: bodyRaw,
         id: getField('id') || getField('Id') || getField('ID'),
       };
 
@@ -73,6 +94,7 @@ serve(async (req: Request) => {
         to: payload.to,
         from: payload.from_email,
         subject: payload.subject,
+        hasBody: !!payload.body,
       });
     } else {
       const rawBody = await req.text();
