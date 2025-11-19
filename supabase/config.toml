@@ -227,3 +227,9 @@ verify_jwt = false
 
 [functions.send-ticket-email]
 verify_jwt = true
+
+[functions.test-ai-model]
+verify_jwt = false
+
+[functions.generate-ticket-response]
+verify_jwt = false

@@ -205,6 +205,54 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_model_configs: {
+        Row: {
+          api_key_secret_name: string
+          configuration: Json | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          last_test_status: string | null
+          last_tested_at: string | null
+          model_name: string
+          priority: number
+          provider: string
+          updated_at: string | null
+          use_case: string | null
+        }
+        Insert: {
+          api_key_secret_name: string
+          configuration?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          last_test_status?: string | null
+          last_tested_at?: string | null
+          model_name: string
+          priority?: number
+          provider: string
+          updated_at?: string | null
+          use_case?: string | null
+        }
+        Update: {
+          api_key_secret_name?: string
+          configuration?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          last_test_status?: string | null
+          last_tested_at?: string | null
+          model_name?: string
+          priority?: number
+          provider?: string
+          updated_at?: string | null
+          use_case?: string | null
+        }
+        Relationships: []
+      }
       ai_tool_submissions: {
         Row: {
           description: string
