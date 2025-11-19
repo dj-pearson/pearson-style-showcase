@@ -17,6 +17,8 @@ interface Ticket {
   category: string;
   priority: number;
   status: string;
+  assigned_to: string | null;
+  mailbox_id: string | null;
   user_agent: string | null;
   referrer_url: string | null;
   page_url: string | null;

@@ -33,7 +33,6 @@ import {
   Archive,
   Trash2,
   CheckCheck,
-  MoreVertical,
   X as XIcon,
   Filter
 } from 'lucide-react';

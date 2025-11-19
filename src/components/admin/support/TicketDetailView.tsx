@@ -126,19 +126,6 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
     }
   };
 
-  // Check if selected mailbox has SMTP configured
-  const isSmtpConfigured = (mailboxId: string): boolean => {
-    const mailbox = mailboxes.find(m => m.id === mailboxId);
-    if (!mailbox) return false;
-
-    // Check if SMTP credentials are set (from mailbox or env vars)
-    return !!(
-      mailbox.smtp_host ||
-      mailbox.smtp_username ||
-      Deno?.env?.get?.('AMAZON_SMTP_ENDPOINT') // Env vars will be used as fallback
-    );
-  };
-
   const getSmtpWarning = (): string | null => {
     if (!selectedMailbox) return null;
     const mailbox = mailboxes.find(m => m.id === selectedMailbox);
@@ -196,7 +183,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
       if (sendAsEmail && !isInternal) {
         // Send via email using Edge Function
-        const { data, error } = await supabase.functions.invoke('send-ticket-email', {
+        const { error } = await supabase.functions.invoke('send-ticket-email', {
           body: {
             ticket_id: ticket.id,
             from_mailbox_id: selectedMailbox,
