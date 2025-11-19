@@ -3,7 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -17,7 +20,10 @@ import {
   User,
   Globe,
   X,
-  Lightbulb
+  Lightbulb,
+  Mail,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
@@ -59,13 +65,19 @@ interface TicketDetailViewProps {
 export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onClose, onUpdate }) => {
   const [responses, setResponses] = useState<Response[]>([]);
   const [replyMessage, setReplyMessage] = useState('');
+  const [emailSubject, setEmailSubject] = useState(`Re: ${ticket.subject}`);
+  const [sendAsEmail, setSendAsEmail] = useState(true);
+  const [isInternal, setIsInternal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [newStatus, setNewStatus] = useState(ticket.status);
   const [newCategory, setNewCategory] = useState(ticket.category);
+  const [mailboxes, setMailboxes] = useState<any[]>([]);
+  const [selectedMailbox, setSelectedMailbox] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
     loadResponses();
+    loadMailboxes();
 
     const subscription = supabase
       .channel(`ticket-${ticket.id}`)
@@ -81,6 +93,26 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       subscription.unsubscribe();
     };
   }, [ticket.id]);
+
+  const loadMailboxes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('email_mailboxes' as any)
+        .select('*')
+        .eq('is_active', true)
+        .order('is_default', { ascending: false });
+
+      if (error) throw error;
+
+      setMailboxes(data || []);
+      // Auto-select first mailbox (default or first available)
+      if (data && data.length > 0) {
+        setSelectedMailbox(data[0].id);
+      }
+    } catch (error) {
+      logger.error('Failed to load mailboxes:', error);
+    }
+  };
 
   const loadResponses = async () => {
     try {
@@ -105,42 +137,78 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const sendReply = async () => {
     if (!replyMessage.trim()) return;
 
+    if (sendAsEmail && !selectedMailbox) {
+      toast({
+        title: 'No Mailbox Selected',
+        description: 'Please select a mailbox to send email from.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setIsSending(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { error } = await supabase
-        .from('ticket_responses' as any)
-        .insert({
-          ticket_id: ticket.id,
-          author_id: user?.id,
-          author_email: user?.email || 'admin',
-          author_name: 'Admin',
-          author_type: 'admin',
-          message: replyMessage
+      if (sendAsEmail && !isInternal) {
+        // Send via email using Edge Function
+        const { data, error } = await supabase.functions.invoke('send-ticket-email', {
+          body: {
+            ticket_id: ticket.id,
+            from_mailbox_id: selectedMailbox,
+            to_email: ticket.user_email,
+            subject: emailSubject,
+            message: replyMessage,
+            is_internal: false,
+          }
         });
 
-      if (error) throw error;
+        if (error) {
+          logger.error('Email send error:', error);
+          throw new Error(error.message || 'Failed to send email');
+        }
 
-      // Update ticket status if first response
-      if (!responses.length) {
-        await supabase
-          .from('support_tickets' as any)
-          .update({ first_response_at: new Date().toISOString() })
-          .eq('id', ticket.id);
+        toast({
+          title: 'Email Sent',
+          description: `Email sent successfully to ${ticket.user_email}`,
+        });
+      } else {
+        // Save as internal note or response without email
+        const { error } = await supabase
+          .from('ticket_responses' as any)
+          .insert({
+            ticket_id: ticket.id,
+            author_id: user?.id,
+            author_email: user?.email || 'admin',
+            author_name: user?.email?.split('@')[0] || 'Admin',
+            author_type: 'agent',
+            message: replyMessage,
+            is_internal: isInternal,
+          });
+
+        if (error) throw error;
+
+        // Update ticket status if first response
+        if (!responses.length && !isInternal) {
+          await supabase
+            .from('support_tickets' as any)
+            .update({ first_response_at: new Date().toISOString() })
+            .eq('id', ticket.id);
+        }
+
+        toast({
+          title: isInternal ? 'Internal Note Added' : 'Reply Saved',
+          description: isInternal ? 'Note visible to agents only' : 'Response saved successfully',
+        });
       }
 
       setReplyMessage('');
-      toast({
-        title: 'Reply Sent',
-        description: 'Your response has been sent to the user.',
-      });
       onUpdate();
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to send reply:', error);
       toast({
         title: 'Failed to Send',
-        description: 'Could not send the reply. Please try again.',
+        description: error.message || 'Could not send the reply. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -305,21 +373,114 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
           {/* Reply Box */}
           <Card>
             <CardContent className="pt-6">
-              <Textarea
-                placeholder="Type your response..."
-                value={replyMessage}
-                onChange={(e) => setReplyMessage(e.target.value)}
-                rows={4}
-                className="mb-3"
-              />
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">
-                  Tip: Use canned responses for quick replies
+              <div className="space-y-3">
+                {/* Email Options */}
+                <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="send-email"
+                        checked={sendAsEmail}
+                        onCheckedChange={setSendAsEmail}
+                      />
+                      <Label htmlFor="send-email" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        Send as Email
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="internal-note"
+                        checked={isInternal}
+                        onCheckedChange={setIsInternal}
+                        disabled={sendAsEmail}
+                      />
+                      <Label htmlFor="internal-note" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        Internal Note
+                      </Label>
+                    </div>
+                  </div>
+                  {sendAsEmail && mailboxes.length > 0 && (
+                    <Select value={selectedMailbox} onValueChange={setSelectedMailbox}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Select mailbox" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {mailboxes.map((mailbox) => (
+                          <SelectItem key={mailbox.id} value={mailbox.id}>
+                            {mailbox.email_address}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
-                <Button onClick={sendReply} disabled={isSending || !replyMessage.trim()}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Reply
-                </Button>
+
+                {/* Email Subject (only show when sending as email) */}
+                {sendAsEmail && !isInternal && (
+                  <div>
+                    <Label htmlFor="email-subject" className="text-sm">Subject</Label>
+                    <Input
+                      id="email-subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      placeholder="Email subject"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+
+                {/* Message */}
+                <div>
+                  <Textarea
+                    placeholder={
+                      isInternal
+                        ? "Add an internal note (not sent to customer)..."
+                        : sendAsEmail
+                          ? "Compose your email reply..."
+                          : "Type your response..."
+                    }
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                    rows={6}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">
+                    {sendAsEmail && !isInternal ? (
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        Will send email to: <strong>{ticket.user_email}</strong>
+                      </span>
+                    ) : isInternal ? (
+                      <span className="flex items-center gap-1 text-yellow-600">
+                        <AlertCircle className="h-3 w-3" />
+                        Internal note - visible to agents only
+                      </span>
+                    ) : (
+                      "Tip: Toggle 'Send as Email' to notify the customer"
+                    )}
+                  </div>
+                  <Button onClick={sendReply} disabled={isSending || !replyMessage.trim()}>
+                    {isSending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        {sendAsEmail && !isInternal ? (
+                          <><Mail className="h-4 w-4 mr-2" />Send Email</>
+                        ) : (
+                          <><Send className="h-4 w-4 mr-2" />Save {isInternal ? 'Note' : 'Reply'}</>
+                        )}
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
