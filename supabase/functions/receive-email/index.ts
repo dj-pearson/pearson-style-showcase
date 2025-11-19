@@ -14,6 +14,8 @@ interface MakeComEmailPayload {
   date: string;            // Timestamp (e.g., "Tue, 18 Nov 2025 21:27:33 -0600")
   body: string;            // Full email body
   id: string;              // Unique email ID
+  in_reply_to?: string;    // In-Reply-To header (for threading)
+  references?: string;     // References header (for threading)
 }
 
 serve(async (req: Request) => {
@@ -103,6 +105,8 @@ serve(async (req: Request) => {
         date: getField('date') || getField('Date'),
         body: bodyRaw,
         id: getField('id') || getField('Id') || getField('ID'),
+        in_reply_to: getField('in_reply_to') || getField('In-Reply-To') || getField('inReplyTo'),
+        references: getField('references') || getField('References'),
       };
 
       console.log('Parsed as multipart form-data', {
@@ -230,23 +234,46 @@ serve(async (req: Request) => {
       console.log(`Mailbox created with ID: ${mailbox.id}`);
     }
 
-    // Check if this is a reply to an existing ticket (by checking subject or message ID)
+    // Check if this is a reply to an existing ticket
     let ticketId: string | null = null;
+    let isReply = false;
 
-    // Try to find existing ticket by matching subject or email ID
-    const { data: existingTicket } = await supabase
-      .from('support_tickets')
-      .select('id, ticket_number')
-      .eq('user_email', payload.from_email)
-      .ilike('subject', `%${payload.subject.replace(/^(Re:|Fwd:)\s*/i, '')}%`)
-      .eq('mailbox_id', mailbox.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // First, try to find ticket by In-Reply-To or References headers
+    if (payload.in_reply_to || payload.references) {
+      const { data: threadTicket } = await supabase
+        .from('email_threads')
+        .select('ticket_id')
+        .or(`message_id.eq.${payload.in_reply_to},message_id.in.(${payload.references})`)
+        .eq('mailbox_id', mailbox.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (existingTicket) {
-      ticketId = existingTicket.id;
-      console.log(`Found existing ticket: ${existingTicket.ticket_number}`);
+      if (threadTicket) {
+        ticketId = threadTicket.ticket_id;
+        isReply = true;
+        console.log(`Found existing ticket via email threading: ${ticketId}`);
+      }
+    }
+
+    // If not found via headers, try to find existing ticket by matching subject
+    if (!ticketId) {
+      const cleanSubject = payload.subject.replace(/^(Re:|Fwd:)\s*/i, '').trim();
+      const { data: existingTicket } = await supabase
+        .from('support_tickets')
+        .select('id, ticket_number')
+        .eq('user_email', payload.from_email)
+        .ilike('subject', `%${cleanSubject}%`)
+        .eq('mailbox_id', mailbox.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingTicket) {
+        ticketId = existingTicket.id;
+        isReply = true;
+        console.log(`Found existing ticket via subject: ${existingTicket.ticket_number}`);
+      }
     }
 
     // Parse date
@@ -345,11 +372,39 @@ serve(async (req: Request) => {
 
     console.log('Successfully processed email from Make.com');
 
+    // Send notification email
+    try {
+      const { data: ticketData } = await supabase
+        .from('support_tickets')
+        .select('ticket_number, subject')
+        .eq('id', ticketId)
+        .single();
+
+      if (ticketData) {
+        await supabase.functions.invoke('send-notification-email', {
+          body: {
+            type: isReply ? 'new_response' : 'new_ticket',
+            ticket_number: ticketData.ticket_number,
+            ticket_id: ticketId,
+            ticket_subject: ticketData.subject,
+            from_email: payload.from_email,
+            from_name: payload.from,
+            message_preview: payload.body,
+          }
+        });
+        console.log('Notification email sent');
+      }
+    } catch (notifyError) {
+      // Don't fail the request if notification fails
+      console.error('Failed to send notification:', notifyError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         ticket_id: ticketId,
         mailbox_id: mailbox.id,
+        is_reply: isReply,
         message: 'Email received and processed successfully'
       }),
       {
