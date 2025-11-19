@@ -80,6 +80,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   useEffect(() => {
     loadResponses();
     loadMailboxes();
+    loadLatestEmailSubject();
 
     const subscription = supabase
       .channel(`ticket-${ticket.id}`)
@@ -123,6 +124,36 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       }
     } catch (error) {
       logger.error('Failed to load mailboxes:', error);
+    }
+  };
+
+  const loadLatestEmailSubject = async () => {
+    try {
+      // Get the most recent email thread for this ticket
+      const { data, error } = await supabase
+        .from('email_threads' as any)
+        .select('subject')
+        .eq('ticket_id', ticket.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error;
+      }
+
+      // Use the most recent email subject if available, otherwise use ticket subject
+      if (data?.subject) {
+        // If subject already starts with "Re:", don't add another one
+        const subject = data.subject.startsWith('Re:') ? data.subject : `Re: ${data.subject}`;
+        setEmailSubject(subject);
+      } else {
+        setEmailSubject(`Re: ${ticket.subject}`);
+      }
+    } catch (error) {
+      logger.error('Failed to load email subject:', error);
+      // Fallback to ticket subject
+      setEmailSubject(`Re: ${ticket.subject}`);
     }
   };
 
