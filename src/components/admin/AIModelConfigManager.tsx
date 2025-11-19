@@ -23,7 +23,7 @@ interface AIModelConfig {
   is_default: boolean;
   is_active: boolean;
   configuration: any;
-  use_case: string;
+  use_case: string | string[];
   last_tested_at: string | null;
   last_test_status: string | null;
   created_at: string;
@@ -41,7 +41,7 @@ export function AIModelConfigManager() {
     model_name: "",
     api_key_secret_name: "",
     priority: 0,
-    use_case: "general",
+    use_cases: ["general"] as string[],
   });
 
   const { data: configs, isLoading } = useQuery({
@@ -70,7 +70,7 @@ export function AIModelConfigManager() {
         model_name: "",
         api_key_secret_name: "",
         priority: 0,
-        use_case: "general",
+        use_cases: ["general"],
       });
     },
     onError: (error) => {
@@ -106,11 +106,17 @@ export function AIModelConfigManager() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["ai-model-configs"] });
-      toast.success(data.message || "Model tested successfully");
+      if (data?.success) {
+        toast.success(data.message || "Model tested successfully");
+      } else {
+        toast.error(data?.message || "Model test failed", {
+          description: data?.errorDetails ? `Details: ${data.errorDetails}` : undefined
+        });
+      }
       setTestingModelId(null);
     },
     onError: (error) => {
-      toast.error("Test failed: " + error.message);
+      toast.error("Failed to test model: " + error.message);
       setTestingModelId(null);
     },
   });
@@ -266,22 +272,31 @@ export function AIModelConfigManager() {
                   />
                 </div>
                 <div>
-                  <Label>Use Case</Label>
-                  <Select
-                    value={newConfig.use_case}
-                    onValueChange={(value) =>
-                      setNewConfig({ ...newConfig, use_case: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="ticket_response">Ticket Response</SelectItem>
-                      <SelectItem value="content_generation">Content Generation</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Use Cases</Label>
+                  <div className="space-y-2 mt-2">
+                    {["all", "general", "ticket_response", "content_generation"].map((useCase) => (
+                      <div key={useCase} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`new-${useCase}`}
+                          checked={newConfig.use_cases.includes(useCase)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setNewConfig({
+                              ...newConfig,
+                              use_cases: checked
+                                ? [...newConfig.use_cases, useCase]
+                                : newConfig.use_cases.filter((uc) => uc !== useCase),
+                            });
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <label htmlFor={`new-${useCase}`} className="text-sm capitalize">
+                          {useCase.replace("_", " ")}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -289,8 +304,14 @@ export function AIModelConfigManager() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => addConfigMutation.mutate(newConfig)}
-                  disabled={!newConfig.model_name || !newConfig.api_key_secret_name}
+                  onClick={() => {
+                    const configToSubmit = {
+                      ...newConfig,
+                      use_case: newConfig.use_cases.join(",")
+                    };
+                    addConfigMutation.mutate(configToSubmit as any);
+                  }}
+                  disabled={!newConfig.model_name || !newConfig.api_key_secret_name || newConfig.use_cases.length === 0}
                 >
                   Add Configuration
                 </Button>
@@ -358,22 +379,40 @@ export function AIModelConfigManager() {
                     />
                   </div>
                   <div>
-                    <Label>Use Case</Label>
-                    <Select
-                      value={editingConfig.use_case}
-                      onValueChange={(value) =>
-                        setEditingConfig({ ...editingConfig, use_case: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="ticket_response">Ticket Response</SelectItem>
-                        <SelectItem value="content_generation">Content Generation</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Use Cases</Label>
+                    <div className="space-y-2 mt-2">
+                      {["all", "general", "ticket_response", "content_generation"].map((useCase) => {
+                        const currentUseCases = typeof editingConfig.use_case === 'string' 
+                          ? editingConfig.use_case.split(',') 
+                          : Array.isArray(editingConfig.use_case) 
+                            ? editingConfig.use_case 
+                            : [];
+                        
+                        return (
+                          <div key={useCase} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`edit-${useCase}`}
+                              checked={currentUseCases.includes(useCase)}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                const updatedUseCases = checked
+                                  ? [...currentUseCases, useCase]
+                                  : currentUseCases.filter((uc) => uc !== useCase);
+                                setEditingConfig({ 
+                                  ...editingConfig, 
+                                  use_case: updatedUseCases.join(',')
+                                });
+                              }}
+                              className="w-4 h-4"
+                            />
+                            <label htmlFor={`edit-${useCase}`} className="text-sm capitalize">
+                              {useCase.replace("_", " ")}
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -420,7 +459,7 @@ export function AIModelConfigManager() {
                 <TableHead>Provider</TableHead>
                 <TableHead>Model</TableHead>
                 <TableHead>Priority</TableHead>
-                <TableHead>Use Case</TableHead>
+                <TableHead>Use Cases</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Default</TableHead>
                 <TableHead>Active</TableHead>
@@ -439,7 +478,23 @@ export function AIModelConfigManager() {
                   <TableCell className="font-mono text-sm">{config.model_name}</TableCell>
                   <TableCell>{config.priority}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{config.use_case}</Badge>
+                    {(() => {
+                      const useCases = typeof config.use_case === 'string' 
+                        ? config.use_case.split(',') 
+                        : Array.isArray(config.use_case) 
+                          ? config.use_case 
+                          : ['general'];
+                      
+                      return (
+                        <div className="flex flex-wrap gap-1">
+                          {useCases.map((uc) => (
+                            <Badge key={uc} variant="outline" className="text-xs">
+                              {uc.replace("_", " ")}
+                            </Badge>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     {config.last_test_status === "success" ? (
