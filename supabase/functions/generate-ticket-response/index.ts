@@ -41,15 +41,27 @@ serve(async (req) => {
     }
 
     // Get active AI model config for ticket_response use case
+    // use_case is now a comma-separated string, so we check if it contains ticket_response or all
     const { data: configs, error: configError } = await supabaseClient
       .from("ai_model_configs")
       .select("*")
-      .eq("use_case", "ticket_response")
       .eq("is_active", true)
       .order("priority", { ascending: false });
 
     if (configError || !configs || configs.length === 0) {
       throw new Error("No active AI configuration found for ticket responses");
+    }
+
+    // Filter configs that have "ticket_response" or "all" in their use_case string
+    const ticketConfigs = configs.filter(c => 
+      c.use_case && (
+        c.use_case.includes("ticket_response") || 
+        c.use_case.includes("all")
+      )
+    );
+
+    if (ticketConfigs.length === 0) {
+      throw new Error("No active AI configuration found for ticket_response or all use cases");
     }
 
     // Build conversation history
@@ -86,7 +98,7 @@ Generate ONLY the response text, no additional formatting or metadata.`;
     let usedConfig = null;
 
     // Try each config in priority order until one succeeds
-    for (const config of configs) {
+    for (const config of ticketConfigs) {
       console.log(`Trying model: ${config.provider} - ${config.model_name}`);
       
       try {
