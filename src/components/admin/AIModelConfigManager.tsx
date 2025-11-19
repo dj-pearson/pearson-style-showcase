@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { PlayCircle, Plus, Star, AlertCircle, CheckCircle2 } from "lucide-react";
+import { PlayCircle, Plus, Star, AlertCircle, CheckCircle2, Edit2, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface AIModelConfig {
   id: string;
@@ -31,7 +32,10 @@ interface AIModelConfig {
 export function AIModelConfigManager() {
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
+  const [editingConfig, setEditingConfig] = useState<AIModelConfig | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newConfig, setNewConfig] = useState({
     provider: "gemini-paid",
     model_name: "",
@@ -110,6 +114,54 @@ export function AIModelConfigManager() {
       setTestingModelId(null);
     },
   });
+
+  const deleteConfigMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("ai_model_configs")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ai-model-configs"] });
+      toast.success("Configuration deleted");
+      setDeleteConfirmId(null);
+    },
+    onError: (error) => {
+      toast.error("Failed to delete: " + error.message);
+    },
+  });
+
+  const openEditDialog = (config: AIModelConfig) => {
+    setEditingConfig(config);
+    setIsEditDialogOpen(true);
+  };
+
+  const saveEdit = () => {
+    if (!editingConfig) return;
+    
+    updateConfigMutation.mutate({
+      id: editingConfig.id,
+      updates: {
+        provider: editingConfig.provider,
+        model_name: editingConfig.model_name,
+        api_key_secret_name: editingConfig.api_key_secret_name,
+        priority: editingConfig.priority,
+        use_case: editingConfig.use_case,
+      }
+    });
+    setIsEditDialogOpen(false);
+    setEditingConfig(null);
+  };
+
+  const movePriority = (config: AIModelConfig, direction: 'up' | 'down') => {
+    const newPriority = direction === 'up' ? config.priority + 1 : config.priority - 1;
+    updateConfigMutation.mutate({
+      id: config.id,
+      updates: { priority: newPriority }
+    });
+  };
 
   const toggleDefault = async (id: string) => {
     // First, unset all other defaults
@@ -245,6 +297,117 @@ export function AIModelConfigManager() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit AI Model Configuration</DialogTitle>
+                <DialogDescription>
+                  Update the configuration for this AI model
+                </DialogDescription>
+              </DialogHeader>
+              {editingConfig && (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Provider</Label>
+                    <Select
+                      value={editingConfig.provider}
+                      onValueChange={(value) =>
+                        setEditingConfig({ ...editingConfig, provider: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gemini-paid">Gemini Paid</SelectItem>
+                        <SelectItem value="gemini-free">Gemini Free</SelectItem>
+                        <SelectItem value="claude">Claude</SelectItem>
+                        <SelectItem value="openai">OpenAI</SelectItem>
+                        <SelectItem value="lovable">Lovable AI</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Model Name</Label>
+                    <Input
+                      value={editingConfig.model_name}
+                      onChange={(e) =>
+                        setEditingConfig({ ...editingConfig, model_name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>API Key Secret Name</Label>
+                    <Input
+                      value={editingConfig.api_key_secret_name}
+                      onChange={(e) =>
+                        setEditingConfig({ ...editingConfig, api_key_secret_name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Priority (higher = preferred)</Label>
+                    <Input
+                      type="number"
+                      value={editingConfig.priority}
+                      onChange={(e) =>
+                        setEditingConfig({ ...editingConfig, priority: parseInt(e.target.value) })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Use Case</Label>
+                    <Select
+                      value={editingConfig.use_case}
+                      onValueChange={(value) =>
+                        setEditingConfig({ ...editingConfig, use_case: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="ticket_response">Ticket Response</SelectItem>
+                        <SelectItem value="content_generation">Content Generation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={saveEdit}>
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Confirmation */}
+          <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Configuration?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete this AI model configuration.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteConfirmId && deleteConfigMutation.mutate(deleteConfirmId)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </CardHeader>
       <CardContent>
@@ -261,6 +424,7 @@ export function AIModelConfigManager() {
                 <TableHead>Status</TableHead>
                 <TableHead>Default</TableHead>
                 <TableHead>Active</TableHead>
+                <TableHead>Reorder</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -318,15 +482,50 @@ export function AIModelConfigManager() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => testModelMutation.mutate(config.id)}
-                      disabled={testingModelId === config.id}
-                    >
-                      <PlayCircle className="w-4 h-4 mr-1" />
-                      Test
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => movePriority(config, 'up')}
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => movePriority(config, 'down')}
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testModelMutation.mutate(config.id)}
+                        disabled={testingModelId === config.id}
+                      >
+                        <PlayCircle className="w-4 h-4 mr-1" />
+                        Test
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditDialog(config)}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteConfirmId(config.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
