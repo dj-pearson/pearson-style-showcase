@@ -421,31 +421,45 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
           {/* Responses */}
           {responses.map((response) => (
-            <Card key={response.id} className={response.is_internal ? 'border-yellow-500/50 bg-yellow-500/5' : ''}>
+            <Card 
+              key={response.id} 
+              className={
+                response.is_internal 
+                  ? 'border-yellow-500/50 bg-yellow-500/5' 
+                  : response.author_type === 'agent' || response.author_type === 'admin'
+                  ? 'border-l-4 border-l-blue-500 bg-blue-500/5'
+                  : 'border-l-4 border-l-primary'
+              }
+            >
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    response.author_type === 'admin' ? 'bg-blue-500/10' : 'bg-primary/10'
+                    response.author_type === 'agent' || response.author_type === 'admin' 
+                      ? 'bg-blue-500/10' 
+                      : 'bg-primary/10'
                   }`}>
-                    {response.author_type === 'admin' ? (
+                    {response.author_type === 'agent' || response.author_type === 'admin' ? (
                       <span className="text-xs font-bold text-blue-500">A</span>
                     ) : (
                       <User className="h-4 w-4" />
                     )}
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-medium text-sm">{response.author_name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {response.author_type === 'agent' || response.author_type === 'admin' ? 'Agent' : 'Customer'}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(response.created_at), 'MMM d, yyyy h:mm a')}
                       </span>
                       {response.is_internal && (
-                        <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-500">
+                        <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-500 border-yellow-500">
                           Internal Note
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{response.message}</p>
+                    <p className="text-sm whitespace-pre-wrap mt-2">{response.message}</p>
                   </div>
                 </div>
               </CardContent>
