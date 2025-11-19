@@ -2089,6 +2089,30 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_settings: {
+        Row: {
+          created_at: string | null
+          enabled: boolean
+          id: string
+          notification_emails: string[]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean
+          id?: string
+          notification_emails?: string[]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean
+          id?: string
+          notification_emails?: string[]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       password_reset_tokens: {
         Row: {
           created_at: string | null
