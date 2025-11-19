@@ -75,6 +75,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const [newCategory, setNewCategory] = useState(ticket.category);
   const [mailboxes, setMailboxes] = useState<any[]>([]);
   const [selectedMailbox, setSelectedMailbox] = useState<string>('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiGeneratedResponse, setAiGeneratedResponse] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -275,6 +277,37 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const generateAIResponse = async () => {
+    setIsGeneratingAI(true);
+    setAiGeneratedResponse(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-ticket-response', {
+        body: { ticket_id: ticket.id }
+      });
+
+      if (error) throw error;
+
+      if (data?.response) {
+        setAiGeneratedResponse(data.response);
+        setReplyMessage(data.response);
+        toast({
+          title: 'AI Response Generated',
+          description: `Using ${data.model_used}. Review and edit before sending.`,
+        });
+      }
+    } catch (error: any) {
+      logger.error('Failed to generate AI response:', error);
+      toast({
+        title: 'Generation Failed',
+        description: error.message || 'Could not generate AI response. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingAI(false);
     }
   };
 
@@ -549,7 +582,34 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                 )}
 
                 {/* Message */}
-                <div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Message</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={generateAIResponse}
+                      disabled={isGeneratingAI}
+                    >
+                      {isGeneratingAI ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Lightbulb className="h-3 w-3 mr-1" />
+                          Generate AI Response
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {aiGeneratedResponse && (
+                    <div className="text-xs text-muted-foreground p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                      ✨ AI-generated response loaded. Review carefully before sending.
+                    </div>
+                  )}
                   <Textarea
                     placeholder={
                       isInternal

@@ -59,6 +59,7 @@ import TestimonialsManager from '@/components/admin/TestimonialsManager';
 import VenturesManager from '@/components/admin/VenturesManager';
 import ProfileSettingsManager from '@/components/admin/ProfileSettingsManager';
 import { AccountingDashboard } from '@/components/admin/AccountingDashboard';
+import { AIModelConfigManager } from '@/components/admin/AIModelConfigManager';
 
 interface DashboardStats {
   projects: number;
@@ -85,6 +86,7 @@ const AdminDashboard = () => {
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'command-center', label: 'Command Center', icon: Activity },
     { id: 'support', label: 'Support Tickets', icon: MessageSquare },
+    { id: 'ai-config', label: 'AI Configuration', icon: Activity },
     { id: 'maintenance', label: 'Maintenance', icon: Zap },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquareQuote },
@@ -276,6 +278,8 @@ const AdminDashboard = () => {
         return <AIToolsManager />;
       case 'accounting':
         return <AccountingDashboard />;
+      case 'ai-config':
+        return <AIModelConfigManager />;
       case 'amazon':
         return <AmazonPipelineManager />;
       case 'newsletter':
