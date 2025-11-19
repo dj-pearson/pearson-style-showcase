@@ -27,7 +27,33 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const payload: MakeComEmailPayload = await req.json();
+    // Log content type and raw body for debugging
+    const contentType = req.headers.get('content-type');
+    console.log('Content-Type:', contentType);
+    
+    const rawBody = await req.text();
+    console.log('Raw body received:', rawBody.substring(0, 200)); // Log first 200 chars
+    
+    // Try to parse JSON
+    let payload: MakeComEmailPayload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Raw body that failed to parse:', rawBody);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON payload',
+          details: parseError.message,
+          contentType: contentType,
+          bodyPreview: rawBody.substring(0, 100)
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
     console.log('Received email from Make.com:', {
       to: payload.to,
       from: payload.from_email,
