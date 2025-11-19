@@ -29,14 +29,27 @@ async function sendEmailViaSMTP(
   inReplyTo?: string
 ): Promise<{ messageId: string; success: boolean }> {
 
+  // Use environment variables as defaults, but allow mailbox config to override
+  const smtpHost = mailboxConfig.smtp_host || Deno.env.get('AMAZON_SMTP_ENDPOINT');
+  const smtpPort = mailboxConfig.smtp_port || 587;
+  const smtpUsername = mailboxConfig.smtp_username || Deno.env.get('AMAZON_SMTP_USER_NAME');
+  const smtpPassword = mailboxConfig.smtp_password || Deno.env.get('AMAZON_SMTP_PASSWORD');
+  const smtpUseTls = mailboxConfig.smtp_use_tls !== undefined ? mailboxConfig.smtp_use_tls : true;
+
+  if (!smtpHost || !smtpUsername || !smtpPassword) {
+    throw new Error('SMTP configuration missing. Please configure mailbox or set environment variables.');
+  }
+
+  console.log(`Using SMTP: ${smtpHost}:${smtpPort} with username: ${smtpUsername?.substring(0, 4)}***`);
+
   const client = new SMTPClient({
     connection: {
-      hostname: mailboxConfig.smtp_host,
-      port: mailboxConfig.smtp_port,
-      tls: mailboxConfig.smtp_use_tls,
+      hostname: smtpHost,
+      port: smtpPort,
+      tls: smtpUseTls,
       auth: {
-        username: mailboxConfig.smtp_username,
-        password: mailboxConfig.smtp_password,
+        username: smtpUsername,
+        password: smtpPassword,
       },
     },
   });
