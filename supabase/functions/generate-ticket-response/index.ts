@@ -48,20 +48,32 @@ serve(async (req) => {
       .eq("is_active", true)
       .order("priority", { ascending: false });
 
-    if (configError || !configs || configs.length === 0) {
-      throw new Error("No active AI configuration found for ticket responses");
+    if (configError || !configs) {
+      throw new Error("Failed to load AI model configurations");
     }
 
-    // Filter configs that have "ticket_response" or "all" in their use_case string
-    const ticketConfigs = configs.filter(c => 
-      c.use_case && (
-        c.use_case.includes("ticket_response") || 
-        c.use_case.includes("all")
-      )
+    const activeConfigs = configs || [];
+
+    // Prefer ticket_response-specific configs, then 'all', then general configs
+    const ticketConfigs = activeConfigs.filter((c: any) =>
+      c.use_case && c.use_case.includes("ticket_response")
+    );
+    const allUseConfigs = activeConfigs.filter((c: any) =>
+      c.use_case && c.use_case.includes("all")
+    );
+    const generalConfigs = activeConfigs.filter((c: any) =>
+      !c.use_case || c.use_case.includes("general")
     );
 
-    if (ticketConfigs.length === 0) {
-      throw new Error("No active AI configuration found for ticket_response or all use cases");
+    const orderedConfigs =
+      ticketConfigs.length > 0
+        ? ticketConfigs
+        : allUseConfigs.length > 0
+          ? allUseConfigs
+          : generalConfigs;
+
+    if (orderedConfigs.length === 0) {
+      throw new Error("No active AI configuration found for ticket responses");
     }
 
     // Build conversation history
@@ -98,7 +110,7 @@ Generate ONLY the response text, no additional formatting or metadata.`;
     let usedConfig = null;
 
     // Try each config in priority order until one succeeds
-    for (const config of ticketConfigs) {
+    for (const config of orderedConfigs) {
       console.log(`Trying model: ${config.provider} - ${config.model_name}`);
       
       try {
