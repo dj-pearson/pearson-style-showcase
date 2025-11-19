@@ -205,6 +205,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_tool_submissions: {
+        Row: {
+          description: string
+          email: string
+          github_link: string | null
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string
+          tool_name: string
+        }
+        Insert: {
+          description: string
+          email: string
+          github_link?: string | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by: string
+          tool_name: string
+        }
+        Update: {
+          description?: string
+          email?: string
+          github_link?: string | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string
+          tool_name?: string
+        }
+        Relationships: []
+      }
       ai_tools: {
         Row: {
           category: string
@@ -932,6 +971,42 @@ export type Database = {
           title?: string
           updated_at?: string
           usage_count?: number | null
+        }
+        Relationships: []
+      }
+      contact_submissions: {
+        Row: {
+          email: string
+          id: string
+          message: string
+          name: string
+          referrer_url: string | null
+          status: string
+          subject: string | null
+          submitted_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          email: string
+          id?: string
+          message: string
+          name: string
+          referrer_url?: string | null
+          status?: string
+          subject?: string | null
+          submitted_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          referrer_url?: string | null
+          status?: string
+          subject?: string | null
+          submitted_at?: string
+          user_agent?: string | null
         }
         Relationships: []
       }
