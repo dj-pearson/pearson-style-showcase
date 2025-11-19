@@ -40,11 +40,13 @@ interface Ticket {
   category: string;
   priority: number;
   status: string;
+  assigned_to: string | null;
   user_agent: string | null;
   referrer_url: string | null;
   page_url: string | null;
   ai_suggested_responses: any;
   created_at: string;
+  mailbox_id: string | null;
 }
 
 interface Response {
@@ -105,13 +107,55 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       if (error) throw error;
 
       setMailboxes(data || []);
-      // Auto-select first mailbox (default or first available)
+
+      // Auto-select mailbox based on ticket's mailbox_id or first available
       if (data && data.length > 0) {
-        setSelectedMailbox(data[0].id);
+        if (ticket.mailbox_id) {
+          const ticketMailbox = data.find(m => m.id === ticket.mailbox_id);
+          if (ticketMailbox) {
+            setSelectedMailbox(ticketMailbox.id);
+          } else {
+            setSelectedMailbox(data[0].id);
+          }
+        } else {
+          setSelectedMailbox(data[0].id);
+        }
       }
     } catch (error) {
       logger.error('Failed to load mailboxes:', error);
     }
+  };
+
+  // Check if selected mailbox has SMTP configured
+  const isSmtpConfigured = (mailboxId: string): boolean => {
+    const mailbox = mailboxes.find(m => m.id === mailboxId);
+    if (!mailbox) return false;
+
+    // Check if SMTP credentials are set (from mailbox or env vars)
+    return !!(
+      mailbox.smtp_host ||
+      mailbox.smtp_username ||
+      Deno?.env?.get?.('AMAZON_SMTP_ENDPOINT') // Env vars will be used as fallback
+    );
+  };
+
+  const getSmtpWarning = (): string | null => {
+    if (!selectedMailbox) return null;
+    const mailbox = mailboxes.find(m => m.id === selectedMailbox);
+    if (!mailbox) return null;
+
+    const hasMailboxConfig = mailbox.smtp_host && mailbox.smtp_username && mailbox.smtp_password;
+    const hasEnvVars = true; // Assume env vars are set (we can't check from client)
+
+    if (!hasMailboxConfig && !hasEnvVars) {
+      return `⚠️ SMTP not configured for ${mailbox.email_address}. Configure in Mailboxes tab.`;
+    }
+
+    if (!hasMailboxConfig) {
+      return `ℹ️ Using default SMTP settings. Configure ${mailbox.email_address} in Mailboxes tab for custom settings.`;
+    }
+
+    return null;
   };
 
   const loadResponses = async () => {
@@ -263,7 +307,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <label className="text-xs text-muted-foreground">Status</label>
               <Select value={newStatus} onValueChange={(v) => { setNewStatus(v); updateTicket({ status: v }); }}>
@@ -271,11 +315,14 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="waiting_for_user">Waiting for User</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
+                  <SelectItem value="open">📬 Open</SelectItem>
+                  <SelectItem value="in_progress">⏳ In Progress</SelectItem>
+                  <SelectItem value="waiting_for_user">👤 Waiting for User</SelectItem>
+                  <SelectItem value="waiting_for_agent">🔔 Waiting for Agent</SelectItem>
+                  <SelectItem value="resolved">✅ Done/Resolved</SelectItem>
+                  <SelectItem value="closed">🔒 Closed</SelectItem>
+                  <SelectItem value="disregard">🚫 Disregard</SelectItem>
+                  <SelectItem value="spam">⚠️ Spam</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -287,11 +334,28 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bug">Bug</SelectItem>
-                  <SelectItem value="feature_request">Feature Request</SelectItem>
-                  <SelectItem value="question">Question</SelectItem>
-                  <SelectItem value="billing">Billing</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="bug">🐛 Bug</SelectItem>
+                  <SelectItem value="feature_request">✨ Feature Request</SelectItem>
+                  <SelectItem value="question">❓ Question</SelectItem>
+                  <SelectItem value="billing">💳 Billing</SelectItem>
+                  <SelectItem value="other">📋 Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground">Assign To</label>
+              <Select
+                value={ticket.assigned_to || 'unassigned'}
+                onValueChange={(v) => updateTicket({ assigned_to: v === 'unassigned' ? null : v })}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  <SelectItem value="self">Assign to Me</SelectItem>
+                  {/* Future: Load team members from database */}
                 </SelectContent>
               </Select>
             </div>
@@ -375,45 +439,66 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
             <CardContent className="pt-6">
               <div className="space-y-3">
                 {/* Email Options */}
-                <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="send-email"
-                        checked={sendAsEmail}
-                        onCheckedChange={setSendAsEmail}
-                      />
-                      <Label htmlFor="send-email" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        Send as Email
-                      </Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="send-email"
+                          checked={sendAsEmail}
+                          onCheckedChange={setSendAsEmail}
+                        />
+                        <Label htmlFor="send-email" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          Send as Email
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="internal-note"
+                          checked={isInternal}
+                          onCheckedChange={setIsInternal}
+                          disabled={sendAsEmail}
+                        />
+                        <Label htmlFor="internal-note" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          Internal Note
+                        </Label>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="internal-note"
-                        checked={isInternal}
-                        onCheckedChange={setIsInternal}
-                        disabled={sendAsEmail}
-                      />
-                      <Label htmlFor="internal-note" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4" />
-                        Internal Note
-                      </Label>
-                    </div>
+                    {sendAsEmail && mailboxes.length > 0 && (
+                      <Select value={selectedMailbox} onValueChange={setSelectedMailbox}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Select mailbox" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {mailboxes.map((mailbox) => (
+                            <SelectItem key={mailbox.id} value={mailbox.id}>
+                              {mailbox.email_address}
+                              {!mailbox.smtp_host && ' ⚙️'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
-                  {sendAsEmail && mailboxes.length > 0 && (
-                    <Select value={selectedMailbox} onValueChange={setSelectedMailbox}>
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Select mailbox" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mailboxes.map((mailbox) => (
-                          <SelectItem key={mailbox.id} value={mailbox.id}>
-                            {mailbox.email_address}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+
+                  {/* SMTP Configuration Warning */}
+                  {sendAsEmail && getSmtpWarning() && (
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                        {getSmtpWarning()}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* No Mailbox Warning */}
+                  {sendAsEmail && mailboxes.length === 0 && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <p className="text-xs text-red-800 dark:text-red-200">
+                        ⚠️ No mailboxes configured. Please add a mailbox in the Mailboxes tab to send emails.
+                      </p>
+                    </div>
                   )}
                 </div>
 
