@@ -172,7 +172,6 @@ serve(async (req: Request) => {
         .insert({
           name: `${toDomain} Inbox`,
           email_address: payload.to,
-          display_name: toDomain,
           description: `Auto-created for ${payload.to}`,
           smtp_host: '', // Empty - needs configuration
           smtp_port: 587,
