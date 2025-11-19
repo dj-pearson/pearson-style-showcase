@@ -70,14 +70,18 @@ serve(async (req: Request) => {
       };
 
       const to = getField('to') || getField('To');
-      const fromRaw =
+      
+      // Get the email address from "From Email" field (not "From" which is just the name)
+      const fromEmailRaw =
+        getField('From Email') ||
         getField('from_email') ||
         getField('From_email') ||
         getField('fromEmail') ||
-        getField('FromEmail') ||
-        getField('from') ||
-        getField('From');
-      const fromEmail = extractEmail(fromRaw);
+        getField('FromEmail');
+      const fromEmail = extractEmail(fromEmailRaw);
+      
+      // Get the sender's name from "From" field
+      const fromName = getField('from') || getField('From') || fromEmail.split('@')[0];
 
       const bodyRaw =
         getField('body') ||
@@ -93,7 +97,7 @@ serve(async (req: Request) => {
 
       payload = {
         to,
-        from: getField('from') || getField('From') || fromEmail,
+        from: fromName,
         from_email: fromEmail,
         subject: getField('subject') || getField('Subject'),
         date: getField('date') || getField('Date'),
