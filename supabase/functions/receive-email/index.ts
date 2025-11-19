@@ -30,44 +30,88 @@ serve(async (req: Request) => {
     const contentType = req.headers.get('content-type') || '';
     console.log('Content-Type:', contentType);
     
-    const rawBody = await req.text();
-    console.log('Raw body received (first 200 chars):', rawBody.substring(0, 200));
-    
     let payload: MakeComEmailPayload;
     
-    // Handle different content types from Make.com
-    if (contentType.includes('application/x-www-form-urlencoded')) {
-      // Parse URL-encoded data
-      const params = new URLSearchParams(rawBody);
-      payload = {
-        to: params.get('to') || '',
-        from: params.get('from') || '',
-        from_email: params.get('from_email') || '',
-        subject: params.get('subject') || '',
-        date: params.get('date') || '',
-        body: params.get('body') || '',
-        id: params.get('id') || '',
+    // Handle multipart/form-data (e.g. from Make.com sending form-data)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+
+      const getField = (name: string): string => {
+        const candidates = [
+          name,
+          name.toLowerCase(),
+          name.toUpperCase(),
+        ];
+
+        for (const key of candidates) {
+          const value = formData.get(key);
+          if (typeof value === 'string') return value;
+        }
+        return '';
       };
-      console.log('Parsed as form-encoded data');
+
+      payload = {
+        to: getField('to') || getField('To'),
+        from: getField('from') || getField('From'),
+        from_email:
+          getField('from_email') ||
+          getField('From_email') ||
+          getField('fromEmail') ||
+          getField('FromEmail'),
+        subject: getField('subject') || getField('Subject'),
+        date: getField('date') || getField('Date'),
+        body:
+          getField('body') ||
+          getField('text') ||
+          getField('Text') ||
+          getField('html') ||
+          getField('Html'),
+        id: getField('id') || getField('Id') || getField('ID'),
+      };
+
+      console.log('Parsed as multipart form-data', {
+        to: payload.to,
+        from: payload.from_email,
+        subject: payload.subject,
+      });
     } else {
-      // Try to parse as JSON
-      try {
-        payload = JSON.parse(rawBody);
-        console.log('Parsed as JSON');
-      } catch (parseError) {
-        console.error('Failed to parse payload:', parseError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Invalid payload format. Expected JSON or form-encoded data.',
-            details: parseError.message,
-            contentType: contentType,
-            bodyPreview: rawBody.substring(0, 100)
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+      const rawBody = await req.text();
+      console.log('Raw body received (first 200 chars):', rawBody.substring(0, 200));
+      
+      // Handle different content types from Make.com
+      if (contentType.includes('application/x-www-form-urlencoded')) {
+        // Parse URL-encoded data
+        const params = new URLSearchParams(rawBody);
+        payload = {
+          to: params.get('to') || '',
+          from: params.get('from') || '',
+          from_email: params.get('from_email') || '',
+          subject: params.get('subject') || '',
+          date: params.get('date') || '',
+          body: params.get('body') || '',
+          id: params.get('id') || '',
+        };
+        console.log('Parsed as form-encoded data');
+      } else {
+        // Try to parse as JSON
+        try {
+          payload = JSON.parse(rawBody);
+          console.log('Parsed as JSON');
+        } catch (parseError) {
+          console.error('Failed to parse payload:', parseError);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid payload format. Expected JSON, form-encoded data, or multipart form-data.',
+              details: (parseError as Error).message,
+              contentType: contentType,
+              bodyPreview: rawBody.substring(0, 100)
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
       }
     }
     console.log('Received email from Make.com:', {
