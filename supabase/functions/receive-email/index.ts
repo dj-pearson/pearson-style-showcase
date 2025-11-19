@@ -27,32 +27,48 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Log content type and raw body for debugging
-    const contentType = req.headers.get('content-type');
+    const contentType = req.headers.get('content-type') || '';
     console.log('Content-Type:', contentType);
     
     const rawBody = await req.text();
-    console.log('Raw body received:', rawBody.substring(0, 200)); // Log first 200 chars
+    console.log('Raw body received (first 200 chars):', rawBody.substring(0, 200));
     
-    // Try to parse JSON
     let payload: MakeComEmailPayload;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Raw body that failed to parse:', rawBody);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid JSON payload',
-          details: parseError.message,
-          contentType: contentType,
-          bodyPreview: rawBody.substring(0, 100)
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+    
+    // Handle different content types from Make.com
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      // Parse URL-encoded data
+      const params = new URLSearchParams(rawBody);
+      payload = {
+        to: params.get('to') || '',
+        from: params.get('from') || '',
+        from_email: params.get('from_email') || '',
+        subject: params.get('subject') || '',
+        date: params.get('date') || '',
+        body: params.get('body') || '',
+        id: params.get('id') || '',
+      };
+      console.log('Parsed as form-encoded data');
+    } else {
+      // Try to parse as JSON
+      try {
+        payload = JSON.parse(rawBody);
+        console.log('Parsed as JSON');
+      } catch (parseError) {
+        console.error('Failed to parse payload:', parseError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid payload format. Expected JSON or form-encoded data.',
+            details: parseError.message,
+            contentType: contentType,
+            bodyPreview: rawBody.substring(0, 100)
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
     }
     console.log('Received email from Make.com:', {
       to: payload.to,
