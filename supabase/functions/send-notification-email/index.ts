@@ -105,8 +105,30 @@ serve(async (req: Request) => {
       );
     }
     
-    // Default notification email
-    const notificationEmail = request.notification_email || 'pearsonperformance@gmail.com';
+    // Fetch notification settings to get configured email addresses
+    const { data: notificationSettings } = await supabase
+      .from('notification_settings')
+      .select('notification_emails, enabled')
+      .single();
+    
+    // Skip if notifications are disabled
+    if (notificationSettings && !notificationSettings.enabled) {
+      console.log('Notifications are disabled in settings');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          skipped: true, 
+          reason: 'Notifications disabled' 
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    // Get notification emails from settings or use default
+    const notificationEmails = notificationSettings?.notification_emails || ['pearsonperformance@gmail.com'];
 
     let subject: string;
     let body: string;
@@ -171,17 +193,35 @@ This is an automated notification from BuildDesk Support System
 `;
     }
 
-    // Send the notification email
-    await sendNotificationEmail(notificationEmail, subject, body);
-
-    // Log the notification
-    await supabase.from('email_logs').insert({
-      recipient_email: notificationEmail,
-      subject: subject,
-      type: 'notification',
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-    });
+    // Send notification emails to all configured addresses
+    for (const email of notificationEmails) {
+      try {
+        await sendNotificationEmail(email, subject, body);
+        
+        // Log the notification
+        await supabase.from('email_logs').insert({
+          recipient_email: email,
+          subject: subject,
+          type: 'notification',
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+        });
+        
+        console.log(`Notification sent to ${email}`);
+      } catch (emailError: any) {
+        console.error(`Failed to send notification to ${email}:`, emailError);
+        
+        // Log the failure
+        await supabase.from('email_logs').insert({
+          recipient_email: email,
+          subject: subject,
+          type: 'notification',
+          status: 'failed',
+          error_message: emailError.message,
+          sent_at: new Date().toISOString(),
+        });
+      }
+    }
 
     console.log(`Notification sent for ${request.type}: ${request.ticket_number}`);
 
