@@ -37,6 +37,7 @@ serve(async (req) => {
 
     let testResult: any;
     let success = false;
+    let errorDetails = "";
 
     // Test based on provider
     if (config.provider === "gemini-paid" || config.provider === "gemini-free") {
@@ -55,6 +56,11 @@ serve(async (req) => {
 
       testResult = await response.json();
       success = response.ok && testResult.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (!success) {
+        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
+        console.error("Gemini test failed:", errorDetails);
+      }
 
     } else if (config.provider === "claude") {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -75,6 +81,11 @@ serve(async (req) => {
 
       testResult = await response.json();
       success = response.ok && testResult.content?.[0]?.text;
+      
+      if (!success) {
+        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
+        console.error("Claude test failed:", errorDetails);
+      }
 
     } else if (config.provider === "lovable") {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -93,6 +104,11 @@ serve(async (req) => {
 
       testResult = await response.json();
       success = response.ok && testResult.choices?.[0]?.message?.content;
+      
+      if (!success) {
+        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
+        console.error("Lovable test failed:", errorDetails);
+      }
 
     } else if (config.provider === "openai") {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -112,22 +128,38 @@ serve(async (req) => {
 
       testResult = await response.json();
       success = response.ok && testResult.choices?.[0]?.message?.content;
+      
+      if (!success) {
+        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
+        console.error("OpenAI test failed:", errorDetails);
+      }
     }
 
     // Update config with test results
+    const updateData: any = {
+      last_tested_at: new Date().toISOString(),
+      last_test_status: success ? "success" : "failed"
+    };
+    
+    // Store error details in configuration if failed
+    if (!success && errorDetails) {
+      updateData.configuration = {
+        ...config.configuration,
+        last_error: errorDetails
+      };
+    }
+    
     await supabaseClient
       .from("ai_model_configs")
-      .update({
-        last_tested_at: new Date().toISOString(),
-        last_test_status: success ? "success" : "failed"
-      })
+      .update(updateData)
       .eq("id", config_id);
 
     return new Response(
       JSON.stringify({
         success,
-        message: success ? "Model test successful" : "Model test failed",
-        details: testResult
+        message: success ? "Model test successful" : `Model test failed: ${errorDetails}`,
+        details: testResult,
+        errorDetails: errorDetails || undefined
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
