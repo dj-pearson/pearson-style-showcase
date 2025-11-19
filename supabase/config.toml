@@ -215,3 +215,6 @@ verify_jwt = true
 
 [functions.send-article-webhook]
 verify_jwt = true
+
+[functions.email-webhook-receiver]
+verify_jwt = false

@@ -150,9 +150,9 @@ const Article = () => {
   }
 
   const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'News', href: '/news' },
-    { label: article.title, href: `/news/${article.slug}` }
+    { label: 'Home', path: '/' },
+    { label: 'News', path: '/news' },
+    { label: article.title, path: `/news/${article.slug}` }
   ];
 
   return (
@@ -215,7 +215,7 @@ const Article = () => {
         data={{
           items: breadcrumbItems.map((item, index) => ({
             name: item.label,
-            url: `https://danpearson.net${item.href}`
+            url: `https://danpearson.net${item.path}`
           }))
         }}
       />

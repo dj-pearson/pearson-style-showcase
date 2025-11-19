@@ -4,6 +4,8 @@ import { SupportTicketInbox } from './support/SupportTicketInbox';
 import { TicketDetailView } from './support/TicketDetailView';
 import { CannedResponseManager } from './support/CannedResponseManager';
 import { KnowledgeBaseManager } from './support/KnowledgeBaseManager';
+import { EmailWebhookSettings } from './EmailWebhookSettings';
+import { EmailMailboxManager } from './EmailMailboxManager';
 
 interface Ticket {
   id: string;
@@ -51,10 +53,12 @@ export const SupportTicketDashboard: React.FC = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="tickets" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
           <TabsTrigger value="canned">Canned Responses</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+          <TabsTrigger value="mailboxes">Mailboxes</TabsTrigger>
+          <TabsTrigger value="webhook">Webhook</TabsTrigger>
         </TabsList>
 
         {/* Tickets Tab */}
@@ -100,6 +104,16 @@ export const SupportTicketDashboard: React.FC = () => {
         {/* Knowledge Base Tab */}
         <TabsContent value="knowledge">
           <KnowledgeBaseManager />
+        </TabsContent>
+
+        {/* Mailboxes Tab */}
+        <TabsContent value="mailboxes">
+          <EmailMailboxManager />
+        </TabsContent>
+
+        {/* Webhook Tab */}
+        <TabsContent value="webhook">
+          <EmailWebhookSettings />
         </TabsContent>
       </Tabs>
     </div>
