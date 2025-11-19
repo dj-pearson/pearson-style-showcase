@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -18,10 +29,17 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  User
+  User,
+  Archive,
+  Trash2,
+  CheckCheck,
+  MoreVertical,
+  X as XIcon,
+  Filter
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 
 interface SupportTicket {
@@ -54,9 +72,13 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const [filteredTickets, setFilteredTickets] = useState<SupportTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('open');
+  const [statusFilter, setStatusFilter] = useState<string>('active');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [showArchived, setShowArchived] = useState(false);
+  const [selectedTickets, setSelectedTickets] = useState<Set<string>>(new Set());
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadTickets();
@@ -83,7 +105,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
 
   useEffect(() => {
     filterTickets();
-  }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter]);
+  }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter, showArchived]);
 
   const loadTickets = async () => {
     try {
@@ -114,8 +136,17 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const filterTickets = () => {
     let filtered = [...tickets];
 
-    // Status filter
-    if (statusFilter !== 'all') {
+    // Archive filter - hide closed/resolved tickets by default
+    if (!showArchived) {
+      filtered = filtered.filter(t => t.status !== 'closed' && t.status !== 'resolved');
+    }
+
+    // Status filter with "active" preset
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(t =>
+        t.status === 'open' || t.status === 'in_progress' || t.status === 'waiting_for_user'
+      );
+    } else if (statusFilter !== 'all') {
       filtered = filtered.filter(t => t.status === statusFilter);
     }
 
@@ -129,12 +160,13 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
       filtered = filtered.filter(t => t.priority === parseInt(priorityFilter));
     }
 
-    // Search query
+    // Enhanced search query - search across ticket number, subject, message, email, and name
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(t =>
         t.ticket_number.toLowerCase().includes(query) ||
         t.subject.toLowerCase().includes(query) ||
+        t.message.toLowerCase().includes(query) ||
         t.user_email.toLowerCase().includes(query) ||
         t.user_name.toLowerCase().includes(query)
       );
@@ -194,13 +226,101 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     return null;
   };
 
+  const toggleTicketSelection = (ticketId: string) => {
+    const newSelected = new Set(selectedTickets);
+    if (newSelected.has(ticketId)) {
+      newSelected.delete(ticketId);
+    } else {
+      newSelected.add(ticketId);
+    }
+    setSelectedTickets(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTickets.size === filteredTickets.length) {
+      setSelectedTickets(new Set());
+    } else {
+      setSelectedTickets(new Set(filteredTickets.map(t => t.id)));
+    }
+  };
+
+  const bulkUpdateStatus = async (status: string) => {
+    if (selectedTickets.size === 0) return;
+
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('support_tickets' as any)
+        .update({ status, last_activity_at: new Date().toISOString() })
+        .in('id', Array.from(selectedTickets));
+
+      if (error) throw error;
+
+      toast({
+        title: 'Tickets Updated',
+        description: `${selectedTickets.size} ticket(s) marked as ${status}`,
+      });
+
+      setSelectedTickets(new Set());
+      await loadTickets();
+    } catch (error) {
+      logger.error('Bulk update failed:', error);
+      toast({
+        title: 'Update Failed',
+        description: 'Could not update tickets',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedTickets.size === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${selectedTickets.size} ticket(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('support_tickets' as any)
+        .delete()
+        .in('id', Array.from(selectedTickets));
+
+      if (error) throw error;
+
+      toast({
+        title: 'Tickets Deleted',
+        description: `${selectedTickets.size} ticket(s) permanently deleted`,
+      });
+
+      setSelectedTickets(new Set());
+      await loadTickets();
+    } catch (error) {
+      logger.error('Bulk delete failed:', error);
+      toast({
+        title: 'Delete Failed',
+        description: 'Could not delete tickets',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const stats = {
     total: tickets.length,
     open: tickets.filter(t => t.status === 'open').length,
     inProgress: tickets.filter(t => t.status === 'in_progress').length,
     waitingForUser: tickets.filter(t => t.status === 'waiting_for_user').length,
-    unresponded: tickets.filter(t => !t.first_response_at && t.status !== 'closed').length
+    unresponded: tickets.filter(t => !t.first_response_at && t.status !== 'closed').length,
+    archived: tickets.filter(t => t.status === 'closed' || t.status === 'resolved').length
   };
+
+  const hasSelection = selectedTickets.size > 0;
+  const isAllSelected = selectedTickets.size === filteredTickets.length && filteredTickets.length > 0;
 
   return (
     <Card>
@@ -210,34 +330,118 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
             <CardTitle className="flex items-center gap-2">
               <Inbox className="h-5 w-5" />
               Support Tickets
+              {hasSelection && (
+                <Badge variant="secondary" className="ml-2">
+                  {selectedTickets.size} selected
+                </Badge>
+              )}
             </CardTitle>
-            <CardDescription>Manage customer support requests</CardDescription>
+            <CardDescription>
+              {showArchived ? 'Viewing all tickets including archived' : 'Manage active customer support requests'}
+            </CardDescription>
           </div>
-          {stats.unresponded > 0 && (
-            <Badge variant="destructive">
-              {stats.unresponded} needs response
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {stats.unresponded > 0 && (
+              <Badge variant="destructive">
+                {stats.unresponded} needs response
+              </Badge>
+            )}
+            <div className="flex items-center gap-2 border rounded-md px-3 py-2">
+              <Archive className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="show-archived" className="text-sm cursor-pointer">
+                Show Archived
+              </Label>
+              <Switch
+                id="show-archived"
+                checked={showArchived}
+                onCheckedChange={setShowArchived}
+              />
+            </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
+        {/* Bulk Actions Toolbar */}
+        {hasSelection && (
+          <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCheck className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">{selectedTickets.size} ticket(s) selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isProcessing}>
+                    <Filter className="h-4 w-4 mr-2" />
+                    Change Status
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => bulkUpdateStatus('in_progress')}>
+                    <Clock className="h-4 w-4 mr-2" />
+                    Mark as In Progress
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => bulkUpdateStatus('waiting_for_user')}>
+                    <User className="h-4 w-4 mr-2" />
+                    Waiting for User
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => bulkUpdateStatus('resolved')}>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Mark as Resolved
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => bulkUpdateStatus('closed')}>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Close Tickets
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => bulkUpdateStatus('spam')} className="text-orange-600">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Mark as Spam
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={bulkDelete}
+                disabled={isProcessing}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTickets(new Set())}
+              >
+                <XIcon className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Stats Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-          <div className="p-2 rounded border text-center">
-            <p className="text-xl font-bold">{stats.open}</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('open')}>
+            <p className="text-xl font-bold text-blue-600">{stats.open}</p>
             <p className="text-xs text-muted-foreground">Open</p>
           </div>
-          <div className="p-2 rounded border text-center">
-            <p className="text-xl font-bold">{stats.inProgress}</p>
+          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('in_progress')}>
+            <p className="text-xl font-bold text-yellow-600">{stats.inProgress}</p>
             <p className="text-xs text-muted-foreground">In Progress</p>
           </div>
-          <div className="p-2 rounded border text-center">
-            <p className="text-xl font-bold">{stats.waitingForUser}</p>
+          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('waiting_for_user')}>
+            <p className="text-xl font-bold text-purple-600">{stats.waitingForUser}</p>
             <p className="text-xs text-muted-foreground">Waiting</p>
           </div>
-          <div className="p-2 rounded border text-center">
-            <p className="text-xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
+          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('active')}>
+            <p className="text-xl font-bold text-green-600">{stats.open + stats.inProgress + stats.waitingForUser}</p>
+            <p className="text-xs text-muted-foreground">Active</p>
+          </div>
+          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setShowArchived(!showArchived)}>
+            <p className="text-xl font-bold text-gray-600">{stats.archived}</p>
+            <p className="text-xs text-muted-foreground">Archived</p>
           </div>
         </div>
 
@@ -259,12 +463,13 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="active">🟢 Active Tickets</SelectItem>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="waiting_for_user">Waiting</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="open">📬 Open</SelectItem>
+                <SelectItem value="in_progress">⏳ In Progress</SelectItem>
+                <SelectItem value="waiting_for_user">👤 Waiting for User</SelectItem>
+                <SelectItem value="resolved">✅ Resolved</SelectItem>
+                <SelectItem value="closed">🔒 Closed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -306,51 +511,94 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
           <div className="text-center py-8 text-muted-foreground">
             <Inbox className="h-12 w-12 mx-auto mb-3 opacity-50" />
             <p>No tickets found</p>
+            {!showArchived && (
+              <p className="text-xs mt-2">Try enabling "Show Archived" to see all tickets</p>
+            )}
           </div>
         ) : (
-          <ScrollArea className="h-[500px]">
-            <div className="space-y-2">
-              {filteredTickets.map((ticket) => (
-                <div
-                  key={ticket.id}
-                  onClick={() => onSelectTicket(ticket)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
-                    selectedTicketId === ticket.id ? 'bg-muted border-primary' : 'bg-card'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(ticket.status)}
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {ticket.ticket_number}
-                      </span>
-                      {getPriorityBadge(ticket.priority)}
-                      {getSentimentIcon(ticket.ai_sentiment_score)}
+          <>
+            {/* Select All */}
+            {filteredTickets.length > 0 && (
+              <div className="flex items-center gap-2 p-2 mb-2 border-b">
+                <Checkbox
+                  id="select-all"
+                  checked={isAllSelected}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <Label htmlFor="select-all" className="text-sm cursor-pointer">
+                  Select all {filteredTickets.length} ticket(s)
+                </Label>
+              </div>
+            )}
+
+            <ScrollArea className="h-[500px]">
+              <div className="space-y-2">
+                {filteredTickets.map((ticket) => (
+                  <div
+                    key={ticket.id}
+                    className={`p-3 rounded-lg border transition-colors ${
+                      selectedTicketId === ticket.id ? 'bg-muted border-primary' : 'bg-card hover:bg-muted/50'
+                    } ${selectedTickets.has(ticket.id) ? 'ring-2 ring-primary/50' : ''}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Checkbox */}
+                      <Checkbox
+                        checked={selectedTickets.has(ticket.id)}
+                        onCheckedChange={() => toggleTicketSelection(ticket.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1"
+                      />
+
+                      {/* Ticket Content */}
+                      <div
+                        className="flex-1 cursor-pointer"
+                        onClick={() => onSelectTicket(ticket)}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {getStatusIcon(ticket.status)}
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {ticket.ticket_number}
+                            </span>
+                            {getPriorityBadge(ticket.priority)}
+                            {getSentimentIcon(ticket.ai_sentiment_score)}
+                          </div>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDistanceToNow(new Date(ticket.last_activity_at), { addSuffix: true })}
+                          </span>
+                        </div>
+
+                        <h4 className="font-medium text-sm mb-1 truncate">{ticket.subject}</h4>
+
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                          <span>{ticket.user_name || ticket.user_email}</span>
+                          <span>•</span>
+                          <span>{getCategoryLabel(ticket.category)}</span>
+                          {!ticket.first_response_at && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+                            <>
+                              <span>•</span>
+                              <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">
+                                No response
+                              </Badge>
+                            </>
+                          )}
+                          {(ticket.status === 'resolved' || ticket.status === 'closed') && (
+                            <>
+                              <span>•</span>
+                              <Badge variant="outline" className="bg-gray-500/10 text-gray-500 border-gray-500/20 text-xs">
+                                <Archive className="h-3 w-3 mr-1" />
+                                Archived
+                              </Badge>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDistanceToNow(new Date(ticket.last_activity_at), { addSuffix: true })}
-                    </span>
                   </div>
-
-                  <h4 className="font-medium text-sm mb-1 truncate">{ticket.subject}</h4>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{ticket.user_name || ticket.user_email}</span>
-                    <span>•</span>
-                    <span>{getCategoryLabel(ticket.category)}</span>
-                    {!ticket.first_response_at && (
-                      <>
-                        <span>•</span>
-                        <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">
-                          No response
-                        </Badge>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+                ))}
+              </div>
+            </ScrollArea>
+          </>
         )}
       </CardContent>
     </Card>
