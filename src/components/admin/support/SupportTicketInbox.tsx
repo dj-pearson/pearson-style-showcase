@@ -143,7 +143,10 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     // Status filter with "active" preset
     if (statusFilter === 'active') {
       filtered = filtered.filter(t =>
-        t.status === 'open' || t.status === 'in_progress' || t.status === 'waiting_for_user'
+        t.status === 'open' || 
+        t.status === 'in_progress' || 
+        t.status === 'waiting_for_user' ||
+        t.status === 'waiting_for_agent'
       );
     } else if (statusFilter !== 'all') {
       filtered = filtered.filter(t => t.status === statusFilter);
@@ -193,6 +196,8 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
         return <Clock className="h-4 w-4 text-yellow-500" />;
       case 'waiting_for_user':
         return <User className="h-4 w-4 text-purple-500" />;
+      case 'waiting_for_agent':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
       case 'resolved':
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'closed':
@@ -314,6 +319,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     open: tickets.filter(t => t.status === 'open').length,
     inProgress: tickets.filter(t => t.status === 'in_progress').length,
     waitingForUser: tickets.filter(t => t.status === 'waiting_for_user').length,
+    waitingForAgent: tickets.filter(t => t.status === 'waiting_for_agent').length,
     unresponded: tickets.filter(t => !t.first_response_at && t.status !== 'closed').length,
     archived: tickets.filter(t => t.status === 'closed' || t.status === 'resolved').length
   };
@@ -443,7 +449,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
             <p className="text-xs text-muted-foreground">Waiting</p>
           </div>
           <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('active')}>
-            <p className="text-xl font-bold text-green-600">{stats.open + stats.inProgress + stats.waitingForUser}</p>
+            <p className="text-xl font-bold text-green-600">{stats.open + stats.inProgress + stats.waitingForUser + stats.waitingForAgent}</p>
             <p className="text-xs text-muted-foreground">Active</p>
           </div>
           <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setShowArchived(!showArchived)}>
@@ -475,6 +481,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                 <SelectItem value="open">📬 Open</SelectItem>
                 <SelectItem value="in_progress">⏳ In Progress</SelectItem>
                 <SelectItem value="waiting_for_user">👤 Waiting for User</SelectItem>
+                <SelectItem value="waiting_for_agent">🔔 Waiting for Agent</SelectItem>
                 <SelectItem value="resolved">✅ Resolved</SelectItem>
                 <SelectItem value="closed">🔒 Closed</SelectItem>
               </SelectContent>
