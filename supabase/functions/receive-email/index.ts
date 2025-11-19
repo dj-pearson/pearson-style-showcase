@@ -53,9 +53,20 @@ serve(async (req: Request) => {
       const extractEmail = (value: string): string => {
         if (!value) return '';
         const trimmed = value.trim();
+        // First try to extract email from angle brackets: "Name <email@domain.com>"
         const match = trimmed.match(/<([^>]+)>/);
         if (match && match[1]) return match[1].trim();
-        return trimmed;
+        // Check if the value itself is an email (contains @ and .)
+        if (trimmed.includes('@') && trimmed.includes('.')) {
+          return trimmed;
+        }
+        // If no email found, return empty string
+        return '';
+      };
+
+      const isValidEmail = (email: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
       };
 
       const to = getField('to') || getField('To');
@@ -146,6 +157,27 @@ serve(async (req: Request) => {
     if (!payload.to || !payload.from_email || !payload.subject || !payload.body) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: to, from_email, subject, body' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Validate email format for from_email
+    const isValidEmail = (email: string): boolean => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    };
+
+    if (!isValidEmail(payload.from_email)) {
+      console.error('Invalid from_email format:', payload.from_email);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid from_email format. Must be a valid email address.',
+          received: payload.from_email,
+          hint: 'Make sure your Make.com scenario extracts the email address from the From field (e.g., from "Name <email@domain.com>" extract "email@domain.com")'
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
