@@ -42,26 +42,22 @@ const HeroSection = () => {
         </h1>
 
         {/* Subtitle - Enhanced readability */}
-        <div className="mb-4 sm:mb-6 bg-black/60 backdrop-blur-sm rounded-2xl py-3 sm:py-4 px-4 sm:px-6 inline-block">
-          <p className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white font-semibold leading-relaxed" style={{
-            textShadow: '2px 2px 4px rgba(0, 0, 0, 1)'
-          }}>
-            Bridging the gap between sales and technology
-          </p>
-        </div>
+        <p className="mb-4 sm:mb-6 text-base sm:text-xl md:text-2xl lg:text-3xl text-white font-semibold leading-relaxed" style={{
+          textShadow: '2px 2px 4px rgba(0, 0, 0, 1)'
+        }}>
+          Bridging the gap between sales and technology
+        </p>
 
         {/* Value Prop - Enhanced readability */}
-        <div className="mb-8 sm:mb-10 bg-black/50 backdrop-blur-sm rounded-2xl py-4 px-5 max-w-3xl mx-auto">
-          <p className="text-sm sm:text-base md:text-lg text-white/95 font-normal leading-relaxed" style={{
-            textShadow: '1px 1px 3px rgba(0, 0, 0, 1)'
-          }}>
-            With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.
-            <br />
-            <span className="text-primary font-bold" style={{
-              textShadow: '0 0 20px rgba(0, 212, 255, 0.8), 1px 1px 3px rgba(0, 0, 0, 1)'
-            }}>Currently building 7 SaaS platforms</span> under Pearson Media LLC.
-          </p>
-        </div>
+        <p className="mb-8 sm:mb-10 text-sm sm:text-base md:text-lg text-white/95 font-normal leading-relaxed max-w-3xl mx-auto" style={{
+          textShadow: '1px 1px 3px rgba(0, 0, 0, 1)'
+        }}>
+          With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.
+          <br />
+          <span className="text-primary font-bold" style={{
+            textShadow: '0 0 20px rgba(0, 212, 255, 0.8), 1px 1px 3px rgba(0, 0, 0, 1)'
+          }}>Currently building 7 SaaS platforms</span> under Pearson Media LLC.
+        </p>
 
         {/* CTA Button - Enhanced with strong glow, mobile optimized, fully functional */}
         <Link
