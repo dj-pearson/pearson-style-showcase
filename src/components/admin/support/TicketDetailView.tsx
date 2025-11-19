@@ -80,6 +80,10 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const { toast } = useToast();
 
   useEffect(() => {
+    // Sync local status with ticket prop when ticket changes
+    setNewStatus(ticket.status);
+    setNewCategory(ticket.category);
+    
     loadResponses();
     loadMailboxes();
     loadLatestEmailSubject();
@@ -97,7 +101,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
     return () => {
       subscription.unsubscribe();
     };
-  }, [ticket.id]);
+  }, [ticket.id, ticket.status, ticket.category]);
 
   const loadMailboxes = async () => {
     try {

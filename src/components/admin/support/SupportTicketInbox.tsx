@@ -135,9 +135,10 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const filterTickets = () => {
     let filtered = [...tickets];
 
-    // Archive filter - hide closed/resolved tickets by default
+    // Archive filter - hide archived statuses by default
+    const archivedStatuses = ['closed', 'resolved', 'disregard', 'spam'];
     if (!showArchived) {
-      filtered = filtered.filter(t => t.status !== 'closed' && t.status !== 'resolved');
+      filtered = filtered.filter(t => !archivedStatuses.includes(t.status));
     }
 
     // Status filter with "active" preset
