@@ -298,6 +298,25 @@ serve(async (req: Request) => {
 
     console.log('Successfully processed email send and updated ticket');
 
+    // Send notification email about agent reply
+    try {
+      await supabase.functions.invoke('send-notification-email', {
+        body: {
+          type: 'agent_reply',
+          ticket_number: ticket.ticket_number,
+          ticket_id: ticket_id,
+          ticket_subject: ticket.subject,
+          from_email: mailbox.email_address,
+          from_name: user.email?.split('@')[0] || 'Support Agent',
+          message_preview: message,
+        }
+      });
+      console.log('Notification email sent for agent reply');
+    } catch (notifyError) {
+      // Don't fail the request if notification fails
+      console.error('Failed to send notification:', notifyError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: 'new_ticket' | 'new_response';
+  type: 'new_ticket' | 'new_response' | 'agent_reply';
   ticket_number: string;
   ticket_id: string;
   ticket_subject: string;
@@ -102,7 +102,7 @@ View ticket: https://builddesk.io/admin (Support & Help Center tab)
 ---
 This is an automated notification from BuildDesk Support System
 `;
-    } else {
+    } else if (request.type === 'new_response') {
       subject = `💬 New Response on Ticket: ${request.ticket_number}`;
       body = `
 Hello,
@@ -117,6 +117,26 @@ Message Preview:
 ${request.message_preview.substring(0, 200)}${request.message_preview.length > 200 ? '...' : ''}
 
 View ticket: https://builddesk.io/admin (Support & Help Center tab)
+
+---
+This is an automated notification from BuildDesk Support System
+`;
+    } else if (request.type === 'agent_reply') {
+      subject = `✉️ Agent Reply Sent on Ticket: ${request.ticket_number}`;
+      body = `
+Hello,
+
+An agent has replied to a support ticket:
+
+Ticket Number: ${request.ticket_number}
+Subject: ${request.ticket_subject}
+Agent: ${request.from_name}
+From Email: ${request.from_email}
+
+Message Preview:
+${request.message_preview.substring(0, 200)}${request.message_preview.length > 200 ? '...' : ''}
+
+The reply has been sent to the customer. View ticket history: https://builddesk.io/admin (Support & Help Center tab)
 
 ---
 This is an automated notification from BuildDesk Support System
