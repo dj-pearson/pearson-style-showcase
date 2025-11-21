@@ -96,7 +96,8 @@ const Index = () => {
       />
 
       <Navigation />
-      <HeroSection />
+      <main id="main-content">
+        <HeroSection />
 
       {/* Authority Section - SEO Enhancement */}
       <Suspense fallback={
@@ -290,6 +291,7 @@ const Index = () => {
           </Suspense>
         </div>
       </section>
+      </main>
 
       <Footer />
     </div>

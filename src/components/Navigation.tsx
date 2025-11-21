@@ -71,6 +71,11 @@ const Navigation = () => {
 
   return (
     <>
+      {/* Skip to content link for keyboard accessibility - WCAG 2.1 Level A */}
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
+
       {/* Mobile Menu Backdrop */}
       {isMenuOpen && isMobile && (
         <div

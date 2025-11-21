@@ -22,7 +22,7 @@ const Connect = () => {
         url="https://danpearson.net/connect"
       />
       <Navigation />
-      <main className="flex-1 pt-20 sm:pt-24 mobile-container">
+      <main id="main-content" className="flex-1 pt-20 sm:pt-24 mobile-container">
         <div className="container mx-auto mobile-section">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
