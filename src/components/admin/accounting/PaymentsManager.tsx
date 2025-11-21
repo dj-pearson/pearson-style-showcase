@@ -29,12 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, CreditCard, Pencil, Trash2, Link, ArrowDown, ArrowUp } from 'lucide-react';
+import { Plus, CreditCard, Pencil, Trash2, Link, ArrowDown, ArrowUp, Upload as UploadIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
+import { DocumentUpload } from './DocumentUpload';
 
 interface Payment {
   id: string;
@@ -88,8 +89,10 @@ const PAYMENT_METHODS = [
 export const PaymentsManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAllocateDialogOpen, setIsAllocateDialogOpen] = useState(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [allocatingPayment, setAllocatingPayment] = useState<Payment | null>(null);
+  const [selectedPaymentForUpload, setSelectedPaymentForUpload] = useState<Payment | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'received' | 'made'>('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -437,16 +440,59 @@ export const PaymentsManager = () => {
               <CardTitle>Payments</CardTitle>
               <CardDescription>Track payments received and made</CardDescription>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) resetForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Record Payment
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <UploadIcon className="h-4 w-4 mr-2" />
+                    Upload Receipt
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Upload Payment Proof or Receipt</DialogTitle>
+                    <DialogDescription>
+                      Upload a receipt or payment confirmation. Our AI will automatically extract the data.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DocumentUpload
+                    documentType="payment_proof"
+                    relatedEntityType="payment"
+                    relatedEntityId={selectedPaymentForUpload?.id}
+                    autoProcess={true}
+                    showExistingDocuments={false}
+                    onUploadComplete={(documentId, parsedData) => {
+                      logger.log('Payment document uploaded and parsed:', parsedData);
+
+                      if (parsedData) {
+                        toast({
+                          title: 'Data extracted',
+                          description: 'Payment data has been extracted successfully.',
+                        });
+
+                        // TODO: Auto-populate payment form with parsed data
+                      }
+
+                      setIsUploadDialogOpen(false);
+                      queryClient.invalidateQueries({ queryKey: ['payments'] });
+                    }}
+                    onError={(error) => {
+                      logger.error('Upload error:', error);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                  setIsDialogOpen(open);
+                  if (!open) resetForm();
+                }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Record Payment
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>
@@ -583,7 +629,8 @@ export const PaymentsManager = () => {
                   </DialogFooter>
                 </form>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -663,6 +710,17 @@ export const PaymentsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedPaymentForUpload(payment);
+                              setIsUploadDialogOpen(true);
+                            }}
+                            title="Upload receipt/proof"
+                          >
+                            <UploadIcon className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
