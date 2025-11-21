@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,18 +25,332 @@ import {
   TrendingUp,
   FileText,
   Download,
+  AlertCircle,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
+import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subQuarters, subYears } from 'date-fns';
 
 export const FinancialReports = () => {
   const [dateRange, setDateRange] = useState('this-month');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Calculate date range based on selection
+  const { dateFrom, dateTo } = useMemo(() => {
+    const now = new Date();
+    let from: Date, to: Date;
+
+    switch (dateRange) {
+      case 'this-month':
+        from = startOfMonth(now);
+        to = endOfMonth(now);
+        break;
+      case 'last-month':
+        const lastMonth = subMonths(now, 1);
+        from = startOfMonth(lastMonth);
+        to = endOfMonth(lastMonth);
+        break;
+      case 'this-quarter':
+        from = startOfQuarter(now);
+        to = endOfQuarter(now);
+        break;
+      case 'last-quarter':
+        const lastQuarter = subQuarters(now, 1);
+        from = startOfQuarter(lastQuarter);
+        to = endOfQuarter(lastQuarter);
+        break;
+      case 'this-year':
+        from = startOfYear(now);
+        to = endOfYear(now);
+        break;
+      case 'last-year':
+        const lastYear = subYears(now, 1);
+        from = startOfYear(lastYear);
+        to = endOfYear(lastYear);
+        break;
+      case 'custom':
+        from = startDate ? new Date(startDate) : startOfMonth(now);
+        to = endDate ? new Date(endDate) : endOfMonth(now);
+        break;
+      default:
+        from = startOfMonth(now);
+        to = endOfMonth(now);
+    }
+
+    return {
+      dateFrom: format(from, 'yyyy-MM-dd'),
+      dateTo: format(to, 'yyyy-MM-dd'),
+    };
+  }, [dateRange, startDate, endDate]);
+
+  // Fetch invoices
+  const { data: invoices } = useQuery({
+    queryKey: ['invoices', 'reports', dateFrom, dateTo],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .gte('invoice_date', dateFrom)
+        .lte('invoice_date', dateTo);
+
+      if (error) {
+        logger.error('Error fetching invoices:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  // Fetch platform transactions
+  const { data: platformTransactions } = useQuery({
+    queryKey: ['platform_transactions', 'reports', dateFrom, dateTo],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_transactions')
+        .select('*, platforms(name, platform_type), expense_categories(name, category_code)')
+        .gte('transaction_date', dateFrom)
+        .lte('transaction_date', dateTo);
+
+      if (error) {
+        logger.error('Error fetching platform transactions:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  // Fetch journal entries (posted only)
+  const { data: journalEntries } = useQuery({
+    queryKey: ['journal_entries', 'reports', dateFrom, dateTo],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select(`
+          *,
+          journal_entry_lines (
+            id,
+            account_id,
+            debit,
+            credit,
+            accounts (
+              id,
+              account_number,
+              account_name,
+              account_type,
+              account_subtype
+            )
+          )
+        `)
+        .eq('status', 'posted')
+        .gte('entry_date', dateFrom)
+        .lte('entry_date', dateTo);
+
+      if (error) {
+        logger.error('Error fetching journal entries:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  // Fetch accounts for balance sheet
+  const { data: accounts } = useQuery({
+    queryKey: ['accounts', 'reports'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('is_active', true)
+        .order('account_number');
+
+      if (error) {
+        logger.error('Error fetching accounts:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  // Calculate P&L data
+  const profitLossData = useMemo(() => {
+    const revenue: Record<string, number> = {};
+    const expenses: Record<string, number> = {};
+
+    // Revenue from sales invoices
+    invoices?.forEach((invoice) => {
+      if (invoice.invoice_type === 'sales') {
+        const amount = Number(invoice.amount_paid || 0);
+        revenue['Sales Revenue'] = (revenue['Sales Revenue'] || 0) + amount;
+      }
+    });
+
+    // Revenue from platform transactions
+    platformTransactions?.forEach((transaction) => {
+      if (transaction.transaction_type === 'revenue') {
+        const amount = Number(transaction.amount || 0);
+        const platformName = transaction.platforms?.name || 'Other Revenue';
+        revenue[platformName] = (revenue[platformName] || 0) + amount;
+      }
+    });
+
+    // Expenses from purchase invoices
+    invoices?.forEach((invoice) => {
+      if (invoice.invoice_type === 'purchase') {
+        const amount = Number(invoice.amount_paid || 0);
+        expenses['Vendor Expenses'] = (expenses['Vendor Expenses'] || 0) + amount;
+      }
+    });
+
+    // Expenses from platform transactions
+    platformTransactions?.forEach((transaction) => {
+      if (transaction.transaction_type === 'expense') {
+        const amount = Number(transaction.amount || 0);
+        const categoryName = transaction.expense_categories?.name || 'Operating Expenses';
+        expenses[categoryName] = (expenses[categoryName] || 0) + amount;
+      }
+    });
+
+    // Add journal entry amounts (Income and Expense accounts only)
+    journalEntries?.forEach((entry) => {
+      entry.journal_entry_lines?.forEach((line: any) => {
+        const accountType = line.accounts?.account_type;
+        const accountName = line.accounts?.account_name || 'Other';
+        const debit = Number(line.debit || 0);
+        const credit = Number(line.credit || 0);
+
+        if (accountType === 'Income') {
+          // Credits increase income
+          const amount = credit - debit;
+          revenue[accountName] = (revenue[accountName] || 0) + amount;
+        } else if (accountType === 'Expense') {
+          // Debits increase expenses
+          const amount = debit - credit;
+          expenses[accountName] = (expenses[accountName] || 0) + amount;
+        }
+      });
+    });
+
+    const totalRevenue = Object.values(revenue).reduce((sum, val) => sum + val, 0);
+    const totalExpenses = Object.values(expenses).reduce((sum, val) => sum + val, 0);
+    const netProfit = totalRevenue - totalExpenses;
+
+    return {
+      revenue,
+      expenses,
+      totalRevenue,
+      totalExpenses,
+      netProfit,
+    };
+  }, [invoices, platformTransactions, journalEntries]);
+
+  // Calculate Balance Sheet data (as of end date)
+  const balanceSheetData = useMemo(() => {
+    const assets: Record<string, number> = {};
+    const liabilities: Record<string, number> = {};
+    const equity: Record<string, number> = {};
+
+    // Calculate accounts receivable (unpaid sales invoices)
+    let accountsReceivable = 0;
+    invoices?.forEach((invoice) => {
+      if (invoice.invoice_type === 'sales') {
+        accountsReceivable += Number(invoice.amount_due || 0);
+      }
+    });
+    if (accountsReceivable > 0) {
+      assets['Accounts Receivable'] = accountsReceivable;
+    }
+
+    // Calculate accounts payable (unpaid purchase invoices)
+    let accountsPayable = 0;
+    invoices?.forEach((invoice) => {
+      if (invoice.invoice_type === 'purchase') {
+        accountsPayable += Number(invoice.amount_due || 0);
+      }
+    });
+    if (accountsPayable > 0) {
+      liabilities['Accounts Payable'] = accountsPayable;
+    }
+
+    // Add balances from accounts via journal entries
+    const accountBalances: Record<string, number> = {};
+
+    journalEntries?.forEach((entry) => {
+      entry.journal_entry_lines?.forEach((line: any) => {
+        const accountId = line.account_id;
+        const debit = Number(line.debit || 0);
+        const credit = Number(line.credit || 0);
+
+        if (!accountBalances[accountId]) {
+          accountBalances[accountId] = 0;
+        }
+
+        // For Asset and Expense accounts, debits increase, credits decrease
+        // For Liability, Equity, and Income accounts, credits increase, debits decrease
+        const accountType = line.accounts?.account_type;
+        if (accountType === 'Asset' || accountType === 'Expense') {
+          accountBalances[accountId] += (debit - credit);
+        } else {
+          accountBalances[accountId] += (credit - debit);
+        }
+      });
+    });
+
+    // Add account balances to appropriate categories
+    accounts?.forEach((account) => {
+      const balance = accountBalances[account.id] || 0;
+
+      // Also add opening balance
+      const totalBalance = balance + Number(account.opening_balance || 0);
+
+      if (totalBalance === 0) return;
+
+      const accountName = account.account_name;
+
+      if (account.account_type === 'Asset') {
+        assets[accountName] = totalBalance;
+      } else if (account.account_type === 'Liability') {
+        liabilities[accountName] = totalBalance;
+      } else if (account.account_type === 'Equity') {
+        equity[accountName] = totalBalance;
+      }
+    });
+
+    // Calculate retained earnings from P&L
+    const retainedEarnings = profitLossData.netProfit;
+    if (retainedEarnings !== 0) {
+      equity['Retained Earnings'] = (equity['Retained Earnings'] || 0) + retainedEarnings;
+    }
+
+    const totalAssets = Object.values(assets).reduce((sum, val) => sum + val, 0);
+    const totalLiabilities = Object.values(liabilities).reduce((sum, val) => sum + val, 0);
+    const totalEquity = Object.values(equity).reduce((sum, val) => sum + val, 0);
+
+    return {
+      assets,
+      liabilities,
+      equity,
+      totalAssets,
+      totalLiabilities,
+      totalEquity,
+      isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
+    };
+  }, [invoices, journalEntries, accounts, profitLossData.netProfit]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
+  };
+
+  const formatDateRange = () => {
+    return `${format(new Date(dateFrom), 'MMM d, yyyy')} - ${format(new Date(dateTo), 'MMM d, yyyy')}`;
   };
 
   return (
@@ -98,22 +412,14 @@ export const FinancialReports = () => {
           </div>
 
           <Tabs defaultValue="profit-loss" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profit-loss">
                 <TrendingUp className="h-4 w-4 mr-2" />
-                P&L
+                Profit & Loss
               </TabsTrigger>
               <TabsTrigger value="balance-sheet">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Balance Sheet
-              </TabsTrigger>
-              <TabsTrigger value="general-ledger">
-                <FileText className="h-4 w-4 mr-2" />
-                General Ledger
-              </TabsTrigger>
-              <TabsTrigger value="trial-balance">
-                <PieChart className="h-4 w-4 mr-2" />
-                Trial Balance
               </TabsTrigger>
             </TabsList>
 
@@ -122,62 +428,77 @@ export const FinancialReports = () => {
                 <CardHeader>
                   <CardTitle>Profit & Loss Statement</CardTitle>
                   <CardDescription>
-                    Revenue, expenses, and net income for the selected period
+                    {formatDateRange()}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    {/* Revenue Section */}
                     <div>
-                      <h3 className="font-semibold text-lg mb-2">Revenue</h3>
+                      <h3 className="font-semibold text-lg mb-2 text-green-700">Revenue</h3>
                       <Table>
                         <TableBody>
-                          <TableRow>
-                            <TableCell>Sales Revenue</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Service Revenue</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow className="font-medium bg-muted/50">
-                            <TableCell>Total Revenue</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
+                          {Object.entries(profitLossData.revenue).length > 0 ? (
+                            Object.entries(profitLossData.revenue).map(([name, amount]) => (
+                              <TableRow key={name}>
+                                <TableCell>{name}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                No revenue for this period
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow className="font-medium bg-green-50 dark:bg-green-950/20">
+                            <TableCell className="text-green-700">Total Revenue</TableCell>
+                            <TableCell className="text-right font-mono text-green-700">
+                              {formatCurrency(profitLossData.totalRevenue)}
+                            </TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
                     </div>
 
+                    {/* Expenses Section */}
                     <div>
-                      <h3 className="font-semibold text-lg mb-2">Expenses</h3>
+                      <h3 className="font-semibold text-lg mb-2 text-red-700">Expenses</h3>
                       <Table>
                         <TableBody>
-                          <TableRow>
-                            <TableCell>Software Subscriptions</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>API & Cloud Services</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Marketing & Advertising</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow className="font-medium bg-muted/50">
-                            <TableCell>Total Expenses</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
+                          {Object.entries(profitLossData.expenses).length > 0 ? (
+                            Object.entries(profitLossData.expenses).map(([name, amount]) => (
+                              <TableRow key={name}>
+                                <TableCell>{name}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                No expenses for this period
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow className="font-medium bg-red-50 dark:bg-red-950/20">
+                            <TableCell className="text-red-700">Total Expenses</TableCell>
+                            <TableCell className="text-right font-mono text-red-700">
+                              {formatCurrency(profitLossData.totalExpenses)}
+                            </TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
                     </div>
 
+                    {/* Net Profit Section */}
                     <div className="pt-4 border-t-2">
                       <Table>
                         <TableBody>
                           <TableRow className="font-bold text-lg">
                             <TableCell>Net Profit</TableCell>
-                            <TableCell className="text-right text-green-600">
-                              {formatCurrency(0)}
+                            <TableCell className={`text-right font-mono ${profitLossData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(profitLossData.netProfit)}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -193,133 +514,132 @@ export const FinancialReports = () => {
                 <CardHeader>
                   <CardTitle>Balance Sheet</CardTitle>
                   <CardDescription>
-                    Assets, liabilities, and equity as of selected date
+                    As of {format(new Date(dateTo), 'MMM d, yyyy')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    {/* Assets Section */}
                     <div>
-                      <h3 className="font-semibold text-lg mb-2">Assets</h3>
+                      <h3 className="font-semibold text-lg mb-2 text-blue-700">Assets</h3>
                       <Table>
                         <TableBody>
-                          <TableRow>
-                            <TableCell>Cash</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Accounts Receivable</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow className="font-medium bg-muted/50">
-                            <TableCell>Total Assets</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Liabilities</h3>
-                      <Table>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Accounts Payable</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow className="font-medium bg-muted/50">
-                            <TableCell>Total Liabilities</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Equity</h3>
-                      <Table>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Owner Equity</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Retained Earnings</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                          <TableRow className="font-medium bg-muted/50">
-                            <TableCell>Total Equity</TableCell>
-                            <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-
-                    <div className="pt-4 border-t-2">
-                      <Table>
-                        <TableBody>
-                          <TableRow className="font-bold text-lg">
-                            <TableCell>Total Liabilities & Equity</TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(0)}
+                          {Object.entries(balanceSheetData.assets).length > 0 ? (
+                            Object.entries(balanceSheetData.assets).map(([name, amount]) => (
+                              <TableRow key={name}>
+                                <TableCell>{name}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                No assets recorded
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow className="font-medium bg-blue-50 dark:bg-blue-950/20">
+                            <TableCell className="text-blue-700">Total Assets</TableCell>
+                            <TableCell className="text-right font-mono text-blue-700">
+                              {formatCurrency(balanceSheetData.totalAssets)}
                             </TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
-            <TabsContent value="general-ledger">
-              <Card>
-                <CardHeader>
-                  <CardTitle>General Ledger</CardTitle>
-                  <CardDescription>
-                    All transactions for the selected period
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No transactions yet</p>
-                    <p className="text-sm">
-                      Transactions will appear here once you create invoices or journal entries
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    {/* Liabilities Section */}
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2 text-orange-700">Liabilities</h3>
+                      <Table>
+                        <TableBody>
+                          {Object.entries(balanceSheetData.liabilities).length > 0 ? (
+                            Object.entries(balanceSheetData.liabilities).map(([name, amount]) => (
+                              <TableRow key={name}>
+                                <TableCell>{name}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                No liabilities recorded
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow className="font-medium bg-orange-50 dark:bg-orange-950/20">
+                            <TableCell className="text-orange-700">Total Liabilities</TableCell>
+                            <TableCell className="text-right font-mono text-orange-700">
+                              {formatCurrency(balanceSheetData.totalLiabilities)}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
 
-            <TabsContent value="trial-balance">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Trial Balance</CardTitle>
-                  <CardDescription>
-                    Verify that debits equal credits
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Account</TableHead>
-                        <TableHead className="text-right">Debit</TableHead>
-                        <TableHead className="text-right">Credit</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow className="font-bold bg-muted">
-                        <TableCell>Total</TableCell>
-                        <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                  <div className="mt-4 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Trial balance is in balance ✓
-                    </p>
+                    {/* Equity Section */}
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2 text-purple-700">Equity</h3>
+                      <Table>
+                        <TableBody>
+                          {Object.entries(balanceSheetData.equity).length > 0 ? (
+                            Object.entries(balanceSheetData.equity).map(([name, amount]) => (
+                              <TableRow key={name}>
+                                <TableCell>{name}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                No equity recorded
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow className="font-medium bg-purple-50 dark:bg-purple-950/20">
+                            <TableCell className="text-purple-700">Total Equity</TableCell>
+                            <TableCell className="text-right font-mono text-purple-700">
+                              {formatCurrency(balanceSheetData.totalEquity)}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Total Liabilities & Equity */}
+                    <div className="pt-4 border-t-2">
+                      <Table>
+                        <TableBody>
+                          <TableRow className="font-bold text-lg">
+                            <TableCell>Total Liabilities & Equity</TableCell>
+                            <TableCell className="text-right font-mono">
+                              {formatCurrency(balanceSheetData.totalLiabilities + balanceSheetData.totalEquity)}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+
+                      {/* Balance Check */}
+                      <div className="mt-4 p-3 rounded-lg bg-muted">
+                        <div className="flex items-center gap-2">
+                          {balanceSheetData.isBalanced ? (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                              <span className="text-sm font-medium text-green-700">
+                                Balance Sheet is balanced ✓
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="h-4 w-4 text-destructive" />
+                              <span className="text-sm font-medium text-destructive">
+                                Balance Sheet is not balanced - Assets: {formatCurrency(balanceSheetData.totalAssets)}, Liabilities + Equity: {formatCurrency(balanceSheetData.totalLiabilities + balanceSheetData.totalEquity)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
