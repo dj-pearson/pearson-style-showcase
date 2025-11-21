@@ -24,6 +24,7 @@ import { JournalEntriesManager } from './accounting/JournalEntriesManager';
 import PlatformsManager from './accounting/PlatformsManager';
 import RecurringTransactionsManager from './accounting/RecurringTransactionsManager';
 import ExpenseCategoriesManager from './accounting/ExpenseCategoriesManager';
+import FinancialOverview from './accounting/FinancialOverview';
 
 export const AccountingDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -90,48 +91,7 @@ export const AccountingDashboard = () => {
         </div>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">$0.00</div>
-                <p className="text-xs text-muted-foreground">This month</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">$0.00</div>
-                <p className="text-xs text-muted-foreground">This month</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">$0.00</div>
-                <p className="text-xs text-muted-foreground">Unpaid invoices</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-                <PieChart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">$0.00</div>
-                <p className="text-xs text-muted-foreground">This month</p>
-              </CardContent>
-            </Card>
-          </div>
+          <FinancialOverview onNavigate={setActiveTab} />
 
           <Card>
             <CardHeader>
