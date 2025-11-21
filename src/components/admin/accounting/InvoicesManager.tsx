@@ -28,10 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, FileText, ExternalLink, Download, Edit, Eye } from 'lucide-react';
+import { Plus, FileText, ExternalLink, Download, Edit, Eye, Upload as UploadIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
+import { DocumentUpload } from './DocumentUpload';
 
 interface Invoice {
   id: string;
@@ -52,6 +53,8 @@ export const InvoicesManager = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [selectedInvoiceForUpload, setSelectedInvoiceForUpload] = useState<Invoice | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'sales' | 'purchase'>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const { toast } = useToast();
@@ -136,23 +139,69 @@ export const InvoicesManager = () => {
                 Manage sales invoices and purchase bills
               </CardDescription>
             </div>
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create New Invoice</DialogTitle>
-                  <DialogDescription>
-                    Create a new sales invoice or purchase bill
-                  </DialogDescription>
-                </DialogHeader>
-                <InvoiceForm onClose={() => setShowCreateDialog(false)} onSuccess={loadInvoices} />
-              </DialogContent>
-            </Dialog>
+            <div className="flex gap-2">
+              <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <UploadIcon className="h-4 w-4 mr-2" />
+                    Upload & Parse
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Upload Invoice or Bill</DialogTitle>
+                    <DialogDescription>
+                      Upload an invoice or bill document. Our AI will automatically extract the data.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DocumentUpload
+                    documentType="invoice"
+                    relatedEntityType="invoice"
+                    relatedEntityId={selectedInvoiceForUpload?.id}
+                    autoProcess={true}
+                    showExistingDocuments={false}
+                    onUploadComplete={(documentId, parsedData) => {
+                      logger.log('Document uploaded and parsed:', parsedData);
+
+                      // If we have parsed data, we could auto-populate the invoice form
+                      if (parsedData) {
+                        toast({
+                          title: 'Data extracted',
+                          description: 'Invoice data has been extracted. You can now create the invoice with this data.',
+                        });
+
+                        // TODO: Auto-populate invoice form with parsed data
+                        // This would require refactoring the InvoiceForm to accept initial data
+                      }
+
+                      setShowUploadDialog(false);
+                      loadInvoices();
+                    }}
+                    onError={(error) => {
+                      logger.error('Upload error:', error);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Invoice
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Create New Invoice</DialogTitle>
+                    <DialogDescription>
+                      Create a new sales invoice or purchase bill
+                    </DialogDescription>
+                  </DialogHeader>
+                  <InvoiceForm onClose={() => setShowCreateDialog(false)} onSuccess={loadInvoices} />
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -258,6 +307,17 @@ export const InvoicesManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedInvoiceForUpload(invoice);
+                              setShowUploadDialog(true);
+                            }}
+                            title="Upload document"
+                          >
+                            <UploadIcon className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="sm">
                             <Eye className="h-4 w-4" />
                           </Button>
