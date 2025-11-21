@@ -353,6 +353,78 @@ export const FinancialReports = () => {
     return `${format(new Date(dateFrom), 'MMM d, yyyy')} - ${format(new Date(dateTo), 'MMM d, yyyy')}`;
   };
 
+  // Export to CSV for tax reporting
+  const handleExport = () => {
+    // Prepare CSV content
+    const csvLines: string[] = [];
+
+    // Header
+    csvLines.push('Financial Report');
+    csvLines.push(`Period: ${formatDateRange()}`);
+    csvLines.push('');
+
+    // Profit & Loss Section
+    csvLines.push('PROFIT & LOSS STATEMENT');
+    csvLines.push('');
+    csvLines.push('Revenue,Amount');
+
+    Object.entries(profitLossData.revenue).forEach(([name, amount]) => {
+      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+    });
+    csvLines.push(`"Total Revenue",${profitLossData.totalRevenue.toFixed(2)}`);
+    csvLines.push('');
+
+    csvLines.push('Expenses,Amount');
+    Object.entries(profitLossData.expenses).forEach(([name, amount]) => {
+      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+    });
+    csvLines.push(`"Total Expenses",${profitLossData.totalExpenses.toFixed(2)}`);
+    csvLines.push('');
+    csvLines.push(`"Net Profit",${profitLossData.netProfit.toFixed(2)}`);
+    csvLines.push('');
+    csvLines.push('');
+
+    // Balance Sheet Section
+    csvLines.push('BALANCE SHEET');
+    csvLines.push(`As of: ${format(new Date(dateTo), 'MMM d, yyyy')}`);
+    csvLines.push('');
+    csvLines.push('Assets,Amount');
+
+    Object.entries(balanceSheetData.assets).forEach(([name, amount]) => {
+      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+    });
+    csvLines.push(`"Total Assets",${balanceSheetData.totalAssets.toFixed(2)}`);
+    csvLines.push('');
+
+    csvLines.push('Liabilities,Amount');
+    Object.entries(balanceSheetData.liabilities).forEach(([name, amount]) => {
+      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+    });
+    csvLines.push(`"Total Liabilities",${balanceSheetData.totalLiabilities.toFixed(2)}`);
+    csvLines.push('');
+
+    csvLines.push('Equity,Amount');
+    Object.entries(balanceSheetData.equity).forEach(([name, amount]) => {
+      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+    });
+    csvLines.push(`"Total Equity",${balanceSheetData.totalEquity.toFixed(2)}`);
+    csvLines.push('');
+    csvLines.push(`"Total Liabilities & Equity",${(balanceSheetData.totalLiabilities + balanceSheetData.totalEquity).toFixed(2)}`);
+
+    // Create CSV blob and download
+    const csvContent = csvLines.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `financial-report-${dateFrom}-to-${dateTo}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -364,9 +436,9 @@ export const FinancialReports = () => {
                 View Profit & Loss, Balance Sheet, and other financial reports
               </CardDescription>
             </div>
-            <Button>
+            <Button onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Export CSV
             </Button>
           </div>
         </CardHeader>
