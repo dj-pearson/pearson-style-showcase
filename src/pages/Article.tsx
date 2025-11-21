@@ -106,7 +106,7 @@ const Article = () => {
     return (
       <div className="min-h-screen flex flex-col">
         <Navigation />
-        <div className="flex-1 pt-20 px-4 md:px-6">
+        <div id="main-content" className="flex-1 pt-20 px-4 md:px-6">
           <div className="container mx-auto max-w-4xl">
             <div className="animate-pulse space-y-8">
               <div className="h-8 bg-gray-800/50 rounded w-3/4"></div>
@@ -128,7 +128,7 @@ const Article = () => {
     return (
       <div className="min-h-screen flex flex-col">
         <Navigation />
-        <div className="flex-1 pt-20 px-4 md:px-6">
+        <div id="main-content" className="flex-1 pt-20 px-4 md:px-6">
           <div className="container mx-auto max-w-4xl">
             <div className="text-center py-16">
               <h1 className="text-2xl font-bold mb-4">Article Not Found</h1>
@@ -221,7 +221,7 @@ const Article = () => {
       />
 
       <Navigation />
-      <div className="flex-1 pt-20 px-4 md:px-6">
+      <div id="main-content" className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-4xl">
           {/* Breadcrumbs */}
           <div className="mb-6">

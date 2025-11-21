@@ -128,7 +128,7 @@ const About = () => {
         }}
       />
       <Navigation />
-      <main className="flex-1 pt-20 sm:pt-24 mobile-container">
+      <main id="main-content" className="flex-1 pt-20 sm:pt-24 mobile-container">
         <div className="container mx-auto mobile-section">
           <div className="max-w-5xl mx-auto">
             {/* Header with Photo */}

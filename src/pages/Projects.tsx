@@ -119,7 +119,7 @@ const Projects = () => {
         }}
       />
       <Navigation />
-      <main className="flex-1 pt-20 sm:pt-24 mobile-container">
+      <main id="main-content" className="flex-1 pt-20 sm:pt-24 mobile-container">
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center mobile-section">

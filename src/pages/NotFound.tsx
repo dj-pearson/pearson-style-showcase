@@ -29,7 +29,7 @@ const NotFound = () => {
         type="website"
       />
       <Navigation />
-      <main className="flex-1 pt-20 sm:pt-24 mobile-container flex items-center justify-center">
+      <main id="main-content" className="flex-1 pt-20 sm:pt-24 mobile-container flex items-center justify-center">
         <div className="container mx-auto mobile-section max-w-2xl">
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
             <CardContent className="mobile-card text-center">

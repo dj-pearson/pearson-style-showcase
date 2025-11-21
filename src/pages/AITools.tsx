@@ -89,7 +89,7 @@ const AITools = () => {
         }}
       />
       <Navigation />
-      <div className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
+      <div id="main-content" className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center py-8 sm:py-12 lg:py-16">

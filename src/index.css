@@ -170,6 +170,28 @@
   * {
     -webkit-tap-highlight-color: hsl(195 100% 50% / 0.1);
   }
+
+  /* Skip to content link for accessibility - WCAG 2.1 Level A */
+  .skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+    z-index: 100;
+    font-weight: 600;
+    transition: top 0.2s ease-in-out;
+    box-shadow: 0 4px 12px hsl(195 100% 50% / 0.3);
+  }
+
+  .skip-to-content:focus {
+    top: 0;
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
