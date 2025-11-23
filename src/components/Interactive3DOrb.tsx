@@ -1,96 +1,47 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 
-interface ParticleSystemProps {
-  count?: number;
-  radius?: number;
-  color?: string;
-}
-
-const ParticleSystem: React.FC<ParticleSystemProps> = ({ 
-  count = 2000, 
-  radius = 2,
-  color = '#00bfff'
-}) => {
+// --- Background Stars (High count, simple behavior) ---
+const BackgroundStars = ({ count = 2000 }) => {
   const mesh = useRef<THREE.Points>(null);
-  const { mouse, viewport } = useThree();
   
-  // Generate particle positions in a sphere
-  const [positions, originalPositions] = useMemo(() => {
+  const [positions, colors] = useMemo(() => {
     const positions = new Float32Array(count * 3);
-    const originalPositions = new Float32Array(count * 3);
-    
+    const colors = new Float32Array(count * 3);
+    const colorPalette = [
+      new THREE.Color('#00d4ff'), // Cyan
+      new THREE.Color('#8a2be2'), // Purple
+      new THREE.Color('#ffffff'), // White
+    ];
+
     for (let i = 0; i < count; i++) {
-      // Generate points on a sphere surface with some randomness
-      const phi = Math.acos(-1 + (2 * i) / count);
-      const theta = Math.sqrt(count * Math.PI) * phi;
+      // Sphere distribution
+      const r = 12 + Math.random() * 10; // Larger radius for background
+      const theta = 2 * Math.PI * Math.random();
+      const phi = Math.acos(2 * Math.random() - 1);
       
-      // Add some randomness for organic look
-      const r = radius + (Math.random() - 0.5) * 0.5;
-      
-      const x = r * Math.cos(theta) * Math.sin(phi);
-      const y = r * Math.sin(theta) * Math.sin(phi);
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.sin(phi) * Math.sin(theta);
       const z = r * Math.cos(phi);
       
       positions[i * 3] = x;
       positions[i * 3 + 1] = y;
       positions[i * 3 + 2] = z;
-      
-      originalPositions[i * 3] = x;
-      originalPositions[i * 3 + 1] = y;
-      originalPositions[i * 3 + 2] = z;
-    }
-    
-    return [positions, originalPositions];
-  }, [count, radius]);
 
-  // Animation and mouse interaction
-  useFrame((state) => {
-    if (!mesh.current) return;
-    
-    const time = state.clock.getElapsedTime();
-    const positions = mesh.current.geometry.attributes.position.array as Float32Array;
-    
-    // Mouse interaction force
-    const mouseX = (mouse.x * viewport.width) / 2;
-    const mouseY = (mouse.y * viewport.height) / 2;
-    
-    for (let i = 0; i < count; i++) {
-      const i3 = i * 3;
-      
-      // Original position
-      const originalX = originalPositions[i3];
-      const originalY = originalPositions[i3 + 1];
-      const originalZ = originalPositions[i3 + 2];
-      
-      // Add gentle floating animation
-      const floatX = originalX + Math.sin(time + i * 0.01) * 0.1;
-      const floatY = originalY + Math.cos(time + i * 0.01) * 0.1;
-      const floatZ = originalZ + Math.sin(time * 0.5 + i * 0.02) * 0.2;
-      
-      // Mouse interaction - create displacement field
-      const mouseDistance = Math.sqrt(
-        Math.pow(floatX - mouseX, 2) + 
-        Math.pow(floatY - mouseY, 2)
-      );
-      
-      const mouseForce = Math.max(0, 2 - mouseDistance);
-      const displaceX = (floatX - mouseX) * mouseForce * 0.1;
-      const displaceY = (floatY - mouseY) * mouseForce * 0.1;
-      const displaceZ = floatZ + mouseForce * 0.2;
-      
-      positions[i3] = floatX + displaceX;
-      positions[i3 + 1] = floatY + displaceY;
-      positions[i3 + 2] = displaceZ;
+      const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
     }
-    
-    mesh.current.geometry.attributes.position.needsUpdate = true;
-    
-    // Gentle rotation
-    mesh.current.rotation.y += 0.002;
-    mesh.current.rotation.x += 0.001;
+    return [positions, colors];
+  }, [count]);
+
+  useFrame((state) => {
+    if (mesh.current) {
+      mesh.current.rotation.y = state.clock.getElapsedTime() * 0.05;
+    }
   });
 
   return (
@@ -102,16 +53,161 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({
           array={positions}
           itemSize={3}
         />
+        <bufferAttribute
+          attach="attributes-color"
+          count={count}
+          array={colors}
+          itemSize={3}
+        />
       </bufferGeometry>
       <pointsMaterial
-        size={0.04}
-        color={color}
+        size={0.05}
+        vertexColors
         transparent
-        opacity={1}
+        opacity={0.6}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
       />
     </points>
+  );
+};
+
+// --- Network/Constellation System (Lower count, connections) ---
+const NetworkSystem = ({ count = 150, radius = 4 }) => {
+  const pointsRef = useRef<THREE.Points>(null);
+  const linesRef = useRef<THREE.LineSegments>(null);
+  const { mouse, viewport } = useThree();
+
+  // Generate initial positions and velocities
+  const [particles, linesGeometry] = useMemo(() => {
+    const p = new Array(count).fill(0).map(() => ({
+      position: new THREE.Vector3(
+        (Math.random() - 0.5) * radius * 2,
+        (Math.random() - 0.5) * radius * 2,
+        (Math.random() - 0.5) * radius * 2
+      ),
+      velocity: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.02
+      ),
+      originalPos: new THREE.Vector3(), // To tether them if needed, but free floating is cool too
+    }));
+    
+    // Store original positions for tethering
+    p.forEach(part => part.originalPos.copy(part.position));
+
+    const geometry = new THREE.BufferGeometry();
+    return [p, geometry];
+  }, [count, radius]);
+
+  useFrame((state) => {
+    const time = state.clock.getElapsedTime();
+    
+    // Mouse interaction
+    const mouseX = (mouse.x * viewport.width) / 2;
+    const mouseY = (mouse.y * viewport.height) / 2;
+    const mousePos = new THREE.Vector3(mouseX, mouseY, 0);
+
+    // Update particle positions
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const color1 = new THREE.Color('#00d4ff'); // Cyan
+    const color2 = new THREE.Color('#ff7f50'); // Orange
+
+    particles.forEach((particle, i) => {
+      // Move
+      particle.position.add(particle.velocity);
+
+      // Tether/Boundary check (soft bounce)
+      if (particle.position.distanceTo(new THREE.Vector3(0,0,0)) > radius) {
+        particle.velocity.multiplyScalar(-1);
+      }
+      
+      // Mouse repulsion/attraction
+      const distToMouse = particle.position.distanceTo(mousePos);
+      if (distToMouse < 3) {
+        const repulsion = new THREE.Vector3().subVectors(particle.position, mousePos).normalize().multiplyScalar(0.05);
+        particle.position.add(repulsion);
+      }
+
+      // Gentle sine wave float
+      particle.position.y += Math.sin(time + particle.position.x) * 0.002;
+
+      positions[i * 3] = particle.position.x;
+      positions[i * 3 + 1] = particle.position.y;
+      positions[i * 3 + 2] = particle.position.z;
+
+      // Color based on position or index
+      const mixedColor = i % 2 === 0 ? color1 : color2;
+      colors[i * 3] = mixedColor.r;
+      colors[i * 3 + 1] = mixedColor.g;
+      colors[i * 3 + 2] = mixedColor.b;
+    });
+
+    if (pointsRef.current) {
+      pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      pointsRef.current.geometry.attributes.position.needsUpdate = true;
+      pointsRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+
+    // Update Lines
+    const linePositions = [];
+    const lineColors = [];
+    const connectionDistance = 1.5;
+
+    for (let i = 0; i < count; i++) {
+      for (let j = i + 1; j < count; j++) {
+        const dist = particles[i].position.distanceTo(particles[j].position);
+        
+        if (dist < connectionDistance) {
+          linePositions.push(
+            particles[i].position.x, particles[i].position.y, particles[i].position.z,
+            particles[j].position.x, particles[j].position.y, particles[j].position.z
+          );
+
+          // Alpha based on distance
+          const alpha = 1.0 - (dist / connectionDistance);
+          // Use a mix of the particle colors
+          lineColors.push(
+            colors[i*3], colors[i*3+1], colors[i*3+2], // Start color
+            colors[j*3], colors[j*3+1], colors[j*3+2]  // End color
+          );
+        }
+      }
+    }
+
+    if (linesRef.current) {
+      linesRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+      linesRef.current.geometry.setAttribute('color', new THREE.Float32BufferAttribute(lineColors, 3));
+    }
+  });
+
+  return (
+    <>
+      <points ref={pointsRef}>
+        <bufferGeometry />
+        <pointsMaterial
+          size={0.15}
+          vertexColors
+          transparent
+          opacity={0.9}
+          sizeAttenuation
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+      <lineSegments ref={linesRef}>
+        <bufferGeometry />
+        <lineBasicMaterial
+          vertexColors
+          transparent
+          opacity={0.4}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </lineSegments>
+    </>
   );
 };
 
@@ -127,30 +223,26 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
   className = ""
 }) => {
   return (
-    <div className={`${className} opacity-90`} style={{ width, height }}>
+    <div className={`${className} opacity-100`} style={{ width, height }}>
       <Canvas
-        camera={{ position: [0, 0, 8], fov: 50 }}
+        camera={{ position: [0, 0, 8], fov: 60 }}
         style={{ background: 'transparent' }}
         dpr={[1, 2]}
+        gl={{ antialias: true, alpha: true }}
       >
         <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
         
-        {/* Main particle system */}
-        <ParticleSystem count={3000} radius={2} color="#00d4ff" />
-        
-        {/* Inner core particles */}
-        <ParticleSystem count={800} radius={1.2} color="#40e0ff" />
-        
-        {/* Outer shell particles */}
-        <ParticleSystem count={1200} radius={2.8} color="#0099cc" />
+        <group rotation={[0, 0, Math.PI / 4]}>
+            <NetworkSystem count={100} radius={5} />
+            <BackgroundStars count={1500} />
+        </group>
         
         <OrbitControls 
           enableZoom={false}
           enablePan={false}
-          enableRotate={false}
+          enableRotate={true}
           autoRotate={true}
-          autoRotateSpeed={0.3}
+          autoRotateSpeed={0.5}
           maxPolarAngle={Math.PI}
           minPolarAngle={0}
         />

@@ -84,7 +84,7 @@ const HeroSection = () => {
 
       {/* Interactive 3D Particle Orb - Delayed loading to prevent blocking initial render */}
       {shouldLoadOrb && (
-        <div className="absolute inset-0 pointer-events-none" style={{ contentVisibility: 'auto' }}>
+        <div className="absolute inset-0" style={{ contentVisibility: 'auto' }}>
           <Suspense fallback={null}>
             <Interactive3DOrb />
           </Suspense>
