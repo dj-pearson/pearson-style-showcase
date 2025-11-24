@@ -328,6 +328,12 @@
     transform: scale(1.05);
   }
 
+  /* 3D Text Perspective */
+  .perspective-text {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+
   /* Amazon affiliate button - Mobile First & Prominent */
   .amazon-button {
     @apply inline-block px-8 py-4 sm:px-10 sm:py-5 font-bold text-base sm:text-lg rounded-xl;
