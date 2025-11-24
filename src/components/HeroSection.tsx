@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import { useRef, useState, useEffect, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -8,9 +8,17 @@ import { useGSAP } from '@gsap/react';
 const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
 
 const HeroSection = () => {
-  // Delay loading the 3D orb until after initial paint to improve FCP and LCP
-  const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
+
+  useEffect(() => {
+    // Only load the heavy 3D orb after the page has had time to render critical content
+    const timer = setTimeout(() => {
+      setShouldLoadOrb(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, []);
   const nameWrapperRef = useRef<HTMLSpanElement>(null);
   const surnameWrapperRef = useRef<HTMLSpanElement>(null);
   const nameRef = useRef<HTMLSpanElement>(null);
@@ -19,15 +27,7 @@ const HeroSection = () => {
   const descRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
 
-  useEffect(() => {
-    // Only load the heavy 3D orb after the page has had time to render critical content
-    // This prevents the 995KB Three.js bundle from blocking initial render
-    const timer = setTimeout(() => {
-      setShouldLoadOrb(true);
-    }, 500); // Delay by 500ms to prioritize critical content
 
-    return () => clearTimeout(timer);
-  }, []);
 
   useGSAP(() => {
     if (!containerRef.current) return;
@@ -45,13 +45,13 @@ const HeroSection = () => {
       duration: 1.2,
       ease: "back.out(1.7)"
     })
-    .from(surnameRef.current, {
-      y: 100,
-      opacity: 0,
-      rotationX: -90,
-      duration: 1.2,
-      ease: "back.out(1.7)"
-    }, "-=1.0");
+      .from(surnameRef.current, {
+        y: 100,
+        opacity: 0,
+        rotationX: -90,
+        duration: 1.2,
+        ease: "back.out(1.7)"
+      }, "-=1.0");
 
     // Animate Subtitle
     tl.from(subtitleRef.current, {
@@ -92,7 +92,7 @@ const HeroSection = () => {
       if (!containerRef.current) return;
       const { clientX, clientY } = e;
       const { innerWidth, innerHeight } = window;
-      
+
       // Calculate position from center
       const xPos = (clientX / innerWidth - 0.5) * 30; // Increased range
       const yPos = (clientY / innerHeight - 0.5) * 30;
@@ -139,10 +139,7 @@ const HeroSection = () => {
   }, { scope: containerRef });
 
   return (
-    <section ref={containerRef} className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-32 sm:pt-40 pb-20 mobile-container">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-secondary/20"></div>
-
+    <section ref={containerRef} className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-32 sm:pt-40 pb-20 mobile-container bg-transparent">
       {/* Main content - Mobile First Typography */}
       <div className="relative z-10 text-center max-w-[95%] sm:max-w-2xl lg:max-w-4xl mx-auto px-4">
         {/* Main title - Enhanced contrast and readability */}
@@ -207,9 +204,9 @@ const HeroSection = () => {
         </div>
       </div>
 
-      {/* Interactive 3D Particle Orb - Delayed loading to prevent blocking initial render */}
+      {/* Interactive 3D Particle Orb - Drag to spin! */}
       {shouldLoadOrb && (
-        <div className="absolute inset-0" style={{ contentVisibility: 'auto' }}>
+        <div className="absolute inset-0 z-0">
           <Suspense fallback={null}>
             <Interactive3DOrb />
           </Suspense>

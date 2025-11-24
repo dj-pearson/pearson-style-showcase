@@ -1,4 +1,7 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef, useEffect, useState } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useGSAP } from '@gsap/react';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import Footer from '../components/Footer';
@@ -16,11 +19,85 @@ const Testimonials = lazy(() => import('../components/Testimonials'));
 const CurrentVentures = lazy(() => import('../components/CurrentVentures'));
 const AuthoritySection = lazy(() => import('../components/homepage/AuthoritySection'));
 const FAQSection = lazy(() => import('../components/homepage/FAQSection'));
+const Interactive3DOrb = lazy(() => import('../components/Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
+
+// Register GSAP plugins
+gsap.registerPlugin(ScrollTrigger);
 
 const Index = () => {
   const { trackClick } = useAnalytics();
+  const mainRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShouldLoadOrb(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useGSAP(() => {
+    if (!mainRef.current) return;
+
+    // Hero Exit Animation
+    // As user scrolls down, Hero content fades out and scales down (zooms out)
+    gsap.to(heroRef.current, {
+      scrollTrigger: {
+        trigger: heroRef.current,
+        start: "top top",
+        end: "bottom center",
+        scrub: 1,
+      },
+      opacity: 0,
+      scale: 0.8,
+      ease: "power1.inOut"
+    });
+
+    // Sections Entry Animation (Zoom Out / Settle effect)
+    // Select all direct section children of the content wrapper
+    const sections = gsap.utils.toArray<HTMLElement>(".animate-section");
+
+    sections.forEach((section) => {
+      gsap.fromTo(section,
+        {
+          opacity: 0,
+          scale: 1.1,
+          y: 50
+        },
+        {
+          scrollTrigger: {
+            trigger: section,
+            start: "top 85%", // Start animation when top of section hits 85% of viewport
+            end: "top 50%",
+            scrub: 1,
+            toggleActions: "play none none reverse"
+          },
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          duration: 1,
+          ease: "power2.out"
+        }
+      );
+    });
+
+  }, { scope: mainRef });
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
+      {/* Fixed 3D Background - Interactive */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
+        {shouldLoadOrb && (
+          <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto' }}>
+            <Suspense fallback={null}>
+              <Interactive3DOrb />
+            </Suspense>
+          </div>
+        )}
+      </div>
       <SEO
         title="AI Business Automation Consultant | Reduce Costs 40% | Dan Pearson"
         description="AI automation consultant helping businesses implement intelligent solutions that reduce operational costs by 40% on average. Serving 50+ clients with proven results. Get expert guidance on AI integration, workflow automation, and digital transformation. Based in Des Moines, serving businesses nationwide."
@@ -96,204 +173,214 @@ const Index = () => {
       />
 
       <Navigation />
-      <main id="main-content">
-        <HeroSection />
-
-      {/* Authority Section - SEO Enhancement */}
-      <Suspense fallback={
-        <div className="mobile-section text-center">
-          <div className="skeleton w-full h-96"></div>
+      <main id="main-content" className="relative z-10 pointer-events-none" ref={contentRef}>
+        <div ref={heroRef} className="pointer-events-auto">
+          <HeroSection />
         </div>
-      }>
-        <AuthoritySection />
-      </Suspense>
 
-      {/* Services Preview Section */}
-      <section className="mobile-section mobile-container relative">
-        <div className="max-w-6xl mx-auto">
-          {/* Section Title */}
-          <div className="text-center mb-10 sm:mb-12 lg:mb-16">
-            <h2 className="mobile-heading-lg text-primary mb-4">
-              How I Can Help
-            </h2>
-            <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-              Combining cutting-edge technology with proven business strategies to deliver innovative solutions
-            </p>
-          </div>
-
-          {/* Services Grid - Mobile First */}
-          <div className="mobile-grid">
-            {/* NFT Development */}
-            <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/20 cursor-pointer">
-              <CardContent className="mobile-card text-center">
-                <div className="mb-6">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                    <Code className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-                  </div>
-                </div>
-                <h3 className="mobile-heading-sm text-foreground mb-4">NFT Development</h3>
-                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                  Unique generative collections with cutting-edge technology and mathematical precision
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* AI Integration */}
-            <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/20 cursor-pointer">
-              <CardContent className="mobile-card text-center">
-                <div className="mb-6">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-                    <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-                  </div>
-                </div>
-                <h3 className="mobile-heading-sm text-foreground mb-4">AI Integration</h3>
-                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                  Leveraging OpenAI, Auto-GPT, and machine learning for innovative business solutions
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Sales Leadership */}
-            <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/20 cursor-pointer">
-              <CardContent className="mobile-card text-center">
-                <div className="mb-6">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-                    <Globe className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-                  </div>
-                </div>
-                <h3 className="mobile-heading-sm text-foreground mb-4">Sales Leadership</h3>
-                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                  15+ years driving growth, building relationships, and delivering results
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Authority Section - SEO Enhancement */}
+        <div className="animate-section pointer-events-auto">
+          <Suspense fallback={
+            <div className="mobile-section text-center">
+              <div className="skeleton w-full h-96"></div>
+            </div>
+          }>
+            <AuthoritySection />
+          </Suspense>
         </div>
-      </section>
 
-      {/* Call to Action Section */}
-      <section className="mobile-section mobile-container relative">
-        <div className="max-w-4xl mx-auto">
-          <Card className="bg-gradient-to-br from-primary/10 via-background to-accent/10 border-primary/30 relative overflow-hidden hover:shadow-2xl hover:shadow-primary/10 transition-shadow duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
-            <CardContent className="relative mobile-card sm:p-10 lg:p-12 text-center">
-              <h2 className="mobile-heading-lg text-foreground mb-6">
-                Ready to Innovate Together?
+        {/* Services Preview Section */}
+        <section className="mobile-section mobile-container relative animate-section pointer-events-auto">
+          <div className="max-w-6xl mx-auto">
+            {/* Section Title */}
+            <div className="text-center mb-10 sm:mb-12 lg:mb-16">
+              <h2 className="mobile-heading-lg text-primary mb-4">
+                How I Can Help
               </h2>
-              <p className="mobile-body text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Let's combine cutting-edge technology with proven business strategies to bring your vision to life.
+              <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
+                Combining cutting-edge technology with proven business strategies to deliver innovative solutions
               </p>
+            </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto">
-                <Button
-                  size="lg"
-                  className="mobile-button btn-futuristic text-base sm:text-lg font-bold"
-                  onClick={() => {
-                    trackClick('View Projects CTA', 'Homepage');
-                    window.location.href = '/projects';
-                  }}
-                >
-                  View My Projects
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="mobile-button text-base sm:text-lg font-semibold border-primary/50 hover:bg-primary/10 active:bg-primary/20 hover:border-primary"
-                  onClick={() => {
-                    trackClick('Get In Touch CTA', 'Homepage');
-                    window.location.href = '/connect';
-                  }}
-                >
-                  Get In Touch
-                </Button>
+            {/* Services Grid - Mobile First */}
+            <div className="mobile-grid">
+              {/* NFT Development */}
+              <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/20 cursor-pointer backdrop-blur-sm">
+                <CardContent className="mobile-card text-center">
+                  <div className="mb-6">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                      <Code className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="mobile-heading-sm text-foreground mb-4">NFT Development</h3>
+                  <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                    Unique generative collections with cutting-edge technology and mathematical precision
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* AI Integration */}
+              <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/20 cursor-pointer backdrop-blur-sm">
+                <CardContent className="mobile-card text-center">
+                  <div className="mb-6">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                      <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="mobile-heading-sm text-foreground mb-4">AI Integration</h3>
+                  <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                    Leveraging OpenAI, Auto-GPT, and machine learning for innovative business solutions
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Sales Leadership */}
+              <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/20 cursor-pointer backdrop-blur-sm">
+                <CardContent className="mobile-card text-center">
+                  <div className="mb-6">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
+                      <Globe className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="mobile-heading-sm text-foreground mb-4">Sales Leadership</h3>
+                  <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                    15+ years driving growth, building relationships, and delivering results
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Call to Action Section */}
+        <section className="mobile-section mobile-container relative animate-section pointer-events-auto">
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-gradient-to-br from-primary/10 via-background to-accent/10 border-primary/30 relative overflow-hidden hover:shadow-2xl hover:shadow-primary/10 transition-shadow duration-300 backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
+              <CardContent className="relative mobile-card sm:p-10 lg:p-12 text-center">
+                <h2 className="mobile-heading-lg text-foreground mb-6">
+                  Ready to Innovate Together?
+                </h2>
+                <p className="mobile-body text-muted-foreground mb-8 max-w-2xl mx-auto">
+                  Let's combine cutting-edge technology with proven business strategies to bring your vision to life.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto">
+                  <Button
+                    size="lg"
+                    className="mobile-button btn-futuristic text-base sm:text-lg font-bold"
+                    onClick={() => {
+                      trackClick('View Projects CTA', 'Homepage');
+                      window.location.href = '/projects';
+                    }}
+                  >
+                    View My Projects
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="mobile-button text-base sm:text-lg font-semibold border-primary/50 hover:bg-primary/10 active:bg-primary/20 hover:border-primary"
+                    onClick={() => {
+                      trackClick('Get In Touch CTA', 'Homepage');
+                      window.location.href = '/connect';
+                    }}
+                  >
+                    Get In Touch
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* Current Ventures Section */}
+        <section className="mobile-section mobile-container animate-section pointer-events-auto">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10 sm:mb-12">
+              <h2 className="mobile-heading-lg text-primary mb-4">
+                Current Ventures
+              </h2>
+              <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
+                Building 7 AI-powered SaaS platforms under Pearson Media LLC. Here's what I'm working on right now.
+              </p>
+            </div>
+            <Suspense fallback={
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Current Ventures Section */}
-      <section className="mobile-section mobile-container">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10 sm:mb-12">
-            <h2 className="mobile-heading-lg text-primary mb-4">
-              Current Ventures
-            </h2>
-            <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-              Building 7 AI-powered SaaS platforms under Pearson Media LLC. Here's what I'm working on right now.
-            </p>
+            }>
+              <CurrentVentures />
+            </Suspense>
           </div>
+        </section>
+
+        {/* Case Studies Section */}
+        <div className="animate-section pointer-events-auto">
           <Suspense fallback={
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
-              ))}
+            <div className="mobile-section text-center">
+              <div className="skeleton w-16 h-16 mx-auto mb-4 rounded-full"></div>
+              <div className="skeleton w-48 h-6 mx-auto"></div>
             </div>
           }>
-            <CurrentVentures />
+            <CaseStudies />
           </Suspense>
         </div>
-      </section>
 
-      {/* Case Studies Section */}
-      <Suspense fallback={
-        <div className="mobile-section text-center">
-          <div className="skeleton w-16 h-16 mx-auto mb-4 rounded-full"></div>
-          <div className="skeleton w-48 h-6 mx-auto"></div>
-        </div>
-      }>
-        <CaseStudies />
-      </Suspense>
-
-      {/* Testimonials Section */}
-      <section className="mobile-section mobile-container">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10 sm:mb-12">
-            <h2 className="mobile-heading-lg text-primary mb-4">
-              What Clients Say
-            </h2>
-            <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-              Don't just take my word for it. Here's what people I've worked with have to say.
-            </p>
+        {/* Testimonials Section */}
+        <section className="mobile-section mobile-container animate-section pointer-events-auto">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10 sm:mb-12">
+              <h2 className="mobile-heading-lg text-primary mb-4">
+                What Clients Say
+              </h2>
+              <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
+                Don't just take my word for it. Here's what people I've worked with have to say.
+              </p>
+            </div>
+            <Suspense fallback={
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton w-full h-64 rounded-lg"></div>
+                ))}
+              </div>
+            }>
+              <Testimonials />
+            </Suspense>
           </div>
+        </section>
+
+        {/* FAQ Section - SEO Enhancement */}
+        <div className="animate-section pointer-events-auto">
           <Suspense fallback={
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton w-full h-64 rounded-lg"></div>
-              ))}
+            <div className="mobile-section text-center">
+              <div className="skeleton w-full h-96"></div>
             </div>
           }>
-            <Testimonials />
+            <FAQSection />
           </Suspense>
         </div>
-      </section>
 
-      {/* FAQ Section - SEO Enhancement */}
-      <Suspense fallback={
-        <div className="mobile-section text-center">
-          <div className="skeleton w-full h-96"></div>
-        </div>
-      }>
-        <FAQSection />
-      </Suspense>
-
-      {/* Newsletter Signup Section */}
-      <section className="mobile-section mobile-container bg-muted/30">
-        <div className="max-w-2xl mx-auto">
-          <Suspense fallback={
-            <div className="text-center">
-              <div className="skeleton w-full h-32 mb-4"></div>
-              <div className="skeleton w-full h-12"></div>
-            </div>
-          }>
-            <NewsletterSignup />
-          </Suspense>
-        </div>
-      </section>
+        {/* Newsletter Signup Section */}
+        <section className="mobile-section mobile-container bg-muted/30 animate-section pointer-events-auto">
+          <div className="max-w-2xl mx-auto">
+            <Suspense fallback={
+              <div className="text-center">
+                <div className="skeleton w-full h-32 mb-4"></div>
+                <div className="skeleton w-full h-12"></div>
+              </div>
+            }>
+              <NewsletterSignup />
+            </Suspense>
+          </div>
+        </section>
       </main>
 
-      <Footer />
+      <div className="relative z-20 bg-background">
+        <Footer />
+      </div>
     </div>
   );
 };
