@@ -142,7 +142,7 @@ export const PaymentsManager = () => {
   });
 
   // Fetch accounts
-  const { data: accounts } = useQuery({
+  const { data: _accounts } = useQuery({
     queryKey: ['accounts', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase

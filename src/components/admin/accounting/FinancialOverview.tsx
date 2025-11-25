@@ -8,8 +8,6 @@ import {
   Receipt,
   FileText,
   PieChart,
-  TrendingUp,
-  TrendingDown,
   Calendar,
   AlertCircle,
 } from 'lucide-react';
