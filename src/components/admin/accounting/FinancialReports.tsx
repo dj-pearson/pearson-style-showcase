@@ -15,11 +15,15 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
+  TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import {
+  PieChart,
   BarChart3,
   TrendingUp,
+  FileText,
   Download,
   AlertCircle,
 } from 'lucide-react';

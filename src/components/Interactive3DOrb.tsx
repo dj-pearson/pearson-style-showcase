@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 
 // --- Background Stars (High count, simple behavior) ---
@@ -79,7 +79,7 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
   const { mouse, viewport } = useThree();
 
   // Generate initial positions and velocities
-  const [particles] = useMemo(() => {
+  const [particles, linesGeometry] = useMemo(() => {
     const p = new Array(count).fill(0).map(() => ({
       position: new THREE.Vector3(
         (Math.random() - 0.5) * radius * 2,
@@ -97,7 +97,8 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
     // Store original positions for tethering
     p.forEach(part => part.originalPos.copy(part.position));
 
-    return [p];
+    const geometry = new THREE.BufferGeometry();
+    return [p, geometry];
   }, [count, radius]);
 
   useFrame((state) => {
@@ -166,6 +167,8 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
             particles[j].position.x, particles[j].position.y, particles[j].position.z
           );
 
+          // Alpha based on distance
+          const alpha = 1.0 - (dist / connectionDistance);
           // Use a mix of the particle colors
           lineColors.push(
             colors[i*3], colors[i*3+1], colors[i*3+2], // Start color

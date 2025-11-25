@@ -35,4 +35,3 @@ pnpm-lock.yaml
 *.sln
 *.sw?
 CODEBASE_ANALYSIS.md
-generate-apple-secret.js

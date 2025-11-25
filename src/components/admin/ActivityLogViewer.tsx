@@ -84,6 +84,7 @@ const ActivityLogViewer: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('7days');
   const [page, setPage] = useState(1);
+  const [selectedEntry, setSelectedEntry] = useState<ActivityLogEntry | null>(null);
 
   // Calculate date range
   const getDateRange = () => {
@@ -103,7 +104,7 @@ const ActivityLogViewer: React.FC = () => {
   };
 
   // Fetch activity logs
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['activity-logs', searchQuery, actionFilter, categoryFilter, dateRange, page],
     queryFn: async () => {
       const { start, end } = getDateRange();
@@ -380,6 +381,7 @@ const ActivityLogViewer: React.FC = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => setSelectedEntry(log)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>

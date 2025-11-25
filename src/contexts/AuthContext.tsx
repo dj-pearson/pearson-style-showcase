@@ -69,11 +69,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
-      // Don't verify if we're not on an admin route
-      if (!window.location.pathname.startsWith('/admin')) {
-        return false;
-      }
-
       // Verify admin access via edge function
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
@@ -222,9 +217,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setAdminUser(null);
             break;
 
-      case 'TOKEN_REFRESHED':
-        logger.debug('Token refreshed successfully');
-        break;
+          case 'TOKEN_REFRESHED':
+            logger.debug('Token refreshed successfully');
+            // Re-verify admin access after token refresh
+            if (currentSession) {
+              await verifyAdminAccess();
+            }
+            break;
 
           case 'USER_UPDATED':
             logger.debug('User data updated');

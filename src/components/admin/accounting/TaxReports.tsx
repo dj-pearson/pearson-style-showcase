@@ -22,7 +22,7 @@ import { Download, FileText, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
-import { format, startOfYear, endOfYear } from 'date-fns';
+import { format, startOfYear, endOfYear, subYears } from 'date-fns';
 
 export const TaxReports = () => {
   const [taxYear, setTaxYear] = useState(new Date().getFullYear().toString());

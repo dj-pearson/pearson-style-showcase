@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermission, PERMISSIONS } from '@/hooks/usePermission';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import {
   CheckCircle,
   Clock,
   User,
+  Lock,
+  Trash2,
   RefreshCw,
   Settings,
   X,
@@ -62,6 +64,7 @@ const SEVERITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const SecurityAlertsDashboard: React.FC = () => {
+  const queryClient = useQueryClient();
   const canManageAlerts = usePermission(PERMISSIONS.ALERTS_MANAGE);
   const canViewActivity = usePermission(PERMISSIONS.ACTIVITY_LOG_VIEW);
 
@@ -75,7 +78,7 @@ const SecurityAlertsDashboard: React.FC = () => {
 
       // Check for failed login attempts (5+ in last hour)
       const hourAgo = subHours(new Date(), 1);
-      await supabase
+      const { data: recentActivity } = await supabase
         .from('admin_activity_log')
         .select('*')
         .gte('timestamp', hourAgo.toISOString())
@@ -384,12 +387,12 @@ const SecurityAlertsDashboard: React.FC = () => {
                                   <Clock className="h-3 w-3" />
                                   {format(new Date(alert.created_at), 'MMM d, HH:mm')}
                                 </span>
-                                {alert.metadata?.admin && typeof alert.metadata.admin === 'string' ? (
+                                {alert.metadata?.admin && (
                                   <span className="flex items-center gap-1">
                                     <User className="h-3 w-3" />
-                                    {alert.metadata.admin}
+                                    {String(alert.metadata.admin)}
                                   </span>
-                                ) : null}
+                                )}
                               </div>
                             </div>
                           </div>

@@ -50,7 +50,6 @@ interface UploadedDocument {
   extracted_invoice_number: string | null;
   ai_parsed_data: any;
   created_at: string;
-  storage_path?: string;
 }
 
 export const DocumentUpload: React.FC<DocumentUploadProps> = ({
@@ -287,10 +286,9 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
   const handleDownload = async (doc: UploadedDocument) => {
     try {
-      const filePath = doc.storage_path || `${doc.id}/${doc.file_name}`;
       const { data, error } = await supabase.storage
         .from('accounting-documents')
-        .download(filePath);
+        .download(doc.file_path);
 
       if (error) throw error;
 
@@ -319,11 +317,10 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
     }
 
     try {
-      const filePath = doc.storage_path || `${doc.id}/${doc.file_name}`;
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('accounting-documents')
-        .remove([filePath]);
+        .remove([doc.file_path]);
 
       if (storageError) throw storageError;
 

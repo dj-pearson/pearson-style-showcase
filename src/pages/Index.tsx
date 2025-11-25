@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef } from 'react';
+import { lazy, Suspense, useRef, useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
@@ -19,6 +19,7 @@ const Testimonials = lazy(() => import('../components/Testimonials'));
 const CurrentVentures = lazy(() => import('../components/CurrentVentures'));
 const AuthoritySection = lazy(() => import('../components/homepage/AuthoritySection'));
 const FAQSection = lazy(() => import('../components/homepage/FAQSection'));
+const Interactive3DOrb = lazy(() => import('../components/Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
 
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger);
@@ -28,6 +29,14 @@ const Index = () => {
   const mainRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShouldLoadOrb(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useGSAP(() => {
     if (!mainRef.current) return;
@@ -78,9 +87,16 @@ const Index = () => {
 
   return (
     <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
-      {/* Fixed 3D Background - Interactive - Temporarily disabled for debugging */}
+      {/* Fixed 3D Background - Interactive */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
+        {shouldLoadOrb && (
+          <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto' }}>
+            <Suspense fallback={null}>
+              <Interactive3DOrb />
+            </Suspense>
+          </div>
+        )}
       </div>
       <SEO
         title="AI Business Automation Consultant | Reduce Costs 40% | Dan Pearson"

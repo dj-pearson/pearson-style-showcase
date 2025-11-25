@@ -63,17 +63,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// External domains to skip (let browser handle directly)
-const SKIP_DOMAINS = [
-  'googletagmanager.com',
-  'google-analytics.com',
-  'doubleclick.net',
-  'cloudflareinsights.com',
-  'fonts.googleapis.com',
-  'fonts.gstatic.com',
-  'supabase.co',
-];
-
 // Fetch event - serve from cache or network
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -86,16 +75,6 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and non-http(s) requests
   if (!url.protocol.startsWith('http')) {
-    return;
-  }
-
-  // Skip external analytics/tracking domains - let browser handle them directly
-  if (SKIP_DOMAINS.some(domain => url.hostname.includes(domain))) {
-    return;
-  }
-
-  // Only handle same-origin requests
-  if (url.origin !== self.location.origin) {
     return;
   }
 

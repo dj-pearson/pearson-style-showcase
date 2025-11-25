@@ -56,6 +56,14 @@ interface Payment {
   updated_at: string;
 }
 
+interface PaymentAllocation {
+  id: string;
+  payment_id: string;
+  invoice_id: string;
+  amount_allocated: number;
+  created_at: string;
+}
+
 interface Invoice {
   id: string;
   invoice_number: string;
@@ -142,7 +150,7 @@ export const PaymentsManager = () => {
   });
 
   // Fetch accounts
-  const { data: _accounts } = useQuery({
+  const { data: accounts } = useQuery({
     queryKey: ['accounts', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
