@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -39,7 +40,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2, Users, Shield, ShieldCheck, Eye, Calendar } from 'lucide-react';
+import { Plus, Trash2, Users, Shield, ShieldCheck, Eye, Calendar, CheckSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface UserRole {
@@ -89,6 +90,8 @@ const UserRoleManager: React.FC = () => {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<AppRole>('editor');
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [isBulkRevokeDialogOpen, setIsBulkRevokeDialogOpen] = useState(false);
 
   // Fetch whitelisted users with their roles
   const { data: users, isLoading, error } = useQuery({
@@ -200,6 +203,28 @@ const UserRoleManager: React.FC = () => {
     },
   });
 
+  // Bulk revoke roles mutation
+  const bulkRevokeMutation = useMutation({
+    mutationFn: async (roleIds: string[]) => {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ is_active: false })
+        .in('id', roleIds);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['all-user-roles'] });
+      toast.success(`${selectedRoleIds.length} role(s) revoked successfully`);
+      setSelectedRoleIds([]);
+      setIsBulkRevokeDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to revoke roles: ${error.message}`);
+    },
+  });
+
   const handleAssignRole = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserId) {
@@ -208,6 +233,36 @@ const UserRoleManager: React.FC = () => {
     }
     assignMutation.mutate({ userId: selectedUserId, role: selectedRole });
   };
+
+  // Toggle selection of a single role
+  const toggleRoleSelection = (roleId: string) => {
+    setSelectedRoleIds((prev) =>
+      prev.includes(roleId)
+        ? prev.filter((id) => id !== roleId)
+        : [...prev, roleId]
+    );
+  };
+
+  // Select/deselect all active roles
+  const toggleSelectAll = () => {
+    if (!allRoles) return;
+    const activeRoleIds = allRoles.filter((r) => r.is_active).map((r) => r.id);
+    if (selectedRoleIds.length === activeRoleIds.length) {
+      setSelectedRoleIds([]);
+    } else {
+      setSelectedRoleIds(activeRoleIds);
+    }
+  };
+
+  // Handle bulk revoke
+  const handleBulkRevoke = () => {
+    if (selectedRoleIds.length === 0) return;
+    bulkRevokeMutation.mutate(selectedRoleIds);
+  };
+
+  // Get active role count for select all
+  const activeRolesCount = allRoles?.filter((r) => r.is_active).length ?? 0;
+  const allActiveSelected = activeRolesCount > 0 && selectedRoleIds.length === activeRolesCount;
 
   if (!canRead && !canAssign && !canRevoke) {
     return (
@@ -356,9 +411,70 @@ const UserRoleManager: React.FC = () => {
               No role assignments found. Roles are auto-assigned when whitelisted users sign in.
             </div>
           ) : (
-            <Table>
+            <>
+              {/* Bulk Action Bar */}
+              {canRevoke && selectedRoleIds.length > 0 && (
+                <div className="flex items-center justify-between p-3 mb-4 bg-muted rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {selectedRoleIds.length} role{selectedRoleIds.length > 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedRoleIds([])}
+                    >
+                      Clear Selection
+                    </Button>
+                    <AlertDialog open={isBulkRevokeDialogOpen} onOpenChange={setIsBulkRevokeDialogOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Revoke Selected
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Bulk Revoke Roles</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to revoke <strong>{selectedRoleIds.length} role{selectedRoleIds.length > 1 ? 's' : ''}</strong>?
+                            This action cannot be undone. All affected users will lose their associated permissions.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleBulkRevoke}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={bulkRevokeMutation.isPending}
+                          >
+                            {bulkRevokeMutation.isPending ? 'Revoking...' : `Revoke ${selectedRoleIds.length} Role${selectedRoleIds.length > 1 ? 's' : ''}`}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              )}
+              <Table>
               <TableHeader>
                 <TableRow>
+                  {canRevoke && (
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={allActiveSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all active roles"
+                        disabled={activeRolesCount === 0}
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>User ID</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Granted</TableHead>
@@ -370,8 +486,22 @@ const UserRoleManager: React.FC = () => {
               <TableBody>
                 {allRoles.map((role) => {
                   const roleInfo = ROLE_INFO[role.role];
+                  const isSelected = selectedRoleIds.includes(role.id);
                   return (
-                    <TableRow key={role.id}>
+                    <TableRow key={role.id} className={isSelected ? 'bg-muted/50' : undefined}>
+                      {canRevoke && (
+                        <TableCell>
+                          {role.is_active ? (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleRoleSelection(role.id)}
+                              aria-label={`Select ${roleInfo.label} role`}
+                            />
+                          ) : (
+                            <div className="w-4" />
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <code className="text-xs bg-muted px-2 py-1 rounded">
                           {role.user_id.substring(0, 8)}...
@@ -445,6 +575,7 @@ const UserRoleManager: React.FC = () => {
                 })}
               </TableBody>
             </Table>
+            </>
           )}
 
           {allRoles && allRoles.length > 0 && (
