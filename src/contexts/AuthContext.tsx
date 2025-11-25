@@ -192,7 +192,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logger.debug('Setting up auth state change listener');
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, currentSession: Session | null) => {
+      (event: AuthChangeEvent, currentSession: Session | null) => {
         logger.debug(`Auth state changed: ${event}`, {
           hasSession: !!currentSession,
           userId: currentSession?.user?.id
@@ -206,9 +206,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         switch (event) {
           case 'SIGNED_IN':
             logger.info('User signed in');
-            // Verify admin access for new sign-ins
             if (currentSession) {
-              await verifyAdminAccess();
+              // Defer admin verification to avoid blocking auth flow
+              setTimeout(() => {
+                verifyAdminAccess().catch(error => {
+                  logger.error('Error verifying admin after sign-in:', error);
+                });
+              }, 0);
             }
             break;
 
@@ -219,9 +223,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           case 'TOKEN_REFRESHED':
             logger.debug('Token refreshed successfully');
-            // Re-verify admin access after token refresh
             if (currentSession) {
-              await verifyAdminAccess();
+              setTimeout(() => {
+                verifyAdminAccess().catch(error => {
+                  logger.error('Error verifying admin after token refresh:', error);
+                });
+              }, 0);
             }
             break;
 
