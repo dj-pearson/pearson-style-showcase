@@ -32,7 +32,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2, Shield, Mail, Calendar, User } from 'lucide-react';
+import { Plus, Trash2, Shield, Mail, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface WhitelistEntry {

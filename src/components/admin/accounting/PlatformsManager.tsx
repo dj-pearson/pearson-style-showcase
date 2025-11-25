@@ -32,7 +32,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 interface Platform {
   id: string;
