@@ -25,16 +25,22 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, isAuthenticated } = useAuth();
+  const { signIn, isAuthenticated, adminUser, isLoading: authLoading } = useAuth();
 
-  // Redirect to dashboard if already authenticated
+  // Redirect to dashboard if already authenticated AND admin verified
+  // Wait for both conditions to prevent redirect before admin verification completes
   useEffect(() => {
-    if (isAuthenticated) {
+    // Don't redirect while auth is still loading
+    if (authLoading) return;
+
+    // Only redirect if both authenticated and have admin user data
+    if (isAuthenticated && adminUser) {
       const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
       sessionStorage.removeItem('auth_return_url');
+      logger.debug('Redirecting authenticated admin to:', returnUrl);
       navigate(returnUrl, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, adminUser, authLoading, navigate]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

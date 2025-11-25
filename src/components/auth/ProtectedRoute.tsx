@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { logger } from '@/lib/logger';
@@ -24,7 +24,7 @@ interface ProtectedRouteProps {
  * - Supports admin-only routes
  * - Supports role-based access control
  * - Supports permission-based access control
- * - Silent auth verification (no premature redirects)
+ * - Uses cached adminUser when available (no redundant network calls)
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
@@ -38,6 +38,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const {
     isLoading,
     isAuthenticated,
+    adminUser,
     verifyAdminAccess,
     hasRole,
     hasPermission,
@@ -45,8 +46,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     hasAllPermissions
   } = useAuth();
   const location = useLocation();
-  const [isVerifying, setIsVerifying] = useState(requireAdmin || !!requireRole || !!requirePermission);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+  const hasVerified = useRef(false);
 
   /**
    * Check if user has the required role(s)
@@ -77,7 +79,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   };
 
   /**
-   * Verify access based on all requirements
+   * Check access using cached adminUser or verify if needed
    */
   useEffect(() => {
     let mounted = true;
@@ -85,38 +87,31 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     const checkAccess = async () => {
       const needsVerification = requireAdmin || requireRole || requirePermission;
 
+      // If no special access required, just allow authenticated users
       if (!needsVerification) {
-        setHasAccess(true);
+        if (isAuthenticated) {
+          setHasAccess(true);
+        }
         setIsVerifying(false);
         return;
       }
 
+      // Wait for initial auth loading to complete
       if (isLoading) {
-        // Wait for initial auth loading to complete
         return;
       }
 
+      // Not authenticated - will redirect below
       if (!isAuthenticated) {
-        // Not authenticated, will redirect below
         setHasAccess(false);
         setIsVerifying(false);
         return;
       }
 
-      // Verify admin access if required
-      setIsVerifying(true);
-      try {
-        logger.debug('Verifying access for protected route');
-        const hasAdminAccess = await verifyAdminAccess();
-
-        if (!mounted) return;
-
-        if (!hasAdminAccess) {
-          logger.warn('Admin verification failed');
-          setHasAccess(false);
-          setIsVerifying(false);
-          return;
-        }
+      // If we already have adminUser from AuthContext, use it directly
+      // This avoids redundant network calls when navigating between protected routes
+      if (adminUser) {
+        logger.debug('Using cached adminUser for access check');
 
         // Check admin requirement
         if (requireAdmin && !hasRole('admin')) {
@@ -142,12 +137,79 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           return;
         }
 
+        logger.debug('Access verified using cached adminUser');
+        setHasAccess(true);
+        setIsVerifying(false);
+        hasVerified.current = true;
+        return;
+      }
+
+      // No adminUser yet - need to verify (happens when session was restored from storage)
+      // Only verify once per mount to prevent loops
+      if (hasVerified.current) {
+        setHasAccess(false);
+        setIsVerifying(false);
+        return;
+      }
+
+      setIsVerifying(true);
+      try {
+        logger.debug('Verifying admin access (no cached adminUser)');
+        const hasAdminAccess = await verifyAdminAccess();
+
+        if (!mounted) return;
+
+        hasVerified.current = true;
+
+        if (!hasAdminAccess) {
+          logger.warn('Admin verification failed');
+          setHasAccess(false);
+          setIsVerifying(false);
+          return;
+        }
+
+        // After verification, hasRole/hasPermission will work because adminUser is now set
+        // Check admin requirement
+        if (requireAdmin && !hasRole('admin')) {
+          logger.warn('Admin role required but not present');
+          setHasAccess(false);
+          setIsVerifying(false);
+          return;
+        }
+
+        // Check role requirement (will re-check with fresh adminUser)
+        if (requireRole) {
+          const roleAccess = Array.isArray(requireRole)
+            ? requireRole.some(role => hasRole(role))
+            : hasRole(requireRole);
+          if (!roleAccess) {
+            logger.warn('Required role not present');
+            setHasAccess(false);
+            setIsVerifying(false);
+            return;
+          }
+        }
+
+        // Check permission requirement (will re-check with fresh adminUser)
+        if (requirePermission) {
+          const permAccess = Array.isArray(requirePermission)
+            ? (requireAllPermissions ? hasAllPermissions(requirePermission) : hasAnyPermission(requirePermission))
+            : hasPermission(requirePermission);
+          if (!permAccess) {
+            logger.warn('Required permission not present');
+            setHasAccess(false);
+            setIsVerifying(false);
+            return;
+          }
+        }
+
         logger.debug('Access verified successfully');
         setHasAccess(true);
         setIsVerifying(false);
       } catch (error) {
         logger.error('Error verifying access:', error);
         if (mounted) {
+          hasVerified.current = true;
           setHasAccess(false);
           setIsVerifying(false);
         }
@@ -159,7 +221,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return () => {
       mounted = false;
     };
-  }, [isLoading, isAuthenticated, requireAdmin, requireRole, requirePermission, verifyAdminAccess, hasRole, hasPermission, hasAnyPermission, hasAllPermissions]);
+  // Minimal dependencies - only re-run when auth state changes meaningfully
+  }, [isLoading, isAuthenticated, adminUser, requireAdmin, requireRole, requirePermission, requireAllPermissions]);
 
   // Show loading state while auth is initializing or verifying
   if (isLoading || isVerifying) {
