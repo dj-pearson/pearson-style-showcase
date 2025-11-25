@@ -41,6 +41,7 @@ interface UploadedDocument {
   file_name: string;
   file_size: number;
   file_type: string;
+  file_path: string;
   document_type: string;
   ocr_status: string;
   ai_status: string;

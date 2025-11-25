@@ -94,7 +94,7 @@ const UserRoleManager: React.FC = () => {
   const [isBulkRevokeDialogOpen, setIsBulkRevokeDialogOpen] = useState(false);
 
   // Fetch whitelisted users with their roles
-  const { data: users, isLoading, error } = useQuery({
+  const { isLoading, error } = useQuery({
     queryKey: ['user-roles'],
     queryFn: async () => {
       // First get all whitelisted emails
