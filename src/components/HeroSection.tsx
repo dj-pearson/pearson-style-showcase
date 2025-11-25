@@ -1,24 +1,12 @@
 import { ArrowRight } from 'lucide-react';
-import { useRef, useState, useEffect, lazy, Suspense } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 
-// Lazy load the 3D orb to prevent render blocking
-const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
-
 const HeroSection = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
-
-  useEffect(() => {
-    // Only load the heavy 3D orb after the page has had time to render critical content
-    const timer = setTimeout(() => {
-      setShouldLoadOrb(true);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, []);
+  const [shouldLoadOrb] = useState(false);
   const nameWrapperRef = useRef<HTMLSpanElement>(null);
   const surnameWrapperRef = useRef<HTMLSpanElement>(null);
   const nameRef = useRef<HTMLSpanElement>(null);
@@ -203,15 +191,6 @@ const HeroSection = () => {
           <div className="w-0.5 h-8 bg-primary rounded-full"></div>
         </div>
       </div>
-
-      {/* Interactive 3D Particle Orb - Drag to spin! */}
-      {shouldLoadOrb && (
-        <div className="absolute inset-0 z-0">
-          <Suspense fallback={null}>
-            <Interactive3DOrb />
-          </Suspense>
-        </div>
-      )}
 
       {/* Decorative elements - Mobile optimized */}
       <div className="absolute top-6 sm:top-10 right-6 sm:right-10 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-primary rounded-full animate-ping"></div>

@@ -76,6 +76,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (functionError || data?.error) {
         logger.warn('Admin verification failed:', functionError?.message || data?.error);
+        // Clear any stale auth session to avoid repeated unauthorized calls
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          logger.warn('Error signing out after failed admin verification:', signOutError);
+        }
         setAdminUser(null);
         return false;
       }
@@ -217,13 +223,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setAdminUser(null);
             break;
 
-          case 'TOKEN_REFRESHED':
-            logger.debug('Token refreshed successfully');
-            // Re-verify admin access after token refresh
-            if (currentSession) {
-              await verifyAdminAccess();
-            }
-            break;
+      case 'TOKEN_REFRESHED':
+        logger.debug('Token refreshed successfully');
+        break;
 
           case 'USER_UPDATED':
             logger.debug('User data updated');
