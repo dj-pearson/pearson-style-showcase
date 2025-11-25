@@ -14,6 +14,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // Prevent token in URL for better security
+    // Enable OAuth callback detection for social logins (Google, GitHub, etc.)
+    // The hash fragment with tokens is automatically parsed and the session is established
+    detectSessionInUrl: true,
+    // Use PKCE flow for enhanced security with OAuth
+    flowType: 'pkce',
   }
 });
