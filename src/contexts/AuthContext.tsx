@@ -69,6 +69,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
+      // Don't verify if we're not on an admin route
+      if (!window.location.pathname.startsWith('/admin')) {
+        return false;
+      }
+
       // Verify admin access via edge function
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
@@ -76,12 +81,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (functionError || data?.error) {
         logger.warn('Admin verification failed:', functionError?.message || data?.error);
-        // Clear any stale auth session to avoid repeated unauthorized calls
-        try {
-          await supabase.auth.signOut();
-        } catch (signOutError) {
-          logger.warn('Error signing out after failed admin verification:', signOutError);
-        }
         setAdminUser(null);
         return false;
       }
