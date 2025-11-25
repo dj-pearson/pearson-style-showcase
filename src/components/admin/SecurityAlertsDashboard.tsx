@@ -384,12 +384,12 @@ const SecurityAlertsDashboard: React.FC = () => {
                                   <Clock className="h-3 w-3" />
                                   {format(new Date(alert.created_at), 'MMM d, HH:mm')}
                                 </span>
-                                {alert.metadata?.admin && typeof alert.metadata.admin === 'string' && (
+                                {alert.metadata?.admin && typeof alert.metadata.admin === 'string' ? (
                                   <span className="flex items-center gap-1">
                                     <User className="h-3 w-3" />
-                                    {alert.metadata.admin as string}
+                                    {alert.metadata.admin}
                                   </span>
-                                )}
+                                ) : null}
                               </div>
                             </div>
                           </div>

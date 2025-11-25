@@ -56,14 +56,6 @@ interface Payment {
   updated_at: string;
 }
 
-interface PaymentAllocation {
-  id: string;
-  payment_id: string;
-  invoice_id: string;
-  amount_allocated: number;
-  created_at: string;
-}
-
 interface Invoice {
   id: string;
   invoice_number: string;

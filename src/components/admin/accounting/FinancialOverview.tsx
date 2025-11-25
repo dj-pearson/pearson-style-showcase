@@ -210,25 +210,6 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
     }).format(amount);
   };
 
-  const getTrendIndicator = (value: number) => {
-    if (value > 0) {
-      return (
-        <div className="flex items-center gap-1 text-green-600">
-          <TrendingUp className="h-4 w-4" />
-          <span className="text-xs font-medium">+{value.toFixed(1)}%</span>
-        </div>
-      );
-    } else if (value < 0) {
-      return (
-        <div className="flex items-center gap-1 text-red-600">
-          <TrendingDown className="h-4 w-4" />
-          <span className="text-xs font-medium">{value.toFixed(1)}%</span>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
