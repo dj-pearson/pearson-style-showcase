@@ -980,6 +980,82 @@ export type Database = {
           },
         ]
       }
+      budgets: {
+        Row: {
+          account_id: string | null
+          actual_amount: number | null
+          alert_enabled: boolean | null
+          alert_threshold: number | null
+          budget_amount: number
+          budget_type: string
+          created_at: string | null
+          end_date: string
+          expense_category_id: string | null
+          id: string
+          notes: string | null
+          period_type: string
+          platform_id: string | null
+          start_date: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          actual_amount?: number | null
+          alert_enabled?: boolean | null
+          alert_threshold?: number | null
+          budget_amount: number
+          budget_type: string
+          created_at?: string | null
+          end_date: string
+          expense_category_id?: string | null
+          id?: string
+          notes?: string | null
+          period_type: string
+          platform_id?: string | null
+          start_date: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          actual_amount?: number | null
+          alert_enabled?: boolean | null
+          alert_threshold?: number | null
+          budget_amount?: number
+          budget_type?: string
+          created_at?: string | null
+          end_date?: string
+          expense_category_id?: string | null
+          id?: string
+          notes?: string | null
+          period_type?: string
+          platform_id?: string | null
+          start_date?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budgets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_expense_category_id_fkey"
+            columns: ["expense_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       canned_responses: {
         Row: {
           applies_to_categories: string[] | null
@@ -1410,6 +1486,60 @@ export type Database = {
           webhook_url?: string
         }
         Relationships: []
+      }
+      expense_categories: {
+        Row: {
+          account_id: string | null
+          category_code: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          parent_category_id: string | null
+          tax_deductible: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          category_code?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parent_category_id?: string | null
+          tax_deductible?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          category_code?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parent_category_id?: string | null
+          tax_deductible?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       import_logs: {
         Row: {
@@ -2330,6 +2460,168 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string
+          expense_category_id: string | null
+          external_id: string | null
+          id: string
+          invoice_id: string | null
+          journal_entry_id: string | null
+          metadata: Json | null
+          payment_id: string | null
+          platform_id: string
+          reference_number: string | null
+          transaction_date: string
+          transaction_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description: string
+          expense_category_id?: string | null
+          external_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          journal_entry_id?: string | null
+          metadata?: Json | null
+          payment_id?: string | null
+          platform_id: string
+          reference_number?: string | null
+          transaction_date?: string
+          transaction_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string
+          expense_category_id?: string | null
+          external_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          journal_entry_id?: string | null
+          metadata?: Json | null
+          payment_id?: string | null
+          platform_id?: string
+          reference_number?: string | null
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_transactions_expense_category_id_fkey"
+            columns: ["expense_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_transactions_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_transactions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_transactions_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platforms: {
+        Row: {
+          api_config: Json | null
+          api_enabled: boolean | null
+          category: string | null
+          created_at: string | null
+          default_expense_account_id: string | null
+          default_income_account_id: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          monthly_budget: number | null
+          name: string
+          notes: string | null
+          platform_type: string
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          api_config?: Json | null
+          api_enabled?: boolean | null
+          category?: string | null
+          created_at?: string | null
+          default_expense_account_id?: string | null
+          default_income_account_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          monthly_budget?: number | null
+          name: string
+          notes?: string | null
+          platform_type: string
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          api_config?: Json | null
+          api_enabled?: boolean | null
+          category?: string | null
+          created_at?: string | null
+          default_expense_account_id?: string | null
+          default_income_account_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          monthly_budget?: number | null
+          name?: string
+          notes?: string | null
+          platform_type?: string
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platforms_default_expense_account_id_fkey"
+            columns: ["default_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platforms_default_income_account_id_fkey"
+            columns: ["default_income_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_settings: {
         Row: {
           availability_status: string | null
@@ -2434,6 +2726,126 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      recurring_transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          auto_create: boolean | null
+          auto_post: boolean | null
+          contact_id: string | null
+          created_at: string | null
+          currency_id: string | null
+          days_in_advance: number | null
+          description: string | null
+          end_date: string | null
+          expense_category_id: string | null
+          frequency: string
+          id: string
+          interval_count: number | null
+          is_active: boolean | null
+          last_created_date: string | null
+          name: string
+          next_due_date: string | null
+          notes: string | null
+          payment_method: string | null
+          platform_id: string | null
+          reference_number: string | null
+          start_date: string
+          transaction_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          auto_create?: boolean | null
+          auto_post?: boolean | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency_id?: string | null
+          days_in_advance?: number | null
+          description?: string | null
+          end_date?: string | null
+          expense_category_id?: string | null
+          frequency: string
+          id?: string
+          interval_count?: number | null
+          is_active?: boolean | null
+          last_created_date?: string | null
+          name: string
+          next_due_date?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          platform_id?: string | null
+          reference_number?: string | null
+          start_date: string
+          transaction_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          auto_create?: boolean | null
+          auto_post?: boolean | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency_id?: string | null
+          days_in_advance?: number | null
+          description?: string | null
+          end_date?: string | null
+          expense_category_id?: string | null
+          frequency?: string
+          id?: string
+          interval_count?: number | null
+          is_active?: boolean | null
+          last_created_date?: string | null
+          name?: string
+          next_due_date?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          platform_id?: string | null
+          reference_number?: string | null
+          start_date?: string
+          transaction_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_expense_category_id_fkey"
+            columns: ["expense_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       smtp_settings: {
         Row: {
@@ -2949,6 +3361,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_next_due_date: {
+        Args: {
+          p_frequency: string
+          p_interval_count: number
+          p_last_date: string
+        }
+        Returns: string
+      }
       calculate_next_run: {
         Args: { cron_expr: string; from_time?: string }
         Returns: string
