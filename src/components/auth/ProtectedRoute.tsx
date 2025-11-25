@@ -1,44 +1,91 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { logger } from '@/lib/logger';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireRole?: AppRole | AppRole[];
+  requirePermission?: string | string[];
+  requireAllPermissions?: boolean;
   redirectTo?: string;
+  fallback?: React.ReactNode;
 }
 
 /**
  * ProtectedRoute component
  *
- * Wraps routes that require authentication and/or admin access.
+ * Wraps routes that require authentication and/or specific access.
  * Features:
  * - Waits for auth initialization before rendering
  * - Shows loading state during auth check
  * - Stores return URL for post-login redirect
  * - Supports admin-only routes
+ * - Supports role-based access control
+ * - Supports permission-based access control
  * - Silent auth verification (no premature redirects)
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requireAdmin = false,
-  redirectTo = '/admin/login'
+  requireRole,
+  requirePermission,
+  requireAllPermissions = false,
+  redirectTo = '/admin/login',
+  fallback
 }) => {
-  const { isLoading, isAuthenticated, verifyAdminAccess } = useAuth();
+  const {
+    isLoading,
+    isAuthenticated,
+    verifyAdminAccess,
+    hasRole,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions
+  } = useAuth();
   const location = useLocation();
-  const [isVerifying, setIsVerifying] = useState(requireAdmin);
+  const [isVerifying, setIsVerifying] = useState(requireAdmin || !!requireRole || !!requirePermission);
   const [hasAccess, setHasAccess] = useState(false);
 
   /**
-   * For admin routes, verify access via edge function
-   * This ensures the user is not only authenticated but also authorized
+   * Check if user has the required role(s)
+   */
+  const checkRoleAccess = (): boolean => {
+    if (!requireRole) return true;
+
+    if (Array.isArray(requireRole)) {
+      // User must have at least one of the roles
+      return requireRole.some(role => hasRole(role));
+    }
+    return hasRole(requireRole);
+  };
+
+  /**
+   * Check if user has the required permission(s)
+   */
+  const checkPermissionAccess = (): boolean => {
+    if (!requirePermission) return true;
+
+    if (Array.isArray(requirePermission)) {
+      // Check based on requireAllPermissions flag
+      return requireAllPermissions
+        ? hasAllPermissions(requirePermission)
+        : hasAnyPermission(requirePermission);
+    }
+    return hasPermission(requirePermission);
+  };
+
+  /**
+   * Verify access based on all requirements
    */
   useEffect(() => {
     let mounted = true;
 
     const checkAccess = async () => {
-      if (!requireAdmin) {
+      const needsVerification = requireAdmin || requireRole || requirePermission;
+
+      if (!needsVerification) {
         setHasAccess(true);
         setIsVerifying(false);
         return;
@@ -56,24 +103,50 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return;
       }
 
-      // Verify admin access
+      // Verify admin access if required
       setIsVerifying(true);
       try {
-        logger.debug('Verifying admin access for protected route');
+        logger.debug('Verifying access for protected route');
         const hasAdminAccess = await verifyAdminAccess();
 
-        if (mounted) {
-          setHasAccess(hasAdminAccess);
-          setIsVerifying(false);
+        if (!mounted) return;
 
-          if (hasAdminAccess) {
-            logger.debug('Admin access verified');
-          } else {
-            logger.warn('Admin access denied');
-          }
+        if (!hasAdminAccess) {
+          logger.warn('Admin verification failed');
+          setHasAccess(false);
+          setIsVerifying(false);
+          return;
         }
+
+        // Check admin requirement
+        if (requireAdmin && !hasRole('admin')) {
+          logger.warn('Admin role required but not present');
+          setHasAccess(false);
+          setIsVerifying(false);
+          return;
+        }
+
+        // Check role requirement
+        if (!checkRoleAccess()) {
+          logger.warn('Required role not present');
+          setHasAccess(false);
+          setIsVerifying(false);
+          return;
+        }
+
+        // Check permission requirement
+        if (!checkPermissionAccess()) {
+          logger.warn('Required permission not present');
+          setHasAccess(false);
+          setIsVerifying(false);
+          return;
+        }
+
+        logger.debug('Access verified successfully');
+        setHasAccess(true);
+        setIsVerifying(false);
       } catch (error) {
-        logger.error('Error verifying admin access:', error);
+        logger.error('Error verifying access:', error);
         if (mounted) {
           setHasAccess(false);
           setIsVerifying(false);
@@ -86,7 +159,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return () => {
       mounted = false;
     };
-  }, [isLoading, isAuthenticated, requireAdmin, verifyAdminAccess]);
+  }, [isLoading, isAuthenticated, requireAdmin, requireRole, requirePermission, verifyAdminAccess, hasRole, hasPermission, hasAnyPermission, hasAllPermissions]);
 
   // Show loading state while auth is initializing or verifying
   if (isLoading || isVerifying) {
@@ -113,9 +186,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Authenticated but doesn't have admin access (if required)
-  if (requireAdmin && !hasAccess) {
-    logger.warn('User lacks admin access, redirecting to login');
+  // Authenticated but doesn't have required access
+  if (!hasAccess) {
+    logger.warn('User lacks required access');
+
+    // If a fallback is provided, show it instead of redirecting
+    if (fallback) {
+      return <>{fallback}</>;
+    }
 
     // Clear any stored admin state and redirect
     sessionStorage.removeItem('auth_return_url');
