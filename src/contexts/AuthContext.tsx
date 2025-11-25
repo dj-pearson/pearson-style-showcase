@@ -3,11 +3,15 @@ import { Session, User, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 
+// App role type matching database enum
+export type AppRole = 'admin' | 'editor' | 'viewer';
+
 interface AdminUser {
   id: string;
   email: string;
   username?: string;
-  role?: string;
+  roles: AppRole[];
+  permissions: string[];
 }
 
 interface AuthContextType {
@@ -17,9 +21,17 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isEditor: boolean;
+  isViewer: boolean;
+  roles: AppRole[];
+  permissions: string[];
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   verifyAdminAccess: () => Promise<boolean>;
+  hasRole: (role: AppRole) => boolean;
+  hasPermission: (permission: string) => boolean;
+  hasAnyPermission: (permissions: string[]) => boolean;
+  hasAllPermissions: (permissions: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,12 +80,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
-      // Set admin user data
+      // Set admin user data with roles and permissions
       setAdminUser({
         id: data.id,
         email: data.email,
-        username: data.user_metadata?.username,
-        role: 'admin'
+        username: data.username || data.email?.split('@')[0],
+        roles: data.roles || ['admin'],
+        permissions: data.permissions || []
       });
 
       return true;
@@ -83,6 +96,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return false;
     }
   }, []);
+
+  /**
+   * Check if user has a specific role
+   */
+  const hasRole = useCallback((role: AppRole): boolean => {
+    return adminUser?.roles?.includes(role) ?? false;
+  }, [adminUser]);
+
+  /**
+   * Check if user has a specific permission
+   */
+  const hasPermission = useCallback((permission: string): boolean => {
+    return adminUser?.permissions?.includes(permission) ?? false;
+  }, [adminUser]);
+
+  /**
+   * Check if user has any of the specified permissions
+   */
+  const hasAnyPermission = useCallback((permissions: string[]): boolean => {
+    if (!adminUser?.permissions) return false;
+    return permissions.some(p => adminUser.permissions.includes(p));
+  }, [adminUser]);
+
+  /**
+   * Check if user has all of the specified permissions
+   */
+  const hasAllPermissions = useCallback((permissions: string[]): boolean => {
+    if (!adminUser?.permissions) return false;
+    return permissions.every(p => adminUser.permissions.includes(p));
+  }, [adminUser]);
 
   /**
    * Initialize session on mount
@@ -293,10 +336,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     adminUser,
     isLoading,
     isAuthenticated: !!session && !!user,
-    isAdmin: !!adminUser,
+    isAdmin: adminUser?.roles?.includes('admin') ?? false,
+    isEditor: adminUser?.roles?.includes('editor') ?? false,
+    isViewer: adminUser?.roles?.includes('viewer') ?? false,
+    roles: adminUser?.roles ?? [],
+    permissions: adminUser?.permissions ?? [],
     signIn,
     signOut,
-    verifyAdminAccess
+    verifyAdminAccess,
+    hasRole,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions
   };
 
   return (

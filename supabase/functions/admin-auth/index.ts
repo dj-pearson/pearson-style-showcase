@@ -27,11 +27,69 @@ const getCorsHeaders = (origin: string | null) => {
   };
 };
 
-// Admin email whitelist - only these emails can access admin
-const ADMIN_EMAILS = [
-  'dan@danpearson.net',
-  'pearsonperformance@gmail.com'
-];
+// Helper function to check if email is in database whitelist
+async function isEmailWhitelisted(email: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('admin_whitelist')
+    .select('id')
+    .eq('email', email)
+    .eq('is_active', true)
+    .single();
+
+  return !error && !!data;
+}
+
+// Helper function to get user roles from database
+async function getUserRoles(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (error || !data) return [];
+  return data.map(r => r.role);
+}
+
+// Helper function to get user permissions from database
+async function getUserPermissions(userId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc('get_user_permissions', {
+    _user_id: userId
+  });
+
+  if (error || !data) return [];
+  return data.map((p: { permission_name: string }) => p.permission_name);
+}
+
+// Helper function to ensure user has admin role in user_roles table
+async function ensureAdminRole(userId: string, email: string): Promise<boolean> {
+  // Check if user already has admin role
+  const { data: existingRole } = await supabase
+    .from('user_roles')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('role', 'admin')
+    .single();
+
+  if (existingRole) return true;
+
+  // Insert admin role for whitelisted user
+  const { error: insertError } = await supabase
+    .from('user_roles')
+    .insert({
+      user_id: userId,
+      role: 'admin',
+      is_active: true
+    });
+
+  if (insertError) {
+    console.error('Failed to assign admin role:', insertError);
+    return false;
+  }
+
+  console.log('Auto-assigned admin role to whitelisted user:', email);
+  return true;
+}
 
 // Rate limiting map
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -130,8 +188,9 @@ serve(async (req) => {
         );
       }
 
-      // Check if email is in admin whitelist
-      if (!ADMIN_EMAILS.includes(email)) {
+      // Check if email is in admin whitelist (database lookup)
+      const isWhitelisted = await isEmailWhitelisted(email);
+      if (!isWhitelisted) {
         console.log("Email not in admin whitelist:", email);
         recordFailedAttempt(clientIP);
         return new Response(
@@ -184,27 +243,36 @@ serve(async (req) => {
         // Continue anyway, we have successful auth
       }
 
+      // Ensure user has admin role in user_roles table
+      await ensureAdminRole(authData.user.id, email);
+
+      // Get user roles and permissions
+      const roles = await getUserRoles(authData.user.id);
+      const permissions = await getUserPermissions(authData.user.id);
+
       // Clear failed attempts
       clearFailedAttempts(clientIP);
 
       console.log("Login successful for:", email);
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           user: {
             id: authData.user.id,
             email: authData.user.email,
             username: authData.user.email.split('@')[0],
-            two_factor_enabled: false
+            two_factor_enabled: false,
+            roles,
+            permissions
           }
         }),
-        { 
-          status: 200, 
-          headers: { 
-            ...corsHeaders, 
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
             "Content-Type": "application/json"
-          } 
+          }
         }
       );
     }
@@ -232,8 +300,9 @@ serve(async (req) => {
         );
       }
 
-      // Verify user is in admin whitelist
-      if (!ADMIN_EMAILS.includes(user.email || '')) {
+      // Verify user is in admin whitelist (database lookup)
+      const isWhitelisted = await isEmailWhitelisted(user.email || '');
+      if (!isWhitelisted) {
         console.error('User not in admin whitelist:', user.email);
         return new Response(
           JSON.stringify({ error: 'Forbidden - Not an admin' }),
@@ -241,31 +310,31 @@ serve(async (req) => {
         );
       }
 
-      // Check if user has admin role in user_roles table
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .single();
-
-      if (roleError || !roleData) {
-        console.error('User does not have admin role in database:', user.email);
+      // Ensure user has admin role (auto-assign if whitelisted but missing role)
+      const hasRole = await ensureAdminRole(user.id, user.email || '');
+      if (!hasRole) {
+        console.error('Failed to ensure admin role for:', user.email);
         return new Response(
           JSON.stringify({ error: 'Forbidden - Admin role not assigned' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
+      // Get user roles and permissions
+      const roles = await getUserRoles(user.id);
+      const permissions = await getUserPermissions(user.id);
+
       console.log('Admin authenticated successfully:', user.email);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           id: user.id,
           email: user.email,
           username: user.email?.split('@')[0] || 'admin',
           two_factor_enabled: false,
           last_login: new Date().toISOString(),
-          created_at: user.created_at
+          created_at: user.created_at,
+          roles,
+          permissions
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -280,7 +349,7 @@ serve(async (req) => {
 
     if (action === 'forgot-password') {
       const { email } = bodyData;
-      
+
       if (!email) {
         return new Response(
           JSON.stringify({ error: "Email is required" }),
@@ -288,8 +357,10 @@ serve(async (req) => {
         );
       }
 
-      // Check if email is in admin whitelist
-      if (!ADMIN_EMAILS.includes(email)) {
+      // Check if email is in admin whitelist (database lookup)
+      const isWhitelisted = await isEmailWhitelisted(email);
+      if (!isWhitelisted) {
+        // Return success to prevent email enumeration
         return new Response(
           JSON.stringify({ success: true, message: "If the email exists, a reset link has been sent" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
