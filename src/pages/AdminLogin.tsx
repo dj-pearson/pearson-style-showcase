@@ -56,7 +56,7 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, signInWithProvider, isLoading: authLoading } = useAuth();
+  const { signIn, signInWithProvider } = useAuth();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -158,18 +158,6 @@ const AdminLogin = () => {
       setIsLoading(false);
     }
   };
-
-  // Show loading while checking initial auth status
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (showForgotPassword) {
     return (
