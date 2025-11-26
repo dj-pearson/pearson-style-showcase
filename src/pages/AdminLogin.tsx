@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent, FormEvent } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -26,15 +26,25 @@ const AdminLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signIn, isAuthenticated, adminUser, isLoading: authLoading } = useAuth();
+  
+  // Track if we've already redirected to prevent loops
+  const hasRedirected = useRef(false);
 
-  // Redirect to dashboard if already authenticated AND admin verified
-  // Wait for both conditions to prevent redirect before admin verification completes
+  // Redirect to dashboard if authenticated AND admin verified
+  // This handles both:
+  // 1. User navigates to login but is already logged in
+  // 2. User just logged in via handleLogin and state has updated
   useEffect(() => {
     // Don't redirect while auth is still loading
     if (authLoading) return;
+    
+    // Don't redirect if we've already started redirecting
+    if (hasRedirected.current) return;
 
     // Only redirect if both authenticated and have admin user data
+    // This ensures we wait for the full auth state to be ready
     if (isAuthenticated && adminUser) {
+      hasRedirected.current = true;
       const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
       sessionStorage.removeItem('auth_return_url');
       logger.debug('Redirecting authenticated admin to:', returnUrl);
@@ -68,12 +78,10 @@ const AdminLogin = () => {
         description: "Welcome to the admin dashboard",
       });
 
-      // Get return URL from session storage or default to dashboard
-      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
-      sessionStorage.removeItem('auth_return_url');
-
-      logger.info('Navigating to:', returnUrl);
-      navigate(returnUrl, { replace: true });
+      // Don't navigate here - let the useEffect handle it after state has fully updated
+      // This prevents race conditions where ProtectedRoute mounts before adminUser is set
+      logger.info('Login successful, waiting for state update to trigger navigation');
+      
     } catch (error) {
       logger.error('Login error:', error);
       setError('Network error. Please try again.');
