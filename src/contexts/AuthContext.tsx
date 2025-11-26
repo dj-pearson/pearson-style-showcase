@@ -133,6 +133,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [adminUser]);
 
   /**
+   * Clear all auth-related data from localStorage
+   * This ensures stale tokens don't cause issues
+   */
+  const clearStoredAuthData = useCallback(() => {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          localStorage.removeItem(key);
+        }
+      });
+      logger.debug('Cleared stored auth data');
+    } catch (storageError) {
+      logger.debug('Could not clear localStorage:', storageError);
+    }
+  }, []);
+
+  /**
    * Initialize session on mount
    * This waits for Supabase to restore the session from localStorage
    */
@@ -149,7 +167,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!mounted) return;
 
         if (error) {
-          logger.error('Error getting initial session:', error);
+          // Check for specific refresh token errors
+          const errorMessage = error.message?.toLowerCase() || '';
+          const isRefreshTokenError = 
+            errorMessage.includes('refresh token') || 
+            errorMessage.includes('invalid token') ||
+            errorMessage.includes('session not found') ||
+            error.name === 'AuthApiError';
+          
+          if (isRefreshTokenError) {
+            logger.warn('Invalid or expired refresh token, clearing stale session');
+            // Clear stale auth data to prevent stuck states
+            clearStoredAuthData();
+          } else {
+            logger.error('Error getting initial session:', error);
+          }
+          
           setSession(null);
           setUser(null);
           setAdminUser(null);
@@ -160,23 +193,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           // Verify admin access if we have a restored session
           // Use stable reference via direct call (not from dependency)
-          const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
-            body: { action: 'me' }
-          });
-
-          if (!mounted) return;
-
-          if (!functionError && !data?.error) {
-            setAdminUser({
-              id: data.id,
-              email: data.email,
-              username: data.username || data.email?.split('@')[0],
-              roles: data.roles || ['admin'],
-              permissions: data.permissions || []
+          try {
+            const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+              body: { action: 'me' }
             });
-          } else {
-            logger.warn('Admin verification failed on init:', functionError?.message || data?.error);
-            setAdminUser(null);
+
+            if (!mounted) return;
+
+            if (!functionError && !data?.error) {
+              setAdminUser({
+                id: data.id,
+                email: data.email,
+                username: data.username || data.email?.split('@')[0],
+                roles: data.roles || ['admin'],
+                permissions: data.permissions || []
+              });
+            } else {
+              logger.warn('Admin verification failed on init:', functionError?.message || data?.error);
+              setAdminUser(null);
+              // If admin verification fails with auth error, session might be invalid
+              if (functionError?.message?.toLowerCase().includes('unauthorized') || 
+                  data?.error?.toLowerCase().includes('unauthorized') ||
+                  data?.error?.toLowerCase().includes('invalid')) {
+                logger.warn('Session appears invalid, clearing auth state');
+                await supabase.auth.signOut();
+                clearStoredAuthData();
+                setSession(null);
+                setUser(null);
+              }
+            }
+          } catch (verifyError) {
+            logger.error('Error during admin verification:', verifyError);
+            if (mounted) {
+              setAdminUser(null);
+            }
           }
         } else {
           logger.debug('No session found in storage');
@@ -187,6 +237,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (error) {
         logger.error('Error initializing auth:', error);
         if (mounted) {
+          // Check if this is a refresh token error
+          const errorMessage = (error as Error)?.message?.toLowerCase() || '';
+          if (errorMessage.includes('refresh token') || errorMessage.includes('invalid')) {
+            logger.warn('Clearing stale auth data due to initialization error');
+            clearStoredAuthData();
+          }
           setSession(null);
           setUser(null);
           setAdminUser(null);
@@ -205,7 +261,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       mounted = false;
     };
-  }, []); // No dependencies - runs once on mount
+  }, [clearStoredAuthData]); // Include clearStoredAuthData dependency
 
   /**
    * Listen for auth state changes
@@ -279,6 +335,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setSession(currentSession);
             setUser(currentSession?.user ?? null);
             // Don't re-verify on token refresh - we already have adminUser
+            break;
+
+          case 'TOKEN_REFRESH_FAILED':
+            // Handle token refresh failures - this happens when refresh token is invalid/expired
+            logger.warn('Token refresh failed - session is invalid');
+            setSession(null);
+            setUser(null);
+            setAdminUser(null);
+            // Clear any stale auth data from localStorage
+            try {
+              const keys = Object.keys(localStorage);
+              keys.forEach(key => {
+                if (key.startsWith('sb-') || key.includes('supabase')) {
+                  localStorage.removeItem(key);
+                }
+              });
+            } catch (storageError) {
+              logger.debug('Could not clear localStorage:', storageError);
+            }
             break;
 
           case 'USER_UPDATED':
@@ -406,16 +481,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Clear any lingering localStorage auth data
-      try {
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-          if (key.startsWith('sb-') || key.includes('supabase')) {
-            localStorage.removeItem(key);
-          }
-        });
-      } catch (storageError) {
-        logger.debug('Could not clear localStorage:', storageError);
-      }
+      clearStoredAuthData();
 
       logger.info('Sign out completed');
     } catch (error) {
@@ -427,7 +493,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       isSigningOut.current = false;
     }
-  }, []);
+  }, [clearStoredAuthData]);
 
   const value: AuthContextType = {
     session,

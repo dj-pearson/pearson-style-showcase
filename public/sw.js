@@ -63,6 +63,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// External domains that should NOT be handled by the service worker
+// These are third-party resources that have their own caching strategies
+const EXTERNAL_DOMAINS = [
+  'googletagmanager.com',
+  'google-analytics.com',
+  'analytics.google.com',
+  'fonts.googleapis.com',
+  'fonts.gstatic.com',
+  'cloudflareinsights.com',
+  'cdn.jsdelivr.net',
+];
+
+// Check if URL is from an external domain we shouldn't handle
+function isExternalDomain(hostname) {
+  return EXTERNAL_DOMAINS.some(domain => hostname.includes(domain));
+}
+
 // Fetch event - serve from cache or network
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -75,6 +92,12 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and non-http(s) requests
   if (!url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // Skip external third-party domains - let browser handle them directly
+  // This prevents CSP issues and respects third-party caching
+  if (isExternalDomain(url.hostname)) {
     return;
   }
 
