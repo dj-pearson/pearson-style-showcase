@@ -196,9 +196,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(newSession.user);
       setAuthStatus('verifying_admin');
 
-      // Verify admin access with timeout
+      // Verify admin access with timeout (30 seconds for OAuth flows)
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Admin verification timeout')), 10000);
+        setTimeout(() => reject(new Error('Admin verification timeout')), 30000);
       });
 
       const adminCheckPromise = supabase.functions.invoke('admin-auth', {
