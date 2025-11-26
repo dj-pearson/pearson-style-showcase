@@ -96,13 +96,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !currentSession) {
-        logger.debug('No valid session found during admin verification');
+        logger.debug('No valid session found during admin verification', {
+          hasSession: !!currentSession,
+          error: sessionError?.message,
+        });
         setAdminUser(null);
         return false;
       }
 
+      logger.debug('Calling admin-auth me edge function...');
+
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
+      });
+
+      logger.debug('admin-auth me response:', {
+        hasData: !!data,
+        error: functionError?.message || data?.error,
+        raw: data,
       });
 
       if (functionError || data?.error) {
