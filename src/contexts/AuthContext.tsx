@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
@@ -76,9 +76,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('initializing');
   const [error, setError] = useState<string | null>(null);
 
+  // Refs to track current state without causing re-renders
+  // These prevent stale closure issues in the auth listener
+  const authStatusRef = useRef<AuthStatus>('initializing');
+  const isProcessingRef = useRef(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    authStatusRef.current = authStatus;
+  }, [authStatus]);
+
   /**
    * Verify admin access by calling the admin-auth edge function
-   * This checks both the session validity and admin whitelist
    */
   const verifyAdminAccess = useCallback(async (): Promise<boolean> => {
     logger.debug('Verifying admin access...');
@@ -92,7 +101,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
-      // Verify admin access via edge function
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
       });
@@ -103,7 +111,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
-      // Set admin user data with roles and permissions
       const adminData: AdminUser = {
         id: data.id,
         email: data.email,
@@ -141,34 +148,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Process a session - verify admin access and update state
-   * This is the single source of truth for handling sessions
+   * Uses isProcessingRef to prevent concurrent processing
    */
   const processSession = useCallback(async (newSession: Session | null, source: string) => {
-    logger.debug(`Processing session from ${source}:`, { hasSession: !!newSession });
-
-    if (!newSession) {
-      setSession(null);
-      setUser(null);
-      setAdminUser(null);
-      setAuthStatus('unauthenticated');
-      setError(null);
+    // Prevent concurrent processing
+    if (isProcessingRef.current) {
+      logger.debug(`Skipping session processing from ${source} - already processing`);
       return;
     }
 
-    // Update session state
-    setSession(newSession);
-    setUser(newSession.user);
-    setAuthStatus('verifying_admin');
+    logger.debug(`Processing session from ${source}:`, { hasSession: !!newSession });
+    isProcessingRef.current = true;
 
-    // Verify admin access
     try {
+      if (!newSession) {
+        setSession(null);
+        setUser(null);
+        setAdminUser(null);
+        setAuthStatus('unauthenticated');
+        setError(null);
+        return;
+      }
+
+      // Update session state
+      setSession(newSession);
+      setUser(newSession.user);
+      setAuthStatus('verifying_admin');
+
+      // Verify admin access
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
       });
 
       if (functionError || data?.error) {
         logger.warn('Admin verification failed:', functionError?.message || data?.error);
-        // User is authenticated but not admin - this is a valid state
         setAdminUser(null);
         setAuthStatus('authenticated');
         return;
@@ -189,11 +202,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logger.error('Error during admin verification:', err);
       setAdminUser(null);
       setAuthStatus('authenticated');
+    } finally {
+      isProcessingRef.current = false;
     }
   }, []);
 
   /**
-   * Initialize auth on mount
+   * Initialize auth on mount and set up listener
+   * Combined into single effect to prevent race conditions
    */
   useEffect(() => {
     let mounted = true;
@@ -235,37 +251,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
-    initializeAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, [processSession, clearStoredAuthData]);
-
-  /**
-   * Listen for auth state changes
-   * Handles: OAuth callbacks, token refresh, sign out from other tabs, etc.
-   */
-  useEffect(() => {
-    // Don't set up listener until initial auth check completes
-    if (authStatus === 'initializing') return;
-
+    // Set up auth state change listener FIRST, before initialization
+    // This ensures we don't miss any events
     logger.debug('Setting up auth state change listener');
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        // Use ref to get current status (not stale closure value)
+        const currentStatus = authStatusRef.current;
+
         logger.debug(`Auth state changed: ${event}`, {
           hasSession: !!currentSession,
-          currentStatus: authStatus
+          currentStatus
         });
 
         switch (event) {
           case 'SIGNED_IN':
-            // Only process if we're not already handling a sign-in
-            // This prevents double-processing during email/password login
-            if (authStatus !== 'verifying_admin' && authStatus !== 'admin_verified') {
-              await processSession(currentSession, 'SIGNED_IN event');
+            // Skip if we're already processing, verifying, or verified
+            // This prevents double-processing during login flows
+            if (isProcessingRef.current ||
+                currentStatus === 'verifying_admin' ||
+                currentStatus === 'admin_verified') {
+              logger.debug('Skipping SIGNED_IN - already handling auth');
+              return;
             }
+            await processSession(currentSession, 'SIGNED_IN event');
             break;
 
           case 'SIGNED_OUT':
@@ -279,7 +288,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           case 'TOKEN_REFRESHED':
             logger.debug('Token refreshed');
-            // Update session without re-verifying admin (preserves adminUser)
             setSession(currentSession);
             setUser(currentSession?.user ?? null);
             break;
@@ -296,11 +304,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
+    // Now initialize
+    initializeAuth();
+
     return () => {
+      mounted = false;
       logger.debug('Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
-  }, [authStatus, processSession]);
+  }, [processSession, clearStoredAuthData]);
 
   /**
    * Sign in with email and password
@@ -308,27 +320,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = useCallback(async (email: string, password: string) => {
     logger.debug('Sign in attempt:', email);
     setError(null);
+    isProcessingRef.current = true;
     setAuthStatus('verifying_admin');
 
     try {
-      // First authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (authError || !authData.session) {
+        isProcessingRef.current = false;
         setAuthStatus('unauthenticated');
         const errorMsg = authError?.message || 'Login failed';
         setError(errorMsg);
         return { success: false, error: errorMsg };
       }
 
-      // Update session state
       setSession(authData.session);
       setUser(authData.user);
 
-      // Verify admin access via edge function
       const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
         body: {
           action: 'login',
@@ -338,18 +349,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (functionError || data?.error) {
-        // If admin verification fails, sign out
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
         setAdminUser(null);
         setAuthStatus('unauthenticated');
+        isProcessingRef.current = false;
         const errorMsg = data?.error || functionError?.message || 'Access denied';
         setError(errorMsg);
         return { success: false, error: errorMsg };
       }
 
-      // Set admin user data from login response
       const adminData: AdminUser = {
         id: data.user?.id || authData.user.id,
         email: data.user?.email || email,
@@ -360,11 +370,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       setAdminUser(adminData);
       setAuthStatus('admin_verified');
+      isProcessingRef.current = false;
       logger.info('Sign in successful:', email);
 
       return { success: true };
     } catch (err) {
       logger.error('Sign in error:', err);
+      isProcessingRef.current = false;
       setAuthStatus('unauthenticated');
       const errorMsg = 'Network error. Please try again.';
       setError(errorMsg);
@@ -380,7 +392,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      // Get the callback URL - use current origin + /auth/callback
       const redirectTo = `${window.location.origin}/auth/callback`;
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -400,7 +411,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error: oauthError.message };
       }
 
-      // OAuth redirects the page, so we won't get here on success
       logger.debug('OAuth redirect initiated:', data);
       return { success: true };
     } catch (err) {
@@ -423,21 +433,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      // Try to call logout edge function for cleanup (fire and forget)
       supabase.functions.invoke('admin-auth', {
         body: { action: 'logout' }
       }).catch(err => {
         logger.debug('Logout edge function error (non-critical):', err);
       });
 
-      // Sign out from Supabase
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
         logger.warn('Supabase signOut error:', signOutError);
       }
 
-      // Clear state
       setSession(null);
       setUser(null);
       clearStoredAuthData();
@@ -445,7 +452,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logger.info('Sign out completed');
     } catch (err) {
       logger.error('Sign out error:', err);
-      // Force clear state even if sign out fails
       setSession(null);
       setUser(null);
       clearStoredAuthData();
@@ -473,14 +479,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Computed values - memoized for performance
   const value = useMemo<AuthContextType>(() => ({
-    // Core state
     session,
     user,
     adminUser,
     authStatus,
     error,
 
-    // Computed state
     isLoading: authStatus === 'initializing' || authStatus === 'verifying_admin',
     isAuthenticated: !!session && !!user,
     isAdminVerified: authStatus === 'admin_verified' && !!adminUser,
@@ -490,13 +494,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     roles: adminUser?.roles ?? [],
     permissions: adminUser?.permissions ?? [],
 
-    // Actions
     signIn,
     signInWithProvider,
     signOut,
     verifyAdminAccess,
 
-    // Permission checks
     hasRole,
     hasPermission,
     hasAnyPermission,
