@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { logger } from '@/lib/logger';
+import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -16,7 +17,10 @@ interface ProtectedRouteProps {
 /**
  * ProtectedRoute component
  *
- * Wraps routes that require authentication and/or specific access.
+ * Simplified route protection using the auth state machine.
+ * The AuthContext handles all the complex verification logic,
+ * so this component just needs to check the current state.
+ *
  * Features:
  * - Waits for auth initialization before rendering
  * - Shows loading state during auth check
@@ -24,7 +28,6 @@ interface ProtectedRouteProps {
  * - Supports admin-only routes
  * - Supports role-based access control
  * - Supports permission-based access control
- * - Uses cached adminUser when available (no redundant network calls)
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
@@ -36,227 +39,34 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   fallback
 }) => {
   const {
-    isLoading,
+    authStatus,
     isAuthenticated,
+    isAdminVerified,
     adminUser,
-    verifyAdminAccess,
     hasRole,
     hasPermission,
     hasAnyPermission,
     hasAllPermissions
   } = useAuth();
   const location = useLocation();
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [hasAccess, setHasAccess] = useState(false);
-  // Track if we've done our initial access check - prevents rendering Navigate before useEffect runs
-  const [hasChecked, setHasChecked] = useState(false);
-  const hasVerified = useRef(false);
 
-  /**
-   * Check if user has the required role(s)
-   */
-  const checkRoleAccess = (): boolean => {
-    if (!requireRole) return true;
-
-    if (Array.isArray(requireRole)) {
-      // User must have at least one of the roles
-      return requireRole.some(role => hasRole(role));
-    }
-    return hasRole(requireRole);
-  };
-
-  /**
-   * Check if user has the required permission(s)
-   */
-  const checkPermissionAccess = (): boolean => {
-    if (!requirePermission) return true;
-
-    if (Array.isArray(requirePermission)) {
-      // Check based on requireAllPermissions flag
-      return requireAllPermissions
-        ? hasAllPermissions(requirePermission)
-        : hasAnyPermission(requirePermission);
-    }
-    return hasPermission(requirePermission);
-  };
-
-  /**
-   * Check access using cached adminUser or verify if needed
-   */
-  useEffect(() => {
-    let mounted = true;
-
-    const checkAccess = async () => {
-      const needsVerification = requireAdmin || requireRole || requirePermission;
-
-      // If no special access required, just allow authenticated users
-      if (!needsVerification) {
-        if (isAuthenticated) {
-          setHasAccess(true);
-        }
-        setIsVerifying(false);
-        setHasChecked(true);
-        return;
-      }
-
-      // Wait for initial auth loading to complete
-      if (isLoading) {
-        return;
-      }
-
-      // Not authenticated - will redirect below
-      if (!isAuthenticated) {
-        setHasAccess(false);
-        setIsVerifying(false);
-        setHasChecked(true);
-        return;
-      }
-
-      // If we already have adminUser from AuthContext, use it directly
-      // This avoids redundant network calls when navigating between protected routes
-      if (adminUser) {
-        logger.debug('Using cached adminUser for access check');
-
-        // Check admin requirement
-        if (requireAdmin && !hasRole('admin')) {
-          logger.warn('Admin role required but not present');
-          setHasAccess(false);
-          setIsVerifying(false);
-          setHasChecked(true);
-          return;
-        }
-
-        // Check role requirement
-        if (!checkRoleAccess()) {
-          logger.warn('Required role not present');
-          setHasAccess(false);
-          setIsVerifying(false);
-          setHasChecked(true);
-          return;
-        }
-
-        // Check permission requirement
-        if (!checkPermissionAccess()) {
-          logger.warn('Required permission not present');
-          setHasAccess(false);
-          setIsVerifying(false);
-          setHasChecked(true);
-          return;
-        }
-
-        logger.debug('Access verified using cached adminUser');
-        setHasAccess(true);
-        setIsVerifying(false);
-        setHasChecked(true);
-        hasVerified.current = true;
-        return;
-      }
-
-      // No adminUser yet - need to verify (happens when session was restored from storage)
-      // Only verify once per mount to prevent loops
-      if (hasVerified.current) {
-        setHasAccess(false);
-        setIsVerifying(false);
-        setHasChecked(true);
-        return;
-      }
-
-      setIsVerifying(true);
-      try {
-        logger.debug('Verifying admin access (no cached adminUser)');
-        const hasAdminAccess = await verifyAdminAccess();
-
-        if (!mounted) return;
-
-        hasVerified.current = true;
-
-        if (!hasAdminAccess) {
-          logger.warn('Admin verification failed');
-          setHasAccess(false);
-          setIsVerifying(false);
-          setHasChecked(true);
-          return;
-        }
-
-        // After verification, hasRole/hasPermission will work because adminUser is now set
-        // Check admin requirement
-        if (requireAdmin && !hasRole('admin')) {
-          logger.warn('Admin role required but not present');
-          setHasAccess(false);
-          setIsVerifying(false);
-          setHasChecked(true);
-          return;
-        }
-
-        // Check role requirement (will re-check with fresh adminUser)
-        if (requireRole) {
-          const roleAccess = Array.isArray(requireRole)
-            ? requireRole.some(role => hasRole(role))
-            : hasRole(requireRole);
-          if (!roleAccess) {
-            logger.warn('Required role not present');
-            setHasAccess(false);
-            setIsVerifying(false);
-            setHasChecked(true);
-            return;
-          }
-        }
-
-        // Check permission requirement (will re-check with fresh adminUser)
-        if (requirePermission) {
-          const permAccess = Array.isArray(requirePermission)
-            ? (requireAllPermissions ? hasAllPermissions(requirePermission) : hasAnyPermission(requirePermission))
-            : hasPermission(requirePermission);
-          if (!permAccess) {
-            logger.warn('Required permission not present');
-            setHasAccess(false);
-            setIsVerifying(false);
-            setHasChecked(true);
-            return;
-          }
-        }
-
-        logger.debug('Access verified successfully');
-        setHasAccess(true);
-        setIsVerifying(false);
-        setHasChecked(true);
-      } catch (error) {
-        logger.error('Error verifying access:', error);
-        if (mounted) {
-          hasVerified.current = true;
-          setHasAccess(false);
-          setIsVerifying(false);
-          setHasChecked(true);
-        }
-      }
-    };
-
-    checkAccess();
-
-    return () => {
-      mounted = false;
-    };
-  // Minimal dependencies - only re-run when auth state changes meaningfully
-  }, [isLoading, isAuthenticated, adminUser, requireAdmin, requireRole, requirePermission, requireAllPermissions]);
-
-  // Show loading state while auth is initializing, verifying, or before initial check completes
-  // The !hasChecked check prevents rendering Navigate before useEffect has a chance to run
-  if (isLoading || isVerifying || !hasChecked) {
+  // Still initializing or verifying - show loading
+  if (authStatus === 'initializing' || authStatus === 'verifying_admin') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">
-            {isLoading ? 'Loading...' : 'Verifying access...'}
+            {authStatus === 'initializing' ? 'Loading...' : 'Verifying access...'}
           </p>
         </div>
       </div>
     );
   }
 
-  // Not authenticated - redirect to login with return URL
+  // Not authenticated - redirect to login
   if (!isAuthenticated) {
-    logger.debug('Not authenticated, redirecting to login');
+    logger.debug('ProtectedRoute: Not authenticated, redirecting to login');
 
     // Store the current location for post-login redirect
     const returnUrl = `${location.pathname}${location.search}${location.hash}`;
@@ -265,27 +75,79 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Authenticated but doesn't have required access
-  if (!hasAccess) {
-    logger.warn('User lacks required access');
+  // Check if admin verification is required
+  const needsAdminAccess = requireAdmin || requireRole || requirePermission;
 
-    // If a fallback is provided, show it instead of redirecting
-    if (fallback) {
-      return <>{fallback}</>;
+  if (needsAdminAccess) {
+    // Need admin but not verified
+    if (!isAdminVerified || !adminUser) {
+      logger.warn('ProtectedRoute: Admin access required but not verified');
+
+      if (fallback) {
+        return <>{fallback}</>;
+      }
+
+      // Store return URL and redirect
+      const returnUrl = `${location.pathname}${location.search}${location.hash}`;
+      sessionStorage.setItem('auth_return_url', returnUrl);
+
+      return <Navigate to={redirectTo} state={{ from: location }} replace />;
     }
 
-    // Clear any stored admin state and redirect
-    sessionStorage.removeItem('auth_return_url');
+    // Check admin role requirement
+    if (requireAdmin && !hasRole('admin')) {
+      logger.warn('ProtectedRoute: Admin role required but not present');
 
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+      if (fallback) {
+        return <>{fallback}</>;
+      }
+
+      return <Navigate to={redirectTo} state={{ from: location }} replace />;
+    }
+
+    // Check role requirement
+    if (requireRole) {
+      const hasRequiredRole = Array.isArray(requireRole)
+        ? requireRole.some(role => hasRole(role))
+        : hasRole(requireRole);
+
+      if (!hasRequiredRole) {
+        logger.warn('ProtectedRoute: Required role not present');
+
+        if (fallback) {
+          return <>{fallback}</>;
+        }
+
+        return <Navigate to={redirectTo} state={{ from: location }} replace />;
+      }
+    }
+
+    // Check permission requirement
+    if (requirePermission) {
+      const hasRequiredPermission = Array.isArray(requirePermission)
+        ? (requireAllPermissions
+            ? hasAllPermissions(requirePermission)
+            : hasAnyPermission(requirePermission))
+        : hasPermission(requirePermission);
+
+      if (!hasRequiredPermission) {
+        logger.warn('ProtectedRoute: Required permission not present');
+
+        if (fallback) {
+          return <>{fallback}</>;
+        }
+
+        return <Navigate to={redirectTo} state={{ from: location }} replace />;
+      }
+    }
   }
 
-  // Authenticated and authorized - render the protected content
+  // All checks passed - render the protected content
   return <>{children}</>;
 };
 
 /**
- * Hook to check if admin verification is needed for current route
+ * Hook to check if current route requires admin access
  */
 export const useRequiresAdmin = () => {
   const location = useLocation();
