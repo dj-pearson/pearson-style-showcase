@@ -48,6 +48,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation();
   const [isVerifying, setIsVerifying] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+  // Track if we've done our initial access check - prevents rendering Navigate before useEffect runs
+  const [hasChecked, setHasChecked] = useState(false);
   const hasVerified = useRef(false);
 
   /**
@@ -93,6 +95,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           setHasAccess(true);
         }
         setIsVerifying(false);
+        setHasChecked(true);
         return;
       }
 
@@ -105,6 +108,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       if (!isAuthenticated) {
         setHasAccess(false);
         setIsVerifying(false);
+        setHasChecked(true);
         return;
       }
 
@@ -118,6 +122,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           logger.warn('Admin role required but not present');
           setHasAccess(false);
           setIsVerifying(false);
+          setHasChecked(true);
           return;
         }
 
@@ -126,6 +131,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           logger.warn('Required role not present');
           setHasAccess(false);
           setIsVerifying(false);
+          setHasChecked(true);
           return;
         }
 
@@ -134,12 +140,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           logger.warn('Required permission not present');
           setHasAccess(false);
           setIsVerifying(false);
+          setHasChecked(true);
           return;
         }
 
         logger.debug('Access verified using cached adminUser');
         setHasAccess(true);
         setIsVerifying(false);
+        setHasChecked(true);
         hasVerified.current = true;
         return;
       }
@@ -149,6 +157,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       if (hasVerified.current) {
         setHasAccess(false);
         setIsVerifying(false);
+        setHasChecked(true);
         return;
       }
 
@@ -165,6 +174,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           logger.warn('Admin verification failed');
           setHasAccess(false);
           setIsVerifying(false);
+          setHasChecked(true);
           return;
         }
 
@@ -174,6 +184,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           logger.warn('Admin role required but not present');
           setHasAccess(false);
           setIsVerifying(false);
+          setHasChecked(true);
           return;
         }
 
@@ -186,6 +197,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             logger.warn('Required role not present');
             setHasAccess(false);
             setIsVerifying(false);
+            setHasChecked(true);
             return;
           }
         }
@@ -199,6 +211,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             logger.warn('Required permission not present');
             setHasAccess(false);
             setIsVerifying(false);
+            setHasChecked(true);
             return;
           }
         }
@@ -206,12 +219,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         logger.debug('Access verified successfully');
         setHasAccess(true);
         setIsVerifying(false);
+        setHasChecked(true);
       } catch (error) {
         logger.error('Error verifying access:', error);
         if (mounted) {
           hasVerified.current = true;
           setHasAccess(false);
           setIsVerifying(false);
+          setHasChecked(true);
         }
       }
     };
@@ -224,8 +239,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Minimal dependencies - only re-run when auth state changes meaningfully
   }, [isLoading, isAuthenticated, adminUser, requireAdmin, requireRole, requirePermission, requireAllPermissions]);
 
-  // Show loading state while auth is initializing or verifying
-  if (isLoading || isVerifying) {
+  // Show loading state while auth is initializing, verifying, or before initial check completes
+  // The !hasChecked check prevents rendering Navigate before useEffect has a chance to run
+  if (isLoading || isVerifying || !hasChecked) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
