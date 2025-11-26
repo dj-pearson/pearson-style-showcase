@@ -1,7 +1,7 @@
 // Service Worker for Progressive Web App
 // Version 1.0.0
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `pearson-portfolio-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
@@ -36,7 +36,8 @@ self.addEventListener('install', (event) => {
         console.log('[ServiceWorker] Caching app shell');
         return cache.addAll(PRECACHE_ASSETS);
       })
-      .then(() => self.skipWaiting()) // Activate immediately
+      // Don't call skipWaiting() here - let the user control when to update
+      // This prevents page disruption during navigation
   );
 });
 
@@ -60,14 +61,9 @@ self.addEventListener('activate', (event) => {
           })
         );
         
-        // Only claim clients if this is an UPDATE (old caches existed)
-        // This prevents disrupting the page on first install
-        if (oldCaches.length > 0) {
-          console.log('[ServiceWorker] Claiming clients after update');
-          return self.clients.claim();
-        } else {
-          console.log('[ServiceWorker] Fresh install - not claiming immediately');
-        }
+        // Don't claim clients immediately - this can cause page flickering
+        // The new SW will take control on next navigation or page reload
+        console.log('[ServiceWorker] Activated. Will control pages on next navigation.');
       })
   );
 });
