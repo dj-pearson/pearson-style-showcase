@@ -225,6 +225,7 @@ const AdminLogin = () => {
                   value={forgotPasswordEmail}
                   onChange={(e) => setForgotPasswordEmail(e.target.value)}
                   required
+                  autoComplete="email"
                 />
               </div>
 
@@ -342,6 +343,7 @@ const AdminLogin = () => {
                   onChange={handleInputChange}
                   className="pl-10"
                   required
+                  autoComplete="email"
                   disabled={isLoading || isOAuthLoading !== null}
                 />
               </div>
@@ -360,6 +362,7 @@ const AdminLogin = () => {
                   onChange={handleInputChange}
                   className="pl-10 pr-10"
                   required
+                  autoComplete="current-password"
                   disabled={isLoading || isOAuthLoading !== null}
                 />
                 <button
@@ -386,6 +389,7 @@ const AdminLogin = () => {
                   maxLength={6}
                   pattern="[0-9]{6}"
                   required
+                  autoComplete="one-time-code"
                   disabled={isLoading || isOAuthLoading !== null}
                 />
               </div>
