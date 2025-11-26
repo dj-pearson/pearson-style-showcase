@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useState, ChangeEvent, FormEvent } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -56,18 +56,7 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, signInWithProvider, authStatus, isAdminVerified, isLoading: authLoading } = useAuth();
-
-  // Redirect on initial mount if already authenticated
-  useEffect(() => {
-    // Only check once on mount
-    if (authStatus === 'admin_verified' && isAdminVerified) {
-      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
-      sessionStorage.removeItem('auth_return_url');
-      logger.debug('AdminLogin: Already authenticated on mount, redirecting to:', returnUrl);
-      navigate(returnUrl, { replace: true });
-    }
-  }, []); // Empty deps - only run on mount
+  const { signIn, signInWithProvider, isLoading: authLoading } = useAuth();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
