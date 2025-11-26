@@ -1,7 +1,7 @@
 // Service Worker for Progressive Web App
 // Version 1.0.0
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `pearson-portfolio-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
@@ -46,20 +46,29 @@ self.addEventListener('activate', (event) => {
 
   event.waitUntil(
     caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((cacheName) => {
-              // Delete old cache versions
-              return cacheName.startsWith('pearson-portfolio-') && cacheName !== CACHE_NAME;
-            })
-            .map((cacheName) => {
-              console.log('[ServiceWorker] Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            })
+      .then(async (cacheNames) => {
+        const oldCaches = cacheNames.filter((cacheName) => {
+          // Delete old cache versions
+          return cacheName.startsWith('pearson-portfolio-') && cacheName !== CACHE_NAME;
+        });
+        
+        // Delete old caches
+        await Promise.all(
+          oldCaches.map((cacheName) => {
+            console.log('[ServiceWorker] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          })
         );
+        
+        // Only claim clients if this is an UPDATE (old caches existed)
+        // This prevents disrupting the page on first install
+        if (oldCaches.length > 0) {
+          console.log('[ServiceWorker] Claiming clients after update');
+          return self.clients.claim();
+        } else {
+          console.log('[ServiceWorker] Fresh install - not claiming immediately');
+        }
       })
-      .then(() => self.clients.claim()) // Take control immediately
   );
 });
 

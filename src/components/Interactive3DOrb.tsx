@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -219,13 +219,60 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
   height = "100%",
   className = ""
 }) => {
+  const [contextLost, setContextLost] = useState(false);
+  const [key, setKey] = useState(0);
+
+  // Handle WebGL context loss - this can happen when GPU resources are exhausted
+  // or when the browser tab loses focus/visibility
+  const handleCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
+    const canvas = gl.domElement;
+    
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.debug('[3DOrb] WebGL context lost, will attempt recovery');
+      setContextLost(true);
+    };
+    
+    const handleContextRestored = () => {
+      console.debug('[3DOrb] WebGL context restored');
+      setContextLost(false);
+      // Force remount by changing key
+      setKey(prev => prev + 1);
+    };
+    
+    canvas.addEventListener('webglcontextlost', handleContextLost);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored);
+    
+    return () => {
+      canvas.removeEventListener('webglcontextlost', handleContextLost);
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+    };
+  }, []);
+
+  // Don't render while context is lost
+  if (contextLost) {
+    return (
+      <div className={`${className} opacity-100`} style={{ width, height }}>
+        {/* Empty placeholder during context recovery */}
+      </div>
+    );
+  }
+
   return (
     <div className={`${className} opacity-100`} style={{ width, height }}>
       <Canvas
+        key={key}
         camera={{ position: [0, 0, 8], fov: 60 }}
         style={{ background: 'transparent' }}
         dpr={[1, 2]}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ 
+          antialias: true, 
+          alpha: true,
+          // Improve context stability
+          powerPreference: 'default',
+          failIfMajorPerformanceCaveat: false
+        }}
+        onCreated={handleCreated}
       >
         <ambientLight intensity={0.5} />
         
