@@ -14,7 +14,9 @@ const ALLOWED_ORIGINS = [
   "https://id-preview--53293242-1a3e-40cf-bf21-2a4867985711.lovable.app",
   "https://id-preview--9bf99955-d7e1-4b0d-8abc-f62199d56772.lovable.app",
   "https://pearson-style-showcase.lovable.app",
-  "https://preview--pearson-style-showcase.lovable.app"
+  "https://preview--pearson-style-showcase.lovable.app",
+  "http://localhost:8080",
+  "http://localhost:5173"
 ];
 
 const getCorsHeaders = (origin: string | null) => {
@@ -278,6 +280,7 @@ serve(async (req) => {
     }
 
     // Handle session verification - verify actual authentication
+    // This is called both for email/password and OAuth logins
     if (action === 'me') {
       const authHeader = req.headers.get('authorization');
       if (!authHeader) {
@@ -300,10 +303,14 @@ serve(async (req) => {
         );
       }
 
+      // Determine auth provider (for logging and debugging)
+      const authProvider = user.app_metadata?.provider || 'email';
+      console.log(`Admin verification for ${user.email} (provider: ${authProvider})`);
+
       // Verify user is in admin whitelist (database lookup)
       const isWhitelisted = await isEmailWhitelisted(user.email || '');
       if (!isWhitelisted) {
-        console.error('User not in admin whitelist:', user.email);
+        console.error(`User not in admin whitelist: ${user.email} (provider: ${authProvider})`);
         return new Response(
           JSON.stringify({ error: 'Forbidden - Not an admin' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -324,12 +331,32 @@ serve(async (req) => {
       const roles = await getUserRoles(user.id);
       const permissions = await getUserPermissions(user.id);
 
-      console.log('Admin authenticated successfully:', user.email);
+      // Create/update admin session for OAuth users
+      if (authProvider !== 'email') {
+        const clientIP = req.headers.get("x-forwarded-for") || "unknown";
+        const sessionToken = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        await supabase
+          .from("admin_sessions")
+          .upsert({
+            user_id: user.id,
+            session_token: sessionToken,
+            expires_at: expiresAt.toISOString(),
+            ip_address: clientIP,
+            user_agent: req.headers.get("user-agent") || ""
+          }, {
+            onConflict: 'user_id'
+          });
+      }
+
+      console.log(`Admin authenticated successfully: ${user.email} (provider: ${authProvider})`);
       return new Response(
         JSON.stringify({
           id: user.id,
           email: user.email,
           username: user.email?.split('@')[0] || 'admin',
+          auth_provider: authProvider,
           two_factor_enabled: false,
           last_login: new Date().toISOString(),
           created_at: user.created_at,

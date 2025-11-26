@@ -1,10 +1,19 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { Session, User, AuthChangeEvent } from '@supabase/supabase-js';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 
 // App role type matching database enum
 export type AppRole = 'admin' | 'editor' | 'viewer';
+
+// Auth status state machine - eliminates race conditions by having explicit states
+export type AuthStatus =
+  | 'initializing'      // App just loaded, checking for existing session
+  | 'unauthenticated'   // No valid session
+  | 'authenticated'     // Supabase session valid, admin verification pending
+  | 'verifying_admin'   // Currently verifying admin access
+  | 'admin_verified'    // Full admin access verified
+  | 'error';            // Auth error occurred
 
 interface AdminUser {
   id: string;
@@ -15,19 +24,30 @@ interface AdminUser {
 }
 
 interface AuthContextType {
+  // Core state
   session: Session | null;
   user: User | null;
   adminUser: AdminUser | null;
+  authStatus: AuthStatus;
+  error: string | null;
+
+  // Computed state
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdminVerified: boolean;
   isAdmin: boolean;
   isEditor: boolean;
   isViewer: boolean;
   roles: AppRole[];
   permissions: string[];
+
+  // Actions
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithProvider: (provider: Provider) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   verifyAdminAccess: () => Promise<boolean>;
+
+  // Permission checks
   hasRole: (role: AppRole) => boolean;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
@@ -49,22 +69,20 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  // Core state
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Track if we're in the middle of a sign-in to prevent duplicate verifications
-  const isSigningIn = useRef(false);
-  // Track if sign-out was explicitly requested
-  const isSigningOut = useRef(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('initializing');
+  const [error, setError] = useState<string | null>(null);
 
   /**
    * Verify admin access by calling the admin-auth edge function
    * This checks both the session validity and admin whitelist
    */
   const verifyAdminAccess = useCallback(async (): Promise<boolean> => {
+    logger.debug('Verifying admin access...');
+
     try {
       const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
 
@@ -86,55 +104,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Set admin user data with roles and permissions
-      setAdminUser({
+      const adminData: AdminUser = {
         id: data.id,
         email: data.email,
         username: data.username || data.email?.split('@')[0],
         roles: data.roles || ['admin'],
         permissions: data.permissions || []
-      });
+      };
 
+      setAdminUser(adminData);
+      logger.debug('Admin verification successful:', adminData.email);
       return true;
-    } catch (error) {
-      logger.error('Error verifying admin access:', error);
+    } catch (err) {
+      logger.error('Error verifying admin access:', err);
       setAdminUser(null);
       return false;
     }
   }, []);
 
   /**
-   * Check if user has a specific role
-   */
-  const hasRole = useCallback((role: AppRole): boolean => {
-    return adminUser?.roles?.includes(role) ?? false;
-  }, [adminUser]);
-
-  /**
-   * Check if user has a specific permission
-   */
-  const hasPermission = useCallback((permission: string): boolean => {
-    return adminUser?.permissions?.includes(permission) ?? false;
-  }, [adminUser]);
-
-  /**
-   * Check if user has any of the specified permissions
-   */
-  const hasAnyPermission = useCallback((permissions: string[]): boolean => {
-    if (!adminUser?.permissions) return false;
-    return permissions.some(p => adminUser.permissions.includes(p));
-  }, [adminUser]);
-
-  /**
-   * Check if user has all of the specified permissions
-   */
-  const hasAllPermissions = useCallback((permissions: string[]): boolean => {
-    if (!adminUser?.permissions) return false;
-    return permissions.every(p => adminUser.permissions.includes(p));
-  }, [adminUser]);
-
-  /**
    * Clear all auth-related data from localStorage
-   * This ensures stale tokens don't cause issues
    */
   const clearStoredAuthData = useCallback(() => {
     try {
@@ -151,100 +140,97 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   /**
-   * Initialize session on mount
-   * This waits for Supabase to restore the session from localStorage
+   * Process a session - verify admin access and update state
+   * This is the single source of truth for handling sessions
+   */
+  const processSession = useCallback(async (newSession: Session | null, source: string) => {
+    logger.debug(`Processing session from ${source}:`, { hasSession: !!newSession });
+
+    if (!newSession) {
+      setSession(null);
+      setUser(null);
+      setAdminUser(null);
+      setAuthStatus('unauthenticated');
+      setError(null);
+      return;
+    }
+
+    // Update session state
+    setSession(newSession);
+    setUser(newSession.user);
+    setAuthStatus('verifying_admin');
+
+    // Verify admin access
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+        body: { action: 'me' }
+      });
+
+      if (functionError || data?.error) {
+        logger.warn('Admin verification failed:', functionError?.message || data?.error);
+        // User is authenticated but not admin - this is a valid state
+        setAdminUser(null);
+        setAuthStatus('authenticated');
+        return;
+      }
+
+      const adminData: AdminUser = {
+        id: data.id,
+        email: data.email,
+        username: data.username || data.email?.split('@')[0],
+        roles: data.roles || ['admin'],
+        permissions: data.permissions || []
+      };
+
+      setAdminUser(adminData);
+      setAuthStatus('admin_verified');
+      logger.info(`Admin verified from ${source}:`, adminData.email);
+    } catch (err) {
+      logger.error('Error during admin verification:', err);
+      setAdminUser(null);
+      setAuthStatus('authenticated');
+    }
+  }, []);
+
+  /**
+   * Initialize auth on mount
    */
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
-      try {
-        logger.debug('Initializing auth session...');
+      logger.debug('Initializing auth...');
 
-        // Wait for Supabase to restore session from localStorage
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+      try {
+        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
 
         if (!mounted) return;
 
-        if (error) {
-          // Check for specific refresh token errors
-          const errorMessage = error.message?.toLowerCase() || '';
-          const isRefreshTokenError = 
-            errorMessage.includes('refresh token') || 
+        if (sessionError) {
+          const errorMessage = sessionError.message?.toLowerCase() || '';
+          const isRefreshTokenError =
+            errorMessage.includes('refresh token') ||
             errorMessage.includes('invalid token') ||
-            errorMessage.includes('session not found') ||
-            error.name === 'AuthApiError';
-          
+            errorMessage.includes('session not found');
+
           if (isRefreshTokenError) {
-            logger.warn('Invalid or expired refresh token, clearing stale session');
-            // Clear stale auth data to prevent stuck states
+            logger.warn('Invalid refresh token, clearing stale session');
             clearStoredAuthData();
           } else {
-            logger.error('Error getting initial session:', error);
+            logger.error('Error getting initial session:', sessionError);
           }
-          
-          setSession(null);
-          setUser(null);
-          setAdminUser(null);
-        } else if (initialSession) {
-          logger.debug('Session restored from storage');
-          setSession(initialSession);
-          setUser(initialSession.user);
 
-          // Verify admin access if we have a restored session
-          // Use stable reference via direct call (not from dependency)
-          try {
-            const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
-              body: { action: 'me' }
-            });
-
-            if (!mounted) return;
-
-            if (!functionError && !data?.error) {
-              setAdminUser({
-                id: data.id,
-                email: data.email,
-                username: data.username || data.email?.split('@')[0],
-                roles: data.roles || ['admin'],
-                permissions: data.permissions || []
-              });
-            } else {
-              // Admin verification failed - user is authenticated but might not be admin
-              // This is normal for non-admin users, just set adminUser to null
-              logger.debug('Admin verification failed on init (user may not be admin):', functionError?.message || data?.error);
-              setAdminUser(null);
-              // Note: Don't sign out here - user is still authenticated, just not admin
-            }
-          } catch (verifyError) {
-            logger.error('Error during admin verification:', verifyError);
-            if (mounted) {
-              setAdminUser(null);
-            }
-          }
-        } else {
-          logger.debug('No session found in storage');
-          setSession(null);
-          setUser(null);
-          setAdminUser(null);
+          setAuthStatus('unauthenticated');
+          return;
         }
-      } catch (error) {
-        logger.error('Error initializing auth:', error);
+
+        await processSession(initialSession, 'initialization');
+      } catch (err) {
+        logger.error('Error initializing auth:', err);
         if (mounted) {
-          // Check if this is a refresh token error
-          const errorMessage = (error as Error)?.message?.toLowerCase() || '';
-          if (errorMessage.includes('refresh token') || errorMessage.includes('invalid')) {
-            logger.warn('Clearing stale auth data due to initialization error');
-            clearStoredAuthData();
-          }
-          setSession(null);
-          setUser(null);
-          setAdminUser(null);
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-          setIsInitialized(true);
-          logger.debug('Auth initialization complete');
+          clearStoredAuthData();
+          setAuthStatus('error');
+          setError('Failed to initialize authentication');
         }
       }
     };
@@ -254,99 +240,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       mounted = false;
     };
-  }, [clearStoredAuthData]); // Include clearStoredAuthData dependency
+  }, [processSession, clearStoredAuthData]);
 
   /**
    * Listen for auth state changes
-   * This handles sign-out, token refresh, and cross-tab sync
-   * Note: SIGNED_IN during signIn() is handled by signIn itself to avoid race conditions
+   * Handles: OAuth callbacks, token refresh, sign out from other tabs, etc.
    */
   useEffect(() => {
-    if (!isInitialized) return;
+    // Don't set up listener until initial auth check completes
+    if (authStatus === 'initializing') return;
 
     logger.debug('Setting up auth state change listener');
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, currentSession: Session | null) => {
+      async (event, currentSession) => {
         logger.debug(`Auth state changed: ${event}`, {
           hasSession: !!currentSession,
-          userId: currentSession?.user?.id,
-          isSigningIn: isSigningIn.current,
-          isSigningOut: isSigningOut.current
+          currentStatus: authStatus
         });
 
-        // Handle different auth events
         switch (event) {
           case 'SIGNED_IN':
-            // Update session state
-            setSession(currentSession);
-            setUser(currentSession?.user ?? null);
-
-            // Skip verification if we're in the middle of signIn() - it handles this itself
-            if (isSigningIn.current) {
-              logger.debug('Skipping listener verification - signIn() is handling it');
-              return;
-            }
-
-            // This might be from OAuth, magic link, or another tab signing in
-            logger.info('User signed in (external source)');
-            if (currentSession) {
-              // Verify admin access for external sign-ins
-              supabase.functions.invoke('admin-auth', {
-                body: { action: 'me' }
-              }).then(({ data, error: functionError }) => {
-                if (!functionError && !data?.error) {
-                  setAdminUser({
-                    id: data.id,
-                    email: data.email,
-                    username: data.username || data.email?.split('@')[0],
-                    roles: data.roles || ['admin'],
-                    permissions: data.permissions || []
-                  });
-                } else {
-                  logger.warn('Admin verification failed for external sign-in');
-                  setAdminUser(null);
-                }
-              }).catch(err => {
-                logger.error('Error verifying admin after external sign-in:', err);
-                setAdminUser(null);
-              });
+            // Only process if we're not already handling a sign-in
+            // This prevents double-processing during email/password login
+            if (authStatus !== 'verifying_admin' && authStatus !== 'admin_verified') {
+              await processSession(currentSession, 'SIGNED_IN event');
             }
             break;
 
           case 'SIGNED_OUT':
             logger.info('User signed out');
-            // Always clear all state on sign out
             setSession(null);
             setUser(null);
             setAdminUser(null);
-            isSigningOut.current = false;
+            setAuthStatus('unauthenticated');
+            setError(null);
             break;
 
           case 'TOKEN_REFRESHED':
-            logger.debug('Token refreshed successfully');
+            logger.debug('Token refreshed');
+            // Update session without re-verifying admin (preserves adminUser)
             setSession(currentSession);
             setUser(currentSession?.user ?? null);
-            // Don't re-verify on token refresh - we already have adminUser
-            break;
-
-          case 'TOKEN_REFRESH_FAILED':
-            // Handle token refresh failures - this happens when refresh token is invalid/expired
-            logger.warn('Token refresh failed - session is invalid');
-            setSession(null);
-            setUser(null);
-            setAdminUser(null);
-            // Clear any stale auth data from localStorage
-            try {
-              const keys = Object.keys(localStorage);
-              keys.forEach(key => {
-                if (key.startsWith('sb-') || key.includes('supabase')) {
-                  localStorage.removeItem(key);
-                }
-              });
-            } catch (storageError) {
-              logger.debug('Could not clear localStorage:', storageError);
-            }
             break;
 
           case 'USER_UPDATED':
@@ -357,9 +292,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           default:
             logger.debug(`Unhandled auth event: ${event}`);
-            // Update session state for any event
-            setSession(currentSession);
-            setUser(currentSession?.user ?? null);
         }
       }
     );
@@ -368,17 +300,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logger.debug('Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
-  }, [isInitialized]);
+  }, [authStatus, processSession]);
 
   /**
    * Sign in with email and password
-   * Includes admin verification via edge function
    */
   const signIn = useCallback(async (email: string, password: string) => {
-    try {
-      setIsLoading(true);
-      isSigningIn.current = true;
+    logger.debug('Sign in attempt:', email);
+    setError(null);
+    setAuthStatus('verifying_admin');
 
+    try {
       // First authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -386,14 +318,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (authError || !authData.session) {
-        isSigningIn.current = false;
-        return {
-          success: false,
-          error: authError?.message || 'Login failed'
-        };
+        setAuthStatus('unauthenticated');
+        const errorMsg = authError?.message || 'Login failed';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
       }
 
-      // Update session state immediately
+      // Update session state
       setSession(authData.session);
       setUser(authData.user);
 
@@ -408,52 +339,88 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (functionError || data?.error) {
         // If admin verification fails, sign out
-        isSigningIn.current = false;
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
         setAdminUser(null);
-        return {
-          success: false,
-          error: data?.error || functionError?.message || 'Access denied'
-        };
+        setAuthStatus('unauthenticated');
+        const errorMsg = data?.error || functionError?.message || 'Access denied';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
       }
 
       // Set admin user data from login response
-      setAdminUser({
+      const adminData: AdminUser = {
         id: data.user?.id || authData.user.id,
         email: data.user?.email || email,
         username: data.user?.username || email.split('@')[0],
         roles: data.user?.roles || ['admin'],
         permissions: data.user?.permissions || []
-      });
-
-      isSigningIn.current = false;
-      logger.info('Sign in successful');
-      return { success: true };
-
-    } catch (error) {
-      logger.error('Sign in error:', error);
-      isSigningIn.current = false;
-      return {
-        success: false,
-        error: 'Network error. Please try again.'
       };
-    } finally {
-      setIsLoading(false);
+
+      setAdminUser(adminData);
+      setAuthStatus('admin_verified');
+      logger.info('Sign in successful:', email);
+
+      return { success: true };
+    } catch (err) {
+      logger.error('Sign in error:', err);
+      setAuthStatus('unauthenticated');
+      const errorMsg = 'Network error. Please try again.';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
     }
   }, []);
 
   /**
-   * Sign out and clear all auth state
-   * This is designed to ALWAYS work, even if network fails
+   * Sign in with OAuth provider (Google, Apple, etc.)
+   */
+  const signInWithProvider = useCallback(async (provider: Provider) => {
+    logger.debug('OAuth sign in attempt:', provider);
+    setError(null);
+
+    try {
+      // Get the callback URL - use current origin + /auth/callback
+      const redirectTo = `${window.location.origin}/auth/callback`;
+
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          queryParams: provider === 'google' ? {
+            access_type: 'offline',
+            prompt: 'consent',
+          } : undefined
+        }
+      });
+
+      if (oauthError) {
+        logger.error('OAuth error:', oauthError);
+        setError(oauthError.message);
+        return { success: false, error: oauthError.message };
+      }
+
+      // OAuth redirects the page, so we won't get here on success
+      logger.debug('OAuth redirect initiated:', data);
+      return { success: true };
+    } catch (err) {
+      logger.error('OAuth sign in error:', err);
+      const errorMsg = 'Failed to initiate OAuth sign in';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  }, []);
+
+  /**
+   * Sign out
    */
   const signOut = useCallback(async () => {
     logger.info('Sign out requested');
-    isSigningOut.current = true;
 
-    // Immediately clear UI state - don't wait for anything
+    // Immediately update UI state
     setAdminUser(null);
+    setAuthStatus('unauthenticated');
+    setError(null);
 
     try {
       // Try to call logout edge function for cleanup (fire and forget)
@@ -463,50 +430,92 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         logger.debug('Logout edge function error (non-critical):', err);
       });
 
-      // Sign out from Supabase - this triggers onAuthStateChange SIGNED_OUT
-      const { error } = await supabase.auth.signOut();
+      // Sign out from Supabase
+      const { error: signOutError } = await supabase.auth.signOut();
 
-      if (error) {
-        logger.warn('Supabase signOut error:', error);
-        // Force clear state manually since listener might not fire
-        setSession(null);
-        setUser(null);
+      if (signOutError) {
+        logger.warn('Supabase signOut error:', signOutError);
       }
 
-      // Clear any lingering localStorage auth data
+      // Clear state
+      setSession(null);
+      setUser(null);
       clearStoredAuthData();
 
       logger.info('Sign out completed');
-    } catch (error) {
-      logger.error('Sign out error:', error);
+    } catch (err) {
+      logger.error('Sign out error:', err);
       // Force clear state even if sign out fails
       setSession(null);
       setUser(null);
-      setAdminUser(null);
-    } finally {
-      isSigningOut.current = false;
+      clearStoredAuthData();
     }
   }, [clearStoredAuthData]);
 
-  const value: AuthContextType = {
+  // Permission check functions
+  const hasRole = useCallback((role: AppRole): boolean => {
+    return adminUser?.roles?.includes(role) ?? false;
+  }, [adminUser]);
+
+  const hasPermission = useCallback((permission: string): boolean => {
+    return adminUser?.permissions?.includes(permission) ?? false;
+  }, [adminUser]);
+
+  const hasAnyPermission = useCallback((permissions: string[]): boolean => {
+    if (!adminUser?.permissions) return false;
+    return permissions.some(p => adminUser.permissions.includes(p));
+  }, [adminUser]);
+
+  const hasAllPermissions = useCallback((permissions: string[]): boolean => {
+    if (!adminUser?.permissions) return false;
+    return permissions.every(p => adminUser.permissions.includes(p));
+  }, [adminUser]);
+
+  // Computed values - memoized for performance
+  const value = useMemo<AuthContextType>(() => ({
+    // Core state
     session,
     user,
     adminUser,
-    isLoading,
+    authStatus,
+    error,
+
+    // Computed state
+    isLoading: authStatus === 'initializing' || authStatus === 'verifying_admin',
     isAuthenticated: !!session && !!user,
+    isAdminVerified: authStatus === 'admin_verified' && !!adminUser,
     isAdmin: adminUser?.roles?.includes('admin') ?? false,
     isEditor: adminUser?.roles?.includes('editor') ?? false,
     isViewer: adminUser?.roles?.includes('viewer') ?? false,
     roles: adminUser?.roles ?? [],
     permissions: adminUser?.permissions ?? [],
+
+    // Actions
     signIn,
+    signInWithProvider,
+    signOut,
+    verifyAdminAccess,
+
+    // Permission checks
+    hasRole,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions
+  }), [
+    session,
+    user,
+    adminUser,
+    authStatus,
+    error,
+    signIn,
+    signInWithProvider,
     signOut,
     verifyAdminAccess,
     hasRole,
     hasPermission,
     hasAnyPermission,
     hasAllPermissions
-  };
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

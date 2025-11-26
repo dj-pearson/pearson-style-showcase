@@ -27,6 +27,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const SitemapXML = lazy(() => import("./pages/SitemapXML"));
 const RobotsTxt = lazy(() => import("./pages/RobotsTxt"));
 const DateArchive = lazy(() => import("./pages/DateArchive"));
+const AuthCallback = lazy(() => import("./components/auth/AuthCallback"));
 
 // Configure QueryClient with optimized defaults for better caching
 const queryClient = new QueryClient({
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/ai-tools" element={<AITools />} />
             <Route path="/connect" element={<Connect />} />
             <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route
               path="/admin/dashboard"
               element={
