@@ -338,48 +338,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error: errorMsg };
       }
 
-      logger.debug('Supabase signInWithPassword succeeded, calling admin-auth login');
+      logger.debug('Supabase signInWithPassword succeeded, verifying admin access via admin-auth me');
       setSession(authData.session);
       setUser(authData.user);
 
-      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
-        body: {
-          action: 'login',
-          email,
-          password
-        }
-      });
+      const adminVerified = await verifyAdminAccess();
 
-      logger.debug('admin-auth login response:', {
-        hasData: !!data,
-        error: functionError?.message || data?.error
-      });
-
-      if (functionError || data?.error) {
-        logger.warn('admin-auth login failed:', functionError?.message || data?.error);
+      if (!adminVerified) {
+        logger.warn('Admin verification failed after sign-in');
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
         setAdminUser(null);
         setAuthStatus('unauthenticated');
         isProcessingRef.current = false;
-        const errorMsg = data?.error || functionError?.message || 'Access denied';
+        const errorMsg = 'Access denied';
         setError(errorMsg);
         return { success: false, error: errorMsg };
       }
 
-      const adminData: AdminUser = {
-        id: data.user?.id || authData.user.id,
-        email: data.user?.email || email,
-        username: data.user?.username || email.split('@')[0],
-        roles: data.user?.roles || ['admin'],
-        permissions: data.user?.permissions || []
-      };
-
-      setAdminUser(adminData);
       setAuthStatus('admin_verified');
       isProcessingRef.current = false;
-      logger.info('Sign in successful:', email);
+      logger.info('Sign in successful and admin verified:', email);
 
       return { success: true };
     } catch (err) {
@@ -390,7 +370,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setError(errorMsg);
       return { success: false, error: errorMsg };
     }
-  }, []);
+  }, [verifyAdminAccess]);
 
   /**
    * Sign in with OAuth provider (Google, Apple, etc.)
