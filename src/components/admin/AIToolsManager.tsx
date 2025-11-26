@@ -350,11 +350,11 @@ export const AIToolsManager: React.FC = () => {
   };
 
   const filteredTools = tools.filter(tool =>
-    tool.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tool.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tool.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tool.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tool.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tool.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (tool.tags && tool.tags.some(tag => 
-      tag.toLowerCase().includes(searchTerm.toLowerCase())
+      tag?.toLowerCase().includes(searchTerm.toLowerCase())
     ))
   );
 

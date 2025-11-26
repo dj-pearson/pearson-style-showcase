@@ -274,10 +274,10 @@ export const ProjectManager: React.FC = () => {
   };
 
   const filteredProjects = projects.filter(project =>
-    project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    project.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (project.tags && project.tags.some(tag => 
-      tag.toLowerCase().includes(searchTerm.toLowerCase())
+      tag?.toLowerCase().includes(searchTerm.toLowerCase())
     ))
   );
 
