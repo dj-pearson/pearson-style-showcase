@@ -94,16 +94,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return <Navigate to={redirectTo} state={{ from: location }} replace />;
     }
 
-    // Check admin role requirement
-    if (requireAdmin && !hasRole('admin')) {
-      logger.warn('ProtectedRoute: Admin role required but not present');
-
-      if (fallback) {
-        return <>{fallback}</>;
-      }
-
-      return <Navigate to={redirectTo} state={{ from: location }} replace />;
-    }
+    // Admin role is validated server-side via the admin-auth edge function
+    // Successful admin verification (isAdminVerified) is sufficient for requireAdmin routes.
 
     // Check role requirement
     if (requireRole) {
