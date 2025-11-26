@@ -209,18 +209,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 permissions: data.permissions || []
               });
             } else {
-              logger.warn('Admin verification failed on init:', functionError?.message || data?.error);
+              // Admin verification failed - user is authenticated but might not be admin
+              // This is normal for non-admin users, just set adminUser to null
+              logger.debug('Admin verification failed on init (user may not be admin):', functionError?.message || data?.error);
               setAdminUser(null);
-              // If admin verification fails with auth error, session might be invalid
-              if (functionError?.message?.toLowerCase().includes('unauthorized') || 
-                  data?.error?.toLowerCase().includes('unauthorized') ||
-                  data?.error?.toLowerCase().includes('invalid')) {
-                logger.warn('Session appears invalid, clearing auth state');
-                await supabase.auth.signOut();
-                clearStoredAuthData();
-                setSession(null);
-                setUser(null);
-              }
+              // Note: Don't sign out here - user is still authenticated, just not admin
             }
           } catch (verifyError) {
             logger.error('Error during admin verification:', verifyError);

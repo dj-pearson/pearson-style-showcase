@@ -1,7 +1,7 @@
 // Service Worker for Progressive Web App
 // Version 1.0.0
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `pearson-portfolio-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
@@ -69,6 +69,7 @@ const EXTERNAL_DOMAINS = [
   'googletagmanager.com',
   'google-analytics.com',
   'analytics.google.com',
+  'doubleclick.net',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
   'cloudflareinsights.com',
@@ -190,20 +191,37 @@ async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
 
-  // Fetch fresh version in the background
-  const fetchPromise = fetch(request)
-    .then((response) => {
-      if (response.ok) {
-        cache.put(request, response.clone());
-      }
-      return response;
-    })
-    .catch((error) => {
-      console.error('[ServiceWorker] Background fetch failed:', error);
-    });
+  // If we have a cached version, return it immediately
+  // and update the cache in the background (fire and forget)
+  if (cached) {
+    // Update cache in background - don't await
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          cache.put(request, response.clone());
+        }
+      })
+      .catch((error) => {
+        // Silent failure for background updates - we already returned cached version
+        console.debug('[ServiceWorker] Background revalidation failed:', error.message);
+      });
+    
+    return cached;
+  }
 
-  // Return cached version immediately, or wait for network
-  return cached || fetchPromise || offlineFallback(request);
+  // No cached version - must wait for network
+  try {
+    const response = await fetch(request);
+    
+    if (response.ok) {
+      cache.put(request, response.clone());
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('[ServiceWorker] Fetch failed (no cache):', error);
+    return offlineFallback(request);
+  }
 }
 
 // Offline fallback - return offline page
