@@ -106,9 +106,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       logger.debug('Calling admin-auth me edge function...');
 
-      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+      // Add 10 second timeout to prevent infinite hang
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Admin verification timeout')), 10000);
+      });
+
+      const adminCheckPromise = supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
       });
+
+      const { data, error: functionError } = await Promise.race([
+        adminCheckPromise,
+        timeoutPromise
+      ]);
 
       logger.debug('admin-auth me response:', {
         hasData: !!data,
@@ -186,10 +196,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(newSession.user);
       setAuthStatus('verifying_admin');
 
-      // Verify admin access
-      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+      // Verify admin access with timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Admin verification timeout')), 10000);
+      });
+
+      const adminCheckPromise = supabase.functions.invoke('admin-auth', {
         body: { action: 'me' }
       });
+
+      const { data, error: functionError } = await Promise.race([
+        adminCheckPromise,
+        timeoutPromise
+      ]);
 
       if (functionError || data?.error) {
         logger.warn('Admin verification failed:', functionError?.message || data?.error);
