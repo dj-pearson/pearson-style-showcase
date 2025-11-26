@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent, FormEvent } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -58,6 +58,9 @@ const AdminLogin = () => {
   const { toast } = useToast();
   const { signIn, signInWithProvider, authStatus, isAdminVerified, isLoading: authLoading } = useAuth();
 
+  // Ref to prevent multiple redirects
+  const hasRedirected = useRef(false);
+
   // Redirect when admin verified
   // Using authStatus instead of multiple flags eliminates race conditions
   useEffect(() => {
@@ -66,8 +69,14 @@ const AdminLogin = () => {
       return;
     }
 
+    // Don't redirect if we've already redirected
+    if (hasRedirected.current) {
+      return;
+    }
+
     // Redirect if already authenticated as admin
     if (isAdminVerified) {
+      hasRedirected.current = true;
       const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
       sessionStorage.removeItem('auth_return_url');
       logger.debug('AdminLogin: Already authenticated, redirecting to:', returnUrl);
