@@ -330,6 +330,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (authError || !authData.session) {
+        logger.warn('Supabase signInWithPassword failed:', authError?.message);
         isProcessingRef.current = false;
         setAuthStatus('unauthenticated');
         const errorMsg = authError?.message || 'Login failed';
@@ -337,6 +338,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error: errorMsg };
       }
 
+      logger.debug('Supabase signInWithPassword succeeded, calling admin-auth login');
       setSession(authData.session);
       setUser(authData.user);
 
@@ -348,7 +350,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       });
 
+      logger.debug('admin-auth login response:', {
+        hasData: !!data,
+        error: functionError?.message || data?.error
+      });
+
       if (functionError || data?.error) {
+        logger.warn('admin-auth login failed:', functionError?.message || data?.error);
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
