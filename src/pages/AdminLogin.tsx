@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, ChangeEvent, FormEvent } from 'react';
+import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -58,31 +58,16 @@ const AdminLogin = () => {
   const { toast } = useToast();
   const { signIn, signInWithProvider, authStatus, isAdminVerified, isLoading: authLoading } = useAuth();
 
-  // Ref to prevent multiple redirects
-  const hasRedirected = useRef(false);
-
-  // Redirect when admin verified
-  // Using authStatus instead of multiple flags eliminates race conditions
+  // Redirect on initial mount if already authenticated
   useEffect(() => {
-    // Wait for auth to finish initializing
-    if (authStatus === 'initializing' || authStatus === 'verifying_admin') {
-      return;
-    }
-
-    // Don't redirect if we've already redirected
-    if (hasRedirected.current) {
-      return;
-    }
-
-    // Redirect if already authenticated as admin
-    if (isAdminVerified) {
-      hasRedirected.current = true;
+    // Only check once on mount
+    if (authStatus === 'admin_verified' && isAdminVerified) {
       const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
       sessionStorage.removeItem('auth_return_url');
-      logger.debug('AdminLogin: Already authenticated, redirecting to:', returnUrl);
+      logger.debug('AdminLogin: Already authenticated on mount, redirecting to:', returnUrl);
       navigate(returnUrl, { replace: true });
     }
-  }, [authStatus, isAdminVerified, navigate]);
+  }, []); // Empty deps - only run on mount
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -104,15 +89,16 @@ const AdminLogin = () => {
         return;
       }
 
-      // Success - toast and wait for useEffect to redirect
+      // Success - redirect immediately
       toast({
         title: "Login successful",
         description: "Welcome to the admin dashboard",
       });
 
-      logger.info('Login successful, waiting for redirect');
-      // Note: Don't set isLoading to false here - let the redirect happen
-      // The redirect will be triggered by the useEffect when isAdminVerified becomes true
+      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+      sessionStorage.removeItem('auth_return_url');
+      logger.info('Login successful, redirecting to:', returnUrl);
+      navigate(returnUrl, { replace: true });
     } catch (err) {
       logger.error('Login error:', err);
       setError('Network error. Please try again.');
