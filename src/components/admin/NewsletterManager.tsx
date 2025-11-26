@@ -43,7 +43,7 @@ const NewsletterManager = () => {
   });
 
   const filteredSubscribers = subscribers?.filter(subscriber =>
-    subscriber.email.toLowerCase().includes(searchTerm.toLowerCase())
+    subscriber.email?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const activeSubscribers = subscribers?.filter(s => s.active) || [];

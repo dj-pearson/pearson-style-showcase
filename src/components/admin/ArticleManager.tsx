@@ -597,8 +597,8 @@ export const ArticleManager: React.FC = () => {
   };
 
   const filteredArticles = articles.filter(article =>
-    article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    article.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    article.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (article.author && article.author.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 

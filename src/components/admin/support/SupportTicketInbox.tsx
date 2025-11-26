@@ -167,11 +167,11 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(t =>
-        t.ticket_number.toLowerCase().includes(query) ||
-        t.subject.toLowerCase().includes(query) ||
-        t.message.toLowerCase().includes(query) ||
-        t.user_email.toLowerCase().includes(query) ||
-        t.user_name.toLowerCase().includes(query)
+        t.ticket_number?.toLowerCase().includes(query) ||
+        t.subject?.toLowerCase().includes(query) ||
+        t.message?.toLowerCase().includes(query) ||
+        t.user_email?.toLowerCase().includes(query) ||
+        t.user_name?.toLowerCase().includes(query)
       );
     }
 

@@ -36,7 +36,7 @@ const AITools = () => {
 
   // Filter tools based on selected category
   const filteredTools = tools?.filter(tool => 
-    selectedCategory === 'all' || tool.category.toLowerCase() === selectedCategory.toLowerCase()
+    selectedCategory === 'all' || tool.category?.toLowerCase() === selectedCategory.toLowerCase()
   ) || [];
 
   // Get unique categories for filter buttons
@@ -49,7 +49,7 @@ const AITools = () => {
   }, {} as Record<string, number>) || {};
 
   const getIcon = (category: string) => {
-    switch (category.toLowerCase()) {
+    switch (category?.toLowerCase()) {
       case 'chatbot':
         return <Bot className="w-8 h-8" />;
       case 'automation':
