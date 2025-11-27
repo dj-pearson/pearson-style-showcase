@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import AuthorByline from '../components/article/AuthorByline';
 import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
+import RelatedArticles from '../components/article/RelatedArticles';
+import KeyTakeaways, { extractKeyTakeaways } from '../components/article/KeyTakeaways';
 
 type Article = Tables<"articles">;
 
@@ -41,27 +43,8 @@ const Article = () => {
     enabled: !!slug,
   });
 
-  // Fetch related articles based on category and tags
-  const { data: relatedArticles } = useQuery({
-    queryKey: ['related-articles', article?.id, article?.category],
-    queryFn: async () => {
-      if (!article) return [];
-
-      // Only select fields needed for related articles cards to reduce payload
-      const { data, error } = await supabase
-        .from('articles')
-        .select('id, slug, title, excerpt, category, image_url, created_at, read_time, view_count')
-        .eq('published', true)
-        .neq('id', article.id)
-        .or(`category.eq.${article.category}`)
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-      return data as Article[];
-    },
-    enabled: !!article,
-  });
+  // Extract key takeaways for AI search optimization
+  const keyTakeaways = article?.content ? extractKeyTakeaways(article.content) : [];
 
   // Track affiliate link clicks
   useAffiliateTracking(article?.id || '');
@@ -167,7 +150,7 @@ const Article = () => {
         image={(article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg'))}
       />
 
-      {/* Enhanced Article Schema with Author Authority */}
+      {/* Enhanced Article Schema with Author Authority & AI Search Optimization */}
       <StructuredData
         type="article"
         data={{
@@ -205,7 +188,23 @@ const Article = () => {
           },
           keywords: (article.tags || []).join(', '),
           articleSection: article.category,
-          wordCount: article.content?.length || 0
+          wordCount: article.content?.length || 0,
+          slug: article.slug,
+
+          // AI Search Optimization: Entity linking
+          // Use tags as "about" topics and category as primary topic
+          about: [article.category, ...(article.tags || [])].filter(Boolean),
+
+          // Mentions: Extract key entities (tags serve as entity mentions)
+          mentions: article.tags || [],
+
+          // Speakable: CSS selectors for content suitable for voice search
+          speakable: ['#key-takeaways-heading', '[itemprop="headline"]', '[itemprop="description"]'],
+
+          // Abstract: Key takeaways summary for AI engines
+          abstract: keyTakeaways.length > 0
+            ? `Key points: ${keyTakeaways.slice(0, 3).join('. ')}`
+            : article.excerpt
         }}
       />
 
@@ -304,6 +303,14 @@ const Article = () => {
               </div>
             )}
 
+            {/* Key Takeaways - AI Search Optimization */}
+            {keyTakeaways.length > 0 && (
+              <KeyTakeaways
+                takeaways={keyTakeaways}
+                articleTitle={article.title}
+              />
+            )}
+
             {/* Article Content */}
             <div className="prose prose-invert max-w-none" itemProp="articleBody">
               {article.content ? (
@@ -381,52 +388,13 @@ const Article = () => {
             </div>
           </article>
 
-          {/* Related Articles */}
-          {relatedArticles && relatedArticles.length > 0 && (
-            <div className="mt-16 pt-12 border-t border-border">
-              <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center">Related Articles</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {relatedArticles.map((relatedArticle) => (
-                  <Link
-                    key={relatedArticle.id}
-                    to={`/news/${relatedArticle.slug}`}
-                    className="group mobile-card bg-gray-800/50 border border-gray-700 hover:border-cyan-500/50 transition-all duration-200"
-                  >
-                    {relatedArticle.image_url && (
-                      <div className="aspect-video rounded-t-lg overflow-hidden">
-                        <img
-                          src={relatedArticle.image_url}
-                          alt={relatedArticle.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    )}
-                    <div className="p-4">
-                      <Badge className="bg-primary/10 text-primary border-primary/20 mb-3">
-                        {relatedArticle.category}
-                      </Badge>
-                      <h3 className="text-lg font-semibold mb-2 group-hover:text-cyan-400 transition-colors">
-                        {relatedArticle.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {relatedArticle.excerpt}
-                      </p>
-                      <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {relatedArticle.read_time}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
-                          {relatedArticle.view_count || 0} views
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Related Articles - Smart Tag-Based Matching for Internal Linking SEO */}
+          <RelatedArticles
+            currentArticleId={article.id}
+            category={article.category}
+            tags={article.tags || []}
+            maxArticles={3}
+          />
 
           {/* Article Footer */}
           <div className="mt-16 pt-8 border-t border-border">

@@ -64,31 +64,76 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
         break;
 
       case 'article':
+        // Enhanced article schema for AI search optimization
+        // Includes: entity linking (about/mentions), speakable, and rich author data
         schema = {
           "@context": "https://schema.org",
           "@type": "Article",
-          "headline": data?.title,
-          "description": data?.excerpt,
-          "image": data?.image_url,
-          "datePublished": data?.created_at,
-          "dateModified": data?.updated_at,
-          "author": {
+          "headline": data?.headline || data?.title,
+          "alternativeHeadline": data?.excerpt,
+          "description": data?.description || data?.excerpt,
+          "image": data?.image,
+          "datePublished": data?.datePublished,
+          "dateModified": data?.dateModified,
+          "author": data?.author || {
             "@type": "Person",
-            "name": data?.author || "Dan Pearson",
+            "name": "Dan Pearson",
             "url": "https://danpearson.net/about"
           },
-          "publisher": {
+          "publisher": data?.publisher || {
             "@type": "Person",
             "name": "Dan Pearson",
             "url": "https://danpearson.net"
           },
-          "mainEntityOfPage": {
+          "mainEntityOfPage": data?.mainEntityOfPage || {
             "@type": "WebPage",
-            "@id": `https://danpearson.net/article/${data?.slug}`
+            "@id": `https://danpearson.net/news/${data?.slug}`
           },
-          "keywords": (data?.tags as string[])?.join(', ') || '',
-          "articleSection": data?.category,
-          "wordCount": (data?.content as string)?.length || 0
+          "keywords": data?.keywords,
+          "articleSection": data?.articleSection,
+          "wordCount": data?.wordCount,
+
+          // AI Search Optimization: Entity linking
+          // "about" - Main topics/entities the article is about
+          ...(data?.about && {
+            "about": (data.about as string[]).map(topic => ({
+              "@type": "Thing",
+              "name": topic
+            }))
+          }),
+
+          // "mentions" - Entities mentioned in the article
+          ...(data?.mentions && {
+            "mentions": (data.mentions as string[]).map(entity => ({
+              "@type": "Thing",
+              "name": entity
+            }))
+          }),
+
+          // Voice search optimization: Speakable content
+          // Identifies content suitable for text-to-speech
+          ...(data?.speakable && {
+            "speakable": {
+              "@type": "SpeakableSpecification",
+              "cssSelector": data.speakable
+            }
+          }),
+
+          // AI-friendly: Key takeaways as abstract
+          ...(data?.abstract && {
+            "abstract": data.abstract
+          }),
+
+          // Citation: For AI engines that cite sources
+          ...(data?.citation && {
+            "citation": data.citation
+          }),
+
+          // isAccessibleForFree: Helps AI understand content availability
+          "isAccessibleForFree": true,
+
+          // inLanguage: Helps with language understanding
+          "inLanguage": "en-US"
         };
         break;
 
