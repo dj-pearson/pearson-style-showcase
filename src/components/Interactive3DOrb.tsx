@@ -3,8 +3,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-// --- Background Stars (High count, simple behavior) ---
-const BackgroundStars = ({ count = 2000 }) => {
+// --- Background Stars (Adaptive count based on device) ---
+const BackgroundStars = ({ count = 800 }) => {
   const mesh = useRef<THREE.Points>(null);
   
   const [positions, colors] = useMemo(() => {
@@ -212,37 +212,85 @@ interface Interactive3DOrbProps {
   width?: string;
   height?: string;
   className?: string;
+  /** Number of background stars (default: adaptive based on device) */
+  starCount?: number;
+  /** Number of network nodes (default: adaptive based on device) */
+  nodeCount?: number;
+}
+
+/**
+ * Gets adaptive particle counts based on device capabilities.
+ * Called once on mount to avoid re-renders.
+ */
+function getAdaptiveSettings(): { stars: number; nodes: number; dpr: [number, number] } {
+  if (typeof window === 'undefined') {
+    return { stars: 800, nodes: 60, dpr: [1, 1.5] };
+  }
+
+  const connection = (navigator as any).connection;
+  const deviceMemory = (navigator as any).deviceMemory ?? 8;
+  const cpuCores = navigator.hardwareConcurrency ?? 4;
+  const isMobile = window.innerWidth < 768 || 'ontouchstart' in window;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isSlowConnection = connection?.saveData ||
+    connection?.effectiveType === 'slow-2g' ||
+    connection?.effectiveType === '2g';
+
+  // Low performance: minimal particles
+  if (prefersReducedMotion || isSlowConnection || cpuCores <= 2 || deviceMemory < 4) {
+    return { stars: 300, nodes: 25, dpr: [1, 1] };
+  }
+
+  // Mobile: reduced particles
+  if (isMobile) {
+    return { stars: 500, nodes: 40, dpr: [1, 1.5] };
+  }
+
+  // Mid-range: moderate particles
+  if (cpuCores <= 4 || deviceMemory < 8) {
+    return { stars: 800, nodes: 60, dpr: [1, 1.5] };
+  }
+
+  // High-end: full particles
+  return { stars: 1200, nodes: 80, dpr: [1, 2] };
 }
 
 export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
   width = "100%",
   height = "100%",
-  className = ""
+  className = "",
+  starCount,
+  nodeCount
 }) => {
   const [contextLost, setContextLost] = useState(false);
   const [key, setKey] = useState(0);
+
+  // Get adaptive settings once on mount
+  const adaptiveSettings = useMemo(() => getAdaptiveSettings(), []);
+  const finalStarCount = starCount ?? adaptiveSettings.stars;
+  const finalNodeCount = nodeCount ?? adaptiveSettings.nodes;
 
   // Handle WebGL context loss - this can happen when GPU resources are exhausted
   // or when the browser tab loses focus/visibility
   const handleCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
     const canvas = gl.domElement;
-    
+
     const handleContextLost = (event: Event) => {
       event.preventDefault();
       console.debug('[3DOrb] WebGL context lost, will attempt recovery');
       setContextLost(true);
     };
-    
+
     const handleContextRestored = () => {
       console.debug('[3DOrb] WebGL context restored');
       setContextLost(false);
       // Force remount by changing key
       setKey(prev => prev + 1);
     };
-    
+
     canvas.addEventListener('webglcontextlost', handleContextLost);
     canvas.addEventListener('webglcontextrestored', handleContextRestored);
-    
+
     return () => {
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
@@ -264,24 +312,27 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
         key={key}
         camera={{ position: [0, 0, 8], fov: 60 }}
         style={{ background: 'transparent' }}
-        dpr={[1, 2]}
-        gl={{ 
-          antialias: true, 
+        dpr={adaptiveSettings.dpr}
+        gl={{
+          antialias: !adaptiveSettings.dpr[1] || adaptiveSettings.dpr[1] <= 1.5,
           alpha: true,
-          // Improve context stability
-          powerPreference: 'default',
-          failIfMajorPerformanceCaveat: false
+          // Improve context stability and performance
+          powerPreference: 'high-performance',
+          failIfMajorPerformanceCaveat: true
         }}
         onCreated={handleCreated}
+        // Performance optimizations - throttle to 30fps on lower-end devices
+        frameloop="always"
+        performance={{ min: 0.5, max: 1 }}
       >
         <ambientLight intensity={0.5} />
-        
+
         <group rotation={[0, 0, Math.PI / 4]}>
-            <NetworkSystem count={100} radius={5} />
-            <BackgroundStars count={1500} />
+            <NetworkSystem count={finalNodeCount} radius={5} />
+            <BackgroundStars count={finalStarCount} />
         </group>
-        
-        <OrbitControls 
+
+        <OrbitControls
           enableZoom={false}
           enablePan={false}
           enableRotate={true}

@@ -1,12 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /**
  * RoutePrefetcher - Intelligently prefetches common routes during idle time
  * This improves perceived navigation speed by loading routes before user clicks
+ *
+ * Performance optimizations:
+ * - Uses requestIdleCallback to avoid blocking main thread
+ * - Batches DOM operations using DocumentFragment
+ * - Deduplicates prefetch links to avoid redundant requests
  */
 const RoutePrefetcher = () => {
   const location = useLocation();
+  const prefetchedRoutes = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     // Only prefetch on fast connections to avoid wasting bandwidth
@@ -17,36 +23,75 @@ const RoutePrefetcher = () => {
       }
     }
 
-    // Wait for idle time before prefetching to avoid blocking critical resources
-    const prefetchTimer = setTimeout(() => {
-      // Define prefetch strategy based on current page
-      const prefetchMap: Record<string, string[]> = {
-        '/': ['/projects', '/news', '/ai-tools', '/connect'],
-        '/projects': ['/news', '/ai-tools', '/connect'],
-        '/news': ['/projects', '/ai-tools'],
-        '/ai-tools': ['/projects', '/news'],
-        '/about': ['/projects', '/connect'],
-        '/connect': ['/projects', '/news'],
-      };
+    // Define prefetch strategy based on current page
+    const prefetchMap: Record<string, string[]> = {
+      '/': ['/projects', '/news', '/ai-tools', '/connect'],
+      '/projects': ['/news', '/ai-tools', '/connect'],
+      '/news': ['/projects', '/ai-tools'],
+      '/ai-tools': ['/projects', '/news'],
+      '/about': ['/projects', '/connect'],
+      '/connect': ['/projects', '/news'],
+    };
 
-      const routesToPrefetch = prefetchMap[location.pathname] || [];
+    const routesToPrefetch = prefetchMap[location.pathname] || [];
 
-      routesToPrefetch.forEach((route) => {
-        // Create a prefetch link element
+    // Filter out already prefetched routes
+    const newRoutes = routesToPrefetch.filter(route => !prefetchedRoutes.current.has(route));
+
+    if (newRoutes.length === 0) {
+      return; // Nothing new to prefetch
+    }
+
+    // Use requestIdleCallback to defer prefetching to idle time
+    const prefetchRoutes = () => {
+      // Batch DOM operations using DocumentFragment
+      const fragment = document.createDocumentFragment();
+
+      newRoutes.forEach((route) => {
+        // Check if link already exists in document
+        const existingLink = document.querySelector(`link[rel="prefetch"][href="${route}"]`);
+        if (existingLink) {
+          prefetchedRoutes.current.add(route);
+          return;
+        }
+
         const link = document.createElement('link');
         link.rel = 'prefetch';
         link.href = route;
         link.as = 'document';
+        fragment.appendChild(link);
 
-        // Add to document head
-        document.head.appendChild(link);
+        prefetchedRoutes.current.add(route);
       });
-    }, 2000); // Wait 2 seconds after page load before prefetching
 
-    return () => clearTimeout(prefetchTimer);
+      // Single DOM operation instead of multiple appendChild calls
+      if (fragment.childNodes.length > 0) {
+        document.head.appendChild(fragment);
+      }
+    };
+
+    // Use requestIdleCallback with timeout fallback
+    let idleCallbackId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    if ('requestIdleCallback' in window) {
+      idleCallbackId = (window as any).requestIdleCallback(prefetchRoutes, { timeout: 5000 });
+    } else {
+      // Fallback for Safari - wait 2 seconds after page load
+      timeoutId = setTimeout(prefetchRoutes, 2000);
+    }
+
+    return () => {
+      if (idleCallbackId !== undefined && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleCallbackId);
+      }
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [location.pathname]);
 
-  return null; // This component doesn't render anything
+  return null;
 };
 
 export default RoutePrefetcher;

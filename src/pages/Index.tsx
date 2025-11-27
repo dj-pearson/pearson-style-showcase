@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useEffect, useState } from 'react';
+import { lazy, Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
@@ -24,6 +24,21 @@ const Interactive3DOrb = lazy(() => import('../components/Interactive3DOrb').the
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger);
 
+/**
+ * Check if user prefers reduced motion or is on a low-performance device
+ */
+function shouldDisableHeavyAnimations(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const connection = (navigator as any).connection;
+  const isSlowConnection = connection?.saveData ||
+    connection?.effectiveType === 'slow-2g' ||
+    connection?.effectiveType === '2g';
+
+  return prefersReducedMotion || isSlowConnection;
+}
+
 const Index = () => {
   const { trackClick } = useAnalytics();
   const mainRef = useRef<HTMLDivElement>(null);
@@ -31,12 +46,41 @@ const Index = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
 
+  // Check if heavy animations should be disabled
+  const disableHeavyAnimations = useMemo(() => shouldDisableHeavyAnimations(), []);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Skip 3D orb entirely if user prefers reduced motion
+    if (disableHeavyAnimations) {
+      return;
+    }
+
+    // Use requestIdleCallback to load 3D orb during browser idle time
+    // This prevents blocking the main thread during critical rendering
+    let idleCallbackId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const loadOrb = () => {
       setShouldLoadOrb(true);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+    };
+
+    if ('requestIdleCallback' in window) {
+      // Load during idle time, with 1.5s timeout as fallback
+      idleCallbackId = (window as any).requestIdleCallback(loadOrb, { timeout: 1500 });
+    } else {
+      // Fallback for Safari - use setTimeout
+      timeoutId = setTimeout(loadOrb, 500);
+    }
+
+    return () => {
+      if (idleCallbackId !== undefined && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleCallbackId);
+      }
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [disableHeavyAnimations]);
 
   useGSAP(() => {
     if (!mainRef.current) return;
@@ -87,11 +131,11 @@ const Index = () => {
 
   return (
     <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
-      {/* Fixed 3D Background - Interactive */}
+      {/* Fixed 3D Background - Interactive (skipped for reduced motion/low performance) */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
-        {shouldLoadOrb && (
-          <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto' }}>
+        {shouldLoadOrb && !disableHeavyAnimations && (
+          <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}>
             <Suspense fallback={null}>
               <Interactive3DOrb />
             </Suspense>
