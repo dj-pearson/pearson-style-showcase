@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { logger } from "@/lib/logger";
 import { useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+
+// Tracking ID is loaded via index.html script tags - no need for Supabase query
+const TRACKING_ID = 'G-8R95ZXMV6L';
 
 declare global {
   interface Window {
@@ -15,34 +17,32 @@ interface AnalyticsProps {
 }
 
 
-// Custom hook for analytics
+// Custom hook for analytics - optimized to avoid blocking page loads
 export const useAnalytics = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.gtag) {
-      // Fetch tracking ID from database
-      const fetchTrackingId = async () => {
-        const { data } = await supabase
-          .from('analytics_settings')
-          .select('google_analytics_id, enabled')
-          .single();
+    // Use requestIdleCallback to defer analytics to idle time
+    const trackPageView = () => {
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('config', TRACKING_ID, {
+          page_path: location.pathname,
+        });
 
-        if (data?.enabled && data?.google_analytics_id) {
-          window.gtag('config', data.google_analytics_id, {
-            page_path: location.pathname,
-          });
-          
-          // Track page view
-          window.gtag('event', 'page_view', {
-            page_title: document.title,
-            page_location: window.location.href,
-            page_path: location.pathname,
-          });
-        }
-      };
+        window.gtag('event', 'page_view', {
+          page_title: document.title,
+          page_location: window.location.href,
+          page_path: location.pathname,
+        });
+      }
+    };
 
-      fetchTrackingId();
+    // Defer to idle time to avoid blocking FCP/LCP
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(trackPageView, { timeout: 2000 });
+    } else {
+      // Fallback for Safari
+      setTimeout(trackPageView, 100);
     }
   }, [location]);
 
@@ -78,51 +78,21 @@ export const useAnalytics = () => {
   };
 };
 
+/**
+ * Analytics Component
+ *
+ * NOTE: Google Analytics is now loaded directly in index.html for optimal performance.
+ * This component is kept for backwards compatibility but no longer loads scripts dynamically.
+ * The tracking ID (G-8R95ZXMV6L) is hardcoded in index.html to avoid Supabase queries
+ * on every page load, which was causing 200-500ms delays in FCP/LCP.
+ */
 const Analytics = ({ trackingId: propTrackingId }: AnalyticsProps) => {
   useEffect(() => {
-    const initializeAnalytics = async () => {
-      // Fetch configuration from database
-      const { data: settings } = await supabase
-        .from('analytics_settings')
-        .select('google_analytics_id, enabled')
-        .single();
-
-      // Use database config or fallback to prop
-      const trackingId = settings?.google_analytics_id || propTrackingId;
-      const isEnabled = settings?.enabled ?? false;
-
-      // Only load if enabled and has valid tracking ID
-      if (isEnabled && trackingId && trackingId !== 'G-XXXXXXXXXX') {
-        // Load Google Analytics script
-        const script1 = document.createElement('script');
-        script1.async = true;
-        script1.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
-        document.head.appendChild(script1);
-
-        // Initialize gtag
-        window.dataLayer = window.dataLayer || [];
-        function gtag(...args: unknown[]) {
-          window.dataLayer.push(args);
-        }
-        window.gtag = gtag;
-
-        gtag('js', new Date());
-        gtag('config', trackingId, {
-          page_title: document.title,
-          page_location: window.location.href,
-        });
-
-        // Track initial page load
-        gtag('event', 'page_view', {
-          page_title: document.title,
-          page_location: window.location.href,
-        });
-
-        logger.log('📊 Analytics initialized with tracking ID:', trackingId);
-      }
-    };
-
-    initializeAnalytics();
+    // Analytics is already initialized in index.html
+    // This effect just logs for debugging purposes in development
+    if (typeof window !== 'undefined' && window.gtag) {
+      logger.log('📊 Analytics already initialized via index.html');
+    }
   }, [propTrackingId]);
 
   return null;

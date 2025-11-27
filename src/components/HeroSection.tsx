@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { useRef, useState, useEffect, lazy, Suspense } from 'react';
+import { useRef, useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -7,18 +7,62 @@ import { useGSAP } from '@gsap/react';
 // Lazy load the 3D orb to prevent render blocking
 const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
 
+/**
+ * Check if animations should be reduced for accessibility or performance
+ */
+function usePrefersReducedMotion(): boolean {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
 const HeroSection = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    // Only load the heavy 3D orb after the page has had time to render critical content
-    const timer = setTimeout(() => {
-      setShouldLoadOrb(true);
-    }, 300);
+    // Skip 3D orb if user prefers reduced motion
+    if (prefersReducedMotion) {
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, []);
+    // Use requestIdleCallback to load 3D orb during browser idle time
+    let idleCallbackId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const loadOrb = () => {
+      setShouldLoadOrb(true);
+    };
+
+    if ('requestIdleCallback' in window) {
+      idleCallbackId = (window as any).requestIdleCallback(loadOrb, { timeout: 1000 });
+    } else {
+      timeoutId = setTimeout(loadOrb, 300);
+    }
+
+    return () => {
+      if (idleCallbackId !== undefined && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleCallbackId);
+      }
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [prefersReducedMotion]);
   const nameWrapperRef = useRef<HTMLSpanElement>(null);
   const surnameWrapperRef = useRef<HTMLSpanElement>(null);
   const nameRef = useRef<HTMLSpanElement>(null);
@@ -31,6 +75,15 @@ const HeroSection = () => {
 
   useGSAP(() => {
     if (!containerRef.current) return;
+
+    // Respect reduced motion preference - use simpler, faster animations
+    if (prefersReducedMotion) {
+      // Simple fade-in for reduced motion users
+      gsap.set([nameRef.current, surnameRef.current, subtitleRef.current, descRef.current, ctaRef.current], {
+        opacity: 1,
+      });
+      return;
+    }
 
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
@@ -136,7 +189,7 @@ const HeroSection = () => {
       document.removeEventListener('mouseleave', handleMouseLeave);
     };
 
-  }, { scope: containerRef });
+  }, { scope: containerRef, dependencies: [prefersReducedMotion] });
 
   return (
     <section ref={containerRef} className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-32 sm:pt-40 pb-20 mobile-container bg-transparent">
@@ -204,9 +257,9 @@ const HeroSection = () => {
         </div>
       </div>
 
-      {/* Interactive 3D Particle Orb - Drag to spin! */}
-      {shouldLoadOrb && (
-        <div className="absolute inset-0 z-0">
+      {/* Interactive 3D Particle Orb - Drag to spin! (respects reduced motion) */}
+      {shouldLoadOrb && !prefersReducedMotion && (
+        <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}>
           <Suspense fallback={null}>
             <Interactive3DOrb />
           </Suspense>
