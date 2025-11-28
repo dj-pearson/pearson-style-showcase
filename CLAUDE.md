@@ -2,7 +2,7 @@
 
 > **Purpose**: This document provides comprehensive guidance for AI assistants (like Claude) working on the Dan Pearson portfolio/showcase repository. It explains the codebase structure, conventions, workflows, and best practices to follow.
 
-**Last Updated**: 2025-11-16
+**Last Updated**: 2025-11-28
 **Repository**: pearson-style-showcase
 **Primary Branch**: main
 **Tech Stack**: React 18 + TypeScript + Vite + Supabase + Tailwind CSS
@@ -34,9 +34,12 @@ A modern, full-stack portfolio and content management system featuring:
 - **AI-powered article generation** using GPT-4
 - **Amazon affiliate marketing automation** with product research and revenue tracking
 - **Comprehensive admin dashboard** for content management
-- **SEO-optimized** public-facing website with structured data
-- **3D interactive elements** using Three.js
-- **Performance-first architecture** with code splitting and lazy loading
+- **Full accounting/financial tracking module** with reports, invoices, and tax tools
+- **Role-Based Access Control (RBAC)** with database-driven whitelist and permissions
+- **SEO-optimized** public-facing website with structured data and AI search optimization
+- **3D interactive elements** using Three.js with GSAP animations
+- **Performance-first architecture** with code splitting, lazy loading, and PageSpeed optimizations
+- **OAuth authentication support** with state machine architecture
 
 ### Target Platform
 
@@ -48,13 +51,21 @@ A modern, full-stack portfolio and content management system featuring:
 ### Key Features
 
 - Public portfolio site (homepage, about, projects, news, AI tools)
-- Admin dashboard with authentication
+- Admin dashboard with RBAC authentication and OAuth support
 - AI article generator with GPT-4 integration
 - Amazon affiliate pipeline automation
+- **Comprehensive accounting module**:
+  - Chart of Accounts management
+  - Invoices and payments tracking
+  - Journal entries and financial reports (P&L, Balance Sheet)
+  - IRS Schedule C tax reporting
+  - Document upload with OCR and AI parsing
+  - CSV export functionality
 - Newsletter management
 - Analytics tracking
 - Contact form handling
-- SEO tools (sitemap, robots.txt, structured data)
+- SEO tools (sitemap, robots.txt, structured data, internal linking)
+- Interactive 3D hero section with GSAP animations
 
 ---
 
@@ -81,14 +92,14 @@ A modern, full-stack portfolio and content management system featuring:
 ### Backend Integration
 
 - **@supabase/supabase-js** (v2.51.0): PostgreSQL database and Edge Functions
-- **Database**: 17 tables with Row Level Security enabled
-- **Edge Functions**: 12 Deno-based serverless functions
+- **Database**: 20+ tables with Row Level Security enabled
+- **Edge Functions**: 18 Deno-based serverless functions
 
 ### UI & Styling
 
 - **Tailwind CSS** (v3.4.11): Utility-first CSS framework
-- **shadcn/ui**: 44+ Radix UI-based accessible components
-- **lucide-react**: Icon library
+- **shadcn/ui**: 48 Radix UI-based accessible components
+- **lucide-react** (v0.462.0): Icon library
 - **next-themes**: Dark/light mode theming
 - **class-variance-authority**: Component variant styling
 
@@ -105,11 +116,13 @@ A modern, full-stack portfolio and content management system featuring:
 - **react-syntax-highlighter**: Code syntax highlighting
 - **dompurify** (v3.2.7): HTML sanitization
 
-### 3D Graphics
+### 3D Graphics & Animations
 
 - **three** (v0.178.0): 3D graphics library
 - **@react-three/fiber**: React renderer for Three.js
 - **@react-three/drei**: Helper components for React Three Fiber
+- **gsap** (v3.13.0): GreenSock Animation Platform for high-performance animations
+- **@gsap/react** (v2.1.2): React integration for GSAP
 
 ### Testing
 
@@ -118,12 +131,23 @@ A modern, full-stack portfolio and content management system featuring:
 - **@testing-library/jest-dom**: DOM matchers
 - **jsdom**: DOM implementation for testing
 
+### Authentication & Security
+
+- **otplib** (v12.0.1): One-time password library for 2FA
+- **qrcode** (v1.5.3): QR code generation for authenticator apps
+- **input-otp** (v1.2.4): OTP input component
+
+### File Handling
+
+- **react-dropzone** (v14.3.8): Drag-and-drop file uploads
+
 ### Other Key Libraries
 
 - **date-fns**: Date manipulation
 - **recharts**: Data visualization
 - **sonner**: Toast notifications
 - **cmdk**: Command palette
+- **lucide-react** (v0.462.0): Icon library
 
 ---
 
@@ -135,17 +159,32 @@ A modern, full-stack portfolio and content management system featuring:
 pearson-style-showcase/
 ├── src/
 │   ├── components/          # React components
-│   │   ├── ui/             # shadcn/ui components (44 files)
-│   │   ├── admin/          # Admin dashboard components
+│   │   ├── ui/             # shadcn/ui components (48 files)
+│   │   ├── admin/          # Admin dashboard components (28 files)
 │   │   │   ├── command-center/
 │   │   │   ├── support/
-│   │   │   ├── accounting/
+│   │   │   ├── accounting/ # Financial tracking module (13 files)
+│   │   │   │   ├── FinancialOverview.tsx
+│   │   │   │   ├── ChartOfAccountsManager.tsx
+│   │   │   │   ├── JournalEntriesManager.tsx
+│   │   │   │   ├── PaymentsManager.tsx
+│   │   │   │   ├── InvoicesManager.tsx
+│   │   │   │   ├── ContactsManager.tsx
+│   │   │   │   ├── FinancialReports.tsx
+│   │   │   │   ├── TaxReports.tsx
+│   │   │   │   ├── DocumentUpload.tsx
+│   │   │   │   └── [4 more...]
+│   │   │   ├── AccessReviewReport.tsx    # RBAC compliance
+│   │   │   ├── ActivityLogViewer.tsx     # User activity tracking
 │   │   │   └── [managers for articles, projects, etc.]
 │   │   ├── SEO/            # SEO-related components
 │   │   ├── article/        # Article-specific components
 │   │   ├── auth/           # Authentication components
-│   │   ├── homepage/       # Homepage sections
+│   │   ├── homepage/       # Homepage sections (FAQSection, AuthoritySection)
 │   │   ├── skeletons/      # Loading states
+│   │   ├── HeroSection.tsx       # GSAP-animated hero with 3D orb
+│   │   ├── Interactive3DOrb.tsx  # Three.js interactive orb
+│   │   ├── RoutePrefetcher.tsx   # Route prefetching for performance
 │   │   └── __tests__/      # Component tests
 │   ├── pages/              # Route-level components
 │   │   ├── Index.tsx       # Homepage
@@ -155,26 +194,30 @@ pearson-style-showcase/
 │   │   ├── Article.tsx
 │   │   ├── AITools.tsx
 │   │   ├── Connect.tsx
+│   │   ├── DateArchive.tsx # NEW: Date-based article archives
 │   │   ├── AdminLogin.tsx
 │   │   ├── AdminDashboard.tsx
 │   │   ├── SitemapXML.tsx
 │   │   ├── RobotsTxt.tsx
 │   │   └── NotFound.tsx
-│   ├── hooks/              # Custom React hooks
+│   ├── hooks/              # Custom React hooks (8 files)
 │   │   ├── use-toast.ts
 │   │   ├── use-mobile.tsx
 │   │   ├── useAffiliateTracking.ts
 │   │   ├── useGlobalSearch.ts
 │   │   ├── useKeyboardShortcuts.ts
-│   │   └── useReadingProgress.ts
+│   │   ├── useReadingProgress.ts
+│   │   ├── usePermission.ts        # NEW: RBAC permission checking
+│   │   └── useDeviceCapabilities.ts # NEW: Device capability detection
 │   ├── integrations/       # External service integrations
 │   │   └── supabase/
 │   │       ├── client.ts   # Supabase client setup
-│   │       └── types.ts    # Auto-generated DB types (1065 lines)
+│   │       └── types.ts    # Auto-generated DB types (3619 lines)
 │   ├── contexts/           # React contexts
-│   │   └── AuthContext.tsx
+│   │   └── AuthContext.tsx # Auth with state machine & OAuth support
 │   ├── services/           # Business logic
 │   │   └── accounting/
+│   │       └── importers.ts # Financial data import utilities
 │   ├── lib/                # Utility libraries
 │   │   ├── security.ts     # Input validation & sanitization
 │   │   ├── performance.ts  # Core Web Vitals monitoring
@@ -185,16 +228,19 @@ pearson-style-showcase/
 │   │   └── setup.ts        # Test configuration
 │   ├── App.tsx             # Root component with routing
 │   ├── main.tsx            # Application entry point
-│   ├── index.css           # Global styles (562 lines)
+│   ├── index.css           # Global styles (590 lines)
 │   └── vite-env.d.ts       # Vite type definitions
 ├── supabase/
-│   ├── functions/          # Edge Functions (12 total)
+│   ├── functions/          # Edge Functions (18 total)
 │   │   ├── admin-auth/
 │   │   ├── generate-ai-article/
 │   │   ├── amazon-article-pipeline/
 │   │   ├── track-affiliate-click/
 │   │   ├── send-contact-email/
-│   │   └── [7 more...]
+│   │   ├── newsletter-signup/
+│   │   ├── process-accounting-document/  # NEW: OCR & AI parsing
+│   │   ├── maintenance-runner/           # NEW: Scheduled tasks
+│   │   └── [10 more...]
 │   └── migrations/         # Database schema migrations
 ├── public/                 # Static assets
 │   ├── robots.txt
@@ -733,6 +779,46 @@ interface SEOData {
 - PurgeCSS removes unused styles
 - Easy responsive design
 
+### 8. Role-Based Access Control (RBAC)
+
+**Why**: Fine-grained permission control beyond simple admin/user
+
+**Implementation**:
+- Database-driven whitelist with role assignments
+- Permission checking hook (`usePermission`)
+- Activity logging for compliance
+- Access review reporting
+
+**Components**:
+- `AccessReviewReport.tsx`: Compliance reporting
+- `ActivityLogViewer.tsx`: User activity tracking
+- `AdminWhitelistManager.tsx`: User role management
+
+### 9. Comprehensive Accounting Module
+
+**Why**: Full financial tracking and reporting capabilities
+
+**Features**:
+- Double-entry bookkeeping with Chart of Accounts
+- Invoice and payment management
+- Journal entries with posting
+- Financial reports (P&L, Balance Sheet)
+- IRS Schedule C tax reporting
+- Document upload with OCR/AI parsing
+- CSV export for external tools
+
+**Components**: 13 components in `src/components/admin/accounting/`
+
+### 10. GSAP Animations for Hero Section
+
+**Why**: High-performance animations for visual impact
+
+**Implementation**:
+- GSAP timeline-based animations
+- Three.js integration for 3D orb
+- Device capability detection to disable on low-end devices
+- Lazy loading to prevent blocking initial render
+
 ---
 
 ## Security Practices
@@ -790,11 +876,24 @@ CSP headers are defined in `index.html`:
 
 ### Authentication Flow
 
-**Admin authentication** uses a two-step verification:
+**Admin authentication** uses a state machine architecture with OAuth support:
 
-1. Authenticate with Supabase Auth
+**Auth States**:
+- `idle`: Initial state
+- `checking`: Verifying existing session
+- `authenticated`: User verified and authorized
+- `unauthenticated`: No valid session
+- `error`: Authentication error
+
+**Supported Auth Methods**:
+1. Email/password authentication
+2. OAuth providers (configured in Supabase)
+
+**Process**:
+1. Authenticate with Supabase Auth (email/password or OAuth)
 2. Verify admin status via `admin-auth` Edge Function
-3. Only allow whitelisted emails
+3. Check RBAC permissions via whitelist
+4. Log activity for compliance
 
 ```typescript
 // Example from AuthContext.tsx
@@ -816,6 +915,24 @@ const signIn = async (email: string, password: string) => {
   }
 
   return { success: true };
+};
+
+// OAuth callback handling in AuthCallback.tsx
+// Handles redirect from OAuth providers
+```
+
+**RBAC Permission Checking**:
+
+```typescript
+import { usePermission } from '@/hooks/usePermission';
+
+const MyComponent = () => {
+  const { hasPermission, isLoading } = usePermission('manage_articles');
+
+  if (isLoading) return <LoadingSpinner />;
+  if (!hasPermission) return <AccessDenied />;
+
+  return <ArticleManager />;
 };
 ```
 
@@ -1242,6 +1359,77 @@ const MyPage = () => {
    - Save to database
 6. Review and publish generated article
 
+### 11. Using the Accounting Module
+
+**Accessing Financial Tools**:
+1. Navigate to Admin Dashboard
+2. Click "Accounting" tab
+3. Access various financial tools:
+   - **Financial Overview**: Dashboard with key metrics
+   - **Chart of Accounts**: Manage account structure
+   - **Journal Entries**: Record transactions
+   - **Invoices**: Create and track invoices
+   - **Payments**: Record payments and allocations
+   - **Reports**: Generate P&L, Balance Sheet
+   - **Tax Reports**: IRS Schedule C generation
+
+**Recording a Transaction**:
+```typescript
+// Via Journal Entry
+const journalEntry = {
+  date: new Date(),
+  description: 'Office supplies purchase',
+  entries: [
+    { account: 'office_supplies', debit: 150.00, credit: 0 },
+    { account: 'cash', debit: 0, credit: 150.00 }
+  ]
+};
+```
+
+**Uploading Documents**:
+1. Go to "Document Upload" in Accounting
+2. Drag and drop or select files (receipts, invoices)
+3. System will:
+   - Extract text via OCR
+   - Parse with AI for key fields
+   - Suggest categorization
+4. Review and approve extracted data
+
+### 12. Working with GSAP Animations
+
+**Adding GSAP animations to components**:
+
+```typescript
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+
+const AnimatedComponent = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    gsap.from('.animated-element', {
+      opacity: 0,
+      y: 50,
+      duration: 0.8,
+      stagger: 0.1,
+      ease: 'power2.out'
+    });
+  }, { scope: containerRef });
+
+  return (
+    <div ref={containerRef}>
+      <div className="animated-element">Content</div>
+    </div>
+  );
+};
+```
+
+**Best practices**:
+- Use `useGSAP` hook for proper cleanup
+- Scope animations to container refs
+- Check device capabilities before heavy animations
+- Prefer CSS transitions for simple animations
+
 ---
 
 ## Important Files
@@ -1285,7 +1473,7 @@ const MyPage = () => {
 **IMPORTANT**:
 - **DO NOT edit manually**
 - Regenerate after schema changes
-- 1065 lines of type definitions
+- 3619 lines of type definitions
 - Used throughout codebase
 
 **How to regenerate**:
@@ -1338,12 +1526,15 @@ npx supabase gen types typescript --project-id [id] > src/integrations/supabase/
 
 ### Critical Files to Be Aware Of
 
-- **`src/index.css`** (562 lines): Global styles, CSS variables, custom animations
+- **`src/index.css`** (590 lines): Global styles, CSS variables, custom animations
 - **`src/lib/performance.ts`**: Core Web Vitals monitoring
 - **`src/lib/logger.ts`**: Dev-only logging utility
 - **`src/components/SEO.tsx`**: Dynamic meta tag management
 - **`src/components/ErrorBoundary.tsx`**: Error handling wrapper
-- **`src/components/ProtectedRoute.tsx`**: Auth route protection
+- **`src/components/auth/ProtectedRoute.tsx`**: Auth route protection with RBAC
+- **`src/hooks/usePermission.ts`**: RBAC permission checking hook
+- **`src/components/HeroSection.tsx`**: GSAP-animated hero with 3D orb
+- **`src/components/Interactive3DOrb.tsx`**: Three.js interactive orb component
 - **`package.json`**: Dependencies, scripts, project metadata
 
 ---
@@ -1628,6 +1819,6 @@ For questions or clarifications, refer to:
 
 ---
 
-**Last Updated**: 2025-11-16
+**Last Updated**: 2025-11-28
 **Maintained By**: AI Assistants (Claude)
 **Repository**: https://github.com/dj-pearson/pearson-style-showcase
