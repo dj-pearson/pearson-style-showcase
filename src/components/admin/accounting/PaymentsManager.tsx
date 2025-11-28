@@ -78,6 +78,19 @@ const PAYMENT_METHODS = [
   'Other',
 ];
 
+const getDefaultFormData = () => ({
+  payment_type: 'received' as 'received' | 'made',
+  payment_number: '',
+  contact_id: '',
+  payment_date: new Date().toISOString().split('T')[0],
+  amount: '',
+  payment_method: 'Bank Transfer',
+  reference_number: '',
+  from_account_id: '',
+  to_account_id: '',
+  notes: '',
+});
+
 export const PaymentsManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAllocateDialogOpen, setIsAllocateDialogOpen] = useState(false);
@@ -89,18 +102,7 @@ export const PaymentsManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState({
-    payment_type: 'received' as 'received' | 'made',
-    payment_number: '',
-    contact_id: '',
-    payment_date: new Date().toISOString().split('T')[0],
-    amount: '',
-    payment_method: 'Bank Transfer',
-    reference_number: '',
-    from_account_id: '',
-    to_account_id: '',
-    notes: '',
-  });
+  const [formData, setFormData] = useState(getDefaultFormData());
 
   const [allocationData, setAllocationData] = useState<{
     invoice_id: string;
@@ -457,15 +459,29 @@ export const PaymentsManager = () => {
                       logger.log('Payment document uploaded and parsed:', parsedData);
 
                       if (parsedData) {
-                        toast({
-                          title: 'Data extracted',
-                          description: 'Payment data has been extracted successfully.',
+                        // Auto-populate payment form with parsed data
+                        setFormData({
+                          ...getDefaultFormData(),
+                          payment_type: parsedData.payment_type || 'received',
+                          payment_number: parsedData.payment_number || parsedData.reference || parsedData.transactionId || '',
+                          payment_date: parsedData.payment_date || parsedData.date || new Date().toISOString().split('T')[0],
+                          amount: (parsedData.amount || parsedData.total || '').toString(),
+                          payment_method: parsedData.payment_method || parsedData.method || 'Bank Transfer',
+                          reference_number: parsedData.reference_number || parsedData.reference || '',
+                          notes: parsedData.description || parsedData.notes || '',
                         });
 
-                        // TODO: Auto-populate payment form with parsed data
+                        setIsUploadDialogOpen(false);
+                        setIsDialogOpen(true);
+
+                        toast({
+                          title: 'Data extracted successfully',
+                          description: 'Payment data has been auto-filled. Please review and save.',
+                        });
+                      } else {
+                        setIsUploadDialogOpen(false);
                       }
 
-                      setIsUploadDialogOpen(false);
                       queryClient.invalidateQueries({ queryKey: ['payments'] });
                     }}
                     onError={(error) => {

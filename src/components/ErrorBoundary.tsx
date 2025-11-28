@@ -44,10 +44,41 @@ class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
-    // TODO: Send to error tracking service (e.g., Sentry) in production
-    // if (import.meta.env.PROD) {
-    //   sendErrorToTracking(error, errorInfo);
+    // Send to error tracking service in production
+    if (import.meta.env.PROD) {
+      this.reportError(error, errorInfo);
+    }
+  }
+
+  /**
+   * Report error to tracking service
+   * Currently logs structured error data; can be extended to integrate with Sentry, LogRocket, etc.
+   */
+  private reportError(error: Error, errorInfo: ErrorInfo) {
+    const errorReport = {
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+    };
+
+    // Log structured error for server-side collection (e.g., via Cloudflare Analytics)
+    console.error('[ErrorBoundary] Production error:', JSON.stringify(errorReport));
+
+    // Optional: Send to external service
+    // Example Sentry integration (uncomment when Sentry is configured):
+    // if (typeof Sentry !== 'undefined') {
+    //   Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
     // }
+
+    // Example: Send to custom endpoint
+    // fetch('/api/errors', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(errorReport),
+    // }).catch(() => { /* Silently fail */ });
   }
 
   handleReset = () => {

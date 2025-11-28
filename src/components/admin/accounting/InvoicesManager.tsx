@@ -49,6 +49,15 @@ interface Invoice {
   contacts?: { contact_name: string };
 }
 
+interface ParsedInvoiceData {
+  invoice_number?: string;
+  invoice_date?: string;
+  due_date?: string;
+  total_amount?: number;
+  vendor_name?: string;
+  notes?: string;
+}
+
 export const InvoicesManager = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +66,7 @@ export const InvoicesManager = () => {
   const [selectedInvoiceForUpload, setSelectedInvoiceForUpload] = useState<Invoice | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'sales' | 'purchase'>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [parsedInvoiceData, setParsedInvoiceData] = useState<ParsedInvoiceData | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -163,18 +173,30 @@ export const InvoicesManager = () => {
                     onUploadComplete={(documentId, parsedData) => {
                       logger.log('Document uploaded and parsed:', parsedData);
 
-                      // If we have parsed data, we could auto-populate the invoice form
+                      // If we have parsed data, auto-populate the invoice form
                       if (parsedData) {
-                        toast({
-                          title: 'Data extracted',
-                          description: 'Invoice data has been extracted. You can now create the invoice with this data.',
-                        });
+                        // Extract relevant fields from parsed data
+                        const extractedData: ParsedInvoiceData = {
+                          invoice_number: parsedData.invoice_number || parsedData.invoiceNumber || '',
+                          invoice_date: parsedData.invoice_date || parsedData.invoiceDate || parsedData.date || '',
+                          due_date: parsedData.due_date || parsedData.dueDate || '',
+                          total_amount: parseFloat(parsedData.total_amount || parsedData.totalAmount || parsedData.amount || '0'),
+                          vendor_name: parsedData.vendor_name || parsedData.vendorName || parsedData.from || '',
+                          notes: parsedData.description || parsedData.notes || '',
+                        };
 
-                        // TODO: Auto-populate invoice form with parsed data
-                        // This would require refactoring the InvoiceForm to accept initial data
+                        setParsedInvoiceData(extractedData);
+                        setShowUploadDialog(false);
+                        setShowCreateDialog(true);
+
+                        toast({
+                          title: 'Data extracted successfully',
+                          description: 'Invoice data has been auto-filled. Please review and save.',
+                        });
+                      } else {
+                        setShowUploadDialog(false);
                       }
 
-                      setShowUploadDialog(false);
                       loadInvoices();
                     }}
                     onError={(error) => {
@@ -184,7 +206,10 @@ export const InvoicesManager = () => {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <Dialog open={showCreateDialog} onOpenChange={(open) => {
+                setShowCreateDialog(open);
+                if (!open) setParsedInvoiceData(null);
+              }}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -195,10 +220,19 @@ export const InvoicesManager = () => {
                   <DialogHeader>
                     <DialogTitle>Create New Invoice</DialogTitle>
                     <DialogDescription>
-                      Create a new sales invoice or purchase bill
+                      {parsedInvoiceData
+                        ? 'Review the auto-filled data from the uploaded document'
+                        : 'Create a new sales invoice or purchase bill'}
                     </DialogDescription>
                   </DialogHeader>
-                  <InvoiceForm onClose={() => setShowCreateDialog(false)} onSuccess={loadInvoices} />
+                  <InvoiceForm
+                    onClose={() => {
+                      setShowCreateDialog(false);
+                      setParsedInvoiceData(null);
+                    }}
+                    onSuccess={loadInvoices}
+                    initialData={parsedInvoiceData}
+                  />
                 </DialogContent>
               </Dialog>
             </div>
@@ -344,17 +378,19 @@ export const InvoicesManager = () => {
 const InvoiceForm = ({
   onClose,
   onSuccess,
+  initialData,
 }: {
   onClose: () => void;
   onSuccess: () => void;
+  initialData?: ParsedInvoiceData | null;
 }) => {
   const [formData, setFormData] = useState({
-    invoice_type: 'sales',
-    invoice_number: '',
-    invoice_date: new Date().toISOString().split('T')[0],
-    due_date: '',
-    total_amount: '',
-    notes: '',
+    invoice_type: 'purchase', // Default to purchase when auto-populating from uploaded bill
+    invoice_number: initialData?.invoice_number || '',
+    invoice_date: initialData?.invoice_date || new Date().toISOString().split('T')[0],
+    due_date: initialData?.due_date || '',
+    total_amount: initialData?.total_amount?.toString() || '',
+    notes: initialData?.notes || (initialData?.vendor_name ? `Vendor: ${initialData.vendor_name}` : ''),
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();

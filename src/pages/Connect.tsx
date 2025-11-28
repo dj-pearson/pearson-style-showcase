@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import ContactForm from '../components/ContactForm';
@@ -9,10 +10,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Calendar, HelpCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Calendar, HelpCircle, Mail, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const Connect = () => {
+  const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   return (
     <div className="min-h-screen flex flex-col">
       <SEO 
@@ -78,7 +87,7 @@ const Connect = () => {
                   </p>
                 </div>
 
-                {/* Booking Calendar Placeholder */}
+                {/* Booking Calendar */}
                 <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
                   <CardContent className="mobile-card text-center">
                     <Calendar className="w-12 h-12 mx-auto mb-4 text-primary" />
@@ -89,10 +98,7 @@ const Connect = () => {
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => {
-                        // Placeholder - user can add their Calendly link via admin panel
-                        alert('Calendly link will be configured in admin settings');
-                      }}
+                      onClick={() => setIsBookingDialogOpen(true)}
                     >
                       Book a Time
                     </Button>
@@ -100,6 +106,60 @@ const Connect = () => {
                 </Card>
               </div>
             </div>
+
+            {/* Booking Dialog */}
+            <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    Schedule a Call
+                  </DialogTitle>
+                  <DialogDescription>
+                    Choose how you'd like to connect for an introductory call.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-3 h-auto py-4"
+                    asChild
+                  >
+                    <a href="mailto:dan@danpearson.net?subject=Schedule%20a%20Call&body=Hi%20Dan,%0A%0AI'd%20like%20to%20schedule%20a%20call%20to%20discuss%20a%20potential%20project.%0A%0APreferred%20times:%0A%0ABest%20regards">
+                      <Mail className="w-5 h-5 text-primary" />
+                      <div className="text-left">
+                        <div className="font-medium">Request via Email</div>
+                        <div className="text-sm text-muted-foreground">
+                          Send me your preferred times
+                        </div>
+                      </div>
+                    </a>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-3 h-auto py-4"
+                    asChild
+                  >
+                    <a
+                      href="https://www.linkedin.com/in/danpearson"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="w-5 h-5 text-primary" />
+                      <div className="text-left">
+                        <div className="font-medium">Connect on LinkedIn</div>
+                        <div className="text-sm text-muted-foreground">
+                          Message me directly
+                        </div>
+                      </div>
+                    </a>
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground pt-2">
+                    I typically respond within 24 hours
+                  </p>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* FAQ Section */}
             <div className="mt-16">

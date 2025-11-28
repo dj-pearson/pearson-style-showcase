@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
+import { useToast } from '@/hooks/use-toast';
 
 type Article = Tables<"articles">;
 
@@ -20,6 +21,8 @@ const STORAGE_KEY_PREFIX = 'newsFilters';
 
 const News = () => {
   const [email, setEmail] = useState('');
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState(() => {
     return localStorage.getItem(`${STORAGE_KEY_PREFIX}_search`) || '';
   });
@@ -99,11 +102,39 @@ const News = () => {
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}_sort`);
   };
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement newsletter subscription
-    logger.log('Subscribe:', email);
-    setEmail('');
+
+    if (!email.trim()) return;
+
+    setIsSubscribing(true);
+
+    try {
+      const { data: result, error } = await supabase.functions.invoke('newsletter-signup', {
+        body: { email: email.trim() }
+      });
+
+      if (error) {
+        logger.error('Newsletter signup error:', error);
+        throw new Error(error.message || 'Failed to subscribe');
+      }
+
+      toast({
+        title: "Successfully subscribed!",
+        description: result.message || "Thank you for subscribing. Check your inbox for a welcome email!",
+      });
+
+      setEmail('');
+    } catch (error) {
+      logger.error('Newsletter signup failed:', error);
+      toast({
+        title: "Subscription failed",
+        description: error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubscribing(false);
+    }
   };
 
   return (
@@ -265,12 +296,21 @@ const News = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="flex-1 bg-gray-700 border-gray-600 focus:border-cyan-500 min-h-[48px] text-base"
                   required
+                  disabled={isSubscribing}
                 />
-                <Button 
+                <Button
                   type="submit"
                   className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] sm:min-h-[52px] w-full"
+                  disabled={isSubscribing}
                 >
-                  Subscribe
+                  {isSubscribing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Subscribing...
+                    </>
+                  ) : (
+                    'Subscribe'
+                  )}
                 </Button>
               </form>
             </div>
