@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
@@ -47,7 +47,7 @@ const Projects = () => {
       // Only select fields needed for project list view to reduce payload size
       const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, title, description, image_url, demo_url, github_url, tags, featured, sort_order, created_at, status')
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
@@ -55,35 +55,46 @@ const Projects = () => {
       if (error) throw error;
       return (data || []) as Project[];
     },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  // Get unique tags for filtering
-  const allTags = projects 
-    ? Array.from(new Set(projects.flatMap(p => p.tags || []))).sort()
-    : [];
+  // Get unique tags for filtering - memoized
+  const allTags = useMemo(() => {
+    if (!projects) return [];
+    return Array.from(new Set(projects.flatMap(p => p.tags || []))).sort();
+  }, [projects]);
 
-  // Filter and sort projects
-  const filteredProjects = projects?.filter(project => {
-    const matchesSearch = project.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTag = selectedTag === 'all' || project.tags?.includes(selectedTag);
-    return matchesSearch && matchesTag;
-  }) || [];
+  // Filter projects - memoized to prevent recalculation on every render
+  const filteredProjects = useMemo(() => {
+    if (!projects) return [];
 
-  const sortedProjects = [...filteredProjects].sort((a, b) => {
-    switch (sortBy) {
-      case 'newest':
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      case 'oldest':
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case 'title':
-        return a.title.localeCompare(b.title);
-      case 'featured':
-        return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
-      default:
-        return 0;
-    }
-  });
+    const searchLower = searchTerm.toLowerCase();
+
+    return projects.filter(project => {
+      const matchesSearch = project.title?.toLowerCase().includes(searchLower) ||
+                           project.description?.toLowerCase().includes(searchLower);
+      const matchesTag = selectedTag === 'all' || project.tags?.includes(selectedTag);
+      return matchesSearch && matchesTag;
+    });
+  }, [projects, searchTerm, selectedTag]);
+
+  // Sort projects - memoized separately for performance
+  const sortedProjects = useMemo(() => {
+    return [...filteredProjects].sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'featured':
+          return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+        default:
+          return 0;
+      }
+    });
+  }, [filteredProjects, sortBy]);
 
   const clearFilters = () => {
     setSearchTerm('');

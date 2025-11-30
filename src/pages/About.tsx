@@ -21,13 +21,15 @@ const About = () => {
   const { data: profile } = useQuery({
     queryKey: ['profile-settings'],
     queryFn: async () => {
+      // Only select fields actually used in the component
       const { data, error } = await supabase
         .from('profile_settings')
-        .select('*')
+        .select('profile_photo_url, bio_headline, bio_subheadline, location, years_experience, linkedin_url, github_url')
         .single();
       if (error) throw error;
       return data;
     },
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes - profile data rarely changes
   });
 
   const achievements = [
