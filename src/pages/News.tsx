@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { logger } from "@/lib/logger";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
@@ -62,35 +62,45 @@ const News = () => {
     },
   });
 
-  // Get unique categories for filtering
-  const allCategories = articles
-    ? Array.from(new Set(articles.map(a => a.category))).sort()
-    : [];
+  // Get unique categories for filtering - memoized to prevent recalculation
+  const allCategories = useMemo(() => {
+    if (!articles) return [];
+    return Array.from(new Set(articles.map(a => a.category))).sort();
+  }, [articles]);
 
-  // Filter and sort articles
-  const filteredArticles = articles?.filter(article => {
-    const matchesSearch =
-      article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.excerpt?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.tags?.some(tag => tag?.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  }) || [];
+  // Filter articles - memoized to prevent recalculation on every render
+  const filteredArticles = useMemo(() => {
+    if (!articles) return [];
 
-  const sortedArticles = [...filteredArticles].sort((a, b) => {
-    switch (sortBy) {
-      case 'newest':
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      case 'oldest':
-        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-      case 'most-viewed':
-        return (b.view_count || 0) - (a.view_count || 0);
-      case 'title':
-        return a.title.localeCompare(b.title);
-      default:
-        return 0;
-    }
-  });
+    const searchLower = searchTerm.toLowerCase();
+
+    return articles.filter(article => {
+      const matchesSearch =
+        article.title?.toLowerCase().includes(searchLower) ||
+        article.excerpt?.toLowerCase().includes(searchLower) ||
+        article.tags?.some(tag => tag?.toLowerCase().includes(searchLower));
+      const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [articles, searchTerm, selectedCategory]);
+
+  // Sort articles - memoized separately for performance
+  const sortedArticles = useMemo(() => {
+    return [...filteredArticles].sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        case 'oldest':
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        case 'most-viewed':
+          return (b.view_count || 0) - (a.view_count || 0);
+        case 'title':
+          return a.title.localeCompare(b.title);
+        default:
+          return 0;
+      }
+    });
+  }, [filteredArticles, sortBy]);
 
   const clearFilters = () => {
     setSearchTerm('');
