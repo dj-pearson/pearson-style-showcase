@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.generate-ticket-response]
 verify_jwt = false
+
+[functions.extract-from-url]
+verify_jwt = true

@@ -62,6 +62,8 @@ export const AIToolsManager: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [extractUrl, setExtractUrl] = useState('');
+  const [isExtracting, setIsExtracting] = useState(false);
   const [currentTab, setCurrentTab] = useState<'active' | 'pending'>('active');
   const { toast } = useToast();
 
@@ -132,6 +134,64 @@ export const AIToolsManager: React.FC = () => {
   const handleArrayChange = (value: string, field: 'features' | 'tags') => {
     const items = value.split(',').map(item => item.trim()).filter(item => item);
     setFormData(prev => ({ ...prev, [field]: items }));
+  };
+
+  const extractFromUrl = async () => {
+    if (!extractUrl) {
+      toast({
+        variant: "destructive",
+        title: "URL required",
+        description: "Please enter a tool website URL to extract information.",
+      });
+      return;
+    }
+
+    setIsExtracting(true);
+    
+    try {
+      const { data, error } = await supabase.functions
+        .invoke('extract-from-url', {
+          body: { 
+            url: extractUrl,
+            type: 'ai-tool'
+          }
+        });
+
+      if (error) throw error;
+
+      if (data.success) {
+        const extracted = data.data;
+        
+        setFormData(prev => ({
+          ...prev,
+          title: extracted.title || prev.title,
+          description: extracted.description || prev.description,
+          features: extracted.features || prev.features,
+          category: extracted.category || prev.category,
+          pricing: extracted.pricing || prev.pricing,
+          complexity: extracted.complexity || prev.complexity,
+          tags: extracted.tags || prev.tags,
+          link: extracted.link || prev.link,
+          github_link: extracted.github_link || prev.github_link
+        }));
+
+        toast({
+          title: "Information extracted successfully",
+          description: "AI has extracted tool information from the URL.",
+        });
+        
+        setExtractUrl('');
+      }
+    } catch (error) {
+      logger.error('Error extracting from URL:', error);
+      toast({
+        variant: "destructive",
+        title: "Extraction failed",
+        description: "Could not extract information from URL. Please try again.",
+      });
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
   const generateContent = async () => {
@@ -508,6 +568,37 @@ export const AIToolsManager: React.FC = () => {
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* AI URL Extractor */}
+              <Card className="bg-accent/50 border-primary/20">
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <Label className="text-sm font-semibold">AI Auto-Fill from Website</Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter the AI tool's website URL and AI will automatically extract the information
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://ai-tool.com"
+                        value={extractUrl}
+                        onChange={(e) => setExtractUrl(e.target.value)}
+                        disabled={isExtracting}
+                      />
+                      <Button
+                        type="button"
+                        onClick={extractFromUrl}
+                        disabled={isExtracting || !extractUrl}
+                        size="sm"
+                      >
+                        {isExtracting ? 'Extracting...' : 'Extract'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">

@@ -54,6 +54,8 @@ export const ProjectManager: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [extractUrl, setExtractUrl] = useState('');
+  const [isExtracting, setIsExtracting] = useState(false);
   const { toast } = useToast();
 
   // Form state
@@ -101,6 +103,61 @@ export const ProjectManager: React.FC = () => {
   const handleTagsChange = (value: string) => {
     const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag);
     setFormData(prev => ({ ...prev, tags }));
+  };
+
+  const extractFromUrl = async () => {
+    if (!extractUrl) {
+      toast({
+        variant: "destructive",
+        title: "URL required",
+        description: "Please enter a website URL to extract information.",
+      });
+      return;
+    }
+
+    setIsExtracting(true);
+    
+    try {
+      const { data, error } = await supabase.functions
+        .invoke('extract-from-url', {
+          body: { 
+            url: extractUrl,
+            type: 'project'
+          }
+        });
+
+      if (error) throw error;
+
+      if (data.success) {
+        const extracted = data.data;
+        
+        setFormData(prev => ({
+          ...prev,
+          title: extracted.title || prev.title,
+          description: extracted.description || prev.description,
+          tags: extracted.tags || prev.tags,
+          status: extracted.status || prev.status,
+          github_link: extracted.github_link || prev.github_link,
+          live_link: extracted.live_link || prev.live_link
+        }));
+
+        toast({
+          title: "Information extracted successfully",
+          description: "AI has extracted project information from the URL.",
+        });
+        
+        setExtractUrl('');
+      }
+    } catch (error) {
+      logger.error('Error extracting from URL:', error);
+      toast({
+        variant: "destructive",
+        title: "Extraction failed",
+        description: "Could not extract information from URL. Please try again.",
+      });
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
   const generateContent = async () => {
@@ -359,6 +416,37 @@ export const ProjectManager: React.FC = () => {
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* AI URL Extractor */}
+              <Card className="bg-accent/50 border-primary/20">
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <Label className="text-sm font-semibold">AI Auto-Fill from Website</Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter a project website URL and AI will automatically extract the information
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://example.com"
+                        value={extractUrl}
+                        onChange={(e) => setExtractUrl(e.target.value)}
+                        disabled={isExtracting}
+                      />
+                      <Button
+                        type="button"
+                        onClick={extractFromUrl}
+                        disabled={isExtracting || !extractUrl}
+                        size="sm"
+                      >
+                        {isExtracting ? 'Extracting...' : 'Extract'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="title">Project Title *</Label>
