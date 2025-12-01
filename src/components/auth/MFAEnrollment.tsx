@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Loader2, CheckCircle } from 'lucide-react';
 import { logger } from '@/lib/logger';
-import QRCode from 'qrcode';
 
 interface MFAEnrollmentProps {
   onEnrollmentComplete: () => void;
@@ -88,9 +87,8 @@ export const MFAEnrollment = ({ onEnrollmentComplete, onSkip }: MFAEnrollmentPro
         return;
       }
 
-      // Generate QR code from the URI
-      const qrCodeDataUrl = await QRCode.toDataURL(enrollData.totp.qr_code);
-      setQrCode(qrCodeDataUrl);
+      // Supabase returns an SVG or data URL we can use directly in an <img>
+      setQrCode(enrollData.totp.qr_code);
       setSecret(enrollData.totp.secret);
       setFactorId(enrollData.id);
       setStep('verify');
