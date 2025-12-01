@@ -38,5 +38,10 @@ export default defineConfig(({ mode }) => ({
     minify: 'esbuild',
     // Source maps for better debugging (disable in production for smaller size)
     sourcemap: mode === 'development',
+    // Ensure React is only bundled once
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
   },
 }));
