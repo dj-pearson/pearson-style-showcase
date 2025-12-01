@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 
 interface DeviceCapabilities {
   /** Whether the device is considered low-performance */

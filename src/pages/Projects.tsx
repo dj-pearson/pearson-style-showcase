@@ -47,7 +47,7 @@ const Projects = () => {
       // Only select fields needed for project list view to reduce payload size
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, description, image_url, demo_url, github_url, tags, featured, sort_order, created_at, status')
+        .select('id, title, description, image_url, live_link, github_link, tags, featured, sort_order, created_at, status, updated_at')
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });

@@ -49,6 +49,7 @@ import { supabase } from '@/integrations/supabase/client';
 // This reduces initial bundle size by ~60-80%
 const ArticleManager = lazy(() => import('@/components/admin/ArticleManager').then(m => ({ default: m.ArticleManager })));
 const ProjectManager = lazy(() => import('@/components/admin/ProjectManager').then(m => ({ default: m.ProjectManager })));
+const TaskManagementDashboard = lazy(() => import('@/components/admin/TaskManagementDashboard').then(m => ({ default: m.TaskManagementDashboard })));
 const AIToolsManager = lazy(() => import('@/components/admin/AIToolsManager').then(m => ({ default: m.AIToolsManager })));
 const AIArticleGenerator = lazy(() => import('@/components/admin/AIArticleGenerator').then(m => ({ default: m.AIArticleGenerator })));
 const AmazonPipelineManager = lazy(() => import('@/components/admin/AmazonPipelineManager').then(m => ({ default: m.AmazonPipelineManager })));
@@ -105,6 +106,7 @@ const AdminDashboard = () => {
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquareQuote },
     { id: 'ventures', label: 'Ventures', icon: Rocket },
+    { id: 'tasks', label: 'Task Management', icon: Database },
     { id: 'projects', label: 'Projects', icon: FolderKanban },
     { id: 'articles', label: 'Articles', icon: FileText },
     { id: 'tools', label: 'AI Tools', icon: Wrench },
@@ -285,6 +287,8 @@ const AdminDashboard = () => {
           return <TestimonialsManager />;
         case 'ventures':
           return <VenturesManager />;
+        case 'tasks':
+          return <TaskManagementDashboard />;
         case 'projects':
           return <ProjectManager />;
         case 'articles':

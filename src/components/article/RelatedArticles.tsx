@@ -3,9 +3,6 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Eye, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
-
-type Article = Tables<"articles">;
 
 interface RelatedArticlesProps {
   currentArticleId: string;
@@ -49,7 +46,7 @@ const RelatedArticles = ({
         // Tag overlap scoring (highest weight)
         const articleTags = article.tags || [];
         const tagOverlap = tags.filter(tag =>
-          articleTags.some(aTag =>
+          articleTags.some((aTag: string) =>
             aTag.toLowerCase() === tag.toLowerCase()
           )
         ).length;
@@ -77,7 +74,7 @@ const RelatedArticles = ({
       return scoredArticles
         .filter(a => a.relevanceScore > 0) // Only show related content
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
-        .slice(0, maxArticles) as Article[];
+        .slice(0, maxArticles);
     },
     enabled: !!currentArticleId,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
