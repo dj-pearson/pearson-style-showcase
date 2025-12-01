@@ -118,7 +118,7 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
                 <SelectContent>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
-                      {project.title}
+                      {project.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

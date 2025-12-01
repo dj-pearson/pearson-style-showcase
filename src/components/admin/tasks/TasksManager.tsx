@@ -26,9 +26,9 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
   const queryClient = useQueryClient();
 
   const { data: projects } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ['task_projects'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('projects').select('*').order('title');
+      const { data, error } = await supabase.from('task_projects').select('*').order('name');
       if (error) throw error;
       return data;
     },
@@ -41,7 +41,7 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
         .from('tasks')
         .select(`
           *,
-          project:projects(id, title),
+          project:task_projects(id, name, color),
           subtasks(*)
         `)
         .order('created_at', { ascending: false });
@@ -104,7 +104,7 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
                   <SelectItem value="all">All Projects</SelectItem>
                   {projects?.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
-                      {project.title}
+                      {project.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
