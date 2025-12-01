@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +32,14 @@ const ProfileSettingsManager = () => {
     },
   });
 
-  const [formData, setFormData] = useState<any>(profile || {});
+  const [formData, setFormData] = useState<any>({});
+
+  // Sync formData with loaded profile data
+  useEffect(() => {
+    if (profile) {
+      setFormData(profile);
+    }
+  }, [profile]);
 
   const updateProfile = useMutation({
     mutationFn: async (data: any) => {
