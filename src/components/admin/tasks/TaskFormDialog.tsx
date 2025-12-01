@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -65,10 +65,13 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
       }
     },
     onSuccess: () => {
-      toast.success(editingTask ? 'Task updated successfully' : 'Task created successfully');
+      toast({ 
+        title: 'Success', 
+        description: editingTask ? 'Task updated successfully' : 'Task created successfully' 
+      });
       onSuccess();
     },
-    onError: () => toast.error('Failed to save task'),
+    onError: () => toast({ title: 'Error', description: 'Failed to save task', variant: 'destructive' }),
   });
 
   const handleSubmit = (e: React.FormEvent) => {

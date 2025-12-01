@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { Download, Upload } from 'lucide-react';
 
 interface BulkImportDialogProps {
@@ -37,7 +37,7 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
     if (!file) return;
 
     if (!selectedProject) {
-      toast.error('Please select a project first');
+      toast({ title: 'Error', description: 'Please select a project first', variant: 'destructive' });
       return;
     }
 
@@ -72,12 +72,16 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
       
       if (error) throw error;
 
-      toast.success(`Successfully imported ${tasks.length} tasks`);
+      toast({ title: 'Success', description: `Successfully imported ${tasks.length} tasks` });
       onSuccess();
       e.target.value = '';
     } catch (error) {
       console.error('Import error:', error);
-      toast.error('Failed to import tasks. Please check your CSV format.');
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to import tasks. Please check your CSV format.', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsImporting(false);
     }

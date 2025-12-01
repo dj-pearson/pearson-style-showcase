@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Upload } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { TaskFormDialog } from './TaskFormDialog';
 import { TasksTable } from './TasksTable';
@@ -71,9 +71,9 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
     if (!confirm('Delete this task and all its subtasks?')) return;
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
     if (error) {
-      toast.error('Failed to delete task');
+      toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });
     } else {
-      toast.success('Task deleted successfully');
+      toast({ title: 'Success', description: 'Task deleted successfully' });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
   };
@@ -81,7 +81,7 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
   const handleUpdateField = async (taskId: string, field: string, value: any) => {
     const { error } = await supabase.from('tasks').update({ [field]: value }).eq('id', taskId);
     if (error) {
-      toast.error('Failed to update task');
+      toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' });
     } else {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
