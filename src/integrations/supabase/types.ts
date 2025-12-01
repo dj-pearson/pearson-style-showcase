@@ -3092,6 +3092,39 @@ export type Database = {
         }
         Relationships: []
       }
+      task_projects: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          domain: string | null
+          id: string
+          name: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          id?: string
+          name: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          id?: string
+          name?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tax_rates: {
         Row: {
           account_id: string | null
