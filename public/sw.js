@@ -1,7 +1,7 @@
 // Service Worker for Progressive Web App
 // Version 1.0.0
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `pearson-portfolio-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
