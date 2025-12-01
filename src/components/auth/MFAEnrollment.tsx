@@ -32,25 +32,37 @@ export const MFAEnrollment = ({ onEnrollmentComplete, onSkip }: MFAEnrollmentPro
     setError('');
 
     try {
-      const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
+      const response = await supabase.auth.mfa.enroll({
         factorType: 'totp',
         friendlyName: 'Google Authenticator'
       });
 
-      if (enrollError) {
-        logger.error('MFA enrollment error:', enrollError);
-        setError(enrollError.message);
+      logger.debug('MFA enroll response:', response);
+
+      if (response.error) {
+        logger.error('MFA enrollment error:', response.error);
+        setError(response.error.message || 'Failed to enroll MFA');
         setIsLoading(false);
         return;
       }
 
-      if (!enrollData) {
+      if (!response.data) {
+        logger.error('No MFA enrollment data returned');
         setError('Failed to generate MFA credentials');
         setIsLoading(false);
         return;
       }
 
+      const enrollData = response.data;
       logger.debug('MFA enrollment data:', enrollData);
+
+      // Check if TOTP data exists
+      if (!enrollData.totp || !enrollData.totp.qr_code || !enrollData.totp.secret) {
+        logger.error('Missing TOTP data in response:', enrollData);
+        setError('Invalid MFA response. Please try again.');
+        setIsLoading(false);
+        return;
+      }
 
       // Generate QR code from the URI
       const qrCodeDataUrl = await QRCode.toDataURL(enrollData.totp.qr_code);
@@ -60,7 +72,7 @@ export const MFAEnrollment = ({ onEnrollmentComplete, onSkip }: MFAEnrollmentPro
       setStep('verify');
     } catch (err) {
       logger.error('Error generating MFA:', err);
-      setError('Failed to generate MFA. Please try again.');
+      setError(`Failed to generate MFA: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
