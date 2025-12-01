@@ -1,1 +1,4 @@
-/*    /index.html   200 
+# Don't redirect asset files
+/assets/*  200
+# SPA fallback for all other routes
+/*    /index.html   200
