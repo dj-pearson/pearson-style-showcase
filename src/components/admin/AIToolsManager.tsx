@@ -172,7 +172,8 @@ export const AIToolsManager: React.FC = () => {
           complexity: extracted.complexity || prev.complexity,
           tags: extracted.tags || prev.tags,
           link: extracted.link || prev.link,
-          github_link: extracted.github_link || prev.github_link
+          github_link: extracted.github_link || prev.github_link,
+          image_url: extracted.image_url || prev.image_url
         }));
 
         toast({

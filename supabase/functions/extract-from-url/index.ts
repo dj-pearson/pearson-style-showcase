@@ -35,6 +35,9 @@ serve(async (req) => {
 
     // Fetch the website content
     let pageContent = '';
+    let metaImage = '';
+    let detectedLinks = { github: '', demo: '' };
+    
     try {
       const pageResponse = await fetch(url, {
         headers: {
@@ -48,7 +51,26 @@ serve(async (req) => {
 
       const html = await pageResponse.text();
       
-      // Extract text content from HTML (simple approach)
+      // Extract meta tags for images
+      const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+      const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
+      metaImage = ogImageMatch?.[1] || twitterImageMatch?.[1] || '';
+      
+      // Look for GitHub links
+      const githubMatch = html.match(/https?:\/\/github\.com\/[^\s"'<>]+/i);
+      if (githubMatch) detectedLinks.github = githubMatch[0];
+      
+      // Look for common demo/live links (excluding the current URL)
+      const linkMatches = html.match(/https?:\/\/[^\s"'<>]+/gi) || [];
+      for (const link of linkMatches) {
+        if (link !== url && !link.includes('github.com') && 
+            (link.includes('demo') || link.includes('app') || link.includes('live'))) {
+          detectedLinks.demo = link;
+          break;
+        }
+      }
+      
+      // Extract text content from HTML
       // Remove script and style tags
       pageContent = html
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -56,7 +78,7 @@ serve(async (req) => {
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
-        .substring(0, 8000); // Limit content length
+        .substring(0, 10000); // Increased limit for better context
     } catch (fetchError) {
       console.error('Error fetching URL:', fetchError);
       return new Response(
@@ -75,20 +97,31 @@ serve(async (req) => {
 Return this exact structure:
 {
   "title": "project name",
-  "description": "comprehensive description of the project, its purpose, features, and technical implementation",
+  "description": "comprehensive description of the project, its purpose, features, and technical implementation (2-3 sentences)",
   "tags": ["technology1", "technology2", "framework1"],
   "status": "Active",
   "github_link": "github url if found",
-  "live_link": "demo or live site url if found"
+  "live_link": "demo or live site url if found",
+  "image_url": "logo or project image url if found"
 }`;
 
-      extractionPrompt = `Analyze this webpage content and extract project information. Focus on identifying:
-- Project name/title
-- What the project does (features, purpose, goals)
-- Technologies, frameworks, and tools used
-- Current status or stage
-- Any links to GitHub repository or live demo
+      extractionPrompt = `Analyze this webpage content and extract project information.
 
+${detectedLinks.github ? `GitHub link detected: ${detectedLinks.github}` : ''}
+${detectedLinks.demo ? `Demo link detected: ${detectedLinks.demo}` : ''}
+${metaImage ? `Image found: ${metaImage}` : ''}
+
+Focus on identifying:
+- Project name/title (clear, concise)
+- What the project does - be specific about features and benefits (2-3 sentences)
+- Technologies, frameworks, and tools used (look for: React, Vue, Node.js, Python, TypeScript, JavaScript, etc.)
+- GitHub repository URL (if available)
+- Live demo or website URL (if available)
+- Logo or main project image URL
+
+Be thorough in finding technologies mentioned in the content. Look for programming languages, frameworks, databases, and tools.
+
+Webpage URL: ${url}
 Webpage content:
 ${pageContent}
 
@@ -100,25 +133,34 @@ Return ONLY the JSON object, no other text.`;
 Return this exact structure:
 {
   "title": "tool name",
-  "description": "comprehensive description of what the tool does, its capabilities, and use cases",
+  "description": "comprehensive description of what the tool does, its capabilities, and use cases (2-3 sentences)",
   "features": ["feature1", "feature2", "feature3"],
   "category": "most appropriate category",
   "pricing": "Free or Freemium or Paid or Open Source",
   "complexity": "Beginner or Intermediate or Advanced",
   "tags": ["tag1", "tag2", "tag3"],
   "link": "main website url",
-  "github_link": "github url if found"
+  "github_link": "github url if found",
+  "image_url": "logo or tool image url if found"
 }`;
 
-      extractionPrompt = `Analyze this webpage content and extract AI tool information. Focus on identifying:
-- Tool name
-- What it does and its key capabilities
-- Main features and functionality
-- Pricing model (free, paid, freemium, etc.)
-- Technical complexity level
-- Category (NLP, Computer Vision, ML, etc.)
-- Relevant tags and keywords
+      extractionPrompt = `Analyze this webpage content and extract AI tool information.
 
+${detectedLinks.github ? `GitHub link detected: ${detectedLinks.github}` : ''}
+${metaImage ? `Image found: ${metaImage}` : ''}
+
+Focus on identifying:
+- Tool name (clear, concise)
+- What it does and its key capabilities (2-3 sentences)
+- Main features and functionality (list 3-5 key features)
+- Pricing model (Free, Freemium, Paid, or Open Source)
+- Technical complexity level (Beginner, Intermediate, or Advanced)
+- Category (e.g., NLP, Computer Vision, ML Platform, Code Generation, Data Analysis)
+- Relevant tags and keywords for searchability
+- GitHub repository URL (if available)
+- Logo or main tool image URL
+
+Webpage URL: ${url}
 Webpage content:
 ${pageContent}
 
