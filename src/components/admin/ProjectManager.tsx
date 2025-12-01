@@ -138,7 +138,8 @@ export const ProjectManager: React.FC = () => {
           tags: extracted.tags || prev.tags,
           status: extracted.status || prev.status,
           github_link: extracted.github_link || prev.github_link,
-          live_link: extracted.live_link || prev.live_link
+          live_link: extracted.live_link || prev.live_link,
+          image_url: extracted.image_url || prev.image_url
         }));
 
         toast({
