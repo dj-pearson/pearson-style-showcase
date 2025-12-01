@@ -32,6 +32,19 @@ export const MFAEnrollment = ({ onEnrollmentComplete, onSkip }: MFAEnrollmentPro
     setError('');
 
     try {
+      // First, check for an existing TOTP factor to avoid duplicate enroll errors
+      const { data: existingFactors, error: factorsError } = await supabase.auth.mfa.listFactors();
+
+      if (factorsError) {
+        logger.error('Error listing MFA factors before enrollment:', factorsError);
+      } else if (existingFactors?.totp && existingFactors.totp.length > 0) {
+        const existingTotp = existingFactors.totp[0];
+        logger.debug('Existing TOTP factor found, skipping enrollment:', existingTotp);
+        setFactorId(existingTotp.id);
+        setStep('verify');
+        return;
+      }
+
       const response = await supabase.auth.mfa.enroll({
         factorType: 'totp',
         friendlyName: 'Google Authenticator'
@@ -41,15 +54,27 @@ export const MFAEnrollment = ({ onEnrollmentComplete, onSkip }: MFAEnrollmentPro
 
       if (response.error) {
         logger.error('MFA enrollment error:', response.error);
+
+        // If a factor with this friendly name already exists, reuse it instead of failing
+        if (response.error.message?.toLowerCase().includes('already exists')) {
+          const { data: reuseFactors, error: reuseError } = await supabase.auth.mfa.listFactors();
+          if (!reuseError && reuseFactors?.totp && reuseFactors.totp.length > 0) {
+            const existingTotp = reuseFactors.totp[0];
+            logger.debug('Reusing existing TOTP factor after duplicate friendly name error:', existingTotp);
+            setFactorId(existingTotp.id);
+            setError('');
+            setStep('verify');
+            return;
+          }
+        }
+
         setError(response.error.message || 'Failed to enroll MFA');
-        setIsLoading(false);
         return;
       }
 
       if (!response.data) {
         logger.error('No MFA enrollment data returned');
         setError('Failed to generate MFA credentials');
-        setIsLoading(false);
         return;
       }
 
@@ -60,7 +85,6 @@ export const MFAEnrollment = ({ onEnrollmentComplete, onSkip }: MFAEnrollmentPro
       if (!enrollData.totp || !enrollData.totp.qr_code || !enrollData.totp.secret) {
         logger.error('Missing TOTP data in response:', enrollData);
         setError('Invalid MFA response. Please try again.');
-        setIsLoading(false);
         return;
       }
 
