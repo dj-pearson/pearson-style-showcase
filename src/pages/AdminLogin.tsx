@@ -59,7 +59,7 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, signInWithProvider } = useAuth();
+  const { signInWithProvider } = useAuth();
 
   // Check if user needs MFA enrollment after login
   useEffect(() => {
@@ -140,14 +140,10 @@ const AdminLogin = () => {
       description: "Two-factor authentication has been set up successfully",
     });
 
-    // Verify admin access after MFA enrollment
-    const result = await signIn(formData.email, formData.password);
-    
-    if (result.success) {
-      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
-      sessionStorage.removeItem('auth_return_url');
-      navigate(returnUrl, { replace: true });
-    }
+    // Session is already established after MFA enrollment, just navigate
+    const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+    sessionStorage.removeItem('auth_return_url');
+    navigate(returnUrl, { replace: true });
   };
 
   const handleMFAVerificationSuccess = async () => {
@@ -156,14 +152,10 @@ const AdminLogin = () => {
       description: "Welcome to the admin dashboard",
     });
 
-    // Verify admin access after MFA verification
-    const result = await signIn(formData.email, formData.password);
-    
-    if (result.success) {
-      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
-      sessionStorage.removeItem('auth_return_url');
-      navigate(returnUrl, { replace: true });
-    }
+    // Session is already established after MFA verification, just navigate
+    const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+    sessionStorage.removeItem('auth_return_url');
+    navigate(returnUrl, { replace: true });
   };
 
   const handleMFACancel = async () => {
