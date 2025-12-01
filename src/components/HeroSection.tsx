@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { useRef, useState, useEffect, lazy, Suspense, useMemo } from 'react';
+import { useRef, useState, useEffect, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';

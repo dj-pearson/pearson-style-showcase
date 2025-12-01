@@ -95,39 +95,39 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
 
           // AI Search Optimization: Entity linking
           // "about" - Main topics/entities the article is about
-          ...(data?.about && {
+          ...(data?.about && Array.isArray(data.about) ? {
             "about": (data.about as string[]).map(topic => ({
               "@type": "Thing",
               "name": topic
             }))
-          }),
+          } : {}),
 
           // "mentions" - Entities mentioned in the article
-          ...(data?.mentions && {
+          ...(data?.mentions && Array.isArray(data.mentions) ? {
             "mentions": (data.mentions as string[]).map(entity => ({
               "@type": "Thing",
               "name": entity
             }))
-          }),
+          } : {}),
 
           // Voice search optimization: Speakable content
           // Identifies content suitable for text-to-speech
-          ...(data?.speakable && {
+          ...(data?.speakable ? {
             "speakable": {
               "@type": "SpeakableSpecification",
               "cssSelector": data.speakable
             }
-          }),
+          } : {}),
 
           // AI-friendly: Key takeaways as abstract
-          ...(data?.abstract && {
+          ...(data?.abstract ? {
             "abstract": data.abstract
-          }),
+          } : {}),
 
           // Citation: For AI engines that cite sources
-          ...(data?.citation && {
+          ...(data?.citation ? {
             "citation": data.citation
-          }),
+          } : {}),
 
           // isAccessibleForFree: Helps AI understand content availability
           "isAccessibleForFree": true,

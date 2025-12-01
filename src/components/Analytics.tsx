@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { logger } from "@/lib/logger";
 import { useLocation } from 'react-router-dom';
 
@@ -90,7 +90,7 @@ const Analytics = ({ trackingId: propTrackingId }: AnalyticsProps) => {
   useEffect(() => {
     // Analytics is already initialized in index.html
     // This effect just logs for debugging purposes in development
-    if (typeof window !== 'undefined' && window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       logger.log('📊 Analytics already initialized via index.html');
     }
   }, [propTrackingId]);
