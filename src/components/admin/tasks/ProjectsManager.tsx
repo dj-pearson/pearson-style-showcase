@@ -14,9 +14,11 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 
 interface Project {
   id: string;
-  title: string;
-  description: string;
-  status: string | null;
+  name: string;
+  domain: string | null;
+  description: string | null;
+  status: string;
+  color: string;
   created_at: string;
 }
 
@@ -28,18 +30,20 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({
-    title: '',
+    name: '',
+    domain: '',
     description: '',
     status: 'active',
+    color: '#3b82f6',
   });
 
   const queryClient = useQueryClient();
 
   const { data: projects, isLoading } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ['task_projects'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('projects')
+        .from('task_projects')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -49,11 +53,11 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from('projects').insert([data]);
+      const { error } = await supabase.from('task_projects').insert([data]);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['task_projects'] });
       toast({ title: 'Success', description: 'Project created successfully' });
       resetForm();
     },
@@ -62,11 +66,11 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const { error } = await supabase.from('projects').update(data).eq('id', id);
+      const { error } = await supabase.from('task_projects').update(data).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['task_projects'] });
       toast({ title: 'Success', description: 'Project updated successfully' });
       resetForm();
     },
@@ -75,18 +79,18 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('projects').delete().eq('id', id);
+      const { error } = await supabase.from('task_projects').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['task_projects'] });
       toast({ title: 'Success', description: 'Project deleted successfully' });
     },
     onError: () => toast({ title: 'Error', description: 'Failed to delete project', variant: 'destructive' }),
   });
 
   const resetForm = () => {
-    setFormData({ title: '', description: '', status: 'active' });
+    setFormData({ name: '', domain: '', description: '', status: 'active', color: '#3b82f6' });
     setEditingProject(null);
     setIsDialogOpen(false);
   };
@@ -103,9 +107,11 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
   const handleEdit = (project: Project) => {
     setEditingProject(project);
     setFormData({
-      title: project.title,
-      description: project.description,
-      status: project.status || 'active',
+      name: project.name,
+      domain: project.domain || '',
+      description: project.description || '',
+      status: project.status,
+      color: project.color,
     });
     setIsDialogOpen(true);
   };
@@ -129,11 +135,19 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Title *</label>
+                <label className="text-sm font-medium">Name *</label>
                 <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Domain</label>
+                <Input
+                  value={formData.domain}
+                  onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                  placeholder="example.com"
                 />
               </div>
               <div>
@@ -162,6 +176,14 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <label className="text-sm font-medium">Color</label>
+                  <Input
+                    type="color"
+                    value={formData.color}
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={resetForm}>
@@ -177,7 +199,8 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Domain</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -191,8 +214,12 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                 onClick={() => onSelectProject(project.id)}
               >
                 <TableCell className="font-medium">
-                  {project.title}
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
+                    {project.name}
+                  </div>
                 </TableCell>
+                <TableCell>{project.domain || '-'}</TableCell>
                 <TableCell>
                   <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
                     {project.status}

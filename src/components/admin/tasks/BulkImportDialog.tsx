@@ -103,7 +103,7 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
               <SelectContent>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
-                    {project.title}
+                    {project.name}
                   </SelectItem>
                 ))}
               </SelectContent>
