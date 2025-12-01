@@ -71,10 +71,7 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField }: TasksTabl
                 <TableCell className="font-medium">{task.title}</TableCell>
                 <TableCell>
                   {task.project && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: task.project.color }} />
-                      {task.project.name}
-                    </div>
+                    <span>{task.project.title}</span>
                   )}
                 </TableCell>
                 <TableCell>

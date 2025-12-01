@@ -14,11 +14,9 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 
 interface Project {
   id: string;
-  name: string;
-  domain: string | null;
-  description: string | null;
-  status: string;
-  color: string;
+  title: string;
+  description: string;
+  status: string | null;
   created_at: string;
 }
 
@@ -30,11 +28,9 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    domain: '',
+    title: '',
     description: '',
     status: 'active',
-    color: '#3b82f6',
   });
 
   const queryClient = useQueryClient();
@@ -90,7 +86,7 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
   });
 
   const resetForm = () => {
-    setFormData({ name: '', domain: '', description: '', status: 'active', color: '#3b82f6' });
+    setFormData({ title: '', description: '', status: 'active' });
     setEditingProject(null);
     setIsDialogOpen(false);
   };
@@ -107,11 +103,9 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
   const handleEdit = (project: Project) => {
     setEditingProject(project);
     setFormData({
-      name: project.name,
-      domain: project.domain || '',
-      description: project.description || '',
-      status: project.status,
-      color: project.color,
+      title: project.title,
+      description: project.description,
+      status: project.status || 'active',
     });
     setIsDialogOpen(true);
   };
@@ -135,19 +129,11 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Name *</label>
+                <label className="text-sm font-medium">Title *</label>
                 <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Domain</label>
-                <Input
-                  value={formData.domain}
-                  onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  placeholder="example.com"
                 />
               </div>
               <div>
@@ -161,7 +147,10 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Status</label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -172,14 +161,6 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                       <SelectItem value="archived">Archived</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Color</label>
-                  <Input
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -196,8 +177,7 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Domain</TableHead>
+              <TableHead>Title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -205,14 +185,14 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
           </TableHeader>
           <TableBody>
             {projects?.map((project) => (
-              <TableRow key={project.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onSelectProject(project.id)}>
+              <TableRow
+                key={project.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onSelectProject(project.id)}
+              >
                 <TableCell className="font-medium">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
-                    {project.name}
-                  </div>
+                  {project.title}
                 </TableCell>
-                <TableCell>{project.domain || '-'}</TableCell>
                 <TableCell>
                   <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
                     {project.status}
@@ -221,10 +201,24 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                 <TableCell>{new Date(project.created_at).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEdit(project); }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(project);
+                      }}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); if (confirm('Delete this project?')) deleteMutation.mutate(project.id); }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('Delete this project?')) deleteMutation.mutate(project.id);
+                      }}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
