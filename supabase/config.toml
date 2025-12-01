@@ -47,6 +47,13 @@ enable_signup = true
 enable_anonymous_sign_ins = false
 enable_manual_linking = false
 
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
 [auth.email]
 enable_signup = true
 double_confirm_changes = true

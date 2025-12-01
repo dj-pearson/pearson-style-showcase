@@ -1,4 +1,4 @@
-import { useState, ChangeEvent, FormEvent } from 'react';
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { Eye, EyeOff, Shield, Lock, User, ArrowLeft, Loader2 } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { MFAEnrollment } from '@/components/auth/MFAEnrollment';
+import { MFAVerification } from '@/components/auth/MFAVerification';
 
 // Google icon component
 const GoogleIcon = () => (
@@ -50,13 +52,32 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState<'google' | 'apple' | null>(null);
-  const [requiresTOTP] = useState(false);
+  const [authFlow, setAuthFlow] = useState<'login' | 'mfa-enroll' | 'mfa-verify'>('login');
+  const [mfaFactorId, setMfaFactorId] = useState<string>('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signIn, signInWithProvider } = useAuth();
+
+  // Check if user needs MFA enrollment after login
+  useEffect(() => {
+    const checkMFAStatus = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        logger.debug('MFA factors:', factors);
+        
+        if (!factors?.totp || factors.totp.length === 0) {
+          logger.debug('No MFA enrolled, showing enrollment');
+          setAuthFlow('mfa-enroll');
+        }
+      }
+    };
+
+    checkMFAStatus();
+  }, []);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -70,29 +91,86 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      const result = await signIn(formData.email, formData.password);
+      // First, authenticate with email and password
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      });
 
-      if (!result.success) {
-        setError(result.error || 'Login failed');
+      if (authError) {
+        setError(authError.message);
         setIsLoading(false);
         return;
       }
 
-      // Success - redirect immediately
-      toast({
-        title: "Login successful",
-        description: "Welcome to the admin dashboard",
-      });
+      // Check if user has MFA enrolled
+      const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+      
+      if (factorsError) {
+        logger.error('Error checking MFA factors:', factorsError);
+        setError('Failed to check MFA status');
+        setIsLoading(false);
+        return;
+      }
 
-      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
-      sessionStorage.removeItem('auth_return_url');
-      logger.info('Login successful, redirecting to:', returnUrl);
-      navigate(returnUrl, { replace: true });
+      logger.debug('MFA factors after login:', factors);
+
+      // If no TOTP factor enrolled, require enrollment
+      if (!factors?.totp || factors.totp.length === 0) {
+        setAuthFlow('mfa-enroll');
+        setIsLoading(false);
+        return;
+      }
+
+      // If TOTP enrolled, require verification
+      const totpFactor = factors.totp[0];
+      setMfaFactorId(totpFactor.id);
+      setAuthFlow('mfa-verify');
+      setIsLoading(false);
     } catch (err) {
       logger.error('Login error:', err);
       setError('Network error. Please try again.');
       setIsLoading(false);
     }
+  };
+
+  const handleMFAEnrollmentComplete = async () => {
+    toast({
+      title: "MFA enabled",
+      description: "Two-factor authentication has been set up successfully",
+    });
+
+    // Verify admin access after MFA enrollment
+    const result = await signIn(formData.email, formData.password);
+    
+    if (result.success) {
+      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+      sessionStorage.removeItem('auth_return_url');
+      navigate(returnUrl, { replace: true });
+    }
+  };
+
+  const handleMFAVerificationSuccess = async () => {
+    toast({
+      title: "Login successful",
+      description: "Welcome to the admin dashboard",
+    });
+
+    // Verify admin access after MFA verification
+    const result = await signIn(formData.email, formData.password);
+    
+    if (result.success) {
+      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+      sessionStorage.removeItem('auth_return_url');
+      navigate(returnUrl, { replace: true });
+    }
+  };
+
+  const handleMFACancel = async () => {
+    await supabase.auth.signOut();
+    setAuthFlow('login');
+    setMfaFactorId('');
+    setFormData({ email: '', password: '', totpCode: '' });
   };
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
@@ -158,6 +236,30 @@ const AdminLogin = () => {
       setIsLoading(false);
     }
   };
+
+  // Show MFA enrollment if required
+  if (authFlow === 'mfa-enroll') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <MFAEnrollment
+          onEnrollmentComplete={handleMFAEnrollmentComplete}
+        />
+      </div>
+    );
+  }
+
+  // Show MFA verification if required
+  if (authFlow === 'mfa-verify') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <MFAVerification
+          factorId={mfaFactorId}
+          onVerificationSuccess={handleMFAVerificationSuccess}
+          onCancel={handleMFACancel}
+        />
+      </div>
+    );
+  }
 
   if (showForgotPassword) {
     return (
@@ -348,24 +450,6 @@ const AdminLogin = () => {
               </div>
             </div>
 
-            {requiresTOTP && (
-              <div className="space-y-2">
-                <Label htmlFor="totpCode">2FA Code</Label>
-                <Input
-                  id="totpCode"
-                  name="totpCode"
-                  type="text"
-                  placeholder="Enter 6-digit code"
-                  value={formData.totpCode}
-                  onChange={handleInputChange}
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  required
-                  autoComplete="one-time-code"
-                  disabled={isLoading || isOAuthLoading !== null}
-                />
-              </div>
-            )}
 
             <div className="flex flex-col space-y-2">
               <Button
