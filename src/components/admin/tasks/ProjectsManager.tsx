@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 
 interface Project {
@@ -54,10 +54,10 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project created successfully');
+      toast({ title: 'Success', description: 'Project created successfully' });
       resetForm();
     },
-    onError: () => toast.error('Failed to create project'),
+    onError: () => toast({ title: 'Error', description: 'Failed to create project', variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -67,10 +67,10 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project updated successfully');
+      toast({ title: 'Success', description: 'Project updated successfully' });
       resetForm();
     },
-    onError: () => toast.error('Failed to update project'),
+    onError: () => toast({ title: 'Error', description: 'Failed to update project', variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -80,9 +80,9 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project deleted successfully');
+      toast({ title: 'Success', description: 'Project deleted successfully' });
     },
-    onError: () => toast.error('Failed to delete project'),
+    onError: () => toast({ title: 'Error', description: 'Failed to delete project', variant: 'destructive' }),
   });
 
   const resetForm = () => {
