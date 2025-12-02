@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCors, corsJsonResponse } from "../_shared/cors.ts";
+import { verifyWebhookSignature, verifySecret } from "../_shared/webhook-security.ts";
 
 interface EmailWebhookPayload {
   from: string;
@@ -25,9 +22,12 @@ interface EmailWebhookPayload {
 }
 
 serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle CORS preflight
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabase = createClient(
@@ -35,23 +35,69 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify webhook secret
-    const webhookSecret = req.headers.get('x-webhook-secret');
+    // Get webhook settings for secret verification
     const { data: settings } = await supabase
       .from('email_webhook_settings')
       .select('*')
       .eq('is_active', true)
       .single();
 
-    if (!settings || settings.webhook_secret !== webhookSecret) {
-      console.error('Invalid webhook secret');
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
+    if (!settings) {
+      console.error('No active webhook settings found');
+      return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const payload: EmailWebhookPayload = await req.json();
+    // Get the raw request body for signature verification
+    const rawBody = await req.text();
+
+    // Check for HMAC signature first (preferred method)
+    const signature = req.headers.get('x-webhook-signature');
+    const timestamp = req.headers.get('x-webhook-timestamp');
+
+    if (signature) {
+      // Verify HMAC signature
+      const signatureResult = await verifyWebhookSignature(
+        rawBody,
+        signature,
+        settings.webhook_secret,
+        timestamp
+      );
+
+      if (!signatureResult.valid) {
+        console.error('Webhook signature verification failed:', signatureResult.error);
+        return new Response(JSON.stringify({ error: 'Unauthorized', message: signatureResult.error }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log('Webhook signature verified successfully');
+    } else {
+      // Fallback to simple secret header check (legacy support)
+      const webhookSecret = req.headers.get('x-webhook-secret');
+      if (!verifySecret(webhookSecret, settings.webhook_secret)) {
+        console.error('Invalid webhook secret');
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.warn('Using legacy webhook secret verification - consider upgrading to HMAC signature');
+    }
+
+    // Parse the payload
+    let payload: EmailWebhookPayload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (e) {
+      console.error('Failed to parse webhook payload');
+      return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     console.log('Received email webhook:', { from: payload.from, to: payload.to, subject: payload.subject });
 
     // Find the appropriate mailbox based on the 'to' address
@@ -61,6 +107,8 @@ serve(async (req: Request) => {
       .eq('email_address', payload.to)
       .eq('is_active', true)
       .single();
+
+    let targetMailbox = mailbox;
 
     if (!mailbox) {
       // Try to find default mailbox
@@ -78,9 +126,8 @@ serve(async (req: Request) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      targetMailbox = defaultMailbox;
     }
-
-    const targetMailbox = mailbox || defaultMailbox;
 
     // Check if this is a reply to an existing ticket
     let ticketId: string | null = null;
