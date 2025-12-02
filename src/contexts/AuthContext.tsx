@@ -344,7 +344,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logger.debug('Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
-  }, [processSession, clearStoredAuthData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
 
   /**
    * Sign in with email and password
