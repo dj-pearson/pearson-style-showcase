@@ -260,12 +260,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         switch (event) {
           case 'INITIAL_SESSION':
             // This fires on page load/reload with restored session
-            logger.debug('Initial session event received');
+            logger.debug('Initial session event received', { hasSession: !!currentSession });
             if (currentSession && !isProcessingRef.current) {
               await processSession(currentSession, 'INITIAL_SESSION event');
-            } else if (!currentSession) {
-              setAuthStatus('unauthenticated');
             }
+            // DON'T set unauthenticated here - let the manual fallback handle null sessions
+            // The INITIAL_SESSION event may fire before localStorage is fully read
             break;
 
           case 'SIGNED_IN':
@@ -309,8 +309,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // CRITICAL: Also manually check for existing session as fallback
     // INITIAL_SESSION event may not always fire reliably
     const checkExistingSession = async () => {
-      // Small delay to let INITIAL_SESSION fire first if it's going to
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Give INITIAL_SESSION event time to fire and process
+      // 500ms is enough for localStorage read + event dispatch
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       if (!mounted) return;
       
