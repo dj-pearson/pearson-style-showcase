@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Upload, Download, Search, X, FileText } from 'lucide-react';
+import { Plus, Upload, Download, Search, X, FileText, CheckCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { TaskFormDialog } from './TaskFormDialog';
@@ -142,6 +142,23 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
     }
   };
 
+  const handleBulkMarkDone = async () => {
+    if (selectedTasks.size === 0) return;
+    
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status: 'completed' })
+      .in('id', Array.from(selectedTasks));
+    
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to update tasks', variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: `${selectedTasks.size} task(s) marked as done` });
+      setSelectedTasks(new Set());
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    }
+  };
+
   const handleExport = () => {
     if (!filteredTasks || filteredTasks.length === 0) {
       toast({ title: 'No tasks to export', description: 'Apply filters to select tasks for export' });
@@ -215,10 +232,16 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
               </div>
               <div className="flex flex-wrap gap-2">
                 {selectedTasks.size > 0 && (
-                  <Button variant="secondary" onClick={() => setIsTextExportOpen(true)}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export Text ({selectedTasks.size})
-                  </Button>
+                  <>
+                    <Button variant="default" onClick={handleBulkMarkDone}>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Mark Done ({selectedTasks.size})
+                    </Button>
+                    <Button variant="secondary" onClick={() => setIsTextExportOpen(true)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Export Text ({selectedTasks.size})
+                    </Button>
+                  </>
                 )}
                 <Button variant="outline" onClick={() => setIsImportOpen(true)}>
                   <Upload className="mr-2 h-4 w-4" />
