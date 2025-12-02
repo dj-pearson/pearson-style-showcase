@@ -115,75 +115,86 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
       const lines = text.split('\n').filter(line => line.trim());
       const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
       
-      // Detect CSV format (support multiple formats)
-      const hasItem = headers.includes('item');
-      const hasTitle = headers.includes('title');
-      const hasPriority = headers.includes('priority');
-      const hasCategory = headers.includes('category');
-      const hasEffort = headers.includes('effort');
-      const hasDependencies = headers.includes('dependencies');
-      
+      // Build extra info to store in comments
       const tasks = lines.slice(1)
         .filter(line => line.trim())
         .map(line => {
           const values = parseCSVLine(line);
           const task: any = {
-            project_id: projectId,
-            source: sourceName || file.name,
-            metadata: {}
+            project_id: projectId
           };
+          const extras: string[] = [];
+          if (sourceName) extras.push(`Source: ${sourceName}`);
           
           headers.forEach((header, index) => {
             const value = values[index] || '';
+            if (!value) return;
             
-            // Map CSV fields to database fields
+            // Map CSV fields to database fields (case-insensitive matching already done)
             switch (header) {
               case 'item':
               case 'title':
+              case 'name':
                 task.title = value;
                 break;
               case 'description':
+              case 'desc':
                 task.description = value;
                 break;
-              case 'category':
-                task.category = value;
-                break;
               case 'priority':
-                task.original_priority = value;
                 task.priority = mapPriority(value);
+                extras.push(`Original Priority: ${value}`);
                 break;
               case 'status':
                 task.status = mapStatus(value);
-                task.metadata.original_status = value;
-                break;
-              case 'effort':
-                task.effort = value;
-                break;
-              case 'dependencies':
-                task.dependencies = value;
                 break;
               case 'due_date':
               case 'due date':
-                if (value) task.due_date = value;
+              case 'duedate':
+                task.due_date = value;
+                break;
+              case 'start_date':
+              case 'start date':
+              case 'startdate':
+                task.start_date = value;
+                break;
+              case 'assigned_to':
+              case 'assigned':
+              case 'assignee':
+                task.assigned_to = value;
                 break;
               case 'links':
-                if (value) task.links = value.split(',').map(l => l.trim());
+              case 'link':
+              case 'url':
+                task.links = value.split(',').map((l: string) => l.trim());
+                break;
+              case 'category':
+              case 'type':
+                extras.push(`Category: ${value}`);
+                break;
+              case 'effort':
+              case 'estimate':
+              case 'time':
+                extras.push(`Effort: ${value}`);
+                break;
+              case 'dependencies':
+              case 'depends_on':
+              case 'blockers':
+                extras.push(`Dependencies: ${value}`);
                 break;
               default:
-                // Store any other fields in metadata
-                if (value) task.metadata[header] = value;
+                // Store any other fields in extras
+                extras.push(`${header}: ${value}`);
             }
           });
 
-          // Create tags from category and priority for better searching
-          task.tags = [
-            task.category,
-            task.original_priority,
-            task.priority,
-          ].filter(Boolean);
+          // Combine extras into comments field
+          if (extras.length > 0) {
+            task.comments = extras.join('\n');
+          }
 
           return task;
-        });
+        })
 
       const { error } = await supabase.from('tasks').insert(tasks);
       
