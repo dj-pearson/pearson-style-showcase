@@ -242,43 +242,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * Combined into single effect to prevent race conditions
    */
   useEffect(() => {
-    let mounted = true;
-
-    const initializeAuth = async () => {
-      logger.debug('Initializing auth...');
-
-      try {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-
-        if (!mounted) return;
-
-        if (sessionError) {
-          const errorMessage = sessionError.message?.toLowerCase() || '';
-          const isRefreshTokenError =
-            errorMessage.includes('refresh token') ||
-            errorMessage.includes('invalid token') ||
-            errorMessage.includes('session not found');
-
-          if (isRefreshTokenError) {
-            logger.warn('Invalid refresh token, clearing stale session');
-            clearStoredAuthData();
-          } else {
-            logger.error('Error getting initial session:', sessionError);
-          }
-
-          setAuthStatus('unauthenticated');
-          return;
-        }
-
-        await processSession(initialSession, 'initialization');
-      } catch (err) {
-        logger.error('Error initializing auth:', err);
-        if (mounted) {
-          clearStoredAuthData();
-          setAuthStatus('error');
-          setError('Failed to initialize authentication');
-        }
-      }
+    const initializeAuth = () => {
+      logger.debug('Initializing auth - INITIAL_SESSION event will handle session restoration');
     };
 
     // Set up auth state change listener FIRST, before initialization
@@ -295,6 +260,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
 
         switch (event) {
+          case 'INITIAL_SESSION':
+            // This fires on page load/reload with restored session
+            logger.debug('Initial session event received');
+            if (currentSession && !isProcessingRef.current) {
+              await processSession(currentSession, 'INITIAL_SESSION event');
+            } else if (!currentSession) {
+              setAuthStatus('unauthenticated');
+            }
+            break;
+
           case 'SIGNED_IN':
             // Skip if we're already processing, verifying, or verified
             // This prevents double-processing during login flows
@@ -338,7 +313,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
 
     return () => {
-      mounted = false;
       logger.debug('Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
