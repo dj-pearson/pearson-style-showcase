@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { VaultMFAGate } from './VaultMFAGate';
 import { VaultItemForm } from './VaultItemForm';
 import { VaultTypeManager } from './VaultTypeManager';
+import { VaultPlatformManager } from './VaultPlatformManager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,7 @@ import { toast } from 'sonner';
 import { 
   Shield, Plus, Search, Eye, EyeOff, Copy, Trash2, Edit, 
   Lock, FileText, Link, Terminal, Key, Settings, RefreshCw,
-  FolderKanban, Globe
+  FolderKanban, Globe, Building2
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -25,6 +26,7 @@ type VaultItem = {
   name: string;
   type_id: string | null;
   project_id: string | null;
+  platform_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -44,6 +46,13 @@ type VaultType = {
   is_system: boolean;
 };
 
+type VaultPlatform = {
+  id: string;
+  name: string;
+  icon: string | null;
+  url: string | null;
+};
+
 const iconMap: Record<string, React.ReactNode> = {
   lock: <Lock className="h-4 w-4" />,
   'file-text': <FileText className="h-4 w-4" />,
@@ -57,6 +66,7 @@ export const SecureVaultDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'updated_at'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [revealedItems, setRevealedItems] = useState<Record<string, string>>({});
@@ -65,6 +75,7 @@ export const SecureVaultDashboard = () => {
   const [deleteItem, setDeleteItem] = useState<VaultItem | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
+  const [isPlatformManagerOpen, setIsPlatformManagerOpen] = useState(false);
   
   const queryClient = useQueryClient();
 
@@ -97,13 +108,27 @@ export const SecureVaultDashboard = () => {
     enabled: isVerified
   });
 
+  // Fetch vault platforms
+  const { data: platforms = [] } = useQuery({
+    queryKey: ['vault-platforms'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('vault_platforms')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data as VaultPlatform[];
+    },
+    enabled: isVerified
+  });
+
   // Fetch vault items (metadata only, not decrypted values)
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['vault-items'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('secure_vault_items')
-        .select('id, name, type_id, project_id, notes, created_at, updated_at, last_accessed_at')
+        .select('id, name, type_id, project_id, platform_id, notes, created_at, updated_at, last_accessed_at')
         .order(sortBy, { ascending: sortOrder === 'asc' });
       if (error) throw error;
       return data as VaultItem[];
@@ -202,7 +227,10 @@ export const SecureVaultDashboard = () => {
       const matchesProject = projectFilter === 'all' || 
         (projectFilter === 'global' && !item.project_id) ||
         item.project_id === projectFilter;
-      return matchesSearch && matchesType && matchesProject;
+      const matchesPlatform = platformFilter === 'all' ||
+        (platformFilter === 'none' && !item.platform_id) ||
+        item.platform_id === platformFilter;
+      return matchesSearch && matchesType && matchesProject && matchesPlatform;
     })
     .sort((a, b) => {
       const aVal = a[sortBy] || '';
@@ -236,6 +264,12 @@ export const SecureVaultDashboard = () => {
     return project?.color || undefined;
   };
 
+  const getPlatformName = (platformId: string | null) => {
+    if (!platformId) return null;
+    const platform = platforms.find(p => p.id === platformId);
+    return platform?.name || null;
+  };
+
   // Clear revealed items after timeout for security
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -265,9 +299,13 @@ export const SecureVaultDashboard = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsPlatformManagerOpen(true)}>
+            <Building2 className="h-4 w-4 mr-2" />
+            Platforms
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setIsTypeManagerOpen(true)}>
             <Settings className="h-4 w-4 mr-2" />
-            Manage Types
+            Types
           </Button>
           <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
@@ -308,7 +346,7 @@ export const SecureVaultDashboard = () => {
               </SelectContent>
             </Select>
             <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Filter by project" />
               </SelectTrigger>
               <SelectContent>
@@ -324,6 +362,23 @@ export const SecureVaultDashboard = () => {
                     <span className="flex items-center gap-2">
                       <FolderKanban className="h-4 w-4" style={{ color: project.color || undefined }} />
                       {project.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={platformFilter} onValueChange={setPlatformFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Filter by platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Platforms</SelectItem>
+                <SelectItem value="none">No Platform</SelectItem>
+                {platforms.map(platform => (
+                  <SelectItem key={platform.id} value={platform.id}>
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      {platform.name}
                     </span>
                   </SelectItem>
                 ))}
@@ -370,6 +425,7 @@ export const SecureVaultDashboard = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Type</TableHead>
+                  <TableHead>Platform</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Value</TableHead>
@@ -386,6 +442,16 @@ export const SecureVaultDashboard = () => {
                         {getTypeIcon(item.type_id)}
                         {getTypeName(item.type_id)}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {getPlatformName(item.platform_id) ? (
+                        <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                          <Building2 className="h-3 w-3" />
+                          {getPlatformName(item.platform_id)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -471,6 +537,7 @@ export const SecureVaultDashboard = () => {
           <VaultItemForm 
             types={types}
             projects={projects}
+            platforms={platforms}
             editItem={editingItem}
             onSuccess={() => {
               setIsFormOpen(false);
@@ -495,6 +562,16 @@ export const SecureVaultDashboard = () => {
             types={types}
             onUpdate={() => queryClient.invalidateQueries({ queryKey: ['vault-types'] })}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Platform Manager Dialog */}
+      <Dialog open={isPlatformManagerOpen} onOpenChange={setIsPlatformManagerOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manage Platforms</DialogTitle>
+          </DialogHeader>
+          <VaultPlatformManager />
         </DialogContent>
       </Dialog>
 
