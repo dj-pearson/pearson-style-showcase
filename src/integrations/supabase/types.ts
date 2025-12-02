@@ -2923,6 +2923,7 @@ export type Database = {
           last_accessed_at: string | null
           name: string
           notes: string | null
+          platform_id: string | null
           project_id: string | null
           type_id: string | null
           updated_at: string | null
@@ -2935,6 +2936,7 @@ export type Database = {
           last_accessed_at?: string | null
           name: string
           notes?: string | null
+          platform_id?: string | null
           project_id?: string | null
           type_id?: string | null
           updated_at?: string | null
@@ -2947,12 +2949,20 @@ export type Database = {
           last_accessed_at?: string | null
           name?: string
           notes?: string | null
+          platform_id?: string | null
           project_id?: string | null
           type_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "secure_vault_items_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "vault_platforms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "secure_vault_items_project_id_fkey"
             columns: ["project_id"]
@@ -3594,6 +3604,30 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vault_platforms: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          url?: string | null
         }
         Relationships: []
       }

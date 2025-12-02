@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Lock, FileText, Link, Terminal, Key, FolderKanban, Globe } from 'lucide-react';
+import { Eye, EyeOff, Lock, FileText, Link, Terminal, Key, FolderKanban, Globe, Building2 } from 'lucide-react';
 
 type VaultType = {
   id: string;
@@ -22,17 +22,26 @@ type TaskProject = {
   color: string | null;
 };
 
+type VaultPlatform = {
+  id: string;
+  name: string;
+  icon: string | null;
+  url: string | null;
+};
+
 type VaultItem = {
   id: string;
   name: string;
   type_id: string | null;
   project_id?: string | null;
+  platform_id?: string | null;
   notes: string | null;
 };
 
 interface VaultItemFormProps {
   types: VaultType[];
   projects: TaskProject[];
+  platforms: VaultPlatform[];
   editItem?: VaultItem | null;
   onSuccess: () => void;
   onCancel: () => void;
@@ -46,11 +55,12 @@ const iconMap: Record<string, React.ReactNode> = {
   key: <Key className="h-4 w-4" />,
 };
 
-export const VaultItemForm = ({ types, projects, editItem, onSuccess, onCancel }: VaultItemFormProps) => {
+export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess, onCancel }: VaultItemFormProps) => {
   const [name, setName] = useState(editItem?.name || '');
   const [value, setValue] = useState('');
   const [typeId, setTypeId] = useState(editItem?.type_id || '');
   const [projectId, setProjectId] = useState(editItem?.project_id || 'global');
+  const [platformId, setPlatformId] = useState(editItem?.platform_id || 'none');
   const [notes, setNotes] = useState(editItem?.notes || '');
   const [showValue, setShowValue] = useState(false);
   const [loadingDecrypt, setLoadingDecrypt] = useState(false);
@@ -75,9 +85,10 @@ export const VaultItemForm = ({ types, projects, editItem, onSuccess, onCancel }
     mutationFn: async () => {
       const action = editItem ? 'update' : 'encrypt';
       const resolvedProjectId = projectId === 'global' ? null : projectId;
+      const resolvedPlatformId = platformId === 'none' ? null : platformId;
       const body = editItem 
-        ? { action, itemId: editItem.id, name, value, typeId: typeId || null, projectId: resolvedProjectId, notes: notes || null }
-        : { action, name, value, typeId: typeId || null, projectId: resolvedProjectId, notes: notes || null };
+        ? { action, itemId: editItem.id, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, notes: notes || null }
+        : { action, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, notes: notes || null };
 
       const response = await supabase.functions.invoke('secure-vault', { body });
       
@@ -144,29 +155,53 @@ export const VaultItemForm = ({ types, projects, editItem, onSuccess, onCancel }
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="project">Project</Label>
-          <Select value={projectId} onValueChange={setProjectId}>
+          <Label htmlFor="platform">Platform</Label>
+          <Select value={platformId} onValueChange={setPlatformId}>
             <SelectTrigger>
-              <SelectValue placeholder="Select a project" />
+              <SelectValue placeholder="Select a platform" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="global">
-                <span className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  Global
+              <SelectItem value="none">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  None
                 </span>
               </SelectItem>
-              {projects.map(project => (
-                <SelectItem key={project.id} value={project.id}>
+              {platforms.map(platform => (
+                <SelectItem key={platform.id} value={platform.id}>
                   <span className="flex items-center gap-2">
-                    <FolderKanban className="h-4 w-4" style={{ color: project.color || undefined }} />
-                    {project.name}
+                    <Building2 className="h-4 w-4" />
+                    {platform.name}
                   </span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="project">Project</Label>
+        <Select value={projectId} onValueChange={setProjectId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select a project" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="global">
+              <span className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Global
+              </span>
+            </SelectItem>
+            {projects.map(project => (
+              <SelectItem key={project.id} value={project.id}>
+                <span className="flex items-center gap-2">
+                  <FolderKanban className="h-4 w-4" style={{ color: project.color || undefined }} />
+                  {project.name}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
