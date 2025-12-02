@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Upload, Download, Search, X } from 'lucide-react';
+import { Plus, Upload, Download, Search, X, FileText } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { TaskFormDialog } from './TaskFormDialog';
 import { TasksTable } from './TasksTable';
 import { BulkImportDialog } from './BulkImportDialog';
+import { TextExportDialog } from './TextExportDialog';
 
 interface TasksManagerProps {
   selectedProject: string | null;
@@ -21,12 +22,14 @@ interface TasksManagerProps {
 export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerProps) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isTextExportOpen, setIsTextExportOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
 
@@ -211,6 +214,12 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                {selectedTasks.size > 0 && (
+                  <Button variant="secondary" onClick={() => setIsTextExportOpen(true)}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export Text ({selectedTasks.size})
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => setIsImportOpen(true)}>
                   <Upload className="mr-2 h-4 w-4" />
                   Import CSV
@@ -334,6 +343,8 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
             onEdit={handleEdit}
             onDelete={handleDelete}
             onUpdateField={handleUpdateField}
+            selectedTasks={selectedTasks}
+            onSelectionChange={setSelectedTasks}
           />
         </CardContent>
       </Card>
@@ -358,6 +369,12 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
           setIsImportOpen(false);
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
         }}
+      />
+
+      <TextExportDialog
+        open={isTextExportOpen}
+        onOpenChange={setIsTextExportOpen}
+        tasks={filteredTasks?.filter(t => selectedTasks.has(t.id)) || []}
       />
     </>
   );
