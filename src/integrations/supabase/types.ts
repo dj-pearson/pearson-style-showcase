@@ -2923,6 +2923,7 @@ export type Database = {
           last_accessed_at: string | null
           name: string
           notes: string | null
+          project_id: string | null
           type_id: string | null
           updated_at: string | null
           user_id: string
@@ -2934,6 +2935,7 @@ export type Database = {
           last_accessed_at?: string | null
           name: string
           notes?: string | null
+          project_id?: string | null
           type_id?: string | null
           updated_at?: string | null
           user_id: string
@@ -2945,11 +2947,19 @@ export type Database = {
           last_accessed_at?: string | null
           name?: string
           notes?: string | null
+          project_id?: string | null
           type_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "secure_vault_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "secure_vault_items_type_id_fkey"
             columns: ["type_id"]
