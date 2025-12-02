@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Edit, Trash2, ChevronDown, ChevronRight, Clock, Tag } from 'lucide-react';
 import { useState } from 'react';
 
@@ -12,10 +13,30 @@ interface TasksTableProps {
   onEdit: (task: any) => void;
   onDelete: (taskId: string) => void;
   onUpdateField: (taskId: string, field: string, value: any) => void;
+  selectedTasks: Set<string>;
+  onSelectionChange: (selected: Set<string>) => void;
 }
 
-export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField }: TasksTableProps) => {
+export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTasks, onSelectionChange }: TasksTableProps) => {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  const toggleSelectAll = () => {
+    if (selectedTasks.size === tasks.length) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(tasks.map(t => t.id)));
+    }
+  };
+
+  const toggleSelect = (taskId: string) => {
+    const newSelected = new Set(selectedTasks);
+    if (newSelected.has(taskId)) {
+      newSelected.delete(taskId);
+    } else {
+      newSelected.add(taskId);
+    }
+    onSelectionChange(newSelected);
+  };
 
   const toggleExpand = (taskId: string) => {
     const newExpanded = new Set(expandedTasks);
@@ -43,6 +64,13 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField }: TasksTabl
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={tasks.length > 0 && selectedTasks.size === tasks.length}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
               <TableHead className="w-8"></TableHead>
               <TableHead className="min-w-[200px]">Title</TableHead>
               <TableHead>Category</TableHead>
@@ -57,14 +85,21 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField }: TasksTabl
           <TableBody>
             {tasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   No tasks found. Import CSV or create a new task.
                 </TableCell>
               </TableRow>
             ) : (
               tasks.map((task) => (
                 <>
-                  <TableRow key={task.id}>
+                  <TableRow key={task.id} className={selectedTasks.has(task.id) ? 'bg-muted/50' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedTasks.has(task.id)}
+                        onCheckedChange={() => toggleSelect(task.id)}
+                        aria-label={`Select ${task.title}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       {task.subtasks && task.subtasks.length > 0 && (
                         <Button
@@ -191,6 +226,7 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField }: TasksTabl
                   </TableRow>
                   {expandedTasks.has(task.id) && task.subtasks?.map((subtask: any) => (
                     <TableRow key={subtask.id} className="bg-muted/30">
+                      <TableCell></TableCell>
                       <TableCell></TableCell>
                       <TableCell className="pl-8">↳ {subtask.title}</TableCell>
                       <TableCell>-</TableCell>
