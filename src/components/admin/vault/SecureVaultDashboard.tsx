@@ -15,7 +15,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { 
   Shield, Plus, Search, Eye, EyeOff, Copy, Trash2, Edit, 
-  Lock, FileText, Link, Terminal, Key, Settings, RefreshCw 
+  Lock, FileText, Link, Terminal, Key, Settings, RefreshCw,
+  FolderKanban, Globe
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -23,10 +24,17 @@ type VaultItem = {
   id: string;
   name: string;
   type_id: string | null;
+  project_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
   last_accessed_at: string | null;
+};
+
+type TaskProject = {
+  id: string;
+  name: string;
+  color: string | null;
 };
 
 type VaultType = {
@@ -48,6 +56,7 @@ export const SecureVaultDashboard = () => {
   const [isVerified, setIsVerified] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'updated_at'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [revealedItems, setRevealedItems] = useState<Record<string, string>>({});
@@ -74,13 +83,27 @@ export const SecureVaultDashboard = () => {
     enabled: isVerified
   });
 
+  // Fetch task projects for filtering
+  const { data: projects = [] } = useQuery({
+    queryKey: ['task-projects-vault'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('task_projects')
+        .select('id, name, color')
+        .order('name');
+      if (error) throw error;
+      return data as TaskProject[];
+    },
+    enabled: isVerified
+  });
+
   // Fetch vault items (metadata only, not decrypted values)
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['vault-items'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('secure_vault_items')
-        .select('id, name, type_id, notes, created_at, updated_at, last_accessed_at')
+        .select('id, name, type_id, project_id, notes, created_at, updated_at, last_accessed_at')
         .order(sortBy, { ascending: sortOrder === 'asc' });
       if (error) throw error;
       return data as VaultItem[];
@@ -176,7 +199,10 @@ export const SecureVaultDashboard = () => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.notes?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = typeFilter === 'all' || item.type_id === typeFilter;
-      return matchesSearch && matchesType;
+      const matchesProject = projectFilter === 'all' || 
+        (projectFilter === 'global' && !item.project_id) ||
+        item.project_id === projectFilter;
+      return matchesSearch && matchesType && matchesProject;
     })
     .sort((a, b) => {
       const aVal = a[sortBy] || '';
@@ -196,6 +222,18 @@ export const SecureVaultDashboard = () => {
     if (!typeId) return <Key className="h-4 w-4" />;
     const type = types.find(t => t.id === typeId);
     return iconMap[type?.icon || 'key'] || <Key className="h-4 w-4" />;
+  };
+
+  const getProjectName = (projectId: string | null) => {
+    if (!projectId) return 'Global';
+    const project = projects.find(p => p.id === projectId);
+    return project?.name || 'Unknown';
+  };
+
+  const getProjectColor = (projectId: string | null) => {
+    if (!projectId) return undefined;
+    const project = projects.find(p => p.id === projectId);
+    return project?.color || undefined;
   };
 
   // Clear revealed items after timeout for security
@@ -269,6 +307,28 @@ export const SecureVaultDashboard = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                <SelectItem value="global">
+                  <span className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Global
+                  </span>
+                </SelectItem>
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id}>
+                    <span className="flex items-center gap-2">
+                      <FolderKanban className="h-4 w-4" style={{ color: project.color || undefined }} />
+                      {project.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Sort by" />
@@ -310,6 +370,7 @@ export const SecureVaultDashboard = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Type</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Value</TableHead>
                   <TableHead>Notes</TableHead>
@@ -324,6 +385,20 @@ export const SecureVaultDashboard = () => {
                       <Badge variant="outline" className="flex items-center gap-1 w-fit">
                         {getTypeIcon(item.type_id)}
                         {getTypeName(item.type_id)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="secondary" 
+                        className="flex items-center gap-1 w-fit"
+                        style={{ borderColor: getProjectColor(item.project_id) || undefined }}
+                      >
+                        {item.project_id ? (
+                          <FolderKanban className="h-3 w-3" style={{ color: getProjectColor(item.project_id) || undefined }} />
+                        ) : (
+                          <Globe className="h-3 w-3" />
+                        )}
+                        {getProjectName(item.project_id)}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>
@@ -395,6 +470,7 @@ export const SecureVaultDashboard = () => {
           </DialogHeader>
           <VaultItemForm 
             types={types}
+            projects={projects}
             editItem={editingItem}
             onSuccess={() => {
               setIsFormOpen(false);
