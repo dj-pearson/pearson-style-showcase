@@ -2973,6 +2973,13 @@ export type Database = {
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subtasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks_full_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       support_tickets: {
@@ -3149,7 +3156,9 @@ export type Database = {
           description: string | null
           domain: string | null
           id: string
+          metadata: Json | null
           name: string
+          platform: string | null
           status: string | null
           updated_at: string
         }
@@ -3159,7 +3168,9 @@ export type Database = {
           description?: string | null
           domain?: string | null
           id?: string
+          metadata?: Json | null
           name: string
+          platform?: string | null
           status?: string | null
           updated_at?: string
         }
@@ -3169,7 +3180,9 @@ export type Database = {
           description?: string | null
           domain?: string | null
           id?: string
+          metadata?: Json | null
           name?: string
+          platform?: string | null
           status?: string | null
           updated_at?: string
         }
@@ -3178,49 +3191,70 @@ export type Database = {
       tasks: {
         Row: {
           assigned_to: string | null
+          category: string | null
           comments: string | null
           completed_at: string | null
           created_at: string
+          dependencies: string | null
           description: string | null
           due_date: string | null
+          effort: string | null
           id: string
           links: Json | null
+          metadata: Json | null
+          original_priority: string | null
           priority: string | null
           project_id: string | null
+          source: string | null
           start_date: string | null
           status: string | null
+          tags: string[] | null
           title: string
           updated_at: string
         }
         Insert: {
           assigned_to?: string | null
+          category?: string | null
           comments?: string | null
           completed_at?: string | null
           created_at?: string
+          dependencies?: string | null
           description?: string | null
           due_date?: string | null
+          effort?: string | null
           id?: string
           links?: Json | null
+          metadata?: Json | null
+          original_priority?: string | null
           priority?: string | null
           project_id?: string | null
+          source?: string | null
           start_date?: string | null
           status?: string | null
+          tags?: string[] | null
           title: string
           updated_at?: string
         }
         Update: {
           assigned_to?: string | null
+          category?: string | null
           comments?: string | null
           completed_at?: string | null
           created_at?: string
+          dependencies?: string | null
           description?: string | null
           due_date?: string | null
+          effort?: string | null
           id?: string
           links?: Json | null
+          metadata?: Json | null
+          original_priority?: string | null
           priority?: string | null
           project_id?: string | null
+          source?: string | null
           start_date?: string | null
           status?: string | null
+          tags?: string[] | null
           title?: string
           updated_at?: string
         }
@@ -3530,7 +3564,46 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      tasks_full_view: {
+        Row: {
+          assigned_to: string | null
+          category: string | null
+          comments: string | null
+          completed_at: string | null
+          completed_subtasks: number | null
+          created_at: string | null
+          dependencies: string | null
+          description: string | null
+          due_date: string | null
+          effort: string | null
+          id: string | null
+          links: Json | null
+          metadata: Json | null
+          original_priority: string | null
+          priority: string | null
+          project_color: string | null
+          project_domain: string | null
+          project_id: string | null
+          project_name: string | null
+          project_platform: string | null
+          source: string | null
+          start_date: string | null
+          status: string | null
+          subtask_count: number | null
+          tags: string[] | null
+          title: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_next_due_date: {
@@ -3593,6 +3666,8 @@ export type Database = {
         }
         Returns: string
       }
+      map_priority: { Args: { original_priority: string }; Returns: string }
+      map_status: { Args: { original_status: string }; Returns: string }
       record_maintenance_run: {
         Args: {
           p_details?: Json
