@@ -242,16 +242,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * Combined into single effect to prevent race conditions
    */
   useEffect(() => {
-    const initializeAuth = () => {
-      logger.debug('Initializing auth - INITIAL_SESSION event will handle session restoration');
-    };
+    let mounted = true;
 
-    // Set up auth state change listener FIRST, before initialization
-    // This ensures we don't miss any events
+    // Set up auth state change listener FIRST
     logger.debug('Setting up auth state change listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        // Use ref to get current status (not stale closure value)
+        if (!mounted) return;
+        
         const currentStatus = authStatusRef.current;
 
         logger.debug(`Auth state changed: ${event}`, {
@@ -272,7 +270,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           case 'SIGNED_IN':
             // Skip if we're already processing, verifying, or verified
-            // This prevents double-processing during login flows
             if (isProcessingRef.current ||
                 currentStatus === 'verifying_admin' ||
                 currentStatus === 'admin_verified') {
@@ -309,10 +306,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    // Now initialize
-    initializeAuth();
+    // CRITICAL: Also manually check for existing session as fallback
+    // INITIAL_SESSION event may not always fire reliably
+    const checkExistingSession = async () => {
+      // Small delay to let INITIAL_SESSION fire first if it's going to
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!mounted) return;
+      
+      // Only check if we're still initializing (INITIAL_SESSION didn't fire)
+      if (authStatusRef.current === 'initializing' && !isProcessingRef.current) {
+        logger.debug('Manually checking for existing session (fallback)');
+        const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (error) {
+          logger.error('Error getting session:', error);
+          setAuthStatus('unauthenticated');
+          return;
+        }
+        
+        if (existingSession && !isProcessingRef.current) {
+          logger.debug('Found existing session via manual check');
+          await processSession(existingSession, 'manual getSession fallback');
+        } else if (!existingSession && authStatusRef.current === 'initializing') {
+          logger.debug('No existing session found');
+          setAuthStatus('unauthenticated');
+        }
+      }
+    };
+
+    checkExistingSession();
 
     return () => {
+      mounted = false;
       logger.debug('Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
