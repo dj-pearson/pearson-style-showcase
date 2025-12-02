@@ -7,6 +7,10 @@ import { createOAuthState } from '@/lib/oauth-state';
 // App role type matching database enum
 export type AppRole = 'admin' | 'editor' | 'viewer';
 
+// Cache keys for localStorage
+const ADMIN_CACHE_KEY = 'admin_user_cache';
+const ADMIN_CACHE_TTL = 30 * 60 * 1000; // 30 minutes - admin verification is valid for this long
+
 // Auth status state machine - eliminates race conditions by having explicit states
 export type AuthStatus =
   | 'initializing'      // App just loaded, checking for existing session
@@ -22,6 +26,12 @@ interface AdminUser {
   username?: string;
   roles: AppRole[];
   permissions: string[];
+}
+
+interface CachedAdminData {
+  adminUser: AdminUser;
+  userId: string; // To verify cache matches current session
+  timestamp: number;
 }
 
 interface AuthContextType {
@@ -88,6 +98,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [authStatus]);
 
   /**
+   * Get cached admin data from localStorage
+   */
+  const getCachedAdminData = useCallback((userId: string): AdminUser | null => {
+    try {
+      const cached = localStorage.getItem(ADMIN_CACHE_KEY);
+      if (!cached) return null;
+
+      const data: CachedAdminData = JSON.parse(cached);
+
+      // Validate cache: must match current user and not be expired
+      if (data.userId !== userId) {
+        logger.debug('Cached admin data is for different user, ignoring');
+        return null;
+      }
+
+      const age = Date.now() - data.timestamp;
+      if (age > ADMIN_CACHE_TTL) {
+        logger.debug('Cached admin data expired', { ageMinutes: Math.round(age / 60000) });
+        return null;
+      }
+
+      logger.debug('Using cached admin data', {
+        email: data.adminUser.email,
+        ageMinutes: Math.round(age / 60000)
+      });
+      return data.adminUser;
+    } catch (err) {
+      logger.debug('Failed to read admin cache:', err);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Save admin data to localStorage cache
+   */
+  const setCachedAdminData = useCallback((userId: string, adminData: AdminUser) => {
+    try {
+      const cacheData: CachedAdminData = {
+        adminUser: adminData,
+        userId,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cacheData));
+      logger.debug('Cached admin data for:', adminData.email);
+    } catch (err) {
+      logger.debug('Failed to cache admin data:', err);
+    }
+  }, []);
+
+  /**
+   * Clear cached admin data
+   */
+  const clearCachedAdminData = useCallback(() => {
+    try {
+      localStorage.removeItem(ADMIN_CACHE_KEY);
+      logger.debug('Cleared admin cache');
+    } catch (err) {
+      logger.debug('Failed to clear admin cache:', err);
+    }
+  }, []);
+
+  /**
    * Verify admin access by calling the admin-auth edge function
    */
   const verifyAdminAccess = useCallback(async (): Promise<boolean> => {
@@ -142,6 +214,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
 
       setAdminUser(adminData);
+      // Cache the admin data for faster subsequent loads
+      setCachedAdminData(currentSession.user.id, adminData);
       logger.debug('Admin verification successful:', adminData.email);
       return true;
     } catch (err) {
@@ -149,7 +223,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setAdminUser(null);
       return false;
     }
-  }, []);
+  }, [setCachedAdminData]);
 
   /**
    * Clear all auth-related data from localStorage
@@ -162,15 +236,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.removeItem(key);
         }
       });
+      // Also clear our admin cache
+      clearCachedAdminData();
       logger.debug('Cleared stored auth data');
     } catch (storageError) {
       logger.debug('Could not clear localStorage:', storageError);
     }
-  }, []);
+  }, [clearCachedAdminData]);
 
   /**
    * Process a session - verify admin access and update state
    * Uses isProcessingRef to prevent concurrent processing
+   *
+   * OPTIMIZATION: On page reload, we first check for cached admin data
+   * to avoid a slow edge function call. This makes reloads instant.
    */
   const processSession = useCallback(async (newSession: Session | null, source: string) => {
     // Prevent concurrent processing
@@ -187,14 +266,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(null);
         setUser(null);
         setAdminUser(null);
+        clearCachedAdminData();
         setAuthStatus('unauthenticated');
         setError(null);
         return;
       }
 
-      // Update session state
+      // Update session state immediately
       setSession(newSession);
       setUser(newSession.user);
+
+      // FAST PATH: Check for cached admin data first
+      // This makes page reloads instant without waiting for edge function
+      const cachedAdmin = getCachedAdminData(newSession.user.id);
+      if (cachedAdmin) {
+        logger.debug('Using cached admin data for instant auth restore');
+        setAdminUser(cachedAdmin);
+        setAuthStatus('admin_verified');
+
+        // Background refresh: Update cache if it's getting old (> 15 min)
+        const cached = localStorage.getItem(ADMIN_CACHE_KEY);
+        if (cached) {
+          const cacheData = JSON.parse(cached);
+          const age = Date.now() - cacheData.timestamp;
+          if (age > ADMIN_CACHE_TTL / 2) {
+            logger.debug('Cache is getting stale, refreshing in background');
+            // Don't await - let it run in background
+            supabase.functions.invoke('admin-auth', { body: { action: 'me' } })
+              .then(({ data, error }) => {
+                if (!error && data && !data.error) {
+                  const freshAdminData: AdminUser = {
+                    id: data.id,
+                    email: data.email,
+                    username: data.username || data.email?.split('@')[0],
+                    roles: data.roles || ['admin'],
+                    permissions: data.permissions || []
+                  };
+                  setCachedAdminData(newSession.user.id, freshAdminData);
+                  // Update state if still mounted and session matches
+                  setAdminUser(freshAdminData);
+                }
+              })
+              .catch(() => { /* Ignore background refresh errors */ });
+          }
+        }
+        return;
+      }
+
+      // SLOW PATH: No cache, need to verify with edge function
       setAuthStatus('verifying_admin');
 
       // Verify admin access with timeout (30 seconds for OAuth flows)
@@ -214,6 +333,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (functionError || data?.error) {
         logger.warn('Admin verification failed:', functionError?.message || data?.error);
         setAdminUser(null);
+        clearCachedAdminData();
         setAuthStatus('authenticated');
         return;
       }
@@ -227,16 +347,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
 
       setAdminUser(adminData);
+      setCachedAdminData(newSession.user.id, adminData);
       setAuthStatus('admin_verified');
       logger.info(`Admin verified from ${source}:`, adminData.email);
     } catch (err) {
       logger.error('Error during admin verification:', err);
       setAdminUser(null);
+      clearCachedAdminData();
       setAuthStatus('authenticated');
     } finally {
       isProcessingRef.current = false;
     }
-  }, []);
+  }, [getCachedAdminData, setCachedAdminData, clearCachedAdminData]);
 
   /**
    * Initialize auth on mount and set up listener
@@ -285,6 +407,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setSession(null);
             setUser(null);
             setAdminUser(null);
+            clearCachedAdminData();
             setAuthStatus('unauthenticated');
             setError(null);
             break;
@@ -307,31 +430,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    // CRITICAL: Also manually check for existing session as fallback
-    // INITIAL_SESSION event may not always fire reliably
+    // Check for existing session IMMEDIATELY - no delay needed
+    // With caching, this is now very fast
     const checkExistingSession = async () => {
-      // Give INITIAL_SESSION event time to fire and process
-      // 500ms is enough for localStorage read + event dispatch
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       if (!mounted) return;
-      
-      // Only check if we're still initializing (INITIAL_SESSION didn't fire)
+
+      // Only check if we're still initializing (INITIAL_SESSION didn't fire yet)
       if (authStatusRef.current === 'initializing' && !isProcessingRef.current) {
-        logger.debug('Manually checking for existing session (fallback)');
+        logger.debug('Checking for existing session immediately');
         const { data: { session: existingSession }, error } = await supabase.auth.getSession();
-        
+
         if (!mounted) return;
-        
+
         if (error) {
           logger.error('Error getting session:', error);
           setAuthStatus('unauthenticated');
           return;
         }
-        
+
         if (existingSession && !isProcessingRef.current) {
-          logger.debug('Found existing session via manual check');
-          await processSession(existingSession, 'manual getSession fallback');
+          logger.debug('Found existing session via immediate check');
+          await processSession(existingSession, 'immediate getSession check');
         } else if (!existingSession && authStatusRef.current === 'initializing') {
           logger.debug('No existing session found');
           setAuthStatus('unauthenticated');
@@ -339,6 +458,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
+    // Run immediately - no delay needed with caching
     checkExistingSession();
 
     return () => {
