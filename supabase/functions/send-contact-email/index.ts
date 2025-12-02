@@ -1,13 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
+import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API"));
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 interface ContactFormData {
   name: string;
@@ -49,15 +44,17 @@ function sanitizeInput(input: string, maxLength: number): string {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     // Get client IP for rate limiting
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    
+
     console.log(`Contact form submission from IP: ${ip}`);
 
     // Check rate limit

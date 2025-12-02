@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
+import { createOAuthState } from '@/lib/oauth-state';
 
 // App role type matching database enum
 export type AppRole = 'admin' | 'editor' | 'viewer';
@@ -408,6 +409,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Sign in with OAuth provider (Google, Apple, etc.)
+   * Generates and stores a CSRF state parameter for security
    */
   const signInWithProvider = useCallback(async (provider: Provider) => {
     logger.debug('OAuth sign in attempt:', provider);
@@ -416,6 +418,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const redirectTo = `${window.location.origin}/auth/callback`;
 
+      // Generate CSRF protection state parameter
+      const oauthState = createOAuthState();
+      logger.debug('Generated OAuth state for CSRF protection');
+
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -423,7 +429,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           queryParams: provider === 'google' ? {
             access_type: 'offline',
             prompt: 'consent',
-          } : undefined
+            state: oauthState, // Include state for CSRF protection
+          } : {
+            state: oauthState, // Include state for CSRF protection
+          },
+          skipBrowserRedirect: false,
         }
       });
 

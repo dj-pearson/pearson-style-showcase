@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/logger';
+import { verifyOAuthState } from '@/lib/oauth-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -27,6 +28,7 @@ const AuthCallback = () => {
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasRedirected, setHasRedirected] = useState(false);
+  const stateVerifiedRef = useRef(false);
 
   useEffect(() => {
     logger.debug('AuthCallback: Current auth status:', authStatus);
@@ -43,6 +45,30 @@ const AuthCallback = () => {
       setStatus('error');
       setErrorMessage(errorDescription || urlError || 'Authentication failed');
       return;
+    }
+
+    // Verify OAuth state parameter for CSRF protection (only once)
+    if (!stateVerifiedRef.current) {
+      stateVerifiedRef.current = true;
+
+      // Get state from URL params or hash
+      const stateParam = urlParams.get('state') || hashParams.get('state');
+
+      // Only verify state if one was provided (some flows may not include it)
+      if (stateParam) {
+        const stateResult = verifyOAuthState(stateParam);
+        if (!stateResult.valid) {
+          logger.error('OAuth state verification failed:', stateResult.error);
+          setStatus('error');
+          setErrorMessage('Security validation failed. Please try again.');
+          return;
+        }
+        logger.debug('OAuth state verified successfully');
+      } else {
+        // If no state was provided, log a warning but continue
+        // This handles cases where OAuth provider doesn't return state
+        logger.warn('No OAuth state parameter in callback - CSRF protection not applied');
+      }
     }
 
     // Handle different auth statuses

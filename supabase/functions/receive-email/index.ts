@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { verifyWebhookSignature, verifySecret } from "../_shared/webhook-security.ts";
 
 interface MakeComEmailPayload {
   to: string;              // Email address message was sent to
@@ -19,9 +16,12 @@ interface MakeComEmailPayload {
 }
 
 serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle CORS preflight
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabase = createClient(
@@ -29,9 +29,50 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Verify webhook secret if configured (optional for Make.com compatibility)
+    const webhookSecret = Deno.env.get('MAKE_WEBHOOK_SECRET');
+    if (webhookSecret) {
+      const providedSecret = req.headers.get('x-webhook-secret') ||
+                            req.headers.get('authorization')?.replace('Bearer ', '');
+
+      // Check for HMAC signature first
+      const signature = req.headers.get('x-webhook-signature');
+      if (signature) {
+        // Clone request to read body for signature verification
+        const rawBody = await req.clone().text();
+        const timestamp = req.headers.get('x-webhook-timestamp');
+        const result = await verifyWebhookSignature(rawBody, signature, webhookSecret, timestamp);
+        if (!result.valid) {
+          console.error('Webhook signature verification failed:', result.error);
+          return new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        console.log('Webhook signature verified');
+      } else if (providedSecret) {
+        // Fallback to simple secret verification
+        if (!verifySecret(providedSecret, webhookSecret)) {
+          console.error('Invalid webhook secret');
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        console.log('Webhook secret verified');
+      } else {
+        console.warn('No webhook authentication provided - MAKE_WEBHOOK_SECRET is configured but no credentials in request');
+        // Optionally reject unauthenticated requests:
+        // return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        //   status: 401,
+        //   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        // });
+      }
+    }
+
     const contentType = req.headers.get('content-type') || '';
     console.log('Content-Type:', contentType);
-    
+
     let payload: MakeComEmailPayload;
     
     // Handle multipart/form-data (e.g. from Make.com sending form-data)
