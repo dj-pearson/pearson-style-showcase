@@ -26,6 +26,11 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
     due_date: '',
     start_date: '',
     links: '[]',
+    category: '',
+    effort: '',
+    dependencies: '',
+    source: '',
+    original_priority: '',
   });
 
   useEffect(() => {
@@ -39,6 +44,11 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
         due_date: editingTask.due_date ? editingTask.due_date.split('T')[0] : '',
         start_date: editingTask.start_date ? editingTask.start_date.split('T')[0] : '',
         links: JSON.stringify(editingTask.links || []),
+        category: editingTask.category || '',
+        effort: editingTask.effort || '',
+        dependencies: editingTask.dependencies || '',
+        source: editingTask.source || '',
+        original_priority: editingTask.original_priority || '',
       });
     } else {
       setFormData({
@@ -50,6 +60,11 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
         due_date: '',
         start_date: '',
         links: '[]',
+        category: '',
+        effort: '',
+        dependencies: '',
+        source: '',
+        original_priority: '',
       });
     }
   }, [editingTask, open]);
@@ -81,6 +96,11 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
       links: JSON.parse(formData.links),
       due_date: formData.due_date || null,
       start_date: formData.start_date || null,
+      category: formData.category || null,
+      effort: formData.effort || null,
+      dependencies: formData.dependencies || null,
+      source: formData.source || null,
+      original_priority: formData.original_priority || null,
     };
     saveMutation.mutate(submitData);
   };
@@ -108,6 +128,26 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
               rows={4}
             />
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Category</label>
+              <Input
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                placeholder="e.g., Core Auth, Security, CRM"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Source/Platform</label>
+              <Input
+                value={formData.source}
+                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                placeholder="e.g., Enterprise Readiness"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Project</label>
@@ -138,7 +178,8 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium">Priority</label>
               <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
@@ -154,6 +195,25 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
               </Select>
             </div>
             <div>
+              <label className="text-sm font-medium">Original Priority</label>
+              <Input
+                value={formData.original_priority}
+                onChange={(e) => setFormData({ ...formData, original_priority: e.target.value })}
+                placeholder="e.g., P0-Critical"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Effort</label>
+              <Input
+                value={formData.effort}
+                onChange={(e) => setFormData({ ...formData, effort: e.target.value })}
+                placeholder="e.g., 2 hours, 4 hours"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="text-sm font-medium">Due Date</label>
               <Input
                 type="date"
@@ -161,7 +221,25 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
               />
             </div>
+            <div>
+              <label className="text-sm font-medium">Start Date</label>
+              <Input
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+              />
+            </div>
           </div>
+
+          <div>
+            <label className="text-sm font-medium">Dependencies</label>
+            <Input
+              value={formData.dependencies}
+              onChange={(e) => setFormData({ ...formData, dependencies: e.target.value })}
+              placeholder="e.g., OAuth state validation, CRM system"
+            />
+          </div>
+
           <div>
             <label className="text-sm font-medium">Links (JSON array)</label>
             <Textarea
