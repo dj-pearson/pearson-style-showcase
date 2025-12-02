@@ -2877,6 +2877,112 @@ export type Database = {
           },
         ]
       }
+      secure_vault_access_log: {
+        Row: {
+          accessed_at: string | null
+          action: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_id: string
+          vault_item_id: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          action: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id: string
+          vault_item_id?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          action?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string
+          vault_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "secure_vault_access_log_vault_item_id_fkey"
+            columns: ["vault_item_id"]
+            isOneToOne: false
+            referencedRelation: "secure_vault_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      secure_vault_items: {
+        Row: {
+          created_at: string | null
+          encrypted_value: string
+          id: string
+          last_accessed_at: string | null
+          name: string
+          notes: string | null
+          type_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_value: string
+          id?: string
+          last_accessed_at?: string | null
+          name: string
+          notes?: string | null
+          type_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_value?: string
+          id?: string
+          last_accessed_at?: string | null
+          name?: string
+          notes?: string | null
+          type_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "secure_vault_items_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "secure_vault_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      secure_vault_types: {
+        Row: {
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
       smtp_settings: {
         Row: {
           created_at: string | null
