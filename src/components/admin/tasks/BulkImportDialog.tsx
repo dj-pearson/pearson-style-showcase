@@ -115,22 +115,21 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
       const lines = text.split('\n').filter(line => line.trim());
       const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
       
-      // Build extra info to store in comments
       const tasks = lines.slice(1)
         .filter(line => line.trim())
         .map(line => {
           const values = parseCSVLine(line);
           const task: any = {
-            project_id: projectId
+            project_id: projectId,
+            source: sourceName || file.name,
+            metadata: {}
           };
-          const extras: string[] = [];
-          if (sourceName) extras.push(`Source: ${sourceName}`);
           
           headers.forEach((header, index) => {
             const value = values[index] || '';
             if (!value) return;
             
-            // Map CSV fields to database fields (case-insensitive matching already done)
+            // Map CSV fields to database fields (case-insensitive - headers already lowercased)
             switch (header) {
               case 'item':
               case 'title':
@@ -141,12 +140,27 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
               case 'desc':
                 task.description = value;
                 break;
+              case 'category':
+              case 'type':
+                task.category = value;
+                break;
               case 'priority':
+                task.original_priority = value;
                 task.priority = mapPriority(value);
-                extras.push(`Original Priority: ${value}`);
                 break;
               case 'status':
                 task.status = mapStatus(value);
+                task.metadata.original_status = value;
+                break;
+              case 'effort':
+              case 'estimate':
+              case 'time':
+                task.effort = value;
+                break;
+              case 'dependencies':
+              case 'depends_on':
+              case 'blockers':
+                task.dependencies = value;
                 break;
               case 'due_date':
               case 'due date':
@@ -168,30 +182,14 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
               case 'url':
                 task.links = value.split(',').map((l: string) => l.trim());
                 break;
-              case 'category':
-              case 'type':
-                extras.push(`Category: ${value}`);
-                break;
-              case 'effort':
-              case 'estimate':
-              case 'time':
-                extras.push(`Effort: ${value}`);
-                break;
-              case 'dependencies':
-              case 'depends_on':
-              case 'blockers':
-                extras.push(`Dependencies: ${value}`);
-                break;
               default:
-                // Store any other fields in extras
-                extras.push(`${header}: ${value}`);
+                // Store any other fields in metadata
+                task.metadata[header] = value;
             }
           });
 
-          // Combine extras into comments field
-          if (extras.length > 0) {
-            task.comments = extras.join('\n');
-          }
+          // Create tags from category and priority for better searching
+          task.tags = [task.category, task.original_priority, task.priority].filter(Boolean);
 
           return task;
         })
