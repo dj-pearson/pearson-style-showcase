@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Upload, Download, Search, X, FileText, CheckCircle } from 'lucide-react';
+import { Plus, Upload, Download, Search, X, FileText, CheckCircle, RotateCcw } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { TaskFormDialog } from './TaskFormDialog';
@@ -17,9 +17,10 @@ import { TextExportDialog } from './TextExportDialog';
 interface TasksManagerProps {
   selectedProject: string | null;
   onSelectProject: (projectId: string | null) => void;
+  showArchived?: boolean;
 }
 
-export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerProps) => {
+export const TasksManager = ({ selectedProject, onSelectProject, showArchived = false }: TasksManagerProps) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isTextExportOpen, setIsTextExportOpen] = useState(false);
@@ -70,8 +71,15 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
 
     let filtered = [...tasks];
 
-    // Status filter
-    if (statusFilter !== 'all') {
+    // Archive filter - completed tasks go to archive
+    if (showArchived) {
+      filtered = filtered.filter(t => t.status === 'completed');
+    } else {
+      filtered = filtered.filter(t => t.status !== 'completed');
+    }
+
+    // Status filter (only apply if not showing archived, since archived = completed)
+    if (statusFilter !== 'all' && !showArchived) {
       filtered = filtered.filter(t => t.status === statusFilter);
     }
 
@@ -104,7 +112,7 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
     }
 
     return filtered;
-  }, [tasks, statusFilter, priorityFilter, categoryFilter, sourceFilter, searchQuery]);
+  }, [tasks, statusFilter, priorityFilter, categoryFilter, sourceFilter, searchQuery, showArchived]);
 
   // Extract unique values for filters
   const uniqueCategories = useMemo(() => {
@@ -153,7 +161,24 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
     if (error) {
       toast({ title: 'Error', description: 'Failed to update tasks', variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: `${selectedTasks.size} task(s) marked as done` });
+      toast({ title: 'Success', description: `${selectedTasks.size} task(s) marked as done and archived` });
+      setSelectedTasks(new Set());
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (selectedTasks.size === 0) return;
+    
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status: 'to_do' })
+      .in('id', Array.from(selectedTasks));
+    
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to restore tasks', variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: `${selectedTasks.size} task(s) restored from archive` });
       setSelectedTasks(new Set());
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
@@ -224,37 +249,48 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <CardTitle>Tasks</CardTitle>
+                <CardTitle>{showArchived ? 'Archived Tasks' : 'Tasks'}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {filteredTasks.length} of {tasks?.length || 0} tasks
+                  {filteredTasks.length} {showArchived ? 'archived' : 'active'} task{filteredTasks.length !== 1 ? 's' : ''}
                   {activeFilterCount > 0 && <Badge variant="secondary" className="ml-2">{activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}</Badge>}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {selectedTasks.size > 0 && (
                   <>
-                    <Button variant="default" onClick={handleBulkMarkDone}>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Mark Done ({selectedTasks.size})
-                    </Button>
+                    {showArchived ? (
+                      <Button variant="default" onClick={handleBulkRestore}>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Restore ({selectedTasks.size})
+                      </Button>
+                    ) : (
+                      <Button variant="default" onClick={handleBulkMarkDone}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Mark Done ({selectedTasks.size})
+                      </Button>
+                    )}
                     <Button variant="secondary" onClick={() => setIsTextExportOpen(true)}>
                       <FileText className="mr-2 h-4 w-4" />
                       Export Text ({selectedTasks.size})
                     </Button>
                   </>
                 )}
-                <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import CSV
-                </Button>
-                <Button variant="outline" onClick={handleExport} disabled={filteredTasks.length === 0}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-                <Button onClick={() => { setEditingTask(null); setIsFormOpen(true); }}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Task
-                </Button>
+                {!showArchived && (
+                  <>
+                    <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Import CSV
+                    </Button>
+                    <Button variant="outline" onClick={handleExport} disabled={filteredTasks.length === 0}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export CSV
+                    </Button>
+                    <Button onClick={() => { setEditingTask(null); setIsFormOpen(true); }}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Task
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -312,17 +348,18 @@ export const TasksManager = ({ selectedProject, onSelectProject }: TasksManagerP
                 </SelectContent>
               </Select>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="to_do">To Do</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
+              {!showArchived && (
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="to_do">To Do</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="w-[150px]">
