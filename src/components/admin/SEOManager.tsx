@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, FileText, Bot } from 'lucide-react';
+import { Search, FileText, Bot, CheckSquare } from 'lucide-react';
 import SitemapGenerator from '../SEO/SitemapGenerator';
 import RobotsTxtGenerator from '../SEO/RobotsTxtGenerator';
+import { SEOValidationTool } from './SEOValidationTool';
 
 const SEOManager = () => {
   return (
@@ -27,6 +28,10 @@ const SEOManager = () => {
           <TabsTrigger value="structured" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Structured Data
+          </TabsTrigger>
+          <TabsTrigger value="validate" className="flex items-center gap-2">
+            <CheckSquare className="h-4 w-4" />
+            Validate
           </TabsTrigger>
         </TabsList>
 
@@ -76,25 +81,28 @@ const SEOManager = () => {
                       Projects include CreativeWork schema markup
                     </p>
                   </div>
-                </div>
 
-                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-200">Testing Your Structured Data</h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Use Google's Rich Results Test tool to validate your structured data:
-                  </p>
-                  <a 
-                    href="https://search.google.com/test/rich-results" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 dark:text-blue-400 underline text-sm"
-                  >
-                    https://search.google.com/test/rich-results
-                  </a>
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium text-green-600">✓ Product Schema</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Amazon products include Product schema with offers
+                    </p>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium text-green-600">✓ Breadcrumb Schema</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Navigation breadcrumbs with proper BreadcrumbList markup
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="validate">
+          <SEOValidationTool />
         </TabsContent>
       </Tabs>
     </div>
