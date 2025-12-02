@@ -59,25 +59,55 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInWithProvider } = useAuth();
+  const { signInWithProvider, isAdminVerified, authStatus } = useAuth();
 
-  // Check if user needs MFA enrollment after login
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAdminVerified) {
+      logger.debug('User already admin verified, redirecting to dashboard');
+      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+      sessionStorage.removeItem('auth_return_url');
+      navigate(returnUrl, { replace: true });
+    }
+  }, [isAdminVerified, navigate]);
+
+  // Check if user needs MFA enrollment after login (only when not already verified)
   useEffect(() => {
     const checkMFAStatus = async () => {
+      // Don't check if already admin verified or still loading
+      if (isAdminVerified || authStatus === 'initializing' || authStatus === 'verifying_admin') {
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // Check the AAL level - if aal2, MFA is already verified for this session
+        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        logger.debug('AAL data:', aalData);
+
+        if (aalData?.currentLevel === 'aal2') {
+          // MFA already verified, just need admin verification
+          logger.debug('MFA already verified (aal2), session is valid');
+          return;
+        }
+
         const { data: factors } = await supabase.auth.mfa.listFactors();
         logger.debug('MFA factors:', factors);
-        
+
         if (!factors?.totp || factors.totp.length === 0) {
           logger.debug('No MFA enrolled, showing enrollment');
           setAuthFlow('mfa-enroll');
+        } else if (aalData?.currentLevel === 'aal1' && aalData?.nextLevel === 'aal2') {
+          // User has MFA enrolled but hasn't verified yet this session
+          logger.debug('MFA enrolled but not verified, showing verification');
+          setMfaFactorId(factors.totp[0].id);
+          setAuthFlow('mfa-verify');
         }
       }
     };
 
     checkMFAStatus();
-  }, []);
+  }, [isAdminVerified, authStatus]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -228,6 +258,20 @@ const AdminLogin = () => {
       setIsLoading(false);
     }
   };
+
+  // Show loading while auth is being checked/restored
+  if (authStatus === 'initializing' || authStatus === 'verifying_admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            {authStatus === 'initializing' ? 'Loading...' : 'Verifying access...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Show MFA enrollment if required
   if (authFlow === 'mfa-enroll') {
