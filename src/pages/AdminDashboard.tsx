@@ -65,6 +65,7 @@ const VenturesManager = lazy(() => import('@/components/admin/VenturesManager'))
 const ProfileSettingsManager = lazy(() => import('@/components/admin/ProfileSettingsManager'));
 const AccountingDashboard = lazy(() => import('@/components/admin/AccountingDashboard').then(m => ({ default: m.AccountingDashboard })));
 const AIModelConfigManager = lazy(() => import('@/components/admin/AIModelConfigManager').then(m => ({ default: m.AIModelConfigManager })));
+const SecureVaultDashboard = lazy(() => import('@/components/admin/vault/SecureVaultDashboard').then(m => ({ default: m.SecureVaultDashboard })));
 
 // Loading fallback for lazy-loaded modules
 const ModuleLoader = () => (
@@ -101,6 +102,7 @@ const AdminDashboard = () => {
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'command-center', label: 'Command Center', icon: Activity },
     { id: 'support', label: 'Support Tickets', icon: MessageSquare },
+    { id: 'vault', label: 'Secure Vault', icon: Shield },
     { id: 'ai-config', label: 'AI Configuration', icon: Activity },
     { id: 'maintenance', label: 'Maintenance', icon: Zap },
     { id: 'profile', label: 'Profile', icon: User },
@@ -279,6 +281,8 @@ const AdminDashboard = () => {
           return <CommandCenterDashboard />;
         case 'support':
           return <SupportTicketDashboard />;
+        case 'vault':
+          return <SecureVaultDashboard />;
         case 'maintenance':
           return <MaintenanceDashboard />;
         case 'profile':
