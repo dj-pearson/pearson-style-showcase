@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import StructuredData from './SEO/StructuredData';
+
+const BASE_URL = 'https://danpearson.net';
 
 interface SEOProps {
   title?: string;
@@ -7,8 +10,9 @@ interface SEOProps {
   keywords?: string;
   author?: string;
   image?: string;
-  url?: string;
+  url?: string; // If not provided, auto-generated from current route
   type?: string;
+  noIndex?: boolean; // Set to true for pages that shouldn't be indexed
   structuredData?: {
     type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review';
     data?: Record<string, unknown>;
@@ -21,10 +25,16 @@ const SEO = ({
   keywords = 'AI engineer, business development, NFT development, AI integration, sales leadership, React developer, blockchain, artificial intelligence',
   author = 'Dan Pearson',
   image = 'https://danpearson.net/android-chrome-512x512.png',
-  url = 'https://danpearson.net',
+  url,
   type = 'website',
+  noIndex = false,
   structuredData
 }: SEOProps) => {
+  const location = useLocation();
+  
+  // Auto-generate canonical URL from current route if not provided
+  const canonicalUrl = url || `${BASE_URL}${location.pathname === '/' ? '' : location.pathname.replace(/\/$/, '')}`;
+
   useEffect(() => {
     // Update title
     document.title = title;
@@ -48,14 +58,14 @@ const SEO = ({
     updateMetaTag('description', description);
     updateMetaTag('keywords', keywords);
     updateMetaTag('author', author);
-    updateMetaTag('robots', 'index, follow');
+    updateMetaTag('robots', noIndex ? 'noindex, nofollow' : 'index, follow');
     updateMetaTag('viewport', 'width=device-width, initial-scale=1.0');
 
     // Open Graph tags
     updateMetaTag('og:title', title, true);
     updateMetaTag('og:description', description, true);
     updateMetaTag('og:image', image, true);
-    updateMetaTag('og:url', url, true);
+    updateMetaTag('og:url', canonicalUrl, true);
     updateMetaTag('og:type', type, true);
     updateMetaTag('og:site_name', 'Dan Pearson Portfolio', true);
 
@@ -65,17 +75,17 @@ const SEO = ({
     updateMetaTag('twitter:description', description);
     updateMetaTag('twitter:image', image);
 
-    // Canonical URL
+    // Canonical URL - auto-generated from current route
     let canonicalLink = document.querySelector('link[rel="canonical"]');
     if (canonicalLink) {
-      canonicalLink.setAttribute('href', url);
+      canonicalLink.setAttribute('href', canonicalUrl);
     } else {
       canonicalLink = document.createElement('link');
       canonicalLink.setAttribute('rel', 'canonical');
-      canonicalLink.setAttribute('href', url);
+      canonicalLink.setAttribute('href', canonicalUrl);
       document.head.appendChild(canonicalLink);
     }
-  }, [title, description, keywords, author, image, url, type]);
+  }, [title, description, keywords, author, image, canonicalUrl, type, noIndex]);
 
   return (
     <>
