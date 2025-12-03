@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Upload, Download, Search, X, FileText, CheckCircle, RotateCcw } from 'lucide-react';
+import { Plus, Upload, Download, Search, X, FileText, CheckCircle, RotateCcw, Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { TaskFormDialog } from './TaskFormDialog';
 import { TasksTable } from './TasksTable';
 import { BulkImportDialog } from './BulkImportDialog';
 import { TextExportDialog } from './TextExportDialog';
+import { AITaskGeneratorDialog } from './AITaskGeneratorDialog';
 
 interface TasksManagerProps {
   selectedProject: string | null;
@@ -24,6 +25,7 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isTextExportOpen, setIsTextExportOpen] = useState(false);
+  const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -277,17 +279,27 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
                 )}
                 {!showArchived && (
                   <>
-                    <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                    <Button
+                      variant="default"
+                      onClick={() => setIsAIGeneratorOpen(true)}
+                      className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      <span className="hidden sm:inline">AI Generate</span>
+                      <span className="sm:hidden">AI</span>
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsImportOpen(true)} className="hidden sm:flex">
                       <Upload className="mr-2 h-4 w-4" />
                       Import CSV
                     </Button>
-                    <Button variant="outline" onClick={handleExport} disabled={filteredTasks.length === 0}>
+                    <Button variant="outline" onClick={handleExport} disabled={filteredTasks.length === 0} className="hidden sm:flex">
                       <Download className="mr-2 h-4 w-4" />
                       Export CSV
                     </Button>
                     <Button onClick={() => { setEditingTask(null); setIsFormOpen(true); }}>
                       <Plus className="mr-2 h-4 w-4" />
-                      New Task
+                      <span className="hidden sm:inline">New Task</span>
+                      <span className="sm:hidden">New</span>
                     </Button>
                   </>
                 )}
@@ -300,7 +312,7 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search tasks by title, description, category, effort, dependencies..."
+                placeholder="Search tasks..."
                 className="pl-10 pr-10"
               />
               {searchQuery && (
@@ -315,10 +327,10 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               )}
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-2">
+            {/* Filters - Mobile Optimized Grid */}
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
               <Select value={selectedProject || 'all'} onValueChange={(v) => onSelectProject(v === 'all' ? null : v)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="All Projects" />
                 </SelectTrigger>
                 <SelectContent>
@@ -326,8 +338,8 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
                   {projects?.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
-                        {project.name}
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
+                        <span className="truncate">{project.name}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -335,8 +347,8 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               </Select>
 
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="All Categories" />
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
@@ -350,8 +362,8 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
 
               {!showArchived && (
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="All Status" />
+                  <SelectTrigger className="w-full sm:w-[130px]">
+                    <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
@@ -362,8 +374,8 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               )}
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="All Priority" />
+                <SelectTrigger className="w-full sm:w-[130px]">
+                  <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Priority</SelectItem>
@@ -375,8 +387,8 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               </Select>
 
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Sources" />
+                <SelectTrigger className="w-full sm:w-[150px]">
+                  <SelectValue placeholder="Source" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sources</SelectItem>
@@ -389,7 +401,7 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               </Select>
 
               {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="col-span-2 sm:col-span-1">
                   <X className="mr-2 h-4 w-4" />
                   Clear Filters
                 </Button>
@@ -435,6 +447,17 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
         open={isTextExportOpen}
         onOpenChange={setIsTextExportOpen}
         tasks={filteredTasks?.filter(t => selectedTasks.has(t.id)) || []}
+      />
+
+      <AITaskGeneratorDialog
+        open={isAIGeneratorOpen}
+        onOpenChange={setIsAIGeneratorOpen}
+        projects={projects || []}
+        defaultProjectId={selectedProject}
+        onSuccess={() => {
+          setIsAIGeneratorOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        }}
       />
     </>
   );
