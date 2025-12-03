@@ -1,8 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  createRateLimitResponse,
+  initRateLimiter,
+  type RateLimitConfig,
+} from "../_shared/rate-limiter.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API"));
+
+// Initialize rate limiter
+initRateLimiter();
 
 interface ContactFormData {
   name: string;
@@ -11,27 +21,13 @@ interface ContactFormData {
   message: string;
 }
 
-// Rate limiting storage
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_MAX = 3; // 3 emails per hour per IP
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-
-  if (record.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-
-  record.count++;
-  return true;
-}
+// Custom rate limit config for contact form (stricter than default)
+const CONTACT_RATE_LIMIT: RateLimitConfig = {
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxRequests: 3,           // 3 emails per hour per IP
+  burstAllowance: 1,        // Allow 1 extra in burst
+  keyPrefix: 'contact',
+};
 
 // Input validation
 function validateEmail(email: string): boolean {
@@ -53,22 +49,15 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     // Get client IP for rate limiting
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    const ip = getClientIdentifier(req);
 
     console.log(`Contact form submission from IP: ${ip}`);
 
-    // Check rate limit
-    if (!checkRateLimit(ip)) {
+    // Check rate limit using shared rate limiter
+    const rateLimitResult = checkRateLimit(ip, CONTACT_RATE_LIMIT, 'contact-form');
+    if (!rateLimitResult.allowed) {
       console.warn(`Rate limit exceeded for IP: ${ip}`);
-      return new Response(
-        JSON.stringify({ 
-          error: "Too many requests. Please try again later." 
-        }),
-        {
-          status: 429,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
+      return createRateLimitResponse(rateLimitResult, corsHeaders);
     }
 
     const data: ContactFormData = await req.json();
