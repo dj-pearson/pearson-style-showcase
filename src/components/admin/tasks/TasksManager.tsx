@@ -154,16 +154,20 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
 
   const handleBulkMarkDone = async () => {
     if (selectedTasks.size === 0) return;
-    
-    const { error } = await supabase
+
+    const taskIds = Array.from(selectedTasks);
+    const { data, error } = await supabase
       .from('tasks')
-      .update({ status: 'completed' })
-      .in('id', Array.from(selectedTasks));
-    
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .in('id', taskIds)
+      .select('id');
+
     if (error) {
       toast({ title: 'Error', description: 'Failed to update tasks', variant: 'destructive' });
+    } else if (!data || data.length === 0) {
+      toast({ title: 'Error', description: 'No tasks were updated. Please try again.', variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: `${selectedTasks.size} task(s) marked as done and archived` });
+      toast({ title: 'Success', description: `${data.length} task(s) marked as done and archived` });
       setSelectedTasks(new Set());
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
@@ -171,16 +175,20 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
 
   const handleBulkRestore = async () => {
     if (selectedTasks.size === 0) return;
-    
-    const { error } = await supabase
+
+    const taskIds = Array.from(selectedTasks);
+    const { data, error } = await supabase
       .from('tasks')
-      .update({ status: 'to_do' })
-      .in('id', Array.from(selectedTasks));
-    
+      .update({ status: 'to_do', completed_at: null })
+      .in('id', taskIds)
+      .select('id');
+
     if (error) {
       toast({ title: 'Error', description: 'Failed to restore tasks', variant: 'destructive' });
+    } else if (!data || data.length === 0) {
+      toast({ title: 'Error', description: 'No tasks were restored. Please try again.', variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: `${selectedTasks.size} task(s) restored from archive` });
+      toast({ title: 'Success', description: `${data.length} task(s) restored from archive` });
       setSelectedTasks(new Set());
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
