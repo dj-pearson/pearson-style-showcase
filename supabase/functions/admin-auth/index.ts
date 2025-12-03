@@ -1,10 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 );
+
+// Track locked accounts to avoid sending duplicate emails
+const lockoutNotificationsSent = new Map<string, number>();
+const LOCKOUT_NOTIFICATION_COOLDOWN = 60 * 60 * 1000; // 1 hour cooldown between notifications
 
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
@@ -127,6 +132,199 @@ function clearFailedAttempts(ip: string): void {
   loginAttempts.delete(ip);
 }
 
+/**
+ * Send account lockout notification email
+ */
+async function sendLockoutNotification(
+  email: string,
+  ip: string,
+  userAgent: string,
+  attemptCount: number
+): Promise<void> {
+  // Check cooldown to avoid spam
+  const lastNotification = lockoutNotificationsSent.get(email);
+  if (lastNotification && Date.now() - lastNotification < LOCKOUT_NOTIFICATION_COOLDOWN) {
+    console.log(`Skipping lockout notification for ${email} - cooldown active`);
+    return;
+  }
+
+  const smtpHost = Deno.env.get('AMAZON_SMTP_ENDPOINT');
+  const smtpUsername = Deno.env.get('AMAZON_SMTP_USER_NAME');
+  const smtpPassword = Deno.env.get('AMAZON_SMTP_PASSWORD');
+
+  // If SMTP is not configured, log and continue (non-critical)
+  if (!smtpHost || !smtpUsername || !smtpPassword) {
+    console.warn('SMTP not configured - skipping lockout notification email');
+    // Still log the event to the database
+    await logLockoutEvent(email, ip, userAgent, attemptCount, false);
+    return;
+  }
+
+  try {
+    const client = new SMTPClient({
+      connection: {
+        hostname: smtpHost,
+        port: 465, // Use TLS port
+        tls: true,
+        auth: {
+          username: smtpUsername,
+          password: smtpPassword,
+        },
+      },
+    });
+
+    const lockoutTime = new Date().toISOString();
+    const unlockTime = new Date(Date.now() + LOCKOUT_TIME).toISOString();
+
+    const subject = '🔒 Security Alert: Account Locked Due to Failed Login Attempts';
+    const body = `
+Security Alert - Account Temporarily Locked
+
+Your admin account (${email}) has been temporarily locked due to ${attemptCount} failed login attempts.
+
+Lockout Details:
+• Time: ${lockoutTime}
+• IP Address: ${ip}
+• Browser/Device: ${userAgent}
+• Lock Duration: 15 minutes
+• Unlock Time: ${unlockTime}
+
+If this was you:
+Please wait 15 minutes before attempting to log in again. Make sure you're using the correct password.
+
+If this wasn't you:
+Someone may be trying to access your account. We recommend:
+1. Changing your password immediately once the lockout expires
+2. Enabling two-factor authentication if not already enabled
+3. Reviewing your recent account activity
+
+For assistance, contact support.
+
+---
+This is an automated security notification from Dan Pearson Admin Portal.
+    `.trim();
+
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .alert-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .details { background: #f8f9fa; border-radius: 4px; padding: 15px; margin: 15px 0; }
+    .warning { color: #856404; font-weight: bold; }
+    h1 { color: #dc3545; }
+    ul { margin: 10px 0; padding-left: 20px; }
+  </style>
+</head>
+<body>
+  <h1>🔒 Security Alert - Account Temporarily Locked</h1>
+
+  <div class="alert-box">
+    <p class="warning">Your admin account (${email}) has been temporarily locked due to ${attemptCount} failed login attempts.</p>
+  </div>
+
+  <div class="details">
+    <h3>Lockout Details:</h3>
+    <ul>
+      <li><strong>Time:</strong> ${lockoutTime}</li>
+      <li><strong>IP Address:</strong> ${ip}</li>
+      <li><strong>Browser/Device:</strong> ${userAgent}</li>
+      <li><strong>Lock Duration:</strong> 15 minutes</li>
+      <li><strong>Unlock Time:</strong> ${unlockTime}</li>
+    </ul>
+  </div>
+
+  <h3>If this was you:</h3>
+  <p>Please wait 15 minutes before attempting to log in again. Make sure you're using the correct password.</p>
+
+  <h3>If this wasn't you:</h3>
+  <p>Someone may be trying to access your account. We recommend:</p>
+  <ol>
+    <li>Changing your password immediately once the lockout expires</li>
+    <li>Enabling two-factor authentication if not already enabled</li>
+    <li>Reviewing your recent account activity</li>
+  </ol>
+
+  <p>For assistance, contact support.</p>
+
+  <hr>
+  <p style="color: #666; font-size: 12px;">This is an automated security notification from Dan Pearson Admin Portal.</p>
+</body>
+</html>
+    `.trim();
+
+    await client.send({
+      from: smtpUsername,
+      to: email,
+      subject: subject,
+      content: body,
+      html: htmlBody,
+    });
+
+    await client.close();
+
+    // Track that we sent this notification
+    lockoutNotificationsSent.set(email, Date.now());
+
+    console.log(`Lockout notification sent to ${email}`);
+
+    // Log the event to the database
+    await logLockoutEvent(email, ip, userAgent, attemptCount, true);
+
+  } catch (error) {
+    console.error('Failed to send lockout notification:', error);
+    // Still log the event even if email fails
+    await logLockoutEvent(email, ip, userAgent, attemptCount, false);
+  }
+}
+
+/**
+ * Log lockout event to the database for audit trail
+ */
+async function logLockoutEvent(
+  email: string,
+  ip: string,
+  userAgent: string,
+  attemptCount: number,
+  notificationSent: boolean
+): Promise<void> {
+  try {
+    await supabase.from('security_events').insert({
+      event_type: 'account_lockout',
+      email: email,
+      ip_address: ip,
+      user_agent: userAgent,
+      metadata: {
+        attempt_count: attemptCount,
+        lockout_duration_minutes: 15,
+        notification_sent: notificationSent,
+      },
+      created_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    // Non-critical - just log
+    console.error('Failed to log lockout event:', error);
+  }
+}
+
+/**
+ * Check if an account should be locked and send notification if so
+ */
+function checkAndHandleLockout(ip: string, email: string, userAgent: string): boolean {
+  const attempts = loginAttempts.get(ip);
+
+  if (attempts && attempts.count >= MAX_ATTEMPTS) {
+    // Account is being locked - send notification
+    sendLockoutNotification(email, ip, userAgent, attempts.count).catch(err => {
+      console.error('Async lockout notification failed:', err);
+    });
+    return true;
+  }
+
+  return false;
+}
+
 serve(async (req) => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -165,19 +363,28 @@ serve(async (req) => {
     // Handle login action
     if (action === 'login') {
       const clientIP = req.headers.get("x-forwarded-for") || "unknown";
-      
+      const userAgent = req.headers.get("user-agent") || "unknown";
+
       console.log("Login attempt - Email:", email, "IP:", clientIP);
-      
+
       // Check rate limiting
       if (!checkRateLimit(clientIP)) {
         console.log("Rate limit exceeded for IP:", clientIP);
+
+        // Send lockout notification if email is provided
+        if (email) {
+          sendLockoutNotification(email, clientIP, userAgent, MAX_ATTEMPTS).catch(err => {
+            console.error('Failed to send lockout notification:', err);
+          });
+        }
+
         return new Response(
-          JSON.stringify({ 
-            error: "Too many login attempts. Please try again later." 
+          JSON.stringify({
+            error: "Too many login attempts. Please try again later."
           }),
-          { 
-            status: 429, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
           }
         );
       }
@@ -195,6 +402,10 @@ serve(async (req) => {
       if (!isWhitelisted) {
         console.log("Email not in admin whitelist:", email);
         recordFailedAttempt(clientIP);
+
+        // Check if this attempt triggered a lockout
+        checkAndHandleLockout(clientIP, email, userAgent);
+
         return new Response(
           JSON.stringify({ error: "Access denied. Not authorized for admin access." }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -218,6 +429,10 @@ serve(async (req) => {
       if (authError || !authData.user) {
         console.log("Authentication failed:", authError?.message);
         recordFailedAttempt(clientIP);
+
+        // Check if this attempt triggered a lockout
+        checkAndHandleLockout(clientIP, email, userAgent);
+
         return new Response(
           JSON.stringify({ error: "Invalid credentials" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -3,6 +3,13 @@ import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { createOAuthState } from '@/lib/oauth-state';
+import {
+  initializeSessionRotation,
+  clearRotationState,
+  startPeriodicRotation,
+  stopPeriodicRotation,
+  rotateAfterSensitiveOperation,
+} from '@/lib/session-rotation';
 
 // App role type matching database enum
 export type AppRole = 'admin' | 'editor' | 'viewer';
@@ -349,6 +356,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setAdminUser(adminData);
       setCachedAdminData(newSession.user.id, adminData);
       setAuthStatus('admin_verified');
+
+      // Start periodic session rotation for security
+      initializeSessionRotation();
+      startPeriodicRotation();
+
       logger.info(`Admin verified from ${source}:`, adminData.email);
     } catch (err) {
       logger.error('Error during admin verification:', err);
@@ -516,6 +528,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       isProcessingRef.current = false;
       logger.info('Sign in successful and admin verified:', email);
 
+      // Initialize and start session rotation
+      initializeSessionRotation();
+      startPeriodicRotation();
+
+      // Rotate session after login (sensitive operation)
+      rotateAfterSensitiveOperation('login').catch(err => {
+        logger.warn('Post-login rotation failed:', err);
+      });
+
       return { success: true };
     } catch (err) {
       logger.error('Sign in error:', err);
@@ -578,6 +599,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   const signOut = useCallback(async () => {
     logger.info('Sign out requested');
+
+    // Stop session rotation
+    stopPeriodicRotation();
+    clearRotationState();
 
     // Immediately update UI state
     setAdminUser(null);
