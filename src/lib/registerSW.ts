@@ -42,8 +42,8 @@ export function registerServiceWorker() {
         // Listen for stale assets detection from service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
           if (event.data && event.data.type === 'STALE_ASSETS_DETECTED') {
-            console.warn('[SW] Stale assets detected:', event.data.message);
-            showStaleAssetsNotification();
+            console.warn('[SW] Stale assets detected:', event.data.message, event.data.asset);
+            showStaleAssetsNotification(event.data.asset);
           }
         });
 
@@ -95,7 +95,7 @@ function showUpdateNotification(newWorker: ServiceWorker) {
  * Show notification when stale assets are detected
  * This happens when a new deployment has different chunk hashes
  */
-function showStaleAssetsNotification() {
+function showStaleAssetsNotification(assetPath?: string) {
   // Don't show multiple notifications
   if (document.getElementById('stale-assets-notification')) {
     return;
@@ -103,18 +103,23 @@ function showStaleAssetsNotification() {
 
   const notification = document.createElement('div');
   notification.id = 'stale-assets-notification';
-  notification.className = 'fixed bottom-4 right-4 bg-amber-600 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
+  notification.className = 'fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm bg-amber-600 text-white p-4 rounded-lg shadow-lg z-[100]';
   notification.innerHTML = `
-    <div class="flex items-center gap-3">
-      <div class="flex-1">
-        <p class="font-medium">Update Required</p>
-        <p class="text-sm opacity-90">A new version was deployed. Please refresh to continue.</p>
+    <div class="flex flex-col gap-2">
+      <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <div class="flex-1">
+          <p class="font-semibold">Update Required</p>
+          <p class="text-sm opacity-90">A new version was deployed. The page will refresh automatically, or click the button below.</p>
+        </div>
       </div>
       <button
         id="stale-assets-refresh-btn"
-        class="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors text-sm font-medium"
+        class="w-full px-4 py-2 bg-white/20 hover:bg-white/30 rounded transition-colors font-medium"
       >
-        Refresh
+        Refresh Now
       </button>
     </div>
   `;
@@ -123,14 +128,42 @@ function showStaleAssetsNotification() {
 
   const refreshBtn = document.getElementById('stale-assets-refresh-btn');
   if (refreshBtn) {
-    refreshBtn.addEventListener('click', async () => {
-      // Clear caches before refreshing
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-      }
-      window.location.reload();
-    });
+    refreshBtn.addEventListener('click', () => performStaleAssetsRecovery());
+  }
+
+  // Auto-refresh after 5 seconds if user doesn't act
+  // This prevents the app from staying in a broken state
+  setTimeout(() => {
+    console.log('[SW] Auto-refreshing due to stale assets...');
+    performStaleAssetsRecovery();
+  }, 5000);
+}
+
+/**
+ * Perform recovery from stale assets by clearing caches and refreshing
+ */
+async function performStaleAssetsRecovery() {
+  try {
+    // Clear all caches
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+      console.log('[SW] Cleared', cacheNames.length, 'caches');
+    }
+
+    // Unregister service worker to ensure completely fresh load
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
+      console.log('[SW] Unregistered service workers');
+    }
+
+    // Force reload bypassing cache
+    window.location.reload();
+  } catch (error) {
+    console.error('[SW] Recovery failed:', error);
+    // Fallback to simple reload
+    window.location.reload();
   }
 }
 

@@ -73,6 +73,15 @@ class ErrorBoundary extends Component<Props, State> {
     if (import.meta.env.PROD) {
       this.reportError(error, errorInfo);
     }
+
+    // Auto-recover from chunk load errors after a short delay
+    // This prevents the app from being stuck in a broken state
+    if (isChunkLoadError(error)) {
+      logger.warn('Chunk load error detected, auto-recovering in 3 seconds...');
+      setTimeout(() => {
+        this.handleChunkErrorRefresh();
+      }, 3000);
+    }
   }
 
   /**
@@ -166,7 +175,7 @@ class ErrorBoundary extends Component<Props, State> {
                   <CardTitle>Update Available</CardTitle>
                 </div>
                 <CardDescription>
-                  A new version of the application is available. Please refresh to get the latest updates.
+                  A new version of the application is available. The page will refresh automatically.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -174,10 +183,16 @@ class ErrorBoundary extends Component<Props, State> {
                   This can happen after we deploy updates. Refreshing will load the latest version.
                 </p>
 
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Auto-refreshing in a moment...</span>
+                </div>
+
                 <Button
                   onClick={this.handleChunkErrorRefresh}
                   disabled={this.state.isRefreshing}
                   className="w-full"
+                  variant="outline"
                 >
                   {this.state.isRefreshing ? (
                     <>
