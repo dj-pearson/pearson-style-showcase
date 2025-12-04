@@ -19,6 +19,9 @@ dist-ssr
 .env.*.local
 .env.production
 
+# Supabase temp files
+supabase/.temp/
+
 # Lockfiles (keep only one)
 package-lock.json
 yarn.lock
