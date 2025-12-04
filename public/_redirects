@@ -1,4 +1,4 @@
-# Don't redirect asset files
-/assets/*  200
-# SPA fallback for all other routes
-/*    /index.html   200
+# SPA fallback for React Router
+# Cloudflare Pages automatically serves static assets
+# This handles client-side routing by serving index.html for unmatched routes
+/:splat    /index.html    200
