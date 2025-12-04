@@ -39,6 +39,14 @@ export function registerServiceWorker() {
           // window.location.reload();
         });
 
+        // Listen for stale assets detection from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'STALE_ASSETS_DETECTED') {
+            console.warn('[SW] Stale assets detected:', event.data.message);
+            showStaleAssetsNotification();
+          }
+        });
+
       } catch (error) {
         console.error('[SW] Service Worker registration failed:', error);
       }
@@ -81,6 +89,49 @@ function showUpdateNotification(newWorker: ServiceWorker) {
   setTimeout(() => {
     notification.remove();
   }, 10000);
+}
+
+/**
+ * Show notification when stale assets are detected
+ * This happens when a new deployment has different chunk hashes
+ */
+function showStaleAssetsNotification() {
+  // Don't show multiple notifications
+  if (document.getElementById('stale-assets-notification')) {
+    return;
+  }
+
+  const notification = document.createElement('div');
+  notification.id = 'stale-assets-notification';
+  notification.className = 'fixed bottom-4 right-4 bg-amber-600 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
+  notification.innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="flex-1">
+        <p class="font-medium">Update Required</p>
+        <p class="text-sm opacity-90">A new version was deployed. Please refresh to continue.</p>
+      </div>
+      <button
+        id="stale-assets-refresh-btn"
+        class="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors text-sm font-medium"
+      >
+        Refresh
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(notification);
+
+  const refreshBtn = document.getElementById('stale-assets-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      // Clear caches before refreshing
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      window.location.reload();
+    });
+  }
 }
 
 /**

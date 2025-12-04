@@ -1,5 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { logger } from '@/lib/logger';
@@ -14,6 +14,23 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  isChunkError: boolean;
+  isRefreshing: boolean;
+}
+
+/**
+ * Check if an error is a chunk/module load failure
+ * This happens when deployment updates chunk hashes but client has stale references
+ */
+function isChunkLoadError(error: Error): boolean {
+  const message = error.message?.toLowerCase() || '';
+  return (
+    message.includes('failed to fetch dynamically imported module') ||
+    message.includes('loading chunk') ||
+    message.includes('loading css chunk') ||
+    message.includes('failed to load module script') ||
+    (error.name === 'ChunkLoadError')
+  );
 }
 
 /**
@@ -27,12 +44,19 @@ class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      isChunkError: false,
+      isRefreshing: false,
     };
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     // Update state so the next render will show the fallback UI
-    return { hasError: true, error };
+    // Also detect if this is a chunk load error
+    return {
+      hasError: true,
+      error,
+      isChunkError: isChunkLoadError(error),
+    };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -84,7 +108,44 @@ class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      isChunkError: false,
+      isRefreshing: false,
     });
+  };
+
+  /**
+   * Handle chunk error by clearing caches and refreshing
+   * This is the recommended recovery for stale deployment issues
+   */
+  handleChunkErrorRefresh = async () => {
+    this.setState({ isRefreshing: true });
+
+    try {
+      // Clear service worker caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        );
+        logger.info('Cleared all caches for chunk error recovery');
+      }
+
+      // Unregister service workers to ensure fresh load
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(
+          registrations.map((registration) => registration.unregister())
+        );
+        logger.info('Unregistered service workers for chunk error recovery');
+      }
+
+      // Hard reload to get fresh assets
+      window.location.reload();
+    } catch (error) {
+      logger.error('Error during chunk error recovery:', error);
+      // Fallback to simple reload
+      window.location.reload();
+    }
   };
 
   render() {
@@ -94,7 +155,49 @@ class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      // Default fallback UI
+      // Specialized UI for chunk load errors (stale deployment)
+      if (this.state.isChunkError) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+            <Card className="max-w-md w-full">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Download className="h-6 w-6 text-primary" />
+                  <CardTitle>Update Available</CardTitle>
+                </div>
+                <CardDescription>
+                  A new version of the application is available. Please refresh to get the latest updates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  This can happen after we deploy updates. Refreshing will load the latest version.
+                </p>
+
+                <Button
+                  onClick={this.handleChunkErrorRefresh}
+                  disabled={this.state.isRefreshing}
+                  className="w-full"
+                >
+                  {this.state.isRefreshing ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Refresh Now
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+
+      // Default fallback UI for other errors
       return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-background">
           <Card className="max-w-2xl w-full">
