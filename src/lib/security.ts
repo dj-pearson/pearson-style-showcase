@@ -426,3 +426,129 @@ export async function checkPasswordBreach(
     return { breached: false };
   }
 }
+
+/**
+ * Alt text validation result
+ */
+export interface AltTextValidationResult {
+  isValid: boolean;
+  errors: string[];
+  suggestions: string[];
+}
+
+/**
+ * Validate image alt text for accessibility compliance
+ * Following WCAG 2.1 guidelines for meaningful alt text
+ * @param altText - The alt text to validate
+ * @param options - Validation options
+ * @returns Validation result with errors and suggestions
+ */
+export function validateImageAltText(
+  altText: string,
+  options: {
+    minLength?: number;
+    maxLength?: number;
+    allowEmpty?: boolean;
+    isDecorativeImage?: boolean;
+  } = {}
+): AltTextValidationResult {
+  const {
+    minLength = 5,
+    maxLength = 125,
+    allowEmpty = false,
+    isDecorativeImage = false,
+  } = options;
+
+  const errors: string[] = [];
+  const suggestions: string[] = [];
+
+  // Decorative images should have empty alt text
+  if (isDecorativeImage) {
+    if (altText && altText.trim().length > 0) {
+      suggestions.push('Decorative images should have empty alt text (alt="")');
+    }
+    return { isValid: true, errors, suggestions };
+  }
+
+  // Check for null/undefined
+  if (altText === null || altText === undefined) {
+    if (!allowEmpty) {
+      errors.push('Alt text is required for accessibility');
+    }
+    return { isValid: allowEmpty, errors, suggestions };
+  }
+
+  const trimmed = altText.trim();
+
+  // Check for empty alt text
+  if (trimmed.length === 0) {
+    if (!allowEmpty) {
+      errors.push('Alt text is required for accessibility');
+      suggestions.push('Describe the content and function of the image');
+    }
+    return { isValid: allowEmpty, errors, suggestions };
+  }
+
+  // Check minimum length
+  if (trimmed.length < minLength) {
+    errors.push(`Alt text should be at least ${minLength} characters`);
+    suggestions.push('Provide a more descriptive alt text');
+  }
+
+  // Check maximum length (screen readers may truncate long text)
+  if (trimmed.length > maxLength) {
+    errors.push(`Alt text should not exceed ${maxLength} characters`);
+    suggestions.push('Consider using a shorter, more concise description');
+  }
+
+  // Check for generic/meaningless alt text
+  const genericPatterns = [
+    /^image$/i,
+    /^img$/i,
+    /^photo$/i,
+    /^picture$/i,
+    /^pic$/i,
+    /^graphic$/i,
+    /^icon$/i,
+    /^logo$/i,
+    /^image\s*\d+$/i,
+    /^img\s*\d+$/i,
+    /^photo\s*\d+$/i,
+    /^untitled$/i,
+    /^screenshot$/i,
+    /^image\s+of$/i,
+    /^picture\s+of$/i,
+    /^photo\s+of$/i,
+  ];
+
+  for (const pattern of genericPatterns) {
+    if (pattern.test(trimmed)) {
+      errors.push('Alt text should be descriptive, not generic');
+      suggestions.push('Describe what the image shows or its purpose');
+      break;
+    }
+  }
+
+  // Check for file extension in alt text (common mistake)
+  const fileExtPattern = /\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)$/i;
+  if (fileExtPattern.test(trimmed)) {
+    errors.push('Alt text should not include file extensions');
+    suggestions.push('Remove the file extension and describe the image content');
+  }
+
+  // Check for "image of" prefix (redundant)
+  if (/^(image|photo|picture|graphic|icon)\s+(of|showing)/i.test(trimmed)) {
+    suggestions.push('Avoid starting with "image of" or "photo of" - this is redundant');
+  }
+
+  // Check for special characters that may cause issues
+  if (/[<>]/.test(trimmed)) {
+    errors.push('Alt text should not contain HTML characters');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    suggestions: errors.length === 0 ? suggestions : suggestions.slice(0, 2),
+  };
+}
