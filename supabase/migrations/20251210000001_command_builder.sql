@@ -1,10 +1,60 @@
 -- Migration: Add Command Builder feature to Secure Vault
 -- Adds placeholder_key to vault items and creates command templates table
 
+-- First, ensure the secure_vault_items table exists
+-- This table should be created by migration 20251202184405
+-- If running this independently, we'll create a minimal version
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'secure_vault_items') THEN
+    CREATE TABLE public.secure_vault_items (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      encrypted_value TEXT NOT NULL,
+      type_id UUID,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      last_accessed_at TIMESTAMPTZ
+    );
+    
+    ALTER TABLE public.secure_vault_items ENABLE ROW LEVEL SECURITY;
+    
+    CREATE POLICY "Users can read own vault items"
+    ON public.secure_vault_items FOR SELECT
+    USING (auth.uid() = user_id);
+    
+    CREATE POLICY "Users can create own vault items"
+    ON public.secure_vault_items FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+    
+    CREATE POLICY "Users can update own vault items"
+    ON public.secure_vault_items FOR UPDATE
+    USING (auth.uid() = user_id);
+    
+    CREATE POLICY "Users can delete own vault items"
+    ON public.secure_vault_items FOR DELETE
+    USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
 -- Add placeholder_key column to secure_vault_items
 -- This allows secrets to be referenced in command templates using [PLACEHOLDER_KEY]
 ALTER TABLE public.secure_vault_items
-ADD COLUMN IF NOT EXISTS placeholder_key TEXT UNIQUE;
+ADD COLUMN IF NOT EXISTS placeholder_key TEXT;
+
+-- Add unique constraint for placeholder_key
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'secure_vault_items_placeholder_key_key'
+  ) THEN
+    ALTER TABLE public.secure_vault_items 
+    ADD CONSTRAINT secure_vault_items_placeholder_key_key UNIQUE (placeholder_key);
+  END IF;
+END $$;
 
 -- Create index for faster lookups by placeholder_key
 CREATE INDEX IF NOT EXISTS idx_vault_items_placeholder_key
