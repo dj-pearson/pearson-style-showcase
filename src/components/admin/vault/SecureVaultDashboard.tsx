@@ -5,6 +5,8 @@ import { VaultMFAGate } from './VaultMFAGate';
 import { VaultItemForm } from './VaultItemForm';
 import { VaultTypeManager } from './VaultTypeManager';
 import { VaultPlatformManager } from './VaultPlatformManager';
+import { CommandBuilder } from './CommandBuilder';
+import { CommandTemplateManager } from './CommandTemplateManager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,10 +16,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { 
-  Shield, Plus, Search, Eye, EyeOff, Copy, Trash2, Edit, 
+import {
+  Shield, Plus, Search, Eye, EyeOff, Copy, Trash2, Edit,
   Lock, FileText, Link, Terminal, Key, Settings, RefreshCw,
-  FolderKanban, Globe, Building2
+  FolderKanban, Globe, Building2, Wand2, FileCode
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -27,6 +29,7 @@ type VaultItem = {
   type_id: string | null;
   project_id: string | null;
   platform_id: string | null;
+  placeholder_key: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -76,7 +79,9 @@ export const SecureVaultDashboard = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
   const [isPlatformManagerOpen, setIsPlatformManagerOpen] = useState(false);
-  
+  const [isCommandBuilderOpen, setIsCommandBuilderOpen] = useState(false);
+  const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
+
   const queryClient = useQueryClient();
 
   // Fetch vault types
@@ -128,7 +133,7 @@ export const SecureVaultDashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('secure_vault_items')
-        .select('id, name, type_id, project_id, platform_id, notes, created_at, updated_at, last_accessed_at')
+        .select('id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at, last_accessed_at')
         .order(sortBy, { ascending: sortOrder === 'asc' });
       if (error) throw error;
       return data as VaultItem[];
@@ -299,6 +304,14 @@ export const SecureVaultDashboard = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="default" onClick={() => setIsCommandBuilderOpen(true)}>
+            <Wand2 className="h-4 w-4 mr-2" />
+            Command Builder
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsTemplateManagerOpen(true)}>
+            <FileCode className="h-4 w-4 mr-2" />
+            Templates
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setIsPlatformManagerOpen(true)}>
             <Building2 className="h-4 w-4 mr-2" />
             Platforms
@@ -428,8 +441,8 @@ export const SecureVaultDashboard = () => {
                   <TableHead>Platform</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Placeholder Key</TableHead>
                   <TableHead>Value</TableHead>
-                  <TableHead>Notes</TableHead>
                   <TableHead>Updated</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -468,6 +481,15 @@ export const SecureVaultDashboard = () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>
+                      {item.placeholder_key ? (
+                        <Badge variant="outline" className="font-mono text-xs">
+                          [{item.placeholder_key}]
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono max-w-[200px]">
                       {loadingItems[item.id] ? (
                         <span className="text-muted-foreground">Decrypting...</span>
@@ -476,9 +498,6 @@ export const SecureVaultDashboard = () => {
                       ) : (
                         <span className="text-muted-foreground">••••••••</span>
                       )}
-                    </TableCell>
-                    <TableCell className="max-w-[150px] truncate text-muted-foreground">
-                      {item.notes || '-'}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {format(new Date(item.updated_at), 'MMM d, yyyy')}
@@ -572,6 +591,23 @@ export const SecureVaultDashboard = () => {
             <DialogTitle>Manage Platforms</DialogTitle>
           </DialogHeader>
           <VaultPlatformManager />
+        </DialogContent>
+      </Dialog>
+
+      {/* Command Builder Dialog */}
+      <Dialog open={isCommandBuilderOpen} onOpenChange={setIsCommandBuilderOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <CommandBuilder onClose={() => setIsCommandBuilderOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Manager Dialog */}
+      <Dialog open={isTemplateManagerOpen} onOpenChange={setIsTemplateManagerOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Command Templates</DialogTitle>
+          </DialogHeader>
+          <CommandTemplateManager />
         </DialogContent>
       </Dialog>
 
