@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'encrypt': {
-        const { value, name, typeId, projectId, platformId, notes } = body;
+        const { value, name, typeId, projectId, platformId, placeholderKey, notes } = body;
         if (!value || !name) {
           return new Response(
             JSON.stringify({ error: 'Value and name are required' }),
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
         }
 
         const encryptedValue = await encrypt(value);
-        
+
         // Insert into database
         const { data: item, error: insertError } = await supabaseClient
           .from('secure_vault_items')
@@ -149,9 +149,10 @@ Deno.serve(async (req) => {
             type_id: typeId || null,
             project_id: projectId || null,
             platform_id: platformId || null,
+            placeholder_key: placeholderKey || null,
             notes: notes || null
           })
-          .select('id, name, type_id, project_id, platform_id, notes, created_at, updated_at')
+          .select('id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at')
           .single();
 
         if (insertError) {
@@ -225,7 +226,7 @@ Deno.serve(async (req) => {
       }
 
       case 'update': {
-        const { itemId, value, name, typeId, projectId, platformId, notes } = body;
+        const { itemId, value, name, typeId, projectId, platformId, placeholderKey, notes } = body;
         if (!itemId) {
           return new Response(
             JSON.stringify({ error: 'Item ID is required' }),
@@ -238,6 +239,7 @@ Deno.serve(async (req) => {
         if (typeId !== undefined) updateData.type_id = typeId;
         if (projectId !== undefined) updateData.project_id = projectId;
         if (platformId !== undefined) updateData.platform_id = platformId;
+        if (placeholderKey !== undefined) updateData.placeholder_key = placeholderKey;
         if (notes !== undefined) updateData.notes = notes;
         if (value) {
           updateData.encrypted_value = await encrypt(value);
@@ -248,7 +250,7 @@ Deno.serve(async (req) => {
           .update(updateData)
           .eq('id', itemId)
           .eq('user_id', user.id)
-          .select('id, name, type_id, project_id, platform_id, notes, created_at, updated_at')
+          .select('id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at')
           .single();
 
         if (updateError) {
