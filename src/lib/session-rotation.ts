@@ -8,6 +8,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { logger } from '@/lib/logger';
 
 // Configuration
@@ -180,7 +181,7 @@ export async function rotateSession(reason: string = 'scheduled'): Promise<Rotat
 
     // Notify admin-auth about the rotation (for session tracking)
     try {
-      await supabase.functions.invoke('admin-auth', {
+      await invokeEdgeFunction('admin-auth', {
         body: {
           action: 'session_rotated',
           rotationReason: reason,

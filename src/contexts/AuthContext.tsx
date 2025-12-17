@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { logger } from '@/lib/logger';
 import { createOAuthState } from '@/lib/oauth-state';
 import {
@@ -191,7 +192,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => reject(new Error('Admin verification timeout')), 10000);
       });
 
-      const adminCheckPromise = supabase.functions.invoke('admin-auth', {
+      const adminCheckPromise = invokeEdgeFunction('admin-auth', {
         body: { action: 'me' }
       });
 
@@ -299,7 +300,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (age > ADMIN_CACHE_TTL / 2) {
             logger.debug('Cache is getting stale, refreshing in background');
             // Don't await - let it run in background
-            supabase.functions.invoke('admin-auth', { body: { action: 'me' } })
+            invokeEdgeFunction('admin-auth', { body: { action: 'me' } })
               .then(({ data, error }) => {
                 if (!error && data && !data.error) {
                   const freshAdminData: AdminUser = {
@@ -328,7 +329,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => reject(new Error('Admin verification timeout')), 30000);
       });
 
-      const adminCheckPromise = supabase.functions.invoke('admin-auth', {
+      const adminCheckPromise = invokeEdgeFunction('admin-auth', {
         body: { action: 'me' }
       });
 
@@ -610,7 +611,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      supabase.functions.invoke('admin-auth', {
+      invokeEdgeFunction('admin-auth', {
         body: { action: 'logout' }
       }).catch(err => {
         logger.debug('Logout edge function error (non-critical):', err);

@@ -11,6 +11,7 @@ import { Eye, EyeOff, Shield, Lock, User, ArrowLeft, Loader2 } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { MFAEnrollment } from '@/components/auth/MFAEnrollment';
 import { MFAVerification } from '@/components/auth/MFAVerification';
 
@@ -227,7 +228,7 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('admin-auth', {
+      const { data, error: functionError } = await invokeEdgeFunction('admin-auth', {
         body: {
           action: 'forgot-password',
           email: forgotPasswordEmail
