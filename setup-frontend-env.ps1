@@ -52,4 +52,4 @@ Write-Host "1. Review .env.local to ensure values are correct" -ForegroundColor 
 Write-Host "2. Test locally: npm run dev" -ForegroundColor White
 Write-Host "3. Update Cloudflare Pages environment variables for production" -ForegroundColor White
 Write-Host ""
-Write-Host "Done! 🎉" -ForegroundColor Green
+Write-Host "Done!" -ForegroundColor Green
