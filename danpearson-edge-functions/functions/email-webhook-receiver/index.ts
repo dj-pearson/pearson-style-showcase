@@ -255,7 +255,7 @@ serve(async (req: Request) => {
         direction: 'inbound',
         is_read: false,
         received_at: new Date().toISOString(),
-      });
+      };
 
     if (threadError) {
       console.error('Error creating email thread:', threadError);

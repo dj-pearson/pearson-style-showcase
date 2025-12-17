@@ -112,7 +112,7 @@ const handler = async (req: Request): Promise<Response> => {
         <h3>Message:</h3>
         <p>${message.replace(/\n/g, '<br>')}</p>
       `,
-    });
+    };
 
     console.log("Email sent successfully:", emailResponse);
 

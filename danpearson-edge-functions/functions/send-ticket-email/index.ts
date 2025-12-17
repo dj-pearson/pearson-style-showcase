@@ -308,7 +308,7 @@ serve(async (req: Request) => {
           from_name: user.email?.split('@')[0] || 'Support Agent',
           message_preview: message,
         }
-      });
+      };
       console.log('Notification email sent for agent reply');
     } catch (notifyError) {
       // Don't fail the request if notification fails

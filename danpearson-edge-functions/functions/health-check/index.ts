@@ -209,7 +209,7 @@ function getMemoryMetrics(): { used: number; total: number; percentage: number }
   }
 }
 
-serve(async (req: Request): Promise<Response> => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -349,7 +349,7 @@ serve(async (req: Request): Promise<Response> => {
           'Content-Type': 'text/plain; charset=utf-8',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
         },
-      });
+      };
     }
 
     // Unknown check type

@@ -431,7 +431,7 @@ serve(async (req: Request) => {
             from_name: payload.from,
             message_preview: payload.body,
           }
-        });
+        };
         console.log('Notification email sent');
       }
     } catch (notifyError) {

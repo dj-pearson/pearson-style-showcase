@@ -292,7 +292,7 @@ const handler = async (req: Request): Promise<Response> => {
               url: urlData.publicUrl,
             });
           });
-        });
+        };
       }
 
       // Sort variants by width

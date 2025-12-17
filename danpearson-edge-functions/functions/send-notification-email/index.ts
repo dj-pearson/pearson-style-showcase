@@ -217,7 +217,7 @@ This is an automated notification from BuildDesk Support System
           status: 'failed',
           error_message: emailError.message,
           sent_at: new Date().toISOString(),
-        });
+        };
       }
     }
 

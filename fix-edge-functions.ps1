@@ -26,6 +26,9 @@ foreach ($dir in $functionDirs) {
         # Replace serve(async (req) => { with export default async (req: Request): Promise<Response> => {
         $content = $content -replace 'serve\(async \(req\) => \{', 'export default async (req: Request): Promise<Response> => {'
         
+        # Replace serve(async (req: Request): Promise<Response> => { (already has types)
+        $content = $content -replace 'serve\(async \(req: Request\): Promise<Response> => \{', 'export default async (req: Request): Promise<Response> => {'
+        
         # Replace serve( (async (req) => { with proper export (handle parentheses variations)
         $content = $content -replace 'serve\(\s*async \(req\) => \{', 'export default async (req: Request): Promise<Response> => {'
         
