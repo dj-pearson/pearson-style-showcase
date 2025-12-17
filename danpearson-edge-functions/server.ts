@@ -19,12 +19,13 @@
 const PORT = parseInt(Deno.env.get('PORT') || '8000');
 const FUNCTIONS_DIR = '/app/functions';
 
-// CORS headers for all responses
+// CORS headers for all responses - Updated for danpearson.net
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with',
   'Access-Control-Max-Age': '86400', // 24 hours
+  'Access-Control-Allow-Credentials': 'true',
 };
 
 /**
