@@ -76,8 +76,8 @@
   # Force HTTPS for 2 years (including subdomains)
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 
-  # Content Security Policy - Strict but allows necessary resources
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdn.gpteng.co https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://fonts.gstatic.com https://cloudflareinsights.com https://stats.g.doubleclick.net; media-src 'self' https: data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content
+  # Content Security Policy - Updated for self-hosted Supabase at api.danpearson.net
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdn.gpteng.co https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://*.supabase.co https://api.danpearson.net https://functions.danpearson.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://fonts.gstatic.com https://cloudflareinsights.com https://stats.g.doubleclick.net; media-src 'self' https: data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content
 
   # Cross-Origin policies for better security
   Cross-Origin-Embedder-Policy: require-corp
