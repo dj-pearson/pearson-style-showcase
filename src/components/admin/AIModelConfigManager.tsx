@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { PlayCircle, Plus, Star, AlertCircle, CheckCircle2, Edit2, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface AIModelConfig {
   id: string;
@@ -98,7 +99,7 @@ export function AIModelConfigManager() {
   const testModelMutation = useMutation({
     mutationFn: async (configId: string) => {
       setTestingModelId(configId);
-      const { data, error } = await supabase.functions.invoke("test-ai-model", {
+      const { data, error } = await invokeEdgeFunction("test-ai-model", {
         body: { config_id: configId },
       });
       if (error) throw error;

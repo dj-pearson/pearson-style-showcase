@@ -2,12 +2,13 @@
  * Edge Functions Helper for danpearson.net
  * 
  * Self-hosted edge functions at functions.danpearson.net
- * This helper provides a drop-in replacement for supabase.functions.invoke()
+ * This helper provides a drop-in replacement for invokeEdgeFunction()
  */
 
 import { supabase } from '@/integrations/supabase/client';
 
 const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export interface EdgeFunctionOptions {
   body?: any;
@@ -22,7 +23,7 @@ export interface EdgeFunctionResult<T = any> {
 
 /**
  * Invoke an edge function at functions.danpearson.net
- * Drop-in replacement for supabase.functions.invoke()
+ * Drop-in replacement for invokeEdgeFunction()
  * 
  * @param functionName - Name of the function to invoke
  * @param options - Options including body, headers, method
@@ -31,7 +32,7 @@ export interface EdgeFunctionResult<T = any> {
  * @example
  * ```typescript
  * // Before (cloud Supabase):
- * const { data, error } = await supabase.functions.invoke('my-function', { body: { ... } });
+ * const { data, error } = await invokeEdgeFunction('my-function', { body: { ... } });
  * 
  * // After (self-hosted):
  * const { data, error } = await invokeEdgeFunction('my-function', { body: { ... } });

@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import { useToast } from '@/hooks/use-toast';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 type Article = Tables<"articles">;
 
@@ -120,7 +121,7 @@ const News = () => {
     setIsSubscribing(true);
 
     try {
-      const { data: result, error } = await supabase.functions.invoke('newsletter-signup', {
+      const { data: result, error } = await invokeEdgeFunction('newsletter-signup', {
         body: { email: email.trim() }
       });
 

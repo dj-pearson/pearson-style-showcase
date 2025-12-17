@@ -29,6 +29,7 @@ import {
   Calendar,
   Send
 } from 'lucide-react';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface Article {
   id: string;
@@ -559,7 +560,7 @@ export const ArticleManager: React.FC = () => {
   const sendToWebhook = async (articleId: string) => {
     setSendingWebhooks(prev => new Set(prev).add(articleId));
     try {
-      const { error } = await supabase.functions.invoke('send-article-webhook', {
+      const { error } = await invokeEdgeFunction('send-article-webhook', {
         body: { articleId }
       });
 

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 /**
  * Hook to automatically track clicks on Amazon affiliate links within an article
@@ -20,7 +21,7 @@ export const useAffiliateTracking = (articleId: string) => {
         if (asin) {
           try {
             // Track the click asynchronously (don't block navigation)
-            supabase.functions.invoke('track-affiliate-click', {
+            invokeEdgeFunction('track-affiliate-click', {
               body: { articleId, asin }
             }).catch(err => logger.error('Failed to track click:', err));
           } catch (error) {
@@ -45,7 +46,7 @@ export const useAffiliateTracking = (articleId: string) => {
  */
 export const trackAffiliateClick = async (articleId: string, asin: string) => {
   try {
-    await supabase.functions.invoke('track-affiliate-click', {
+    await invokeEdgeFunction('track-affiliate-click', {
       body: { articleId, asin }
     });
   } catch (error) {

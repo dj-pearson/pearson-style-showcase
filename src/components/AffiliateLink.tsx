@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface AffiliateLinkProps {
   href: string;
@@ -14,7 +15,7 @@ export const AffiliateLink = ({ href, asin, articleId, children, className = "" 
   const trackClick = async () => {
     try {
       // Track the click via edge function
-      await supabase.functions.invoke('track-affiliate-click', {
+      await invokeEdgeFunction('track-affiliate-click', {
         body: { articleId, asin }
       });
     } catch (error) {

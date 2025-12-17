@@ -17,6 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Progress } from '@/components/ui/progress';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 // Type for gtag analytics
 type WindowWithGtag = Window & {
@@ -82,7 +83,7 @@ const ContactForm = () => {
       setSubmitProgress(25);
 
       // Send email via edge function
-      const { error } = await supabase.functions.invoke(
+      const { error } = await invokeEdgeFunction(
         "send-contact-email",
         {
           body: {

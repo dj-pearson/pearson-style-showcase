@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Send, Webhook } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export const WebhookSettings = () => {
   const [loading, setLoading] = useState(true);
@@ -90,7 +91,7 @@ export const WebhookSettings = () => {
 
     setTesting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-article-webhook', {
+      const { data, error } = await invokeEdgeFunction('send-article-webhook', {
         body: { isTest: true }
       });
 

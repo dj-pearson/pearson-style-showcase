@@ -20,6 +20,7 @@ import {
   ChevronRight, AlertCircle, Lock, Sparkles, ChevronDown,
   Plus, Save, Key, Edit2, Trash2
 } from 'lucide-react';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 type CommandTemplate = {
   id: string;
@@ -133,7 +134,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
   // Decrypt mutation for fetching secret values
   const decryptMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      const response = await supabase.functions.invoke('secure-vault', {
+      const response = await invokeEdgeFunction('secure-vault', {
         body: { action: 'decrypt', itemId }
       });
       if (response.error) throw new Error(response.error.message);

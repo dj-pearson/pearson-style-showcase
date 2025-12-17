@@ -22,6 +22,7 @@ import {
   FolderKanban, Globe, Building2, Wand2, FileCode
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 type VaultItem = {
   id: string;
@@ -147,7 +148,7 @@ export const SecureVaultDashboard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const response = await supabase.functions.invoke('secure-vault', {
+      const response = await invokeEdgeFunction('secure-vault', {
         body: { action: 'decrypt', itemId }
       });
 
@@ -166,7 +167,7 @@ export const SecureVaultDashboard = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      const response = await supabase.functions.invoke('secure-vault', {
+      const response = await invokeEdgeFunction('secure-vault', {
         body: { action: 'delete', itemId }
       });
       if (response.error) throw new Error(response.error.message);
@@ -208,7 +209,7 @@ export const SecureVaultDashboard = () => {
         return;
       }
 
-      const response = await supabase.functions.invoke('secure-vault', {
+      const response = await invokeEdgeFunction('secure-vault', {
         body: { action: 'decrypt', itemId }
       });
 

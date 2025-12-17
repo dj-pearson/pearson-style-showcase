@@ -60,6 +60,7 @@ let state: AlertState = {
 
 // Check if in production
 const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.PROD === true;
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 /**
  * Initialize the error alerting service
@@ -258,7 +259,7 @@ async function sendEmailAlert(alert: AlertPayload): Promise<void> {
   if (!config.alertEmails?.length) return;
 
   try {
-    const { error } = await supabase.functions.invoke('send-notification-email', {
+    const { error } = await invokeEdgeFunction('send-notification-email', {
       body: {
         type: 'error_alert',
         severity: alert.severity,

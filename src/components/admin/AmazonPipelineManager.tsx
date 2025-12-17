@@ -12,6 +12,7 @@ import { Loader2, Play, Settings, History, TrendingUp, BarChart3 } from "lucide-
 import { AmazonAffiliateStats } from "./AmazonAffiliateStats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export const AmazonPipelineManager = () => {
   const [settings, setSettings] = useState<any>(null);
@@ -174,7 +175,7 @@ export const AmazonPipelineManager = () => {
   const runPipeline = async () => {
     setIsRunning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("amazon-article-pipeline", {
+      const { data, error } = await invokeEdgeFunction("amazon-article-pipeline", {
         body: { requestedCount: 1, runReason: "manual" },
       });
 

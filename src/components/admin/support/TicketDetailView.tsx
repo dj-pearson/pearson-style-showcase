@@ -29,6 +29,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface Ticket {
   id: string;
@@ -220,7 +221,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
       if (sendAsEmail && !isInternal) {
         // Send via email using Edge Function
-        const { error } = await supabase.functions.invoke('send-ticket-email', {
+        const { error } = await invokeEdgeFunction('send-ticket-email', {
           body: {
             ticket_id: ticket.id,
             from_mailbox_id: selectedMailbox,
@@ -289,7 +290,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
     setAiGeneratedResponse(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke('generate-ticket-response', {
+      const { data, error } = await invokeEdgeFunction('generate-ticket-response', {
         body: { ticket_id: ticket.id }
       });
 

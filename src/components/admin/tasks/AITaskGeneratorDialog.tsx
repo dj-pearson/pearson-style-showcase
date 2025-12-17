@@ -24,6 +24,7 @@ import {
   ClipboardPaste,
   Wand2
 } from 'lucide-react';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface AITaskGeneratorDialogProps {
   open: boolean;
@@ -84,7 +85,7 @@ export const AITaskGeneratorDialog = ({
     mutationFn: async () => {
       const projectName = projects.find(p => p.id === selectedProject)?.name;
 
-      const { data, error } = await supabase.functions.invoke('generate-ai-tasks', {
+      const { data, error } = await invokeEdgeFunction('generate-ai-tasks', {
         body: {
           text: inputText,
           project_id: selectedProject || null,
