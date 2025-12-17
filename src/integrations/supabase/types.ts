@@ -2923,6 +2923,7 @@ export type Database = {
           last_accessed_at: string | null
           name: string
           notes: string | null
+          placeholder_key: string | null
           platform_id: string | null
           project_id: string | null
           type_id: string | null
@@ -2936,6 +2937,7 @@ export type Database = {
           last_accessed_at?: string | null
           name: string
           notes?: string | null
+          placeholder_key?: string | null
           platform_id?: string | null
           project_id?: string | null
           type_id?: string | null
@@ -2949,6 +2951,7 @@ export type Database = {
           last_accessed_at?: string | null
           name?: string
           notes?: string | null
+          placeholder_key?: string | null
           platform_id?: string | null
           project_id?: string | null
           type_id?: string | null
@@ -3604,6 +3607,45 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vault_command_templates: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          placeholders: string[] | null
+          template: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          placeholders?: string[] | null
+          template: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          placeholders?: string[] | null
+          template?: string
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }

@@ -1,0 +1,47 @@
+# CODEOWNERS file
+# This file defines who is automatically requested for review when a PR modifies specific files
+
+# Default owner for everything in the repo
+* @dj-pearson
+
+# GitHub Actions workflows and CI/CD configuration
+/.github/ @dj-pearson
+
+# Documentation
+*.md @dj-pearson
+/CLAUDE.md @dj-pearson
+
+# Configuration files
+/.* @dj-pearson
+*.json @dj-pearson
+*.config.* @dj-pearson
+/tsconfig*.json @dj-pearson
+/vite.config.ts @dj-pearson
+
+# Source code (can be assigned to specific team members when available)
+/src/ @dj-pearson
+
+# Authentication and security-related code
+/src/contexts/AuthContext.tsx @dj-pearson
+/src/lib/security.ts @dj-pearson
+/src/components/auth/ @dj-pearson
+/supabase/functions/admin-auth/ @dj-pearson
+
+# Database and migrations
+/supabase/migrations/ @dj-pearson
+
+# Accounting module
+/src/components/admin/accounting/ @dj-pearson
+/supabase/functions/process-accounting-document/ @dj-pearson
+
+# Tests
+/src/**/*.test.* @dj-pearson
+/src/**/__tests__/ @dj-pearson
+/src/test/ @dj-pearson
+
+# Public assets and static files
+/public/ @dj-pearson
+
+# Package dependencies
+/package.json @dj-pearson
+/package-lock.json @dj-pearson

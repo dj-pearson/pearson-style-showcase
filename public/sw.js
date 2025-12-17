@@ -1,7 +1,7 @@
 // Service Worker for Progressive Web App
 // Version 1.0.0
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v7';
 const CACHE_NAME = `pearson-portfolio-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
@@ -20,8 +20,11 @@ const CACHE_STRATEGIES = {
 };
 
 // Routes and their cache strategies
+// IMPORTANT: JS assets use NETWORK_FIRST to handle deployment updates properly
+// When new deployments happen, chunk hashes change, so we need fresh index.html
 const ROUTE_STRATEGIES = {
-  '/assets/': CACHE_STRATEGIES.CACHE_FIRST, // Static assets (CSS, JS, images)
+  '/assets/index-': CACHE_STRATEGIES.NETWORK_FIRST, // Main JS bundle - always check network
+  '/assets/': CACHE_STRATEGIES.STALE_WHILE_REVALIDATE, // Other assets - serve cached but revalidate
   '/api/': CACHE_STRATEGIES.NETWORK_FIRST, // API calls
   '/.supabase.co/': CACHE_STRATEGIES.NETWORK_FIRST, // Supabase API
 };
@@ -195,6 +198,7 @@ async function networkFirst(request) {
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
+  const url = new URL(request.url);
 
   // If we have a cached version, return it immediately
   // and update the cache in the background (fire and forget)
@@ -204,29 +208,73 @@ async function staleWhileRevalidate(request) {
       .then((response) => {
         if (response.ok) {
           cache.put(request, response.clone());
+        } else if (response.status === 404 || response.status === 503) {
+          // Stale chunk detected - remove from cache
+          // This happens when a new deployment has different chunk hashes
+          console.warn('[ServiceWorker] Stale asset detected, removing from cache:', url.pathname);
+          cache.delete(request);
         }
       })
       .catch((error) => {
         // Silent failure for background updates - we already returned cached version
         console.debug('[ServiceWorker] Background revalidation failed:', error.message);
       });
-    
+
     return cached;
   }
 
   // No cached version - must wait for network
   try {
     const response = await fetch(request);
-    
+
     if (response.ok) {
       cache.put(request, response.clone());
+    } else if (response.status === 404 || response.status === 503) {
+      // For JS chunks that return 404/503, this likely means deployment updated
+      // Notify clients to refresh with asset path for context
+      if (url.pathname.endsWith('.js')) {
+        console.warn('[ServiceWorker] JS chunk not found, notifying clients:', url.pathname);
+        notifyClientsToRefresh(url.pathname);
+      }
+      // Return a more helpful error response
+      return new Response(
+        JSON.stringify({
+          error: 'CHUNK_LOAD_FAILED',
+          message: 'Application update required. Please refresh the page.',
+          asset: url.pathname,
+        }),
+        {
+          status: 503,
+          statusText: 'Service Unavailable - Refresh Required',
+          headers: new Headers({
+            'Content-Type': 'application/json',
+            'X-SW-Stale-Chunk': 'true',
+          }),
+        }
+      );
     }
-    
+
     return response;
   } catch (error) {
     console.error('[ServiceWorker] Fetch failed (no cache):', error);
     return offlineFallback(request);
   }
+}
+
+// Notify all clients to refresh due to stale assets
+async function notifyClientsToRefresh(assetPath = '') {
+  const clients = await self.clients.matchAll({ type: 'window' });
+  clients.forEach((client) => {
+    client.postMessage({
+      type: 'STALE_ASSETS_DETECTED',
+      message: 'New version available. Please refresh the page.',
+      asset: assetPath,
+      timestamp: Date.now(),
+    });
+  });
+  
+  // Log for debugging
+  console.warn('[ServiceWorker] Notified', clients.length, 'clients about stale assets');
 }
 
 // Offline fallback - return offline page

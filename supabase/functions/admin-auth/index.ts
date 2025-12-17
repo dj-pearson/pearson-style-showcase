@@ -309,6 +309,120 @@ async function logLockoutEvent(
 }
 
 /**
+ * Log login attempt to the database for security audit
+ */
+async function logLoginAttempt(
+  email: string,
+  ip: string,
+  userAgent: string,
+  success: boolean,
+  failureReason?: string,
+  userId?: string,
+  authProvider: string = 'email'
+): Promise<void> {
+  try {
+    // Get geolocation info from IP (using free API)
+    let geoData: { country?: string; city?: string; region?: string } = {};
+    try {
+      if (ip !== 'unknown' && ip !== '::1' && ip !== '127.0.0.1') {
+        const geoResponse = await fetch(`https://ipapi.co/${ip}/json/`, {
+          signal: AbortSignal.timeout(2000), // 2 second timeout
+        });
+        if (geoResponse.ok) {
+          const geo = await geoResponse.json();
+          geoData = {
+            country: geo.country_name,
+            city: geo.city,
+            region: geo.region,
+          };
+        }
+      }
+    } catch {
+      // Geolocation is best-effort, don't fail if it doesn't work
+      console.log('Geolocation lookup skipped or failed');
+    }
+
+    // Parse user agent for device info
+    const deviceInfo = parseUserAgent(userAgent);
+
+    // Log to security_events table
+    await supabase.from('security_events').insert({
+      event_type: success ? 'login_success' : 'login_failure',
+      email: email,
+      user_id: userId,
+      ip_address: ip,
+      user_agent: userAgent,
+      metadata: {
+        auth_provider: authProvider,
+        failure_reason: failureReason,
+        geolocation: geoData,
+        device: deviceInfo,
+        timestamp_utc: new Date().toISOString(),
+      },
+      created_at: new Date().toISOString(),
+    });
+
+    // Also log to admin_activity_log for successful logins
+    if (success && userId) {
+      await supabase.from('admin_activity_log').insert({
+        admin_id: userId,
+        admin_email: email,
+        action: 'LOGIN',
+        action_category: 'authentication',
+        ip_address: ip,
+        user_agent: userAgent,
+        success: true,
+        metadata: {
+          auth_provider: authProvider,
+          geolocation: geoData,
+          device: deviceInfo,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    console.log(`Login attempt logged: ${email} - ${success ? 'SUCCESS' : 'FAILED'} - ${ip}`);
+  } catch (error) {
+    // Non-critical - just log
+    console.error('Failed to log login attempt:', error);
+  }
+}
+
+/**
+ * Parse user agent string to extract device information
+ */
+function parseUserAgent(userAgent: string): {
+  browser: string;
+  os: string;
+  device: string;
+} {
+  const ua = userAgent.toLowerCase();
+
+  // Browser detection
+  let browser = 'Unknown';
+  if (ua.includes('chrome') && !ua.includes('edg')) browser = 'Chrome';
+  else if (ua.includes('firefox')) browser = 'Firefox';
+  else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari';
+  else if (ua.includes('edg')) browser = 'Edge';
+  else if (ua.includes('opera') || ua.includes('opr')) browser = 'Opera';
+
+  // OS detection
+  let os = 'Unknown';
+  if (ua.includes('windows')) os = 'Windows';
+  else if (ua.includes('mac os') || ua.includes('macos')) os = 'macOS';
+  else if (ua.includes('linux') && !ua.includes('android')) os = 'Linux';
+  else if (ua.includes('android')) os = 'Android';
+  else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS';
+
+  // Device type detection
+  let device = 'Desktop';
+  if (ua.includes('mobile') || ua.includes('android') && !ua.includes('tablet')) device = 'Mobile';
+  else if (ua.includes('tablet') || ua.includes('ipad')) device = 'Tablet';
+
+  return { browser, os, device };
+}
+
+/**
  * Check if an account should be locked and send notification if so
  */
 function checkAndHandleLockout(ip: string, email: string, userAgent: string): boolean {
@@ -403,6 +517,11 @@ serve(async (req) => {
         console.log("Email not in admin whitelist:", email);
         recordFailedAttempt(clientIP);
 
+        // Log failed attempt
+        logLoginAttempt(email, clientIP, userAgent, false, 'not_whitelisted').catch(err => {
+          console.error('Failed to log login attempt:', err);
+        });
+
         // Check if this attempt triggered a lockout
         checkAndHandleLockout(clientIP, email, userAgent);
 
@@ -429,6 +548,11 @@ serve(async (req) => {
       if (authError || !authData.user) {
         console.log("Authentication failed:", authError?.message);
         recordFailedAttempt(clientIP);
+
+        // Log failed attempt
+        logLoginAttempt(email, clientIP, userAgent, false, 'invalid_credentials').catch(err => {
+          console.error('Failed to log login attempt:', err);
+        });
 
         // Check if this attempt triggered a lockout
         checkAndHandleLockout(clientIP, email, userAgent);
@@ -469,6 +593,11 @@ serve(async (req) => {
 
       // Clear failed attempts
       clearFailedAttempts(clientIP);
+
+      // Log successful login
+      logLoginAttempt(email, clientIP, userAgent, true, undefined, authData.user.id, 'email').catch(err => {
+        console.error('Failed to log login attempt:', err);
+      });
 
       console.log("Login successful for:", email);
 

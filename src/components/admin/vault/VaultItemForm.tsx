@@ -35,6 +35,7 @@ type VaultItem = {
   type_id: string | null;
   project_id?: string | null;
   platform_id?: string | null;
+  placeholder_key?: string | null;
   notes: string | null;
 };
 
@@ -61,6 +62,7 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
   const [typeId, setTypeId] = useState(editItem?.type_id || '');
   const [projectId, setProjectId] = useState(editItem?.project_id || 'global');
   const [platformId, setPlatformId] = useState(editItem?.platform_id || 'none');
+  const [placeholderKey, setPlaceholderKey] = useState(editItem?.placeholder_key || '');
   const [notes, setNotes] = useState(editItem?.notes || '');
   const [showValue, setShowValue] = useState(false);
   const [loadingDecrypt, setLoadingDecrypt] = useState(false);
@@ -86,15 +88,16 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
       const action = editItem ? 'update' : 'encrypt';
       const resolvedProjectId = projectId === 'global' ? null : projectId;
       const resolvedPlatformId = platformId === 'none' ? null : platformId;
-      const body = editItem 
-        ? { action, itemId: editItem.id, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, notes: notes || null }
-        : { action, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, notes: notes || null };
+      const resolvedPlaceholderKey = placeholderKey.trim().toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '') || null;
+      const body = editItem
+        ? { action, itemId: editItem.id, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, placeholderKey: resolvedPlaceholderKey, notes: notes || null }
+        : { action, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, placeholderKey: resolvedPlaceholderKey, notes: notes || null };
 
       const response = await supabase.functions.invoke('secure-vault', { body });
-      
+
       if (response.error) throw new Error(response.error.message);
       if (!response.data?.success) throw new Error(response.data?.error || 'Failed to save');
-      
+
       return response.data;
     },
     onSuccess: () => {
@@ -202,6 +205,20 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="placeholderKey">Placeholder Key (for Command Builder)</Label>
+        <Input
+          id="placeholderKey"
+          value={placeholderKey}
+          onChange={(e) => setPlaceholderKey(e.target.value)}
+          placeholder="e.g., SUPABASE_PROJECT_REF"
+          className="font-mono uppercase"
+        />
+        <p className="text-xs text-muted-foreground">
+          Use this key in command templates like [SUPABASE_PROJECT_REF]. Auto-formatted to UPPER_SNAKE_CASE.
+        </p>
       </div>
 
       <div className="space-y-2">

@@ -1,5 +1,8 @@
 # Dan Pearson Style Showcase
 
+[![CI Pipeline](https://github.com/dj-pearson/pearson-style-showcase/actions/workflows/ci.yml/badge.svg)](https://github.com/dj-pearson/pearson-style-showcase/actions/workflows/ci.yml)
+[![Deploy to Cloudflare Pages](https://github.com/dj-pearson/pearson-style-showcase/actions/workflows/deploy.yml/badge.svg)](https://github.com/dj-pearson/pearson-style-showcase/actions/workflows/deploy.yml)
+
 A modern, full-stack portfolio and content management system featuring AI-powered article generation, Amazon affiliate marketing automation, and a comprehensive admin dashboard. Built with React, TypeScript, Supabase, and deployed on Cloudflare Pages.
 
 ## ✨ Key Features
@@ -11,6 +14,31 @@ A modern, full-stack portfolio and content management system featuring AI-powere
 - **SEO Ready**: Dynamic meta tags, structured data, sitemaps, and robots.txt
 - **Security Hardened**: CSP headers, input validation, DOMPurify sanitization
 - **3D Interactive Elements**: Three.js animations for engaging user experience
+
+## 🔄 CI/CD Pipeline
+
+This project features a comprehensive automated CI/CD pipeline powered by GitHub Actions:
+
+### Continuous Integration
+- **Automated Testing**: Run full test suite on every PR and push
+- **Code Quality**: ESLint linting and TypeScript type checking
+- **Build Validation**: Production build verification
+- **Security Audits**: Automated vulnerability scanning with npm audit
+- **Bundle Analysis**: Track and report bundle sizes on PRs
+- **Coverage Reports**: Generate and archive code coverage metrics
+
+### Continuous Deployment
+- **Automatic Deployments**: Push to `main` deploys to production via Cloudflare Pages
+- **Preview Deployments**: Every PR gets a unique preview URL
+- **Deployment Comments**: Automatic PR comments with deployment URLs
+- **Fast Builds**: Optimized with dependency caching (~5-7 minute builds)
+
+### Automated Maintenance
+- **Dependabot**: Weekly automated dependency updates with smart grouping
+- **Stale Management**: Automatically mark and close inactive issues/PRs
+- **Code Owners**: Automatic review assignments based on file changes
+
+For detailed CI/CD documentation, see [`.github/README.md`](.github/README.md).
 
 ## 🚀 Quick Start
 
