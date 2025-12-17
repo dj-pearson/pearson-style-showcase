@@ -1,5 +1,4 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
 /**
@@ -9,7 +8,7 @@ import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
  * Use this to verify your API keys are configured correctly before running the pipeline.
  */
 
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -339,4 +338,4 @@ serve(async (req) => {
       }
     }
   );
-});
+};

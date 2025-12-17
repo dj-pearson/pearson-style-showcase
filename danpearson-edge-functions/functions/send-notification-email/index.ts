@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
@@ -248,4 +247,4 @@ This is an automated notification from BuildDesk Support System
       }
     );
   }
-});
+};

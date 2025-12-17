@@ -11,7 +11,6 @@
  * Response format follows Kubernetes health check conventions.
  */
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { getRateLimitStats } from "../_shared/rate-limiter.ts";
@@ -388,4 +387,4 @@ serve(async (req: Request): Promise<Response> => {
       }
     );
   }
-});
+};

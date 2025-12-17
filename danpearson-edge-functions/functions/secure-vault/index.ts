@@ -69,7 +69,7 @@ async function decrypt(encryptedBase64: string): Promise<string> {
   return decoder.decode(decryptedBuffer);
 }
 
-Deno.serve(async (req) => {
+Deno.export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -327,4 +327,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+};

@@ -1,5 +1,4 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
@@ -412,7 +411,7 @@ IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting,
   }
 }
 
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -907,4 +906,4 @@ serve(async (req) => {
       }
     );
   }
-});
+};

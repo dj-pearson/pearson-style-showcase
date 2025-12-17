@@ -9,7 +9,6 @@
  * - Store optimized versions in Supabase Storage
  */
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { ImageMagick, initialize, MagickFormat } from "https://deno.land/x/imagemagick_deno@0.0.25/mod.ts";
 
@@ -311,7 +310,7 @@ const handler = async (req: Request): Promise<Response> => {
       optimized: `${results.optimized.width}x${results.optimized.height} (${results.optimized.size} bytes)`,
       savings: `${results.savings.percentage}%`,
       variants: results.variants?.length || 0,
-    });
+    };
 
     return new Response(
       JSON.stringify(results),

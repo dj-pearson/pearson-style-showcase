@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
-Deno.serve(async (req) => {
+Deno.export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -149,4 +149,4 @@ Return ONLY valid JSON in this exact format:
       }
     );
   }
-});
+};

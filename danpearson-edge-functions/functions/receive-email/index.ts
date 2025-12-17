@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { verifyWebhookSignature, verifySecret } from "../_shared/webhook-security.ts";
@@ -467,4 +466,4 @@ serve(async (req: Request) => {
       }
     );
   }
-});
+};
