@@ -90,10 +90,20 @@ async function handleHealthCheck(): Promise<Response> {
 /**
  * Handle OPTIONS requests for CORS preflight
  */
-function handleOptions(): Response {
+function handleOptions(req: Request): Response {
+  // Get the origin from the request
+  const origin = req.headers.get('Origin') || '*';
+  
   return new Response(null, {
     status: 204,
-    headers: corsHeaders,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with',
+      'Access-Control-Max-Age': '86400',
+      'Access-Control-Allow-Credentials': 'true',
+      'Vary': 'Origin',
+    },
   });
 }
 
@@ -108,7 +118,7 @@ async function handleRequest(req: Request): Promise<Response> {
   
   // Handle OPTIONS for CORS preflight
   if (req.method === 'OPTIONS') {
-    return handleOptions();
+    return handleOptions(req);
   }
   
   // Health check endpoint
@@ -195,10 +205,16 @@ async function handleRequest(req: Request): Promise<Response> {
       const response = await functionModule.default(functionRequest);
       
       // Add CORS headers to the response
+      const origin = req.headers.get('Origin') || '*';
       const headers = new Headers(response.headers);
-      Object.entries(corsHeaders).forEach(([key, value]) => {
-        headers.set(key, value);
-      });
+      
+      // Ensure CORS headers are present
+      headers.set('Access-Control-Allow-Origin', origin);
+      headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, x-client-info, x-requested-with');
+      headers.set('Access-Control-Max-Age', '86400');
+      headers.set('Access-Control-Allow-Credentials', 'true');
+      headers.set('Vary', 'Origin');
       
       return new Response(response.body, {
         status: response.status,
