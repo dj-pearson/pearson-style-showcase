@@ -42,3 +42,5 @@ generate-apple-secret.js
 .env 
 
 
+backup/db_cluster-11-12-2025@06-58-48.backup.gz
+backup/db_cluster-16.backup.gz
