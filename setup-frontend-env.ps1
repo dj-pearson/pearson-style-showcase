@@ -10,10 +10,10 @@ $EnvFile = ".env.local"
 
 # Check if .env.local already exists
 if (Test-Path $EnvFile) {
-    Write-Host "⚠ .env.local already exists" -ForegroundColor Yellow
+    Write-Host "Warning: .env.local already exists" -ForegroundColor Yellow
     $Overwrite = Read-Host "Do you want to overwrite it? (y/N)"
     if ($Overwrite -ne "y" -and $Overwrite -ne "Y") {
-        Write-Host "✗ Aborting" -ForegroundColor Red
+        Write-Host "Aborting" -ForegroundColor Red
         exit 1
     }
 }
@@ -40,7 +40,7 @@ $EnvContent | Out-File -FilePath $EnvFile -Encoding UTF8 -NoNewline
 
 Write-Host ""
 Write-Host "======================================" -ForegroundColor Green
-Write-Host "✓ .env.local created successfully!" -ForegroundColor Green
+Write-Host ".env.local created successfully!" -ForegroundColor Green
 Write-Host "======================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Configuration:" -ForegroundColor Cyan
@@ -52,4 +52,4 @@ Write-Host "1. Review .env.local to ensure values are correct" -ForegroundColor 
 Write-Host "2. Test locally: npm run dev" -ForegroundColor White
 Write-Host "3. Update Cloudflare Pages environment variables for production" -ForegroundColor White
 Write-Host ""
-Write-Host "Done!" -ForegroundColor Green
+Write-Host "Setup complete!" -ForegroundColor Green
