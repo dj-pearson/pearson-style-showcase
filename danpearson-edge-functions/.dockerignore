@@ -1,0 +1,51 @@
+# Docker ignore file for danpearson.net edge functions
+
+# Environment files (never include in Docker image)
+.env
+.env.*
+*.env
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+README.md
+DEPLOYMENT.md
+QUICKSTART.md
+
+# Node modules (if any)
+node_modules
+npm-debug.log
+
+# Tests
+*.test.ts
+tests/
+__tests__/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist
+build
+*.log
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Temporary files
+tmp/
+temp/
+*.tmp

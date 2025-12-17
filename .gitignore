@@ -40,7 +40,23 @@ pnpm-lock.yaml
 CODEBASE_ANALYSIS.md
 generate-apple-secret.js
 .env 
+/deployment 
 
 
-backup/db_cluster-11-12-2025@06-58-48.backup.gz
-backup/db_cluster-16.backup.gz
+COOLIFY_COMMAND_BUILDER_SETUP.md
+DANPEARSON_SETUP_GUIDE.md
+db_cluster-17-12-2025@04-24-13.backup.gz
+SUPABASE_COOLIFY_COMMANDS.md
+backups/db_cluster-15-12-2025@04-42-13.backup.gz
+danpearson-edge-functions/env.example
+danpearson-edge-functions/QUICKSTART.md
+danpearson-edge-functions/START_HERE.md
+danpearson-edge-functions/docs/DEPLOYMENT.md
+danpearson-edge-functions/docs/MIGRATION.md
+danpearson-edge-functions/docs/ROUTING.md
+danpearson-edge-functions/docs/TROUBLESHOOTING.md
+danpearson-edge-functions/deployment/setup-secrets.ps1
+edge-functions-template/DEPLOYMENT.md
+edge-functions-template/Dockerfile
+edge-functions-template/START_HERE.md
+edge-functions-template/TEMPLATE_INFO.md
