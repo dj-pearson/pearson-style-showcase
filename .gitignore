@@ -43,20 +43,19 @@ generate-apple-secret.js
 /deployment 
 
 
+# Documentation and guides (keep these for reference)
 COOLIFY_COMMAND_BUILDER_SETUP.md
 DANPEARSON_SETUP_GUIDE.md
-db_cluster-17-12-2025@04-24-13.backup.gz
 SUPABASE_COOLIFY_COMMANDS.md
-backups/db_cluster-15-12-2025@04-42-13.backup.gz
-danpearson-edge-functions/env.example
-danpearson-edge-functions/QUICKSTART.md
-danpearson-edge-functions/START_HERE.md
-danpearson-edge-functions/docs/DEPLOYMENT.md
-danpearson-edge-functions/docs/MIGRATION.md
-danpearson-edge-functions/docs/ROUTING.md
-danpearson-edge-functions/docs/TROUBLESHOOTING.md
-danpearson-edge-functions/deployment/setup-secrets.ps1
-edge-functions-template/DEPLOYMENT.md
-edge-functions-template/Dockerfile
-edge-functions-template/START_HERE.md
-edge-functions-template/TEMPLATE_INFO.md
+
+# Database backups (keep out of repo)
+db_cluster-*.backup.gz
+backups/
+
+# Edge Functions - ONLY ignore .env files, not the code!
+danpearson-edge-functions/.env
+danpearson-edge-functions/.env.*
+!danpearson-edge-functions/.env.example
+
+# Template directory (keep for reference but not needed in deployment)
+edge-functions-template/
