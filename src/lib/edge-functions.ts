@@ -5,6 +5,8 @@
  * This helper provides a drop-in replacement for supabase.functions.invoke()
  */
 
+import { supabase } from '@/integrations/supabase/client';
+
 const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
 
 export interface EdgeFunctionOptions {
@@ -42,18 +44,9 @@ export async function invokeEdgeFunction<T = any>(
   try {
     const { body, headers = {}, method = 'POST' } = options;
 
-    // Get auth token from localStorage if available
-    const authData = localStorage.getItem('sb-qazhdcqvjppbbjxzvisp-auth-token');
-    let token: string | undefined;
-    
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData);
-        token = parsed?.access_token;
-      } catch (e) {
-        // Ignore parse errors
-      }
-    }
+    // Get auth token from current Supabase session
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
     const response = await fetch(`${FUNCTIONS_URL}/${functionName}`, {
       method,
