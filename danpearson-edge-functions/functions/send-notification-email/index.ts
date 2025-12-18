@@ -13,6 +13,14 @@ interface NotificationRequest {
   notification_email?: string; // Optional override, defaults to pearsonperformance@gmail.com
 }
 
+interface NotificationSettings {
+  notification_emails: string[];
+  enabled: boolean;
+  slack_enabled?: boolean;
+  slack_webhook_url?: string;
+  slack_channel?: string;
+}
+
 async function sendNotificationEmail(
   notificationEmail: string,
   subject: string,
@@ -59,7 +67,127 @@ async function sendNotificationEmail(
   }
 }
 
-serve(async (req: Request) => {
+async function sendSlackNotification(
+  webhookUrl: string,
+  request: NotificationRequest
+): Promise<void> {
+  let emoji: string;
+  let headerText: string;
+  let statusColor: string;
+
+  if (request.type === 'new_ticket') {
+    emoji = '🎫';
+    headerText = 'New Support Ticket';
+    statusColor = '#36a64f'; // Green
+  } else if (request.type === 'new_response') {
+    emoji = '💬';
+    headerText = 'New Response on Ticket';
+    statusColor = '#2196f3'; // Blue
+  } else {
+    emoji = '✉️';
+    headerText = 'Agent Reply Sent';
+    statusColor = '#9c27b0'; // Purple
+  }
+
+  const messagePreview = request.message_preview.substring(0, 300);
+  const truncated = request.message_preview.length > 300 ? '...' : '';
+
+  const payload = {
+    blocks: [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: `${emoji} ${headerText}`,
+          emoji: true,
+        },
+      },
+      {
+        type: 'section',
+        fields: [
+          {
+            type: 'mrkdwn',
+            text: `*Ticket:*\n${request.ticket_number}`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `*From:*\n${request.from_name}`,
+          },
+        ],
+      },
+      {
+        type: 'section',
+        fields: [
+          {
+            type: 'mrkdwn',
+            text: `*Subject:*\n${request.ticket_subject}`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `*Email:*\n${request.from_email}`,
+          },
+        ],
+      },
+      {
+        type: 'divider',
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Message Preview:*\n>${messagePreview.replace(/\n/g, '\n>')}${truncated}`,
+        },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: {
+              type: 'plain_text',
+              text: 'View Ticket',
+              emoji: true,
+            },
+            url: `https://danpearson.net/admin/dashboard?tab=support&ticket=${request.ticket_id}`,
+            style: 'primary',
+          },
+        ],
+      },
+      {
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: `📧 From Pearson Media Support System`,
+          },
+        ],
+      },
+    ],
+    attachments: [
+      {
+        color: statusColor,
+        blocks: [],
+      },
+    ],
+  };
+
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Slack webhook failed: ${response.status} - ${errorText}`);
+  }
+
+  console.log('Slack notification sent successfully');
+}
+
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -103,20 +231,22 @@ serve(async (req: Request) => {
       );
     }
     
-    // Fetch notification settings to get configured email addresses
+    // Fetch notification settings to get configured email addresses and Slack settings
     const { data: notificationSettings } = await supabase
       .from('notification_settings')
-      .select('notification_emails, enabled')
+      .select('notification_emails, enabled, slack_enabled, slack_webhook_url, slack_channel')
       .single();
     
+    const settings = notificationSettings as NotificationSettings | null;
+    
     // Skip if notifications are disabled
-    if (notificationSettings && !notificationSettings.enabled) {
-      console.log('Notifications are disabled in settings');
+    if (settings && !settings.enabled && !settings.slack_enabled) {
+      console.log('All notifications are disabled in settings');
       return new Response(
         JSON.stringify({ 
           success: true, 
           skipped: true, 
-          reason: 'Notifications disabled' 
+          reason: 'All notifications disabled' 
         }),
         {
           status: 200,
@@ -126,7 +256,7 @@ serve(async (req: Request) => {
     }
     
     // Get notification emails from settings or use default
-    const notificationEmails = notificationSettings?.notification_emails || ['pearsonperformance@gmail.com'];
+    const notificationEmails = settings?.notification_emails || ['pearsonperformance@gmail.com'];
 
     let subject: string;
     let body: string;
@@ -145,10 +275,10 @@ From: ${request.from_name} <${request.from_email}>
 Message Preview:
 ${request.message_preview.substring(0, 200)}${request.message_preview.length > 200 ? '...' : ''}
 
-View ticket: https://builddesk.io/admin (Support & Help Center tab)
+View ticket: https://danpearson.net/admin (Support & Help Center tab)
 
 ---
-This is an automated notification from BuildDesk Support System
+This is an automated notification from Pearson Media Support System
 `;
     } else if (request.type === 'new_response') {
       subject = `💬 New Response on Ticket: ${request.ticket_number}`;
@@ -164,10 +294,10 @@ From: ${request.from_name} <${request.from_email}>
 Message Preview:
 ${request.message_preview.substring(0, 200)}${request.message_preview.length > 200 ? '...' : ''}
 
-View ticket: https://builddesk.io/admin (Support & Help Center tab)
+View ticket: https://danpearson.net/admin (Support & Help Center tab)
 
 ---
-This is an automated notification from BuildDesk Support System
+This is an automated notification from Pearson Media Support System
 `;
     } else if (request.type === 'agent_reply') {
       subject = `✉️ Agent Reply Sent on Ticket: ${request.ticket_number}`;
@@ -184,40 +314,72 @@ From Email: ${request.from_email}
 Message Preview:
 ${request.message_preview.substring(0, 200)}${request.message_preview.length > 200 ? '...' : ''}
 
-The reply has been sent to the customer. View ticket history: https://builddesk.io/admin (Support & Help Center tab)
+The reply has been sent to the customer. View ticket history: https://danpearson.net/admin (Support & Help Center tab)
 
 ---
-This is an automated notification from BuildDesk Support System
+This is an automated notification from Pearson Media Support System
 `;
     }
 
-    // Send notification emails to all configured addresses
-    for (const email of notificationEmails) {
+    // Send email notifications if enabled
+    if (settings?.enabled !== false) {
+      for (const email of notificationEmails) {
+        try {
+          await sendNotificationEmail(email, subject!, body!);
+          
+          // Log the notification
+          await supabase.from('email_logs').insert({
+            recipient_email: email,
+            subject: subject,
+            type: 'notification',
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          });
+          
+          console.log(`Email notification sent to ${email}`);
+        } catch (emailError: any) {
+          console.error(`Failed to send notification to ${email}:`, emailError);
+          
+          // Log the failure
+          await supabase.from('email_logs').insert({
+            recipient_email: email,
+            subject: subject,
+            type: 'notification',
+            status: 'failed',
+            error_message: emailError.message,
+            sent_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    // Send Slack notification if enabled
+    if (settings?.slack_enabled && settings?.slack_webhook_url) {
       try {
-        await sendNotificationEmail(email, subject, body);
+        await sendSlackNotification(settings.slack_webhook_url, request);
         
-        // Log the notification
+        // Log the Slack notification
         await supabase.from('email_logs').insert({
-          recipient_email: email,
+          recipient_email: `slack:${settings.slack_channel || '#notifications'}`,
           subject: subject,
-          type: 'notification',
+          type: 'slack_notification',
           status: 'sent',
           sent_at: new Date().toISOString(),
         });
         
-        console.log(`Notification sent to ${email}`);
-      } catch (emailError: any) {
-        console.error(`Failed to send notification to ${email}:`, emailError);
+        console.log(`Slack notification sent to ${settings.slack_channel || '#notifications'}`);
+      } catch (slackError: any) {
+        console.error('Failed to send Slack notification:', slackError);
         
         // Log the failure
         await supabase.from('email_logs').insert({
-          recipient_email: email,
+          recipient_email: `slack:${settings.slack_channel || '#notifications'}`,
           subject: subject,
-          type: 'notification',
+          type: 'slack_notification',
           status: 'failed',
-          error_message: emailError.message,
+          error_message: slackError.message,
           sent_at: new Date().toISOString(),
-        };
+        });
       }
     }
 
@@ -226,7 +388,7 @@ This is an automated notification from BuildDesk Support System
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Notification email sent successfully'
+        message: 'Notifications sent successfully'
       }),
       {
         status: 200,
@@ -235,10 +397,10 @@ This is an automated notification from BuildDesk Support System
     );
 
   } catch (error: any) {
-    console.error('Error sending notification email:', error);
+    console.error('Error sending notification:', error);
     return new Response(
       JSON.stringify({
-        error: error.message || 'Failed to send notification email',
+        error: error.message || 'Failed to send notification',
         details: error.toString()
       }),
       {
