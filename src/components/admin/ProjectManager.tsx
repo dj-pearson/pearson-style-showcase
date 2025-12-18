@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { FileUpload } from './FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { 
   Plus, 
   Edit, 
@@ -118,13 +119,12 @@ export const ProjectManager: React.FC = () => {
     setIsExtracting(true);
     
     try {
-      const { data, error } = await supabase.functions
-        .invoke('extract-from-url', {
-          body: { 
-            url: extractUrl,
-            type: 'project'
-          }
-        });
+      const { data, error } = await invokeEdgeFunction('extract-from-url', {
+        body: { 
+          url: extractUrl,
+          type: 'project'
+        }
+      });
 
       if (error) throw error;
 
@@ -176,14 +176,13 @@ export const ProjectManager: React.FC = () => {
     try {
       const prompt = `Generate comprehensive project description for: ${formData.title}. Include technical details, features, and technologies used.`;
 
-      const { data, error } = await supabase.functions
-        .invoke('ai-content-generator', {
-          body: { 
-            type: 'project', 
-            prompt,
-            context: formData.description ? `Current description: ${formData.description}` : undefined
-          }
-        });
+      const { data, error } = await invokeEdgeFunction('ai-content-generator', {
+        body: { 
+          type: 'project', 
+          prompt,
+          context: formData.description ? `Current description: ${formData.description}` : undefined
+        }
+      });
 
       if (error) throw error;
 

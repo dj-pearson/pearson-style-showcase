@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileUpload } from './FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { Tables, Json } from '@/integrations/supabase/types';
 import { 
   Plus, 
@@ -149,13 +150,12 @@ export const AIToolsManager: React.FC = () => {
     setIsExtracting(true);
     
     try {
-      const { data, error } = await supabase.functions
-        .invoke('extract-from-url', {
-          body: { 
-            url: extractUrl,
-            type: 'ai-tool'
-          }
-        });
+      const { data, error } = await invokeEdgeFunction('extract-from-url', {
+        body: { 
+          url: extractUrl,
+          type: 'ai-tool'
+        }
+      });
 
       if (error) throw error;
 
@@ -210,14 +210,13 @@ export const AIToolsManager: React.FC = () => {
     try {
       const prompt = `Generate comprehensive description for AI tool: ${formData.title}. Include features, use cases, and technical details.`;
 
-      const { data, error } = await supabase.functions
-        .invoke('ai-content-generator', {
-          body: { 
-            type: 'ai-tool', 
-            prompt,
-            context: formData.category ? `Category: ${formData.category}` : undefined
-          }
-        });
+      const { data, error } = await invokeEdgeFunction('ai-content-generator', {
+        body: { 
+          type: 'ai-tool', 
+          prompt,
+          context: formData.category ? `Category: ${formData.category}` : undefined
+        }
+      });
 
       if (error) throw error;
 

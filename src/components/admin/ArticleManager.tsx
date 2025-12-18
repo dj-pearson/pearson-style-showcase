@@ -15,6 +15,7 @@ import { FileUpload } from './FileUpload';
 import ArticleEditor from '../ArticleEditor';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { useMutation } from '@tanstack/react-query';
 import {
   Plus,
@@ -300,14 +301,13 @@ export const ArticleManager: React.FC = () => {
         ? `Write a comprehensive article about: ${formData.title}. ${formData.excerpt ? `Context: ${formData.excerpt}` : ''}`
         : `Generate SEO metadata for an article titled: ${formData.title}. ${formData.content ? `Content preview: ${formData.content?.substring(0, 500)}...` : ''}`;
 
-      const { data, error } = await supabase.functions
-        .invoke('ai-content-generator', {
-          body: { 
-            type: type === 'full' ? 'article' : 'seo', 
-            prompt,
-            context: formData.category ? `Category: ${formData.category}` : undefined
-          }
-        });
+      const { data, error } = await invokeEdgeFunction('ai-content-generator', {
+        body: { 
+          type: type === 'full' ? 'article' : 'seo', 
+          prompt,
+          context: formData.category ? `Category: ${formData.category}` : undefined
+        }
+      });
 
       if (error) throw error;
 

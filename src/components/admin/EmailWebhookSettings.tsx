@@ -38,8 +38,9 @@ export const EmailWebhookSettings = () => {
       if (error) throw error;
 
       if (data) {
-        const projectRef = 'qazhdcqvjppbbjxzvisp';
-        const webhookUrl = `https://${projectRef}.supabase.co/functions/v1/email-webhook-receiver`;
+        // Use self-hosted edge functions URL
+        const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
+        const webhookUrl = `${functionsUrl}/email-webhook-receiver`;
         
         setSettings({
           ...data,
