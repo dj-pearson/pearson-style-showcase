@@ -19,6 +19,7 @@ import {
   type OptimizationResult,
 } from '@/lib/image-optimization';
 import { logger } from '@/lib/logger';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface UseImageOptimizationOptions {
   /** Use server-side optimization (Edge Function) */
@@ -290,7 +291,7 @@ export function useImageOptimization(options: UseImageOptimizationOptions = {}) 
       });
 
       try {
-        const { data, error: invokeError } = await supabase.functions.invoke(
+        const { data, error: invokeError } = await invokeEdgeFunction(
           'optimize-image',
           {
             body: {

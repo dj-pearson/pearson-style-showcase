@@ -1,0 +1,33 @@
+# Environment variables - NEVER commit these!
+.env
+.env.local
+.env.production
+.env.development
+.env.*.local
+
+# Deno cache
+.deno_cache/
+deno.lock
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+dist/
+build/

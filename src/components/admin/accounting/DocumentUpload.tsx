@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export type DocumentType = 'invoice' | 'bill' | 'receipt' | 'payment_proof' | 'bank_statement' | 'contract' | 'tax_document' | 'other';
 export type RelatedEntityType = 'invoice' | 'payment' | 'journal_entry' | 'contact' | 'expense' | 'none';
@@ -249,7 +250,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
     try {
       logger.log('Processing document with OCR and AI:', documentId);
 
-      const { data, error } = await supabase.functions.invoke('process-accounting-document', {
+      const { data, error } = await invokeEdgeFunction('process-accounting-document', {
         body: {
           documentId,
           documentType,

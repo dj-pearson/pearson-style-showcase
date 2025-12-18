@@ -33,7 +33,7 @@ const NewsletterSignup = () => {
     setIsSubmitting(true);
     
     try {
-      const { data: result, error } = await supabase.functions.invoke('newsletter-signup', {
+      const { data: result, error } = await invokeEdgeFunction('newsletter-signup', {
         body: { email: data.email }
       });
 
@@ -113,6 +113,7 @@ const NewsletterSignup = () => {
       </CardContent>
     </Card>
   );
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 };
 
 export default NewsletterSignup;

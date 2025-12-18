@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Lock, FileText, Link, Terminal, Key, FolderKanban, Globe, Building2 } from 'lucide-react';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 type VaultType = {
   id: string;
@@ -71,7 +72,7 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
   useEffect(() => {
     if (editItem) {
       setLoadingDecrypt(true);
-      supabase.functions.invoke('secure-vault', {
+      invokeEdgeFunction('secure-vault', {
         body: { action: 'decrypt', itemId: editItem.id }
       }).then(response => {
         if (response.data?.value) {
@@ -93,7 +94,7 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
         ? { action, itemId: editItem.id, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, placeholderKey: resolvedPlaceholderKey, notes: notes || null }
         : { action, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, placeholderKey: resolvedPlaceholderKey, notes: notes || null };
 
-      const response = await supabase.functions.invoke('secure-vault', { body });
+      const response = await invokeEdgeFunction('secure-vault', { body });
 
       if (response.error) throw new Error(response.error.message);
       if (!response.data?.success) throw new Error(response.data?.error || 'Failed to save');

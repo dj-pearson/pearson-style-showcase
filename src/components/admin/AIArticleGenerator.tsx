@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, RefreshCw, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export const AIArticleGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -17,7 +18,7 @@ export const AIArticleGenerator = () => {
     setGeneratedArticle(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-ai-article');
+      const { data, error } = await invokeEdgeFunction('generate-ai-article');
 
       if (error) throw error;
 

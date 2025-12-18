@@ -14,6 +14,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface QuickAction {
   id: string;
@@ -54,7 +55,7 @@ export const QuickActionsPanel: React.FC = () => {
       icon: <Play className="h-4 w-4" />,
       action: async () => {
         try {
-          const { error } = await supabase.functions.invoke('amazon-article-pipeline', {
+          const { error } = await invokeEdgeFunction('amazon-article-pipeline', {
             body: { manual: true }
           });
 
@@ -82,7 +83,7 @@ export const QuickActionsPanel: React.FC = () => {
       icon: <Send className="h-4 w-4" />,
       action: async () => {
         try {
-          const { error } = await supabase.functions.invoke('send-article-webhook', {
+          const { error } = await invokeEdgeFunction('send-article-webhook', {
             body: {
               articleTitle: 'Test Article',
               articleUrl: 'https://example.com/test',

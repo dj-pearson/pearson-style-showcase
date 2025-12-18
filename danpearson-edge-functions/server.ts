@@ -1,0 +1,278 @@
+/**
+ * danpearson.net Edge Functions Server
+ * 
+ * A custom Deno HTTP server that dynamically loads and serves
+ * Supabase Edge Functions from the /functions directory.
+ * 
+ * Domain: functions.danpearson.net
+ * API Gateway: api.danpearson.net (Kong)
+ * 
+ * Features:
+ * - Dynamic function discovery and loading
+ * - Health check endpoint
+ * - CORS support
+ * - Environment variable management
+ * - Error handling and logging
+ * - JWT verification support
+ */
+
+const PORT = parseInt(Deno.env.get('PORT') || '8000');
+const FUNCTIONS_DIR = '/app/functions';
+
+// CORS headers for all responses - Updated for danpearson.net
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with',
+  'Access-Control-Max-Age': '86400', // 24 hours
+  'Access-Control-Allow-Credentials': 'true',
+};
+
+/**
+ * Get list of available functions by scanning the functions directory
+ */
+async function getAvailableFunctions(): Promise<string[]> {
+  const functions: string[] = [];
+  
+  try {
+    for await (const entry of Deno.readDir(FUNCTIONS_DIR)) {
+      if (entry.isDirectory && !entry.name.startsWith('_')) {
+        // Check if index.ts exists in the function directory
+        try {
+          const indexPath = `${FUNCTIONS_DIR}/${entry.name}/index.ts`;
+          await Deno.stat(indexPath);
+          functions.push(entry.name);
+        } catch {
+          // index.ts doesn't exist, skip this directory
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error reading functions directory:', error);
+  }
+  
+  return functions.sort();
+}
+
+/**
+ * Health check endpoint handler
+ */
+async function handleHealthCheck(): Promise<Response> {
+  const functions = await getAvailableFunctions();
+  
+  const healthData = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    domain: 'functions.danpearson.net',
+    runtime: 'deno',
+    version: Deno.version.deno,
+    environment: {
+      supabaseUrlConfigured: !!Deno.env.get('SUPABASE_URL'),
+      anonKeyConfigured: !!Deno.env.get('SUPABASE_ANON_KEY'),
+      serviceRoleKeyConfigured: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    },
+    functions: functions.length,
+    functionList: functions,
+  };
+  
+  return new Response(
+    JSON.stringify(healthData, null, 2),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    }
+  );
+}
+
+/**
+ * Handle OPTIONS requests for CORS preflight
+ */
+function handleOptions(req: Request): Response {
+  // Get the origin from the request
+  const origin = req.headers.get('Origin') || '*';
+  
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with',
+      'Access-Control-Max-Age': '86400',
+      'Access-Control-Allow-Credentials': 'true',
+      'Vary': 'Origin',
+    },
+  });
+}
+
+/**
+ * Main request handler
+ */
+async function handleRequest(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const path = url.pathname;
+  
+  console.log(`[${new Date().toISOString()}] ${req.method} ${path}`);
+  
+  // Handle OPTIONS for CORS preflight
+  if (req.method === 'OPTIONS') {
+    return handleOptions(req);
+  }
+  
+  // Health check endpoint
+  if (path === '/_health' || path === '/health') {
+    return await handleHealthCheck();
+  }
+  
+  // Root endpoint - return welcome message
+  if (path === '/') {
+    const functions = await getAvailableFunctions();
+    return new Response(
+      JSON.stringify({
+        message: 'danpearson.net Edge Functions Server',
+        domain: 'functions.danpearson.net',
+        apiGateway: 'api.danpearson.net',
+        version: '1.0.0',
+        functions,
+        usage: 'POST /{function-name} with JSON body',
+      }, null, 2),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+  
+  // Extract function name from path
+  const functionName = path.split('/')[1];
+  
+  if (!functionName) {
+    return new Response(
+      JSON.stringify({ error: 'Function name required' }),
+      {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+  
+  // Build function path
+  const functionPath = `${FUNCTIONS_DIR}/${functionName}/index.ts`;
+  
+  // Check if function exists
+  try {
+    await Deno.stat(functionPath);
+  } catch {
+    return new Response(
+      JSON.stringify({ 
+        error: `Function '${functionName}' not found`,
+        availableFunctions: await getAvailableFunctions(),
+      }),
+      {
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+  
+  // Dynamically import and execute the function
+  try {
+    console.log(`Loading function: ${functionName}`);
+    
+    // Import the function module
+    const functionModule = await import(`file://${functionPath}`);
+    
+    // Create a new Request object to pass to the function
+    const functionRequest = new Request(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: req.body,
+    });
+    
+    // If the module exports a handler, call it directly
+    if (typeof functionModule.default === 'function') {
+      const response = await functionModule.default(functionRequest);
+      
+      // Add CORS headers to the response
+      const origin = req.headers.get('Origin') || '*';
+      const headers = new Headers(response.headers);
+      
+      // Ensure CORS headers are present
+      headers.set('Access-Control-Allow-Origin', origin);
+      headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, x-client-info, x-requested-with');
+      headers.set('Access-Control-Max-Age', '86400');
+      headers.set('Access-Control-Allow-Credentials', 'true');
+      headers.set('Vary', 'Origin');
+      
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    }
+    
+    // If no handler is exported, return an error
+    return new Response(
+      JSON.stringify({ 
+        error: `Function '${functionName}' does not export a handler`,
+        hint: 'Functions should use Deno.serve() or export a default handler function',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+    
+  } catch (error) {
+    console.error(`Error executing function '${functionName}':`, error);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: 'Function execution failed',
+        message: error.message,
+        stack: error.stack,
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+/**
+ * Start the server
+ */
+console.log(`🚀 Starting danpearson.net Edge Functions Server on port ${PORT}`);
+console.log(`📁 Functions directory: ${FUNCTIONS_DIR}`);
+console.log(`🌐 CORS enabled for all origins`);
+console.log(`🔗 Domain: functions.danpearson.net`);
+console.log(`🔗 API Gateway: api.danpearson.net`);
+
+// List available functions on startup
+getAvailableFunctions().then(functions => {
+  console.log(`✅ Found ${functions.length} function(s):`);
+  functions.forEach(fn => console.log(`   - ${fn}`));
+});
+
+Deno.serve({ port: PORT }, handleRequest);
+
+console.log(`✅ Server running at http://localhost:${PORT}/`);

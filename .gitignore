@@ -40,7 +40,23 @@ pnpm-lock.yaml
 CODEBASE_ANALYSIS.md
 generate-apple-secret.js
 .env 
+/deployment 
 
 
-backup/db_cluster-11-12-2025@06-58-48.backup.gz
-backup/db_cluster-16.backup.gz
+# Documentation and guides (keep these for reference)
+COOLIFY_COMMAND_BUILDER_SETUP.md
+DANPEARSON_SETUP_GUIDE.md
+SUPABASE_COOLIFY_COMMANDS.md
+
+# Database backups (keep out of repo)
+db_cluster-*.backup.gz
+backups/
+
+# Edge Functions - ONLY ignore .env files, not the code!
+danpearson-edge-functions/.env
+danpearson-edge-functions/.env.*
+!danpearson-edge-functions/.env.example
+
+# Template directory (keep for reference but not needed in deployment)
+edge-functions-template/
+MIGRATION_STATUS.md
