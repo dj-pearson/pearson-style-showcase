@@ -4,6 +4,190 @@ import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+// Helper function to call AI using centralized config
+async function callAIWithConfig(
+  configs: any[],
+  systemPrompt: string,
+  userPrompt: string,
+  options: { temperature?: number; maxTokens?: number; jsonMode?: boolean } = {}
+): Promise<{ response: string; usedConfig: any }> {
+  const { temperature = 0.7, maxTokens = 20000, jsonMode = true } = options;
+
+  for (const config of configs) {
+    console.log(`Trying AI model: ${config.provider} - ${config.model_name}`);
+
+    try {
+      const apiKey = Deno.env.get(config.api_key_secret_name);
+      if (!apiKey) {
+        console.error(`API key ${config.api_key_secret_name} not found`);
+        continue;
+      }
+
+      if (config.provider === "gemini-paid" || config.provider === "gemini-free") {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+              }],
+              generationConfig: {
+                temperature,
+                maxOutputTokens: maxTokens,
+                ...(config.configuration || {})
+              }
+            })
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`Gemini API error: ${response.status}`, errorText);
+        }
+
+      } else if (config.provider === "claude") {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: config.model_name,
+            max_tokens: maxTokens,
+            messages: [
+              { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
+            ]
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.content?.[0]?.text;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`Claude API error: ${response.status}`, errorText);
+        }
+
+      } else if (config.provider === "lovable") {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: config.model_name,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            ...(jsonMode ? { response_format: { type: "json_object" } } : {})
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.choices?.[0]?.message?.content;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`Lovable API error: ${response.status}`, errorText);
+        }
+
+      } else if (config.provider === "openai") {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: config.model_name,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            ...(jsonMode ? { response_format: { type: "json_object" } } : {})
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.choices?.[0]?.message?.content;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`OpenAI API error: ${response.status}`, errorText);
+        }
+      }
+
+    } catch (error) {
+      console.error(`Failed with ${config.provider}:`, error);
+      continue;
+    }
+  }
+
+  throw new Error("All AI models failed to generate a response");
+}
+
+// Get AI configs filtered by use case
+async function getAIConfigs(supabaseClient: any, useCase: string = "article_generation"): Promise<any[]> {
+  const { data: configs, error: configError } = await supabaseClient
+    .from("ai_model_configs")
+    .select("*")
+    .eq("is_active", true)
+    .order("priority", { ascending: false });
+
+  if (configError || !configs) {
+    throw new Error("Failed to load AI model configurations");
+  }
+
+  // Prefer use-case-specific configs, then 'all', then general configs
+  const useCaseConfigs = configs.filter((c: any) =>
+    c.use_case && c.use_case.includes(useCase)
+  );
+  const allUseConfigs = configs.filter((c: any) =>
+    c.use_case && c.use_case.includes("all")
+  );
+  const generalConfigs = configs.filter((c: any) =>
+    !c.use_case || c.use_case.includes("general")
+  );
+
+  const orderedConfigs =
+    useCaseConfigs.length > 0
+      ? useCaseConfigs
+      : allUseConfigs.length > 0
+        ? allUseConfigs
+        : generalConfigs;
+
+  if (orderedConfigs.length === 0) {
+    throw new Error(`No active AI configuration found for ${useCase}`);
+  }
+
+  return orderedConfigs;
+}
+
 // Extract ASIN from Amazon URL
 function extractASIN(url: string): string | null {
   // Match patterns like:
@@ -237,14 +421,15 @@ async function enrichProductData(products: any[], log: (level: string, message: 
 // SEO data generation removed - focusing on core article generation
 
 // Enhanced AI prompt for better SEO and conversion optimization
-async function generateArticleContent(products: any[], niche: string, wordCount: number) {
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+async function generateArticleContent(
+  products: any[],
+  niche: string,
+  wordCount: number,
+  aiConfigs: any[]
+) {
+  const systemPrompt = 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.';
 
-  if (!lovableApiKey) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
-  const prompt = `You are an expert Amazon affiliate product reviewer. Create a compelling, SEO-optimized article about "${niche}" that will rank well in Google and drive affiliate sales.
+  const userPrompt = `You are an expert Amazon affiliate product reviewer. Create a compelling, SEO-optimized article about "${niche}" that will rank well in Google and drive affiliate sales.
 
 TARGET WORD COUNT: ${wordCount} words
 
@@ -344,34 +529,15 @@ Return ONLY valid JSON (no markdown code blocks) in this exact format:
 
 IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting, just pure JSON.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${lovableApiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.'
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 20000, // Increased significantly to prevent truncation of detailed articles
-      response_format: { type: "json_object" } // Force JSON mode
-    })
-  });
+  // Call AI using centralized configuration
+  const { response: content, usedConfig } = await callAIWithConfig(
+    aiConfigs,
+    systemPrompt,
+    userPrompt,
+    { temperature: 0.7, maxTokens: 20000, jsonMode: true }
+  );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI generation failed: ${response.status} ${errorText}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices[0].message.content;
+  console.log(`Article generated using ${usedConfig.provider} - ${usedConfig.model_name}`);
 
   // Extract JSON from markdown code blocks if present
   let jsonContent = content;
@@ -424,6 +590,10 @@ export default async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Get AI configuration early to fail fast if not configured
+    const aiConfigs = await getAIConfigs(supabase, "article_generation");
+    console.log(`Found ${aiConfigs.length} AI configs for article generation`);
+
     // Read optional body overrides
     let bodyOverrides: any = {};
     try {
@@ -469,7 +639,7 @@ export default async (req: Request): Promise<Response> => {
       console.log(`[${level.toUpperCase()}] ${message}`, ctx || '');
     };
 
-    await log('info', 'Pipeline started with new SerpAPI/Google Search integration');
+    await log('info', 'Pipeline started with centralized AI configuration');
 
     // Fetch settings
     const { data: settingsRow } = await supabase
@@ -506,6 +676,8 @@ export default async (req: Request): Promise<Response> => {
     const { count } = await supabase
       .from('amazon_search_terms')
       .select('*', { count: 'exact', head: true });
+
+    let niche = '';
 
     if (count === 0) {
       await log('info', 'Seeding search terms from CSV in storage bucket');
@@ -549,7 +721,6 @@ export default async (req: Request): Promise<Response> => {
     }
 
     // Pick random unused search term with retry logic
-    let niche = '';
     let searchTermId = '';
     let retryCount = 0;
     const maxRetries = 5;
@@ -741,14 +912,15 @@ export default async (req: Request): Promise<Response> => {
 
     await log('info', `Using ${products.length} products for article generation`);
 
-    // Generate article
-    await log('info', 'Generating SEO-optimized article content with AI');
+    // Generate article using centralized AI config
+    await log('info', 'Generating SEO-optimized article content with centralized AI');
     let articleData;
     try {
       articleData = await generateArticleContent(
         products,
         niche,
-        settings.word_count_target
+        settings.word_count_target,
+        aiConfigs
       );
       await log('info', 'AI article generation completed successfully');
     } catch (aiError) {
@@ -841,12 +1013,18 @@ export default async (req: Request): Promise<Response> => {
       .eq('id', article.id);
 
     // If article is published, trigger webhook to distribute to social
+    const functionsUrl = Deno.env.get('FUNCTIONS_URL') || 'https://functions.danpearson.net';
     if (article.published) {
       try {
-        await supabase.functions.invoke('send-article-webhook', {
-          body: { articleId: article.id, isTest: false }
+        const webhookResponse = await fetch(`${functionsUrl}/send-article-webhook`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          },
+          body: JSON.stringify({ articleId: article.id, isTest: false })
         });
-        await log('info', 'Webhook invoked for article', { articleId: article.id });
+        await log('info', 'Webhook invoked for article', { articleId: article.id, status: webhookResponse.status });
       } catch (e) {
         await log('error', 'Failed to invoke webhook', { error: (e as Error)?.message || String(e) });
       }
@@ -872,7 +1050,7 @@ export default async (req: Request): Promise<Response> => {
         .eq('id', settings.id);
     }
 
-    await log('info', 'Pipeline completed successfully with SerpAPI/Google Search integration');
+    await log('info', 'Pipeline completed successfully with centralized AI configuration');
 
     return new Response(
       JSON.stringify({
@@ -886,7 +1064,7 @@ export default async (req: Request): Promise<Response> => {
         },
         products: products.length,
         affiliateTag: settings.amazon_tag,
-        method: 'SerpAPI/Google Search',
+        method: 'Centralized AI Config',
         runId: runId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

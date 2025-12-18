@@ -1,6 +1,190 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
+// Helper function to call AI using centralized config
+async function callAIWithConfig(
+  configs: any[],
+  systemPrompt: string,
+  userPrompt: string,
+  options: { temperature?: number; maxTokens?: number; jsonMode?: boolean } = {}
+): Promise<{ response: string; usedConfig: any }> {
+  const { temperature = 0.7, maxTokens = 4000, jsonMode = false } = options;
+
+  for (const config of configs) {
+    console.log(`Trying AI model: ${config.provider} - ${config.model_name}`);
+
+    try {
+      const apiKey = Deno.env.get(config.api_key_secret_name);
+      if (!apiKey) {
+        console.error(`API key ${config.api_key_secret_name} not found`);
+        continue;
+      }
+
+      if (config.provider === "gemini-paid" || config.provider === "gemini-free") {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+              }],
+              generationConfig: {
+                temperature,
+                maxOutputTokens: maxTokens,
+                ...(config.configuration || {})
+              }
+            })
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`Gemini API error: ${response.status}`, errorText);
+        }
+
+      } else if (config.provider === "claude") {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: config.model_name,
+            max_tokens: maxTokens,
+            messages: [
+              { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
+            ]
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.content?.[0]?.text;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`Claude API error: ${response.status}`, errorText);
+        }
+
+      } else if (config.provider === "lovable") {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: config.model_name,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            ...(jsonMode ? { response_format: { type: "json_object" } } : {})
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.choices?.[0]?.message?.content;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`Lovable API error: ${response.status}`, errorText);
+        }
+
+      } else if (config.provider === "openai") {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: config.model_name,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            ...(jsonMode ? { response_format: { type: "json_object" } } : {})
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const generatedResponse = result.choices?.[0]?.message?.content;
+          if (generatedResponse) {
+            return { response: generatedResponse, usedConfig: config };
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`OpenAI API error: ${response.status}`, errorText);
+        }
+      }
+
+    } catch (error) {
+      console.error(`Failed with ${config.provider}:`, error);
+      continue;
+    }
+  }
+
+  throw new Error("All AI models failed to generate a response");
+}
+
+// Get AI configs filtered by use case
+async function getAIConfigs(supabaseClient: any, useCase: string = "article_generation"): Promise<any[]> {
+  const { data: configs, error: configError } = await supabaseClient
+    .from("ai_model_configs")
+    .select("*")
+    .eq("is_active", true)
+    .order("priority", { ascending: false });
+
+  if (configError || !configs) {
+    throw new Error("Failed to load AI model configurations");
+  }
+
+  // Prefer use-case-specific configs, then 'all', then general configs
+  const useCaseConfigs = configs.filter((c: any) =>
+    c.use_case && c.use_case.includes(useCase)
+  );
+  const allUseConfigs = configs.filter((c: any) =>
+    c.use_case && c.use_case.includes("all")
+  );
+  const generalConfigs = configs.filter((c: any) =>
+    !c.use_case || c.use_case.includes("general")
+  );
+
+  const orderedConfigs =
+    useCaseConfigs.length > 0
+      ? useCaseConfigs
+      : allUseConfigs.length > 0
+        ? allUseConfigs
+        : generalConfigs;
+
+  if (orderedConfigs.length === 0) {
+    throw new Error(`No active AI configuration found for ${useCase}`);
+  }
+
+  return orderedConfigs;
+}
+
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -15,10 +199,9 @@ export default async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    // Get AI configuration
+    const aiConfigs = await getAIConfigs(supabaseClient, "article_generation");
+    console.log(`Found ${aiConfigs.length} AI configs for article generation`);
 
     console.log('Fetching articles from AI news website...');
     
@@ -59,35 +242,21 @@ export default async (req: Request): Promise<Response> => {
     const excerpt = rawContent.substring(0, 500);
 
     console.log('Original article title:', title);
-    console.log('Generating new article with AI...');
+    console.log('Generating new article with AI using centralized config...');
 
-    // Generate a completely new article with AI
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like. 
+    const systemPrompt = `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like. 
             
-            Rules:
-            - Write in a conversational, professional tone
-            - Create completely original content - do NOT copy from the source
-            - Use the source only for topic inspiration and key facts
-            - Include relevant examples and real-world applications
-            - Structure with clear headings (use ## and ### for markdown)
-            - Aim for 800-1200 words
-            - Write for both technical and non-technical readers
-            - Include actionable insights`
-          },
-          {
-            role: 'user',
-            content: `Based on this article about "${title}", write a completely new, SEO-optimized article with a fresh perspective.
+Rules:
+- Write in a conversational, professional tone
+- Create completely original content - do NOT copy from the source
+- Use the source only for topic inspiration and key facts
+- Include relevant examples and real-world applications
+- Structure with clear headings (use ## and ### for markdown)
+- Aim for 800-1200 words
+- Write for both technical and non-technical readers
+- Include actionable insights`;
+
+    const userPrompt = `Based on this article about "${title}", write a completely new, SEO-optimized article with a fresh perspective.
 
 Source article context (use only as inspiration):
 ${excerpt}
@@ -108,23 +277,17 @@ Make sure the content is:
 - Well-researched with specific details
 - Human-sounding and engaging
 - SEO-optimized but natural
-- Properly structured with markdown headings`
-          }
-        ],
-        temperature: 0.7,
-      }),
-    });
+- Properly structured with markdown headings`;
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI API error:', aiResponse.status, errorText);
-      throw new Error(`AI API failed: ${aiResponse.status}`);
-    }
+    // Call AI using centralized configuration
+    const { response: aiContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      userPrompt,
+      { temperature: 0.7, maxTokens: 4000, jsonMode: true }
+    );
 
-    const aiData = await aiResponse.json();
-    const aiContent = aiData.choices[0].message.content;
-    
-    console.log('AI response received, parsing...');
+    console.log(`AI response received from ${usedConfig.provider} - ${usedConfig.model_name}, parsing...`);
 
     // Extract JSON from AI response (handle markdown code blocks)
     let articleData;
@@ -182,13 +345,19 @@ Make sure the content is:
 
     console.log('Article created successfully:', newArticle.id);
 
-    // If published, trigger the webhook asynchronously (do not fail main flow)
+    // Call local webhook function for article distribution
+    const functionsUrl = Deno.env.get('FUNCTIONS_URL') || 'https://functions.danpearson.net';
     if (newArticle.published) {
       try {
-        await supabaseClient.functions.invoke('send-article-webhook', {
-          body: { articleId: newArticle.id, isTest: false }
+        const webhookResponse = await fetch(`${functionsUrl}/send-article-webhook`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+          },
+          body: JSON.stringify({ articleId: newArticle.id, isTest: false })
         });
-        console.log('Webhook invoked for article', newArticle.id);
+        console.log('Webhook invoked for article', newArticle.id, 'status:', webhookResponse.status);
       } catch (e) {
         console.error('Failed to invoke webhook for article', newArticle.id, e);
       }
@@ -200,6 +369,7 @@ Make sure the content is:
         article: newArticle,
         sourceUrl: randomUrl,
         message: 'Article generated and published successfully',
+        aiModel: `${usedConfig.provider} - ${usedConfig.model_name}`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
