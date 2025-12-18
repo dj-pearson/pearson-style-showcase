@@ -69,7 +69,7 @@ async function decrypt(encryptedBase64: string): Promise<string> {
   return decoder.decode(decryptedBuffer);
 }
 
-Deno.export default async (req: Request): Promise<Response> => {
+export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
