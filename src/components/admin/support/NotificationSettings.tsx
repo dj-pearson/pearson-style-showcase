@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { Plus, X, Mail, MessageSquare, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export const NotificationSettings = () => {
   const [emails, setEmails] = useState<string[]>(['pearsonperformance@gmail.com']);
@@ -90,50 +91,26 @@ export const NotificationSettings = () => {
 
     setTestingSlack(true);
     try {
-      const response = await fetch(slackWebhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Use edge function to proxy the Slack request (avoids CORS issues)
+      const response = await invokeEdgeFunction('slack-test', {
+        body: {
+          webhookUrl: slackWebhookUrl,
+          channel: slackChannel,
         },
-        body: JSON.stringify({
-          text: '🧪 *Test Notification from Pearson Media Support*',
-          blocks: [
-            {
-              type: 'header',
-              text: {
-                type: 'plain_text',
-                text: '🧪 Test Notification',
-                emoji: true,
-              },
-            },
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: 'This is a test message from the *Pearson Media Support System*.\n\nIf you see this message, your Slack integration is working correctly! ✅',
-              },
-            },
-            {
-              type: 'context',
-              elements: [
-                {
-                  type: 'mrkdwn',
-                  text: `Sent to channel: *${slackChannel}*`,
-                },
-              ],
-            },
-          ],
-        }),
       });
 
-      if (response.ok) {
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to send test message');
+      }
+
+      if (response.data?.success) {
         toast.success('Test message sent to Slack!');
       } else {
-        throw new Error('Failed to send test message');
+        throw new Error(response.data?.error || 'Failed to send test message');
       }
     } catch (error: any) {
       console.error('Slack test error:', error);
-      toast.error('Failed to send test message. Check your webhook URL.');
+      toast.error(error.message || 'Failed to send test message. Check your webhook URL.');
     } finally {
       setTestingSlack(false);
     }
