@@ -60,3 +60,4 @@ danpearson-edge-functions/.env.*
 # Template directory (keep for reference but not needed in deployment)
 edge-functions-template/
 MIGRATION_STATUS.md
+danpearson-edge-functions/env.example
