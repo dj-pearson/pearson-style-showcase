@@ -32,6 +32,7 @@ export interface AICallResult {
 
 /**
  * Get AI configurations filtered by tier and optional use case
+ * Includes cross-tier fallback: lightweight ↔ normal for resilience
  * 
  * @param supabaseClient - Supabase client instance
  * @param tier - 'lightweight' for fast/cheap tasks, 'normal' for quality tasks
@@ -42,36 +43,34 @@ export async function getAIConfigs(
   tier: ModelTier = 'normal',
   useCase?: string
 ): Promise<AIConfig[]> {
-  const { data: configs, error: configError } = await supabaseClient
+  // Get all active configs
+  const { data: allConfigs, error: configError } = await supabaseClient
     .from("ai_model_configs")
     .select("*")
     .eq("is_active", true)
-    .eq("model_tier", tier)
     .order("priority", { ascending: false });
 
   if (configError) {
-    console.error("Failed to load AI model configurations:", configError);
+    console.error("[AI] Failed to load AI model configurations:", configError);
     throw new Error("Failed to load AI model configurations");
   }
 
-  if (!configs || configs.length === 0) {
-    // Fallback: try to get any active config if no tier-specific ones exist
-    console.warn(`No ${tier} tier configs found, falling back to any active config`);
-    const { data: fallbackConfigs, error: fallbackError } = await supabaseClient
-      .from("ai_model_configs")
-      .select("*")
-      .eq("is_active", true)
-      .order("priority", { ascending: false });
-
-    if (fallbackError || !fallbackConfigs || fallbackConfigs.length === 0) {
-      throw new Error(`No active AI configuration found for tier: ${tier}`);
-    }
-
-    return fallbackConfigs as AIConfig[];
+  if (!allConfigs || allConfigs.length === 0) {
+    throw new Error("No active AI configurations found");
   }
 
-  // If a specific use case is provided, filter further
-  if (useCase) {
+  // Separate configs by tier
+  const primaryTierConfigs = allConfigs.filter((c: AIConfig) => c.model_tier === tier);
+  const fallbackTier: ModelTier = tier === 'lightweight' ? 'normal' : 'lightweight';
+  const fallbackTierConfigs = allConfigs.filter((c: AIConfig) => c.model_tier === fallbackTier);
+
+  // Build ordered list: primary tier first, then fallback tier
+  let orderedConfigs: AIConfig[] = [];
+
+  // Filter by use case if provided
+  const filterByUseCase = (configs: AIConfig[]): AIConfig[] => {
+    if (!useCase) return configs;
+
     const useCaseConfigs = configs.filter((c: AIConfig) =>
       c.use_case && c.use_case.includes(useCase)
     );
@@ -82,13 +81,30 @@ export async function getAIConfigs(
       !c.use_case || c.use_case.includes("general")
     );
 
-    // Return in priority order: specific use case > all > general
+    // Return filtered in priority: specific > all > general, or full list if no matches
     if (useCaseConfigs.length > 0) return useCaseConfigs;
     if (allUseConfigs.length > 0) return allUseConfigs;
     if (generalConfigs.length > 0) return generalConfigs;
+    return configs; // Return all if no use case matches
+  };
+
+  // Add primary tier configs (filtered by use case)
+  const filteredPrimary = filterByUseCase(primaryTierConfigs);
+  orderedConfigs.push(...filteredPrimary);
+
+  // Add fallback tier configs (filtered by use case) for resilience
+  const filteredFallback = filterByUseCase(fallbackTierConfigs);
+  orderedConfigs.push(...filteredFallback);
+
+  if (orderedConfigs.length === 0) {
+    // Ultimate fallback: use any active config
+    console.warn(`[AI] No ${tier} or ${fallbackTier} configs found, using any available`);
+    orderedConfigs = allConfigs as AIConfig[];
+  } else {
+    console.log(`[AI] Config order: ${orderedConfigs.length} configs (${filteredPrimary.length} ${tier}, ${filteredFallback.length} ${fallbackTier} fallback)`);
   }
 
-  return configs as AIConfig[];
+  return orderedConfigs;
 }
 
 /**
