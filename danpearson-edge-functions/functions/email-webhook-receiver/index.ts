@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { getCorsHeaders, handleCors, corsJsonResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { verifyWebhookSignature, verifySecret } from "../_shared/webhook-security.ts";
 
 interface EmailWebhookPayload {
@@ -20,7 +20,31 @@ interface EmailWebhookPayload {
   }>;
 }
 
-serve(async (req: Request) => {
+// Helper to call other self-hosted edge functions
+async function invokeLocalFunction(functionName: string, body: Record<string, unknown>): Promise<void> {
+  const functionsUrl = Deno.env.get('FUNCTIONS_URL') || 'https://functions.danpearson.net';
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  
+  try {
+    const response = await fetch(`${functionsUrl}/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to invoke ${functionName}:`, response.status, errorText);
+    }
+  } catch (error) {
+    console.error(`Error invoking ${functionName}:`, error);
+  }
+}
+
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -90,7 +114,7 @@ serve(async (req: Request) => {
     let payload: EmailWebhookPayload;
     try {
       payload = JSON.parse(rawBody);
-    } catch (e) {
+    } catch {
       console.error('Failed to parse webhook payload');
       return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
         status: 400,
@@ -180,18 +204,16 @@ serve(async (req: Request) => {
       ticketId = ticket.id;
       console.log('Created new ticket:', ticketId);
       
-      // Send notification for new ticket
+      // Send notification for new ticket via self-hosted function
       try {
-        await supabase.functions.invoke('send-notification-email', {
-          body: {
-            type: 'new_ticket',
-            ticket_number: ticket.ticket_number,
-            ticket_id: ticket.id,
-            ticket_subject: payload.subject,
-            from_email: payload.from,
-            from_name: payload.from.split('@')[0],
-            message_preview: payload.body_text || payload.body_html || ''
-          }
+        await invokeLocalFunction('send-notification-email', {
+          type: 'new_ticket',
+          ticket_number: ticket.ticket_number,
+          ticket_id: ticket.id,
+          ticket_subject: payload.subject,
+          from_email: payload.from,
+          from_name: payload.from.split('@')[0],
+          message_preview: payload.body_text || payload.body_html || ''
         });
         console.log('Sent new ticket notification');
       } catch (notifError) {
@@ -208,7 +230,7 @@ serve(async (req: Request) => {
         })
         .eq('id', ticketId);
       
-      // Send notification for new response
+      // Send notification for new response via self-hosted function
       try {
         const { data: ticket } = await supabase
           .from('support_tickets')
@@ -217,16 +239,14 @@ serve(async (req: Request) => {
           .single();
         
         if (ticket) {
-          await supabase.functions.invoke('send-notification-email', {
-            body: {
-              type: 'new_response',
-              ticket_number: ticket.ticket_number,
-              ticket_id: ticketId,
-              ticket_subject: ticket.subject,
-              from_email: payload.from,
-              from_name: payload.from.split('@')[0],
-              message_preview: payload.body_text || payload.body_html || ''
-            }
+          await invokeLocalFunction('send-notification-email', {
+            type: 'new_response',
+            ticket_number: ticket.ticket_number,
+            ticket_id: ticketId,
+            ticket_subject: ticket.subject,
+            from_email: payload.from,
+            from_name: payload.from.split('@')[0],
+            message_preview: payload.body_text || payload.body_html || ''
           });
           console.log('Sent new response notification');
         }
@@ -255,7 +275,7 @@ serve(async (req: Request) => {
         direction: 'inbound',
         is_read: false,
         received_at: new Date().toISOString(),
-      };
+      });
 
     if (threadError) {
       console.error('Error creating email thread:', threadError);

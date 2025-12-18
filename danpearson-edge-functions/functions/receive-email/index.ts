@@ -14,7 +14,31 @@ interface MakeComEmailPayload {
   references?: string;     // References header (for threading)
 }
 
-serve(async (req: Request) => {
+// Helper to call other self-hosted edge functions
+async function invokeLocalFunction(functionName: string, body: Record<string, unknown>): Promise<void> {
+  const functionsUrl = Deno.env.get('FUNCTIONS_URL') || 'https://functions.danpearson.net';
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  
+  try {
+    const response = await fetch(`${functionsUrl}/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to invoke ${functionName}:`, response.status, errorText);
+    }
+  } catch (error) {
+    console.error(`Error invoking ${functionName}:`, error);
+  }
+}
+
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -61,11 +85,6 @@ serve(async (req: Request) => {
         console.log('Webhook secret verified');
       } else {
         console.warn('No webhook authentication provided - MAKE_WEBHOOK_SECRET is configured but no credentials in request');
-        // Optionally reject unauthenticated requests:
-        // return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        //   status: 401,
-        //   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        // });
       }
     }
 
@@ -104,11 +123,6 @@ serve(async (req: Request) => {
         }
         // If no email found, return empty string
         return '';
-      };
-
-      const isValidEmail = (email: string): boolean => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
       };
 
       const to = getField('to') || getField('To');
@@ -237,7 +251,7 @@ serve(async (req: Request) => {
     const toDomain = payload.to.split('@')[1] || payload.to;
 
     // Check if mailbox exists for this "to" address
-    let { data: mailbox, error: mailboxError } = await supabase
+    let { data: mailbox } = await supabase
       .from('email_mailboxes')
       .select('*')
       .eq('email_address', payload.to)
@@ -320,7 +334,7 @@ serve(async (req: Request) => {
     let parsedDate: string;
     try {
       parsedDate = new Date(payload.date).toISOString();
-    } catch (e) {
+    } catch {
       parsedDate = new Date().toISOString();
     }
 
@@ -412,7 +426,7 @@ serve(async (req: Request) => {
 
     console.log('Successfully processed email from Make.com');
 
-    // Send notification email
+    // Send notification email via self-hosted function
     try {
       const { data: ticketData } = await supabase
         .from('support_tickets')
@@ -421,18 +435,16 @@ serve(async (req: Request) => {
         .single();
 
       if (ticketData) {
-        await supabase.functions.invoke('send-notification-email', {
-          body: {
-            type: isReply ? 'new_response' : 'new_ticket',
-            ticket_number: ticketData.ticket_number,
-            ticket_id: ticketId,
-            ticket_subject: ticketData.subject,
-            from_email: payload.from_email,
-            from_name: payload.from,
-            message_preview: payload.body,
-          }
-        };
-        console.log('Notification email sent');
+        await invokeLocalFunction('send-notification-email', {
+          type: isReply ? 'new_response' : 'new_ticket',
+          ticket_number: ticketData.ticket_number,
+          ticket_id: ticketId,
+          ticket_subject: ticketData.subject,
+          from_email: payload.from_email,
+          from_name: payload.from,
+          message_preview: payload.body,
+        });
+        console.log('Notification sent');
       }
     } catch (notifyError) {
       // Don't fail the request if notification fails
