@@ -5,6 +5,7 @@ import { VaultMFAGate } from './VaultMFAGate';
 import { VaultItemForm } from './VaultItemForm';
 import { VaultTypeManager } from './VaultTypeManager';
 import { VaultPlatformManager } from './VaultPlatformManager';
+import { VaultImporter } from './VaultImporter';
 import { CommandBuilder } from './CommandBuilder';
 import { CommandTemplateManager } from './CommandTemplateManager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +20,7 @@ import { toast } from 'sonner';
 import {
   Shield, Plus, Search, Eye, EyeOff, Copy, Trash2, Edit,
   Lock, FileText, Link, Terminal, Key, Settings, RefreshCw,
-  FolderKanban, Globe, Building2, Wand2, FileCode
+  FolderKanban, Globe, Building2, Wand2, FileCode, Upload
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
@@ -82,6 +83,7 @@ export const SecureVaultDashboard = () => {
   const [isPlatformManagerOpen, setIsPlatformManagerOpen] = useState(false);
   const [isCommandBuilderOpen, setIsCommandBuilderOpen] = useState(false);
   const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
+  const [isImporterOpen, setIsImporterOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -320,6 +322,10 @@ export const SecureVaultDashboard = () => {
           <Button variant="outline" size="sm" onClick={() => setIsTypeManagerOpen(true)}>
             <Settings className="h-4 w-4 mr-2" />
             Types
+          </Button>
+          <Button variant="outline" onClick={() => setIsImporterOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import
           </Button>
           <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
@@ -632,6 +638,22 @@ export const SecureVaultDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Importer Dialog */}
+      <Dialog open={isImporterOpen} onOpenChange={setIsImporterOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import Secrets</DialogTitle>
+          </DialogHeader>
+          <VaultImporter 
+            onSuccess={() => {
+              setIsImporterOpen(false);
+              queryClient.invalidateQueries({ queryKey: ['vault-items'] });
+            }}
+            onCancel={() => setIsImporterOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
