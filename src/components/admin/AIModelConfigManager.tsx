@@ -25,6 +25,7 @@ interface AIModelConfig {
   is_active: boolean;
   configuration: any;
   use_case: string | string[];
+  model_tier: 'lightweight' | 'normal';
   last_tested_at: string | null;
   last_test_status: string | null;
   created_at: string;
@@ -43,6 +44,7 @@ export function AIModelConfigManager() {
     api_key_secret_name: "",
     priority: 0,
     use_cases: ["general"] as string[],
+    model_tier: "normal" as 'lightweight' | 'normal',
   });
 
   const { data: configs, isLoading } = useQuery({
@@ -72,6 +74,7 @@ export function AIModelConfigManager() {
         api_key_secret_name: "",
         priority: 0,
         use_cases: ["general"],
+        model_tier: "normal",
       });
     },
     onError: (error) => {
@@ -156,6 +159,7 @@ export function AIModelConfigManager() {
         api_key_secret_name: editingConfig.api_key_secret_name,
         priority: editingConfig.priority,
         use_case: editingConfig.use_case,
+        model_tier: editingConfig.model_tier,
       }
     });
     setIsEditDialogOpen(false);
@@ -273,9 +277,29 @@ export function AIModelConfigManager() {
                   />
                 </div>
                 <div>
+                  <Label>Model Tier</Label>
+                  <Select
+                    value={newConfig.model_tier}
+                    onValueChange={(value: 'lightweight' | 'normal') =>
+                      setNewConfig({ ...newConfig, model_tier: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lightweight">⚡ Lightweight (Fast/Cheap)</SelectItem>
+                      <SelectItem value="normal">🎯 Normal (Quality)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Lightweight: extraction, social posts. Normal: articles, full content.
+                  </p>
+                </div>
+                <div>
                   <Label>Use Cases</Label>
                   <div className="space-y-2 mt-2">
-                    {["all", "general", "ticket_response", "content_generation"].map((useCase) => (
+                    {["all", "general", "ticket_response", "content_generation", "article_generation", "social_content", "url_extraction", "document_processing"].map((useCase) => (
                       <div key={useCase} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
@@ -293,7 +317,7 @@ export function AIModelConfigManager() {
                           className="w-4 h-4"
                         />
                         <label htmlFor={`new-${useCase}`} className="text-sm capitalize">
-                          {useCase.replace("_", " ")}
+                          {useCase.replace(/_/g, " ")}
                         </label>
                       </div>
                     ))}
@@ -380,9 +404,29 @@ export function AIModelConfigManager() {
                     />
                   </div>
                   <div>
+                    <Label>Model Tier</Label>
+                    <Select
+                      value={editingConfig.model_tier || 'normal'}
+                      onValueChange={(value: 'lightweight' | 'normal') =>
+                        setEditingConfig({ ...editingConfig, model_tier: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lightweight">⚡ Lightweight (Fast/Cheap)</SelectItem>
+                        <SelectItem value="normal">🎯 Normal (Quality)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Lightweight: extraction, social posts. Normal: articles, full content.
+                    </p>
+                  </div>
+                  <div>
                     <Label>Use Cases</Label>
                     <div className="space-y-2 mt-2">
-                      {["all", "general", "ticket_response", "content_generation"].map((useCase) => {
+                      {["all", "general", "ticket_response", "content_generation", "article_generation", "social_content", "url_extraction", "document_processing"].map((useCase) => {
                         const currentUseCases = typeof editingConfig.use_case === 'string' 
                           ? editingConfig.use_case.split(',') 
                           : Array.isArray(editingConfig.use_case) 
@@ -408,7 +452,7 @@ export function AIModelConfigManager() {
                               className="w-4 h-4"
                             />
                             <label htmlFor={`edit-${useCase}`} className="text-sm capitalize">
-                              {useCase.replace("_", " ")}
+                              {useCase.replace(/_/g, " ")}
                             </label>
                           </div>
                         );
@@ -459,6 +503,7 @@ export function AIModelConfigManager() {
               <TableRow>
                 <TableHead>Provider</TableHead>
                 <TableHead>Model</TableHead>
+                <TableHead>Tier</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Use Cases</TableHead>
                 <TableHead>Status</TableHead>
@@ -477,6 +522,11 @@ export function AIModelConfigManager() {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{config.model_name}</TableCell>
+                  <TableCell>
+                    <Badge variant={config.model_tier === 'lightweight' ? 'secondary' : 'default'}>
+                      {config.model_tier === 'lightweight' ? '⚡ Light' : '🎯 Normal'}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{config.priority}</TableCell>
                   <TableCell>
                     {(() => {

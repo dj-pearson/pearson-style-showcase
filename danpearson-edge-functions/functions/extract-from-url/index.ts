@@ -1,7 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-
-const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+import { 
+  createSupabaseClient, 
+  getAIConfigs, 
+  callAIWithConfig,
+  parseJSONResponse 
+} from "../_shared/ai-helper.ts";
 
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
@@ -21,15 +25,13 @@ export default async (req: Request): Promise<Response> => {
       );
     }
 
-    if (!lovableApiKey) {
-      console.error('Lovable API key not found');
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const supabaseClient = createSupabaseClient();
 
-    console.log(`Extracting content from URL: ${url} for type: ${type}`);
+    // Get lightweight AI configs for URL extraction (simple data extraction)
+    const aiConfigs = await getAIConfigs(supabaseClient, 'lightweight', 'url_extraction');
+    console.log(`[Extract] Found ${aiConfigs.length} lightweight AI configs`);
+
+    console.log(`[Extract] Extracting content from URL: ${url} for type: ${type}`);
 
     // Fetch the website content
     let pageContent = '';
@@ -78,7 +80,7 @@ export default async (req: Request): Promise<Response> => {
         .trim()
         .substring(0, 10000); // Increased limit for better context
     } catch (fetchError) {
-      console.error('Error fetching URL:', fetchError);
+      console.error('[Extract] Error fetching URL:', fetchError);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch URL content', details: fetchError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -165,52 +167,23 @@ ${pageContent}
 Return ONLY the JSON object, no other text.`;
     }
 
-    // Call Lovable AI API
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: extractionPrompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    });
+    // Call AI using lightweight model
+    const { response: extractedContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      extractionPrompt,
+      { temperature: 0.3, maxTokens: 2000, jsonMode: true }
+    );
 
-    if (!aiResponse.ok) {
-      console.error('AI API error:', aiResponse.status);
-      const errorText = await aiResponse.text();
-      console.error('AI API error details:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to extract content from URL' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const aiData = await aiResponse.json();
-    const extractedContent = aiData.choices[0].message.content;
-
-    console.log('Raw AI response:', extractedContent);
+    console.log(`[Extract] Content extracted using ${usedConfig.provider} - ${usedConfig.model_name}`);
 
     // Parse the JSON response
     let parsedData;
     try {
-      // Remove markdown code blocks if present
-      const cleanedContent = extractedContent
-        .replace(/```json\s*/g, '')
-        .replace(/```\s*/g, '')
-        .trim();
-      
-      parsedData = JSON.parse(cleanedContent);
+      parsedData = parseJSONResponse(extractedContent);
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
-      console.error('Content that failed to parse:', extractedContent);
+      console.error('[Extract] Failed to parse AI response as JSON:', parseError);
+      console.error('[Extract] Content that failed to parse:', extractedContent);
       return new Response(
         JSON.stringify({ 
           error: 'Failed to parse extracted data',
@@ -221,19 +194,20 @@ Return ONLY the JSON object, no other text.`;
       );
     }
 
-    console.log('Successfully extracted and parsed data');
+    console.log('[Extract] Successfully extracted and parsed data');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         data: parsedData,
-        sourceUrl: url
+        sourceUrl: url,
+        model_used: `${usedConfig.provider} - ${usedConfig.model_name}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('URL Extraction Error:', error);
+    console.error('[Extract] URL Extraction Error:', error);
     return new Response(
       JSON.stringify({ error: 'An unexpected error occurred', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

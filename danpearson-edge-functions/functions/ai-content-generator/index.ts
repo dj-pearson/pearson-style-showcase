@@ -1,7 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-
-const openAIApiKey = Deno.env.get('OPENAI_API');
+import { 
+  createSupabaseClient, 
+  getAIConfigs, 
+  callAIWithConfig,
+  parseJSONResponse 
+} from "../_shared/ai-helper.ts";
 
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
@@ -14,21 +18,19 @@ export default async (req: Request): Promise<Response> => {
   try {
     // First get the raw text to debug JSON issues
     const rawBody = await req.text();
-    console.log('Raw request body:', rawBody);
-    console.log('Raw body length:', rawBody.length);
+    console.log('[ContentGen] Raw request body length:', rawBody.length);
     
     // Try to parse the JSON
     let requestBody;
     try {
       requestBody = JSON.parse(rawBody);
     } catch (parseError) {
-      console.error('JSON Parse Error:', parseError);
-      console.error('Raw body that failed to parse:', rawBody);
+      console.error('[ContentGen] JSON Parse Error:', parseError);
       return new Response(
         JSON.stringify({ 
           error: 'Invalid JSON format', 
           details: parseError.message,
-          receivedData: rawBody.substring(0, 500) // First 500 chars for debugging
+          receivedData: rawBody.substring(0, 500)
         }), 
         { 
           status: 400, 
@@ -49,26 +51,21 @@ export default async (req: Request): Promise<Response> => {
       prompt = requestBody.prompt || `Generate ${templateCategory} content for company ${companyId}`;
       context = requestBody.context;
       
-      console.log(`Make.com AI Content Request - Company: ${companyId}, Template: ${templateCategory}`);
+      console.log(`[ContentGen] Make.com AI Content Request - Company: ${companyId}, Template: ${templateCategory}`);
     } else {
       // Direct API format
       type = requestBody.type;
       prompt = requestBody.prompt;
       context = requestBody.context;
       
-      console.log(`Direct AI Content Request - Type: ${type}, Prompt: ${prompt}`);
+      console.log(`[ContentGen] Direct AI Content Request - Type: ${type}`);
     }
 
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not found');
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    const supabaseClient = createSupabaseClient();
+
+    // Get normal tier AI configs for full content generation (quality outputs)
+    const aiConfigs = await getAIConfigs(supabaseClient, 'normal', 'content_generation');
+    console.log(`[ContentGen] Found ${aiConfigs.length} normal tier AI configs`);
 
     let systemPrompt = '';
     const userPrompt = prompt;
@@ -113,43 +110,20 @@ export default async (req: Request): Promise<Response> => {
         systemPrompt = 'You are a helpful content creation assistant. Generate high-quality content based on the user\'s request.';
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `${userPrompt}${context ? `\n\nContext: ${context}` : ''}` }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
-    });
+    // Generate content using normal tier AI
+    const { response: generatedContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      `${userPrompt}${context ? `\n\nContext: ${context}` : ''}`,
+      { temperature: 0.7, maxTokens: 2000, jsonMode: true }
+    );
 
-    if (!response.ok) {
-      console.error('OpenAI API error:', response.status, response.statusText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to generate content' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    const data = await response.json();
-    const generatedContent = data.choices[0].message.content;
-
-    console.log('AI Content Generated Successfully');
+    console.log(`[ContentGen] Content generated using ${usedConfig.provider} - ${usedConfig.model_name}`);
 
     // Try to parse as JSON, fallback to plain text
     let parsedContent;
     try {
-      parsedContent = JSON.parse(generatedContent);
+      parsedContent = parseJSONResponse(generatedContent);
     } catch {
       parsedContent = { content: generatedContent };
     }
@@ -162,14 +136,15 @@ export default async (req: Request): Promise<Response> => {
         company_id: companyId,
         template_category: templateCategory,
         generated_at: new Date().toISOString(),
-        type: type
+        type: type,
+        model_used: `${usedConfig.provider} - ${usedConfig.model_name}`
       }
     };
 
     // Send webhook notification if Make.com integration
     if (webhookUrl) {
       try {
-        console.log(`Sending webhook notification to: ${webhookUrl}`);
+        console.log(`[ContentGen] Sending webhook notification to: ${webhookUrl}`);
         await fetch(webhookUrl, {
           method: 'POST',
           headers: {
@@ -184,9 +159,9 @@ export default async (req: Request): Promise<Response> => {
             webhook_source: 'ai-content-generator'
           }),
         });
-        console.log('Webhook notification sent successfully');
+        console.log('[ContentGen] Webhook notification sent successfully');
       } catch (webhookError) {
-        console.error('Failed to send webhook notification:', webhookError);
+        console.error('[ContentGen] Failed to send webhook notification:', webhookError);
         // Don't fail the main request if webhook fails
       }
     }
@@ -199,7 +174,7 @@ export default async (req: Request): Promise<Response> => {
     );
 
   } catch (error) {
-    console.error('AI Content Generation Error:', error);
+    console.error('[ContentGen] AI Content Generation Error:', error);
     return new Response(
       JSON.stringify({ error: 'An unexpected error occurred', details: error.message }), 
       { 

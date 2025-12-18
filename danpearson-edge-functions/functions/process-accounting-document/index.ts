@@ -1,5 +1,11 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { 
+  createSupabaseClient, 
+  getAIConfigs, 
+  callAIWithVision, 
+  callAIWithConfig,
+  parseJSONResponse 
+} from "../_shared/ai-helper.ts";
 
 interface ProcessDocumentRequest {
   documentId: string;
@@ -17,20 +23,16 @@ export default async (req: Request): Promise<Response> => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseClient = createSupabaseClient();
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    // Get lightweight AI configs for document processing (fast extraction)
+    const aiConfigs = await getAIConfigs(supabaseClient, 'lightweight', 'document_processing');
+    console.log(`[Document] Found ${aiConfigs.length} lightweight AI configs`);
 
     const requestData: ProcessDocumentRequest = await req.json();
     const { documentId, documentType, relatedEntityType, relatedEntityId } = requestData;
 
-    console.log('Processing document:', documentId, 'Type:', documentType);
+    console.log('[Document] Processing document:', documentId, 'Type:', documentType);
 
     // Fetch document metadata
     const { data: document, error: docError } = await supabaseClient
@@ -52,7 +54,7 @@ export default async (req: Request): Promise<Response> => {
       })
       .eq('id', documentId);
 
-    console.log('Downloading file from storage:', document.file_path);
+    console.log('[Document] Downloading file from storage:', document.file_path);
 
     // Download file from Supabase storage
     const { data: fileData, error: storageError } = await supabaseClient
@@ -64,60 +66,60 @@ export default async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file: ${storageError?.message}`);
     }
 
-    console.log('File downloaded, size:', fileData.size);
+    console.log('[Document] File downloaded, size:', fileData.size);
 
     // Convert file to base64 for vision API
     const arrayBuffer = await fileData.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     const dataUrl = `data:${document.file_type};base64,${base64}`;
 
-    console.log('Sending to vision AI for OCR...');
+    console.log('[Document] Sending to vision AI for OCR...');
 
-    // Step 1: OCR with Vision AI
-    const ocrResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extract all text from this document. Return the complete text content as accurately as possible, maintaining the structure and layout.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: dataUrl
-                }
-              }
-            ]
-          }
-        ],
-        temperature: 0.1, // Low temperature for accurate OCR
-      }),
-    });
+    // Step 1: OCR with Vision AI (using lightweight model)
+    const ocrPrompt = 'Extract all text from this document. Return the complete text content as accurately as possible, maintaining the structure and layout.';
+    
+    const { response: ocrText, usedConfig: ocrConfig } = await callAIWithVision(
+      aiConfigs,
+      ocrPrompt,
+      dataUrl,
+      { temperature: 0.1, maxTokens: 4000 }
+    );
 
-    if (!ocrResponse.ok) {
-      const errorText = await ocrResponse.text();
-      console.error('OCR API error:', ocrResponse.status, errorText);
-      throw new Error(`OCR failed: ${ocrResponse.status}`);
-    }
+    console.log(`[Document] OCR completed using ${ocrConfig.provider}, extracted text length:`, ocrText.length);
 
-    const ocrData = await ocrResponse.json();
-    const ocrText = ocrData.choices[0].message.content;
-    console.log('OCR completed, extracted text length:', ocrText.length);
-
-    // Step 2: AI Parsing based on document type
-    console.log('Sending to AI for structured parsing...');
+    // Step 2: AI Parsing based on document type (using lightweight model)
+    console.log('[Document] Sending to AI for structured parsing...');
 
     const parsingPrompts: Record<string, string> = {
       invoice: `Analyze this invoice/bill and extract the following information in JSON format:
+{
+  "invoice_number": "Invoice or reference number",
+  "invoice_date": "Date in YYYY-MM-DD format",
+  "due_date": "Due date in YYYY-MM-DD format (if present)",
+  "vendor_name": "Vendor/company name",
+  "customer_name": "Customer name (if this is a sales invoice)",
+  "vendor_address": "Full vendor address",
+  "customer_address": "Full customer address (if present)",
+  "subtotal": numeric value without currency symbols,
+  "tax_amount": numeric value,
+  "discount_amount": numeric value (if present),
+  "total_amount": numeric value,
+  "currency": "Currency code (USD, EUR, etc.)",
+  "payment_terms": "Payment terms if mentioned",
+  "line_items": [
+    {
+      "description": "Item description",
+      "quantity": numeric,
+      "unit_price": numeric,
+      "amount": numeric
+    }
+  ],
+  "notes": "Any additional notes or payment instructions"
+}
+
+Return ONLY valid JSON, no explanations.`,
+
+      bill: `Analyze this invoice/bill and extract the following information in JSON format:
 {
   "invoice_number": "Invoice or reference number",
   "invoice_date": "Date in YYYY-MM-DD format",
@@ -227,49 +229,23 @@ Return ONLY valid JSON.`
     };
 
     const parsingPrompt = parsingPrompts[documentType] || parsingPrompts.other;
+    const systemPrompt = 'You are an expert at extracting structured data from financial documents. Always return valid JSON without any explanations or markdown formatting.';
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert at extracting structured data from financial documents. Always return valid JSON without any explanations or markdown formatting.'
-          },
-          {
-            role: 'user',
-            content: `${parsingPrompt}\n\nDocument text:\n${ocrText}`
-          }
-        ],
-        temperature: 0.2,
-      }),
-    });
+    const { response: aiContent, usedConfig: parseConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      `${parsingPrompt}\n\nDocument text:\n${ocrText}`,
+      { temperature: 0.2, maxTokens: 4000, jsonMode: true }
+    );
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI parsing error:', aiResponse.status, errorText);
-      throw new Error(`AI parsing failed: ${aiResponse.status}`);
-    }
+    console.log(`[Document] AI parsing completed using ${parseConfig.provider}`);
 
-    const aiData = await aiResponse.json();
-    let aiContent = aiData.choices[0].message.content;
-
-    console.log('AI parsing completed');
-
-    // Parse JSON response (handle potential markdown code blocks)
+    // Parse JSON response
     let parsedData;
     try {
-      // Remove markdown code blocks if present
-      const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/) || aiContent.match(/```\n([\s\S]*?)\n```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : aiContent;
-      parsedData = JSON.parse(jsonStr);
+      parsedData = parseJSONResponse(aiContent);
     } catch (e) {
-      console.error('Failed to parse AI response:', e);
+      console.error('[Document] Failed to parse AI response:', e);
       parsedData = { error: 'Failed to parse AI response', raw: aiContent };
     }
 
@@ -279,7 +255,7 @@ Return ONLY valid JSON.`
     const extractedVendor = parsedData.vendor_name || parsedData.merchant_name || parsedData.payee_name || null;
     const extractedInvoiceNumber = parsedData.invoice_number || parsedData.receipt_number || parsedData.payment_number || null;
 
-    console.log('Updating document with parsed data...');
+    console.log('[Document] Updating document with parsed data...');
 
     // Update document with OCR and AI results
     const { data: updatedDoc, error: updateError } = await supabaseClient
@@ -287,7 +263,7 @@ Return ONLY valid JSON.`
       .update({
         ocr_status: 'completed',
         ocr_text: ocrText,
-        ocr_confidence: 95, // Gemini is quite accurate
+        ocr_confidence: 95,
         ocr_language: 'en',
         ocr_processed_at: new Date().toISOString(),
         ai_status: 'completed',
@@ -306,11 +282,11 @@ Return ONLY valid JSON.`
       .single();
 
     if (updateError) {
-      console.error('Failed to update document:', updateError);
+      console.error('[Document] Failed to update document:', updateError);
       throw updateError;
     }
 
-    console.log('Document processing completed successfully');
+    console.log('[Document] Document processing completed successfully');
 
     return new Response(
       JSON.stringify({
@@ -319,21 +295,22 @@ Return ONLY valid JSON.`
         ocr_text_length: ocrText.length,
         parsed_data: parsedData,
         message: 'Document processed successfully',
+        models_used: {
+          ocr: `${ocrConfig.provider} - ${ocrConfig.model_name}`,
+          parsing: `${parseConfig.provider} - ${parseConfig.model_name}`
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
-    console.error('Error in process-accounting-document function:', error);
+    console.error('[Document] Error in process-accounting-document function:', error);
 
     // Try to update document status to failed
     try {
-      const { documentId } = await req.json();
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+      const requestData = await req.clone().json();
+      const supabaseClient = createSupabaseClient();
 
       await supabaseClient
         .from('accounting_documents')
@@ -341,9 +318,9 @@ Return ONLY valid JSON.`
           ocr_status: 'failed',
           ai_status: 'failed',
         })
-        .eq('id', documentId);
+        .eq('id', requestData.documentId);
     } catch (e) {
-      console.error('Failed to update error status:', e);
+      console.error('[Document] Failed to update error status:', e);
     }
 
     return new Response(

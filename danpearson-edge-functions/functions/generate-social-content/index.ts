@@ -1,8 +1,13 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { 
+  createSupabaseClient, 
+  getAIConfigs, 
+  callAIWithConfig,
+  parseJSONResponse 
+} from "../_shared/ai-helper.ts";
 
-Deno.export default async (req: Request): Promise<Response> => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -13,10 +18,11 @@ Deno.export default async (req: Request): Promise<Response> => {
   try {
     const { articleId } = await req.json();
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseClient = createSupabaseClient();
+
+    // Get lightweight AI configs for social content (quick, simple generation)
+    const aiConfigs = await getAIConfigs(supabaseClient, 'lightweight', 'social_content');
+    console.log(`[Social] Found ${aiConfigs.length} lightweight AI configs`);
 
     // Fetch article details
     const { data: article, error: articleError } = await supabaseClient
@@ -29,13 +35,9 @@ Deno.export default async (req: Request): Promise<Response> => {
       throw new Error('Article not found');
     }
 
-    // Generate social media content using Lovable AI
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      throw new Error('Lovable API key not configured');
-    }
+    const systemPrompt = 'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.';
 
-    const prompt = `Based on this article, create engaging social media posts:
+    const userPrompt = `Based on this article, create engaging social media posts:
 
 Article Title: ${article.title}
 Article Excerpt: ${article.excerpt}
@@ -50,57 +52,22 @@ Return ONLY valid JSON in this exact format:
   "longForm": "your facebook post here"
 }`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-      }),
-    });
+    // Generate social content using lightweight AI
+    const { response: rawContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      userPrompt,
+      { temperature: 0.7, maxTokens: 1000, jsonMode: true }
+    );
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('OpenAI API error:', errorText);
-      throw new Error('Failed to generate social content');
-    }
-
-    const aiData = await aiResponse.json();
-    const rawContent = aiData.choices?.[0]?.message?.content ?? '';
-
-    // Robust JSON extraction: handle code fences and extra text
-    let generatedContent = (rawContent as string).trim();
-    // Remove markdown code fences if present
-    const fenceMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenceMatch) {
-      generatedContent = fenceMatch[1].trim();
-    }
-    // If still not plain JSON, extract between first { and last }
-    if (!generatedContent.trim().startsWith('{')) {
-      const start = generatedContent.indexOf('{');
-      const end = generatedContent.lastIndexOf('}');
-      if (start !== -1 && end !== -1 && end > start) {
-        generatedContent = generatedContent.slice(start, end + 1);
-      }
-    }
-
-    console.log('Generated content (cleaned):', generatedContent);
+    console.log(`[Social] Generated content using ${usedConfig.provider} - ${usedConfig.model_name}`);
 
     // Parse the JSON response
     let socialContent;
     try {
-      socialContent = JSON.parse(generatedContent);
+      socialContent = parseJSONResponse(rawContent);
     } catch (parseError) {
-      console.error('Failed to parse AI response:', rawContent);
+      console.error('[Social] Failed to parse AI response:', rawContent);
       throw new Error('Invalid AI response format');
     }
 
@@ -125,7 +92,7 @@ Return ONLY valid JSON in this exact format:
       .eq('id', articleId);
 
     if (updateError) {
-      console.error('Failed to update article:', updateError);
+      console.error('[Social] Failed to update article:', updateError);
       throw updateError;
     }
 
@@ -135,12 +102,13 @@ Return ONLY valid JSON in this exact format:
         shortForm: socialContent.shortForm,
         longForm: socialContent.longForm,
         imageUrl: socialImageUrl,
+        model_used: `${usedConfig.provider} - ${usedConfig.model_name}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error generating social content:', error);
+    console.error('[Social] Error generating social content:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
