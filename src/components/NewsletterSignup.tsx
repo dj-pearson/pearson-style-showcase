@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { Loader2, Mail, ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -113,7 +113,6 @@ const NewsletterSignup = () => {
       </CardContent>
     </Card>
   );
-import { invokeEdgeFunction } from '@/lib/edge-functions';
 };
 
 export default NewsletterSignup;
