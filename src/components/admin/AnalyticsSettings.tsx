@@ -197,9 +197,12 @@ const AnalyticsSettings = () => {
                 <span className="text-green-600">✓ Configuration is valid and ready to use</span>
               )}
             </div>
-            <Button 
+            <Button
               onClick={saveAnalyticsConfig}
-              disabled={isSaving || (config.enabled && !isValidTrackingId(config.google_analytics_id))}
+              disabled={
+                isSaving ||
+                (config.enabled && (!config.google_analytics_id || !isValidTrackingId(config.google_analytics_id)))
+              }
             >
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save Settings'}
