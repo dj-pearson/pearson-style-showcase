@@ -288,8 +288,16 @@ All edge function calls use `invokeEdgeFunction()` which routes to `functions.da
 - [x] **B2:** Migrate FAQSection to database
 - [x] **B4:** Migrate About page data (achievements, experience, certifications) to database
 
-### Low Priority (Documentation Cleanup)
-- [ ] **A:** Update documentation files to remove old cloud Supabase references
+### Low Priority (Documentation Cleanup) - ✅ COMPLETED
+- [x] **A:** Added deprecation notices to legacy documentation files
+  - `DEPLOYMENT_GUIDE.md` - Updated header with self-hosted info
+  - `DEPLOYMENT_FILE_REFERENCE.md` - Added legacy document notice
+  - `DEPLOYMENT_DOCUMENTS_INDEX.md` - Updated header
+  - `AUTH_FIX_DOCUMENTATION.md` - Added legacy document notice
+  - `CODE_REVIEW_FINDINGS.md` - Added historical document notice
+  - `ARCHITECTURE_DIAGRAMS.md` - Added update notice
+  - `README.md` - Updated environment variable examples
+  - `CLAUDE.md` - Updated environment variable examples
 
 ---
 

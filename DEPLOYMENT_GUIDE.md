@@ -1,8 +1,17 @@
 # Comprehensive Deployment Guide
 
-**Project:** Dan Pearson Style Showcase  
-**Platform:** Cloudflare Pages + Supabase  
-**Last Updated:** 2025-11-11  
+> ⚠️ **UPDATED 2025-12-20:** This project now uses **self-hosted Supabase** at `api.danpearson.net`.
+> Some references to the old cloud Supabase (`qazhdcqvjppbbjxzvisp.supabase.co`) remain in this document for historical context.
+>
+> **Current Configuration:**
+> - API/Database: `https://api.danpearson.net`
+> - Edge Functions: `https://functions.danpearson.net`
+>
+> See `SUPABASE_MIGRATION_AUDIT.md` for complete migration details.
+
+**Project:** Dan Pearson Style Showcase
+**Platform:** Cloudflare Pages + Self-Hosted Supabase
+**Last Updated:** 2025-12-20
 **Node.js Version:** 18+ (Required for Cloudflare Pages)
 
 ---

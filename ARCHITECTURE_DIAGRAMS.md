@@ -1,5 +1,7 @@
 # Architecture Diagrams
 
+> ⚠️ **UPDATED 2025-12-20:** The project now uses **self-hosted Supabase** at `api.danpearson.net` and `functions.danpearson.net`. Some diagrams may reference the old cloud setup. See `SUPABASE_MIGRATION_AUDIT.md` for current configuration.
+
 This document contains visual representations of the system architecture using Mermaid diagrams. These diagrams help understand the structure, data flow, and relationships within the application.
 
 ## Table of Contents

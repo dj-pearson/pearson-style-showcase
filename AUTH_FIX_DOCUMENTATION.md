@@ -1,5 +1,7 @@
 # Authentication Session Persistence Fix
 
+> ⚠️ **LEGACY DOCUMENT:** Updated 2025-12-20. This project now uses **self-hosted Supabase** at `api.danpearson.net`. See `SUPABASE_MIGRATION_AUDIT.md` for current configuration.
+
 ## Problem Summary
 
 The application was experiencing authentication session persistence issues that caused poor user experience:

@@ -990,8 +990,12 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
 
 ```env
 # .env (gitignored)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+# Self-Hosted Supabase Configuration
+VITE_SUPABASE_URL=https://api.danpearson.net
+VITE_SUPABASE_ANON_KEY=your-anon-key
+
+# Edge Functions URL (separate for self-hosted setup)
+VITE_FUNCTIONS_URL=https://functions.danpearson.net
 
 # ⚠️ IMPORTANT: Variables prefixed with VITE_ are exposed to the client!
 # Never put API secrets, private keys, or credentials here.
