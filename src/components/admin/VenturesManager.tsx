@@ -69,7 +69,7 @@ const VenturesManager = () => {
     queryKey: ['ventures-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('ventures' as any)
+        .from('ventures')
         .select('*')
         .order('display_order', { ascending: true});
       if (error) throw error;
@@ -79,10 +79,20 @@ const VenturesManager = () => {
 
   const createVenture = useMutation({
     mutationFn: async (data: any) => {
+      // Parse and validate metrics JSON
+      let parsedMetrics = null;
+      if (data.metrics) {
+        try {
+          parsedMetrics = JSON.parse(data.metrics);
+        } catch (e) {
+          throw new Error('Invalid JSON format in metrics field. Please check your syntax.');
+        }
+      }
+
       const payload = {
         ...data,
         tech_stack: data.tech_stack.split(',').map((s: string) => s.trim()).filter(Boolean),
-        metrics: data.metrics ? JSON.parse(data.metrics) : null,
+        metrics: parsedMetrics,
         launch_date: data.launch_date || null,
       };
       const { error } = await supabase.from('ventures').insert([payload]);
@@ -102,10 +112,20 @@ const VenturesManager = () => {
 
   const updateVenture = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      // Parse and validate metrics JSON
+      let parsedMetrics = null;
+      if (data.metrics) {
+        try {
+          parsedMetrics = JSON.parse(data.metrics);
+        } catch (e) {
+          throw new Error('Invalid JSON format in metrics field. Please check your syntax.');
+        }
+      }
+
       const payload = {
         ...data,
         tech_stack: data.tech_stack.split(',').map((s: string) => s.trim()).filter(Boolean),
-        metrics: data.metrics ? JSON.parse(data.metrics) : null,
+        metrics: parsedMetrics,
         launch_date: data.launch_date || null,
       };
       const { error } = await supabase

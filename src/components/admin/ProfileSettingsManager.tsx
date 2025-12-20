@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Loader2, Save, User } from 'lucide-react';
+import { validateUrl, validateTextInput } from '@/lib/security';
 
 const ProfileSettingsManager = () => {
   const queryClient = useQueryClient();
@@ -64,7 +65,56 @@ const ProfileSettingsManager = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile.mutate(formData);
+
+    // Validate URL fields
+    if (formData.profile_photo_url && !validateUrl(formData.profile_photo_url)) {
+      toast.error('Invalid profile photo URL. Please enter a valid URL.');
+      return;
+    }
+
+    if (formData.calendly_url && !validateUrl(formData.calendly_url)) {
+      toast.error('Invalid Calendly URL. Please enter a valid URL.');
+      return;
+    }
+
+    if (formData.linkedin_url && !validateUrl(formData.linkedin_url)) {
+      toast.error('Invalid LinkedIn URL. Please enter a valid URL.');
+      return;
+    }
+
+    if (formData.github_url && !validateUrl(formData.github_url)) {
+      toast.error('Invalid GitHub URL. Please enter a valid URL.');
+      return;
+    }
+
+    // Validate and sanitize text fields
+    const validatedLocation = formData.location ? validateTextInput(formData.location, 100) : '';
+    if (formData.location && !validatedLocation) {
+      toast.error('Invalid location. Please enter valid text (max 100 characters).');
+      return;
+    }
+
+    const validatedBioHeadline = formData.bio_headline ? validateTextInput(formData.bio_headline, 200) : '';
+    if (formData.bio_headline && !validatedBioHeadline) {
+      toast.error('Invalid bio headline. Please enter valid text (max 200 characters).');
+      return;
+    }
+
+    const validatedBioSubheadline = formData.bio_subheadline ? validateTextInput(formData.bio_subheadline, 500) : '';
+    if (formData.bio_subheadline && !validatedBioSubheadline) {
+      toast.error('Invalid bio subheadline. Please enter valid text (max 500 characters).');
+      return;
+    }
+
+    // Update formData with validated values
+    const sanitizedFormData = {
+      ...formData,
+      location: validatedLocation || formData.location,
+      bio_headline: validatedBioHeadline || formData.bio_headline,
+      bio_subheadline: validatedBioSubheadline || formData.bio_subheadline
+    };
+
+    updateProfile.mutate(sanitizedFormData);
   };
 
   if (isLoading) {
