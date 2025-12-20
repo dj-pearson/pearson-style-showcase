@@ -1,78 +1,72 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, ArrowRight, Code, Zap, TrendingUp } from 'lucide-react';
+import { ExternalLink, ArrowRight, Code, Zap, TrendingUp, LucideIcon } from 'lucide-react';
 import { useAnalytics } from './Analytics';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-interface CaseStudy {
+interface CaseStudyDB {
   id: string;
   title: string;
   category: string;
   description: string;
-  challenge: string;
-  solution: string;
+  challenge: string | null;
+  solution: string | null;
   results: string[];
   technologies: string[];
-  icon: React.ComponentType<any>;
+  icon_name: string;
   gradient: string;
-  link?: string;
+  link: string | null;
+  display_order: number;
 }
 
-const caseStudies: CaseStudy[] = [
-  {
-    id: 'nft-collection',
-    title: 'Generative NFT Collection',
-    category: 'Blockchain Development',
-    description: 'Developed a unique 10,000-piece generative NFT collection with mathematical precision and artistic flair.',
-    challenge: 'Create a scalable system for generating unique, mathematically-driven NFT artwork with rarity distribution.',
-    solution: 'Built custom algorithms using Python and JavaScript to generate unique combinations with weighted rarity traits.',
-    results: [
-      '10,000 unique NFTs generated',
-      '100% trait uniqueness guaranteed',
-      'Optimal rarity distribution achieved',
-      'Reduced generation time by 80%'
-    ],
-    technologies: ['Python', 'JavaScript', 'Blockchain', 'IPFS', 'Smart Contracts'],
-    icon: Code,
-    gradient: 'from-purple-500 to-violet-600'
-  },
-  {
-    id: 'ai-automation',
-    title: 'AI-Powered Business Automation',
-    category: 'AI Integration',
-    description: 'Implemented AI solutions to automate key business processes, reducing manual work by 60%.',
-    challenge: 'Streamline repetitive business tasks while maintaining quality and accuracy standards.',
-    solution: 'Integrated OpenAI APIs with custom workflows to automate data processing, content generation, and analysis.',
-    results: [
-      '60% reduction in manual tasks',
-      '95% accuracy in automated processes',
-      '$50k+ annual cost savings',
-      '3x faster processing times'
-    ],
-    technologies: ['OpenAI API', 'Python', 'React', 'Node.js', 'MongoDB'],
-    icon: Zap,
-    gradient: 'from-cyan-500 to-blue-600'
-  },
-  {
-    id: 'sales-growth',
-    title: 'Sales Team Performance Optimization',
-    category: 'Business Development',
-    description: 'Led strategic initiatives that resulted in 40% revenue growth through team optimization and process improvement.',
-    challenge: 'Improve sales team performance and increase revenue while maintaining customer satisfaction.',
-    solution: 'Implemented data-driven sales strategies, CRM optimization, and comprehensive training programs.',
-    results: [
-      '40% revenue growth achieved',
-      '25% increase in conversion rates',
-      '90% team satisfaction score',
-      'Reduced sales cycle by 30%'
-    ],
-    technologies: ['CRM Systems', 'Data Analytics', 'Sales Automation', 'Training Programs'],
-    icon: TrendingUp,
-    gradient: 'from-green-500 to-emerald-600'
-  }
-];
+// Map icon names to Lucide components
+const iconMap: Record<string, LucideIcon> = {
+  Code,
+  Zap,
+  TrendingUp,
+};
 
 const CaseStudies = () => {
   const { trackClick } = useAnalytics();
+
+  // Fetch case studies from database
+  const { data: caseStudies = [], isLoading } = useQuery({
+    queryKey: ['case-studies'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('case_studies')
+        .select('*')
+        .eq('status', 'published')
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      return data as CaseStudyDB[];
+    },
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+  });
+
+  if (isLoading) {
+    return (
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <div className="h-12 w-64 bg-muted animate-pulse rounded mx-auto mb-4"></div>
+            <div className="h-6 w-96 bg-muted animate-pulse rounded mx-auto"></div>
+          </div>
+          <div className="space-y-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-80 bg-muted animate-pulse rounded-lg"></div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (caseStudies.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
@@ -89,9 +83,9 @@ const CaseStudies = () => {
         {/* Case Studies Grid */}
         <div className="space-y-8 sm:space-y-12">
           {caseStudies.map((study, index) => {
-            const IconComponent = study.icon;
+            const IconComponent = iconMap[study.icon_name] || Code;
             return (
-              <Card 
+              <Card
                 key={study.id}
                 className={`group hover:shadow-2xl transition-all duration-500 bg-card/50 border-border overflow-hidden ${
                   index % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'
@@ -122,47 +116,57 @@ const CaseStudies = () => {
                       </div>
 
                       <div className="space-y-4 mb-6">
-                        <div>
-                          <h4 className="font-semibold text-foreground mb-2">Challenge</h4>
-                          <p className="text-sm text-muted-foreground">{study.challenge}</p>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-foreground mb-2">Solution</h4>
-                          <p className="text-sm text-muted-foreground">{study.solution}</p>
-                        </div>
+                        {study.challenge && (
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-2">Challenge</h4>
+                            <p className="text-sm text-muted-foreground">{study.challenge}</p>
+                          </div>
+                        )}
+                        {study.solution && (
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-2">Solution</h4>
+                            <p className="text-sm text-muted-foreground">{study.solution}</p>
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                        <div>
-                          <h4 className="font-semibold text-foreground mb-3">Key Results</h4>
-                          <ul className="space-y-2">
-                            {study.results.map((result, idx) => (
-                              <li key={idx} className="text-sm text-muted-foreground flex items-center">
-                                <div className="w-1.5 h-1.5 rounded-full bg-primary mr-2 flex-shrink-0"></div>
-                                {result}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-foreground mb-3">Technologies</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {study.technologies.map((tech, idx) => (
-                              <span 
-                                key={idx}
-                                className="px-3 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
-                              >
-                                {tech}
-                              </span>
-                            ))}
+                        {study.results && study.results.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-3">Key Results</h4>
+                            <ul className="space-y-2">
+                              {study.results.map((result, idx) => (
+                                <li key={idx} className="text-sm text-muted-foreground flex items-center">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-primary mr-2 flex-shrink-0"></div>
+                                  {result}
+                                </li>
+                              ))}
+                            </ul>
                           </div>
-                        </div>
+                        )}
+                        {study.technologies && study.technologies.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-3">Technologies</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {study.technologies.map((tech, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-3 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
+                                >
+                                  {tech}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {study.link && (
-                        <Button variant="outline" className="group">
-                          View Project
-                          <ExternalLink className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                        <Button variant="outline" className="group" asChild>
+                          <a href={study.link} target="_blank" rel="noopener noreferrer">
+                            View Project
+                            <ExternalLink className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                          </a>
                         </Button>
                       )}
                     </div>
@@ -175,7 +179,7 @@ const CaseStudies = () => {
 
         {/* Call to Action */}
         <div className="text-center mt-12 sm:mt-16">
-          <Button 
+          <Button
             size="lg"
             onClick={() => {
               trackClick('Discuss Your Project CTA', 'Case Studies');

@@ -1,12 +1,14 @@
 # Deployment Documentation Index
 
+> ⚠️ **UPDATED 2025-12-20:** This project now uses **self-hosted Supabase** at `api.danpearson.net` and `functions.danpearson.net`. See `SUPABASE_MIGRATION_AUDIT.md` for current configuration.
+
 ## Overview
 
 This comprehensive deployment guide covers all aspects of deploying the Dan Pearson Style Showcase project, a full-stack portfolio and CMS built with React, TypeScript, Vite, and Supabase, deployed on Cloudflare Pages.
 
-**Date Generated:** 2025-11-11  
-**Project ID:** pearson-style-showcase  
-**Supabase Project:** qazhdcqvjppbbjxzvisp
+**Date Generated:** 2025-11-11 (Updated: 2025-12-20)
+**Project ID:** pearson-style-showcase
+**Supabase:** Self-hosted at `api.danpearson.net`
 
 ---
 

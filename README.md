@@ -198,9 +198,12 @@ supabase/
 Create a `.env` file in the root directory (never commit this file!):
 
 ```env
-# Supabase Configuration
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-public-key-here
+# Self-Hosted Supabase Configuration
+VITE_SUPABASE_URL=https://api.danpearson.net
+VITE_SUPABASE_ANON_KEY=your-anon-public-key-here
+
+# Edge Functions URL (separate for self-hosted setup)
+VITE_FUNCTIONS_URL=https://functions.danpearson.net
 
 # Optional: Analytics
 VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX

@@ -1,5 +1,7 @@
 # Deployment File Reference Guide
 
+> ⚠️ **LEGACY DOCUMENT:** Updated 2025-12-20. This project now uses **self-hosted Supabase** at `api.danpearson.net` and `functions.danpearson.net`. See `SUPABASE_MIGRATION_AUDIT.md` for current configuration.
+
 ## Quick File Location Reference
 
 ### Build Configuration Files

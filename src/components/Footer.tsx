@@ -1,24 +1,40 @@
 
 import { Link } from 'react-router-dom';
 import { Github, Linkedin, Mail, ExternalLink } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
+  // Fetch social links from profile_settings
+  const { data: profile } = useQuery({
+    queryKey: ['profile-settings-footer'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profile_settings')
+        .select('linkedin_url, github_url, email')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+  });
+
   const socialLinks = [
     {
       name: 'GitHub',
-      href: 'https://github.com/danpearson',
+      href: profile?.github_url || 'https://github.com/danpearson',
       icon: Github
     },
     {
       name: 'LinkedIn',
-      href: 'https://www.linkedin.com/in/danpearson',
+      href: profile?.linkedin_url || 'https://www.linkedin.com/in/danpearson',
       icon: Linkedin
     },
     {
       name: 'Email',
-      href: 'mailto:dan@danpearson.net',
+      href: `mailto:${profile?.email || 'dan@danpearson.net'}`,
       icon: Mail
     }
   ];

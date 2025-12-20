@@ -1,5 +1,7 @@
 # Comprehensive Code Review - Pearson Style Showcase
 
+> ⚠️ **HISTORICAL DOCUMENT:** This code review was performed in November 2025. The project now uses self-hosted Supabase at `api.danpearson.net`. Many issues documented here have been addressed. See `SUPABASE_MIGRATION_AUDIT.md` for current status.
+
 ## Executive Summary
 Build Status: ✅ **Successful** (with warnings)
 Security: ⚠️ **Needs Attention** (10 npm vulnerabilities, hardcoded credentials)
