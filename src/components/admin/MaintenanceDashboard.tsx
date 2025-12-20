@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface MaintenanceTask {
   id: string;
@@ -96,21 +97,31 @@ export const MaintenanceDashboard: React.FC = () => {
     });
 
     try {
-      // In production, this would call an Edge Function
-      // For now, we'll simulate a task run
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call the maintenance-runner Edge Function
+      const { data, error } = await invokeEdgeFunction('maintenance-runner', {
+        body: {
+          taskId,
+          taskName,
+          runManually: true
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to run maintenance task');
+      }
 
       toast({
         title: 'Task Completed',
-        description: `${taskName} completed successfully.`,
+        description: data?.message || `${taskName} completed successfully.`,
       });
 
-      loadData();
+      // Reload data to show updated results
+      await loadData();
     } catch (error) {
       logger.error('Task failed:', error);
       toast({
         title: 'Task Failed',
-        description: 'An error occurred while running the task.',
+        description: error instanceof Error ? error.message : 'An error occurred while running the task.',
         variant: 'destructive'
       });
     } finally {

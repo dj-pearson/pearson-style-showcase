@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Loader2, Send, Webhook } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+import { validateUrl } from '@/lib/security';
 
 export const WebhookSettings = () => {
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,17 @@ export const WebhookSettings = () => {
   };
 
   const saveWebhookSettings = async () => {
+    // Validate webhook URL before saving
+    if (!webhookUrl) {
+      toast.error('Please enter a webhook URL');
+      return;
+    }
+
+    if (!validateUrl(webhookUrl)) {
+      toast.error('Please enter a valid URL (must start with http:// or https://)');
+      return;
+    }
+
     setSaving(true);
     try {
       if (webhookId) {

@@ -114,15 +114,28 @@ export const AmazonPipelineManager = () => {
       // Read the CSV file from public assets or fetch from a URL
       const response = await fetch('/amazon_ideas.csv');
       const csvText = await response.text();
-      
+
       const lines = csvText.split('\n').slice(1); // Skip header
       const terms = lines
         .filter(line => line.trim())
-        .map(line => {
-          const [search_term, category] = line.split(',');
-          return { search_term: search_term?.trim(), category: category?.trim() };
+        .map((line, index) => {
+          // More robust CSV parsing - handle quoted fields with commas
+          const match = line.match(/^"?([^",]*)"?,\s*"?([^",]*)"?$/);
+
+          if (!match) {
+            logger.warn(`Skipping malformed CSV line ${index + 2}: ${line}`);
+            return null;
+          }
+
+          const [, search_term, category] = match;
+          return {
+            search_term: search_term?.trim(),
+            category: category?.trim()
+          };
         })
-        .filter(t => t.search_term && t.category);
+        .filter((t): t is { search_term: string; category: string } =>
+          t !== null && Boolean(t.search_term) && Boolean(t.category)
+        );
 
       if (terms.length === 0) {
         throw new Error('No valid terms found in CSV');
