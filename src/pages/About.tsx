@@ -12,16 +12,47 @@ import {
   Award,
   ExternalLink,
   Linkedin,
-  Github
+  Github,
+  LucideIcon
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+// Map icon names to Lucide components
+const iconMap: Record<string, LucideIcon> = {
+  TrendingUp,
+  Users,
+  Award,
+  Briefcase,
+};
+
+interface Achievement {
+  id: string;
+  label: string;
+  company: string | null;
+  icon_name: string;
+  display_order: number;
+}
+
+interface WorkExperience {
+  id: string;
+  company: string;
+  role: string;
+  duration: string;
+  highlights: string[];
+  display_order: number;
+}
+
+interface Certification {
+  id: string;
+  name: string;
+  display_order: number;
+}
 
 const About = () => {
   const { data: profile } = useQuery({
     queryKey: ['profile-settings'],
     queryFn: async () => {
-      // Only select fields actually used in the component
       const { data, error } = await supabase
         .from('profile_settings')
         .select('profile_photo_url, bio_headline, bio_subheadline, location, years_experience, linkedin_url, github_url')
@@ -29,70 +60,53 @@ const About = () => {
       if (error) throw error;
       return data;
     },
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes - profile data rarely changes
+    staleTime: 10 * 60 * 1000,
   });
 
-  const achievements = [
-    { icon: TrendingUp, label: 'Increased client retention by 30%', company: 'Pearson Media' },
-    { icon: TrendingUp, label: 'Boosted revenue by 25%', company: 'Pearson Media & Fitness World' },
-    { icon: TrendingUp, label: 'Secured 15% growth in annual sales', company: 'Multiple Organizations' },
-    { icon: TrendingUp, label: 'Exceeded sales quotas by 20% in 6 months', company: 'USA TODAY' },
-    { icon: Users, label: '90% customer retention rate', company: 'USA TODAY' },
-    { icon: TrendingUp, label: 'Drove over $600K in monthly sales across 29 locations', company: 'XSport Fitness' },
-    { icon: Users, label: 'Doubled membership base', company: 'Fitness World' },
-    { icon: Users, label: 'Expanded team from 5 to 15 personal trainers', company: 'Bally Total Fitness' },
-  ];
+  // Fetch achievements from database
+  const { data: achievements = [] } = useQuery({
+    queryKey: ['achievements'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('achievements')
+        .select('*')
+        .eq('status', 'published')
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      return data as Achievement[];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 
-  const experience = [
-    {
-      company: 'Pearson Media LLC',
-      role: 'Founder & Developer',
-      duration: 'March 2018 - Present (7 years)',
-      highlights: [
-        'Building 7 AI-powered SaaS platforms',
-        'Developed 10,000+ unique NFTs with 100% trait uniqueness',
-        'Created AI automation reducing manual tasks by 60%',
-        'Full-stack development: React, TypeScript, Supabase, AI integration'
-      ]
+  // Fetch work experience from database
+  const { data: experience = [] } = useQuery({
+    queryKey: ['work-experience'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_experience')
+        .select('*')
+        .eq('status', 'published')
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      return data as WorkExperience[];
     },
-    {
-      company: 'Infomax Office Systems',
-      role: 'Solutions and Production Consultant',
-      duration: 'January 2024 - Present',
-      highlights: [
-        'Leading technical solutions and production optimization',
-        'Managing team of 10 direct reports',
-        'Driving digital transformation initiatives'
-      ]
-    },
-    {
-      company: 'USA TODAY NETWORK',
-      role: 'Sales Solutions Consultant',
-      duration: 'April 2022 - June 2024 (2 years)',
-      highlights: [
-        'Exceeded sales quotas by 20% within six months',
-        'Maintained 90% customer retention rate',
-        'Consulted on digital marketing solutions'
-      ]
-    },
-    {
-      company: 'XSport Fitness',
-      role: 'Regional Director',
-      duration: '5 years 8 months',
-      highlights: [
-        'Managed 29 locations as Regional Director',
-        'Drove over $600K in monthly sales',
-        'Built and led high-performing teams'
-      ]
-    }
-  ];
+    staleTime: 10 * 60 * 1000,
+  });
 
-  const certifications = [
-    'PaperCut Certified',
-    'Canon UniFlow Certified',
-    'PrinterLogic Certified',
-    'Notary Public'
-  ];
+  // Fetch certifications from database
+  const { data: certifications = [] } = useQuery({
+    queryKey: ['certifications'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('certifications')
+        .select('*')
+        .eq('status', 'published')
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      return data as Certification[];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -217,71 +231,79 @@ const About = () => {
             </Card>
 
             {/* Key Achievements */}
-            <div className="mb-10">
-              <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
-                <TrendingUp className="w-6 h-6 text-primary" />
-                Key Achievements
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {achievements.map((achievement, idx) => {
-                  const IconComponent = achievement.icon;
-                  return (
-                    <Card key={idx} className="border-border bg-card/50 hover:border-primary/30 transition-colors">
-                      <CardContent className="p-4 flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <IconComponent className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground mb-1">
-                            {achievement.label}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {achievement.company}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+            {achievements.length > 0 && (
+              <div className="mb-10">
+                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6 text-primary" />
+                  Key Achievements
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {achievements.map((achievement) => {
+                    const IconComponent = iconMap[achievement.icon_name] || TrendingUp;
+                    return (
+                      <Card key={achievement.id} className="border-border bg-card/50 hover:border-primary/30 transition-colors">
+                        <CardContent className="p-4 flex items-start gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <IconComponent className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground mb-1">
+                              {achievement.label}
+                            </p>
+                            {achievement.company && (
+                              <p className="text-xs text-muted-foreground">
+                                {achievement.company}
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Professional Experience */}
-            <div className="mb-10">
-              <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
-                <Briefcase className="w-6 h-6 text-primary" />
-                Professional Experience
-              </h2>
-              <div className="space-y-6">
-                {experience.map((job, idx) => (
-                  <Card key={idx} className="border-border bg-card/50 hover:border-primary/30 transition-colors">
-                    <CardContent className="mobile-card">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground">
-                            {job.role}
-                          </h3>
-                          <p className="text-base text-primary font-semibold">
-                            {job.company}
-                          </p>
+            {experience.length > 0 && (
+              <div className="mb-10">
+                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                  <Briefcase className="w-6 h-6 text-primary" />
+                  Professional Experience
+                </h2>
+                <div className="space-y-6">
+                  {experience.map((job) => (
+                    <Card key={job.id} className="border-border bg-card/50 hover:border-primary/30 transition-colors">
+                      <CardContent className="mobile-card">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="text-lg font-bold text-foreground">
+                              {job.role}
+                            </h3>
+                            <p className="text-base text-primary font-semibold">
+                              {job.company}
+                            </p>
+                          </div>
+                          <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">
+                            {job.duration}
+                          </span>
                         </div>
-                        <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">
-                          {job.duration}
-                        </span>
-                      </div>
-                      <ul className="space-y-2">
-                        {job.highlights.map((highlight, hidx) => (
-                          <li key={hidx} className="text-sm text-muted-foreground flex items-start">
-                            <span className="text-primary mr-2 mt-1 flex-shrink-0">•</span>
-                            <span>{highlight}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
+                        {job.highlights && job.highlights.length > 0 && (
+                          <ul className="space-y-2">
+                            {job.highlights.map((highlight, hidx) => (
+                              <li key={hidx} className="text-sm text-muted-foreground flex items-start">
+                                <span className="text-primary mr-2 mt-1 flex-shrink-0">•</span>
+                                <span>{highlight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Education & Certifications */}
             <div className="grid md:grid-cols-2 gap-6 mb-10">
@@ -299,22 +321,24 @@ const About = () => {
                 </CardContent>
               </Card>
 
-              <Card className="border-border bg-card/50 hover:border-primary/30 transition-colors">
-                <CardContent className="mobile-card">
-                  <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">
-                    <Award className="w-6 h-6 text-primary" />
-                    Certifications
-                  </h2>
-                  <ul className="space-y-2">
-                    {certifications.map((cert, idx) => (
-                      <li key={idx} className="text-sm text-muted-foreground flex items-center">
-                        <span className="text-primary mr-2">✓</span>
-                        {cert}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              {certifications.length > 0 && (
+                <Card className="border-border bg-card/50 hover:border-primary/30 transition-colors">
+                  <CardContent className="mobile-card">
+                    <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">
+                      <Award className="w-6 h-6 text-primary" />
+                      Certifications
+                    </h2>
+                    <ul className="space-y-2">
+                      {certifications.map((cert) => (
+                        <li key={cert.id} className="text-sm text-muted-foreground flex items-center">
+                          <span className="text-primary mr-2">✓</span>
+                          {cert.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Technical Expertise */}
