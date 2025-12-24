@@ -5,12 +5,15 @@ import { createClient } from '@supabase/supabase-js';
 // Self-hosted Supabase configuration
 // API: api.danpearson.net
 // Functions: functions.danpearson.net
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://api.danpearson.net';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc2NjAwMTU0MCwiZXhwIjo0OTIxNjc1MTQwLCJyb2xlIjoiYW5vbiJ9.smyKT5KYiVNCQLTvQR-r1V3auuuxr7eQznTYzSCThUY';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Validate environment variables
+// Validate environment variables - fail fast if not configured
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Missing required Supabase environment variables');
+  throw new Error(
+    'Missing required Supabase environment variables. ' +
+    'Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.'
+  );
 }
 
 // Import the supabase client like this:
