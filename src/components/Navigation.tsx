@@ -19,7 +19,7 @@ const Navigation = () => {
     queryKey: ['profile-settings-nav'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profile_settings' as any)
+        .from('profile_settings')
         .select('availability_status, availability_text')
         .maybeSingle();
       if (error) throw error;

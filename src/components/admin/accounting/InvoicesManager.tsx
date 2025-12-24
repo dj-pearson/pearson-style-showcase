@@ -77,7 +77,7 @@ export const InvoicesManager = () => {
     try {
       setIsLoading(true);
       let query = supabase
-        .from('invoices' as any)
+        .from('invoices')
         .select('*, contacts(contact_name)')
         .order('invoice_date', { ascending: false });
 

@@ -65,7 +65,7 @@ export const SystemHealthCard: React.FC = () => {
       oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
       const { data } = await supabase
-        .from('system_metrics' as any)
+        .from('system_metrics')
         .select('*')
         .eq('metric_type', 'error_rate')
         .gte('recorded_at', oneHourAgo.toISOString());
@@ -75,7 +75,7 @@ export const SystemHealthCard: React.FC = () => {
 
       // Get API latency metrics
       const { data: latencyMetrics } = await supabase
-        .from('system_metrics' as any)
+        .from('system_metrics')
         .select('value')
         .eq('metric_type', 'api_latency')
         .gte('recorded_at', oneHourAgo.toISOString())

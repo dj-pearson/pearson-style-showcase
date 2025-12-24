@@ -107,7 +107,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const loadMailboxes = async () => {
     try {
       const { data, error } = await supabase
-        .from('email_mailboxes' as any)
+        .from('email_mailboxes')
         .select('*')
         .eq('is_active', true)
         .order('is_default', { ascending: false });
@@ -138,7 +138,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
     try {
       // Get the most recent email thread for this ticket
       const { data, error } = await supabase
-        .from('email_threads' as any)
+        .from('email_threads')
         .select('subject')
         .eq('ticket_id', ticket.id)
         .order('created_at', { ascending: false })
@@ -186,7 +186,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const loadResponses = async () => {
     try {
       const { data, error } = await supabase
-        .from('ticket_responses' as any)
+        .from('ticket_responses')
         .select('*')
         .eq('ticket_id', ticket.id)
         .order('created_at', { ascending: true });
@@ -244,7 +244,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       } else {
         // Save as internal note or response without email
         const { error } = await supabase
-          .from('ticket_responses' as any)
+          .from('ticket_responses')
           .insert({
             ticket_id: ticket.id,
             author_id: user?.id,
@@ -260,7 +260,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
         // Update ticket status if first response
         if (!responses.length && !isInternal) {
           await supabase
-            .from('support_tickets' as any)
+            .from('support_tickets')
             .update({ first_response_at: new Date().toISOString() })
             .eq('id', ticket.id);
         }
@@ -319,7 +319,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const updateTicket = async (updates: Partial<Ticket>) => {
     try {
       const { error } = await supabase
-        .from('support_tickets' as any)
+        .from('support_tickets')
         .update(updates)
         .eq('id', ticket.id);
 
