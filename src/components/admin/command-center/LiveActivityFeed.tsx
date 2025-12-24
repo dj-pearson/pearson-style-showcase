@@ -94,7 +94,7 @@ export const LiveActivityFeed: React.FC = () => {
 
       // Fetch recent contact form submissions
       const { data: contacts } = await supabase
-        .from('contact_submissions' as any)
+        .from('contact_submissions')
         .select('*')
         .gte('submitted_at', thirtyMinutesAgo.toISOString())
         .order('submitted_at', { ascending: false })
@@ -102,7 +102,7 @@ export const LiveActivityFeed: React.FC = () => {
 
       // Fetch recent AI tool submissions
       const { data: toolSubmissions } = await supabase
-        .from('ai_tool_submissions' as any)
+        .from('ai_tool_submissions')
         .select('*')
         .gte('submitted_at', thirtyMinutesAgo.toISOString())
         .order('submitted_at', { ascending: false })
@@ -110,7 +110,7 @@ export const LiveActivityFeed: React.FC = () => {
 
       // Fetch recent admin actions
       const { data: adminActions } = await supabase
-        .from('admin_activity_log' as any)
+        .from('admin_activity_log')
         .select('*')
         .gte('timestamp', thirtyMinutesAgo.toISOString())
         .order('timestamp', { ascending: false })

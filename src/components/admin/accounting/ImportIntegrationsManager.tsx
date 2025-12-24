@@ -81,7 +81,7 @@ export const ImportIntegrationsManager = () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('import_sources' as any)
+        .from('import_sources')
         .select('*')
         .order('source_name', { ascending: true });
 
@@ -102,7 +102,7 @@ export const ImportIntegrationsManager = () => {
   const loadLogs = async () => {
     try {
       const { data, error } = await supabase
-        .from('import_logs' as any)
+        .from('import_logs')
         .select('*, import_sources(source_name)')
         .order('started_at', { ascending: false })
         .limit(50);
@@ -175,7 +175,7 @@ export const ImportIntegrationsManager = () => {
 
       // Create import log entry
       const { data: logData, error: logError } = await supabase
-        .from('import_logs' as any)
+        .from('import_logs')
         .insert([
           {
             import_source_id: source.id,
@@ -201,7 +201,7 @@ export const ImportIntegrationsManager = () => {
 
       // Update import log
       await supabase
-        .from('import_logs' as any)
+        .from('import_logs')
         .update({
           status: result.success ? 'completed' : 'failed',
           records_total: result.imported + result.failed,
@@ -214,7 +214,7 @@ export const ImportIntegrationsManager = () => {
 
       // Update last import time
       await supabase
-        .from('import_sources' as any)
+        .from('import_sources')
         .update({ last_import_at: new Date().toISOString() })
         .eq('id', source.id);
 

@@ -30,7 +30,6 @@ import {
   Calendar,
   Send
 } from 'lucide-react';
-import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface Article {
   id: string;

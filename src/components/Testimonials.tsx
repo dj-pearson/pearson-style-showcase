@@ -20,7 +20,7 @@ const Testimonials = () => {
     queryKey: ['testimonials'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('testimonials' as any)
+        .from('testimonials')
         .select('*')
         .eq('status', 'published')
         .order('display_order', { ascending: true });

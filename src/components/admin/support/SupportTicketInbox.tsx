@@ -109,7 +109,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const loadTickets = async () => {
     try {
       const { data, error } = await supabase
-        .from('support_tickets' as any)
+        .from('support_tickets')
         .select('*')
         .order('last_activity_at', { ascending: false })
         .limit(100);
@@ -255,7 +255,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     setIsProcessing(true);
     try {
       const { error } = await supabase
-        .from('support_tickets' as any)
+        .from('support_tickets')
         .update({ status, last_activity_at: new Date().toISOString() })
         .in('id', Array.from(selectedTickets));
 
@@ -290,7 +290,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     setIsProcessing(true);
     try {
       const { error } = await supabase
-        .from('support_tickets' as any)
+        .from('support_tickets')
         .delete()
         .in('id', Array.from(selectedTickets));
 

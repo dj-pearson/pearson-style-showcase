@@ -25,7 +25,7 @@ const ProfileSettingsManager = () => {
     queryKey: ['profile-settings-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profile_settings' as any)
+        .from('profile_settings')
         .select('*')
         .maybeSingle();
       if (error) throw error;
@@ -46,7 +46,7 @@ const ProfileSettingsManager = () => {
     mutationFn: async (data: any) => {
       if (!profile?.id) throw new Error('Profile not found');
       const { error } = await supabase
-        .from('profile_settings' as any)
+        .from('profile_settings')
         .update(data)
         .eq('id', profile.id);
       if (error) throw error;
