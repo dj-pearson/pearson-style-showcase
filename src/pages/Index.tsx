@@ -216,6 +216,21 @@ const Index = () => {
         }}
       />
 
+      {/* LocalBusiness Schema for Local SEO - improves "near me" searches and Maps visibility */}
+      <StructuredData
+        type="localbusiness"
+        data={{
+          name: 'Dan Pearson - AI Automation Consulting',
+          alternateName: 'Pearson Media LLC',
+          description: 'AI automation consulting services helping businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Serving Des Moines and nationwide.',
+          email: 'dan@danpearson.net',
+          addressLocality: 'Des Moines',
+          addressRegion: 'IA',
+          addressCountry: 'US',
+          priceRange: '$$'
+        }}
+      />
+
       <Navigation />
       <main id="main-content" className="relative z-10 pointer-events-none" ref={contentRef}>
         <div ref={heroRef} className="pointer-events-auto">
