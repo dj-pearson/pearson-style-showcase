@@ -94,7 +94,8 @@ async function ensureAdminRole(userId: string, email: string): Promise<boolean> 
     return false;
   }
 
-  console.log('Auto-assigned admin role to whitelisted user:', email);
+  // SECURITY: Don't log sensitive email addresses
+  console.log('Auto-assigned admin role to whitelisted user');
   return true;
 }
 
@@ -144,7 +145,8 @@ async function sendLockoutNotification(
   // Check cooldown to avoid spam
   const lastNotification = lockoutNotificationsSent.get(email);
   if (lastNotification && Date.now() - lastNotification < LOCKOUT_NOTIFICATION_COOLDOWN) {
-    console.log(`Skipping lockout notification for ${email} - cooldown active`);
+    // SECURITY: Don't log sensitive email addresses
+    console.log('Skipping lockout notification - cooldown active');
     return;
   }
 
@@ -267,7 +269,8 @@ This is an automated security notification from Dan Pearson Admin Portal.
     // Track that we sent this notification
     lockoutNotificationsSent.set(email, Date.now());
 
-    console.log(`Lockout notification sent to ${email}`);
+    // SECURITY: Don't log sensitive email addresses
+    console.log('Lockout notification sent successfully');
 
     // Log the event to the database
     await logLockoutEvent(email, ip, userAgent, attemptCount, true);
@@ -381,7 +384,8 @@ async function logLoginAttempt(
       });
     }
 
-    console.log(`Login attempt logged: ${email} - ${success ? 'SUCCESS' : 'FAILED'} - ${ip}`);
+    // SECURITY: Don't log sensitive email addresses or IPs
+    console.log(`Login attempt logged: ${success ? 'SUCCESS' : 'FAILED'}`);
   } catch (error) {
     // Non-critical - just log
     console.error('Failed to log login attempt:', error);
@@ -479,11 +483,13 @@ serve(async (req) => {
       const clientIP = req.headers.get("x-forwarded-for") || "unknown";
       const userAgent = req.headers.get("user-agent") || "unknown";
 
-      console.log("Login attempt - Email:", email, "IP:", clientIP);
+      // SECURITY: Don't log sensitive email addresses or IPs
+      console.log("Login attempt received");
 
       // Check rate limiting
       if (!checkRateLimit(clientIP)) {
-        console.log("Rate limit exceeded for IP:", clientIP);
+        // SECURITY: Don't log IP addresses
+        console.log("Rate limit exceeded");
 
         // Send lockout notification if email is provided
         if (email) {
@@ -514,7 +520,8 @@ serve(async (req) => {
       // Check if email is in admin whitelist (database lookup)
       const isWhitelisted = await isEmailWhitelisted(email);
       if (!isWhitelisted) {
-        console.log("Email not in admin whitelist:", email);
+        // SECURITY: Don't log sensitive email addresses
+        console.log("Email not in admin whitelist");
         recordFailedAttempt(clientIP);
 
         // Log failed attempt
@@ -531,7 +538,8 @@ serve(async (req) => {
         );
       }
 
-      console.log("Attempting Supabase Auth login for:", email);
+      // SECURITY: Don't log sensitive email addresses
+      console.log("Attempting Supabase Auth login");
 
       // Use Supabase Auth to authenticate
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -539,10 +547,10 @@ serve(async (req) => {
         password
       });
 
-      console.log("Supabase Auth result:", { 
-        success: !!authData.user, 
-        email: authData.user?.email, 
-        error: authError?.message 
+      // SECURITY: Don't log sensitive email addresses
+      console.log("Supabase Auth result:", {
+        success: !!authData.user,
+        hasError: !!authError
       });
 
       if (authError || !authData.user) {
@@ -567,7 +575,8 @@ serve(async (req) => {
       const sessionToken = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-      console.log("Creating admin session for:", authData.user.email);
+      // SECURITY: Don't log sensitive email addresses
+      console.log("Creating admin session");
 
       const { error: sessionError } = await supabase
         .from("admin_sessions")
@@ -599,7 +608,8 @@ serve(async (req) => {
         console.error('Failed to log login attempt:', err);
       });
 
-      console.log("Login successful for:", email);
+      // SECURITY: Don't log sensitive email addresses
+      console.log("Login successful");
 
       return new Response(
         JSON.stringify({
@@ -649,12 +659,14 @@ serve(async (req) => {
 
       // Determine auth provider (for logging and debugging)
       const authProvider = user.app_metadata?.provider || 'email';
-      console.log(`Admin verification for ${user.email} (provider: ${authProvider})`);
+      // SECURITY: Don't log sensitive email addresses
+      console.log(`Admin verification (provider: ${authProvider})`);
 
       // Verify user is in admin whitelist (database lookup)
       const isWhitelisted = await isEmailWhitelisted(user.email || '');
       if (!isWhitelisted) {
-        console.error(`User not in admin whitelist: ${user.email} (provider: ${authProvider})`);
+        // SECURITY: Don't log sensitive email addresses
+        console.error(`User not in admin whitelist (provider: ${authProvider})`);
         return new Response(
           JSON.stringify({ error: 'Forbidden - Not an admin' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -694,7 +706,8 @@ serve(async (req) => {
           });
       }
 
-      console.log(`Admin authenticated successfully: ${user.email} (provider: ${authProvider})`);
+      // SECURITY: Don't log sensitive email addresses
+      console.log(`Admin authenticated successfully (provider: ${authProvider})`);
       return new Response(
         JSON.stringify({
           id: user.id,
@@ -738,7 +751,8 @@ serve(async (req) => {
         );
       }
 
-      console.log("Sending password reset for:", email);
+      // SECURITY: Don't log sensitive email addresses
+      console.log("Sending password reset request");
 
       // Use Supabase Auth password reset
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {

@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import DOMPurify from 'dompurify';
+import { validateUrl } from '@/lib/security';
 
 interface MarkdownRendererProps {
   content: string;
@@ -137,12 +138,20 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     },
 
     a({ href, children }: MarkdownComponentProps) {
+      // SECURITY: Validate URL to prevent XSS via javascript: protocol
+      const validatedHref = href ? validateUrl(href) : null;
+
+      // If URL validation fails, render as plain text instead of link
+      if (!validatedHref) {
+        return <span className="text-muted-foreground">{children}</span>;
+      }
+
       return (
-        <a 
-          href={href} 
+        <a
+          href={validatedHref}
           className="text-primary hover:text-primary/80 underline transition-colors"
-          target={href?.startsWith('http') ? '_blank' : undefined}
-          rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
+          target={validatedHref.startsWith('http') ? '_blank' : undefined}
+          rel={validatedHref.startsWith('http') ? 'noopener noreferrer' : undefined}
         >
           {children}
         </a>
@@ -225,10 +234,18 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         
         if (url) {
           btn.addEventListener('click', () => {
-            if (url.startsWith('http')) {
-              window.open(url, '_blank', 'noopener,noreferrer');
+            // SECURITY: Validate URL to prevent XSS via javascript: protocol
+            const validatedUrl = validateUrl(url);
+            if (!validatedUrl) {
+              console.error('Invalid or unsafe URL blocked:', url);
+              return;
+            }
+
+            // Safe to navigate - validated URL is http/https only
+            if (validatedUrl.startsWith('http')) {
+              window.open(validatedUrl, '_blank', 'noopener,noreferrer');
             } else {
-              window.location.href = url;
+              window.location.href = validatedUrl;
             }
           });
         }
@@ -276,15 +293,29 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       // Style any links in HTML (but preserve amazon-button and other custom classes)
       const htmlLinks = container.querySelectorAll('a:not([data-custom-btn])');
       htmlLinks.forEach((link) => {
+        // SECURITY: Validate href to prevent XSS via javascript: protocol
+        const href = link.getAttribute('href');
+        if (href) {
+          const validatedHref = validateUrl(href);
+          if (!validatedHref) {
+            // Remove href if invalid (converts to plain text)
+            link.removeAttribute('href');
+            link.style.cursor = 'default';
+            link.style.textDecoration = 'none';
+            return;
+          }
+          // Update with validated URL
+          link.setAttribute('href', validatedHref);
+        }
+
         // Don't override amazon-button or other custom styled links
-        if (!link.className.includes('amazon-button') && 
-            !link.className.includes('text-') && 
+        if (!link.className.includes('amazon-button') &&
+            !link.className.includes('text-') &&
             !link.getAttribute('style')?.includes('color')) {
           link.className = `${link.className} text-primary hover:text-primary/80 underline transition-colors`.trim();
         }
-        
+
         // Ensure external links open in new tab
-        const href = link.getAttribute('href');
         if (href?.startsWith('http')) {
           link.setAttribute('target', '_blank');
           link.setAttribute('rel', 'noopener noreferrer');
