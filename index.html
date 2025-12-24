@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- Content Security Policy - Defense against XSS and injection attacks -->
+    <!-- Updated for CSP Level 3 compliance - removed unsafe-inline and unsafe-eval -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com;
+      style-src 'self' 'sha256-s3jz9+kR30TWAZblV9os5avWIpQkG6JAbbeS7lCQgF4=' https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
       img-src 'self' data: https: blob:;
       connect-src 'self' https://api.danpearson.net wss://api.danpearson.net https://functions.danpearson.net https://hooks.slack.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://fonts.gstatic.com https://cloudflareinsights.com https://stats.g.doubleclick.net;
@@ -34,20 +35,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
-    <!-- Google tag (gtag.js) - Deferred for FID optimization -->
-    <script
-      defer
-      src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"
-    ></script>
-    <script defer>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag("js", new Date());
-
-      gtag("config", "G-8R95ZXMV6L");
-    </script>
+    <!-- Google Analytics - Initialized via src/lib/analytics.ts for CSP compliance -->
 
 
     <title>Dan Pearson - AI Engineer & Business Development Expert</title>
@@ -81,9 +69,11 @@
       }
     </style>
     
-    <!-- Optimized font loading via Google Fonts CSS API -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap"></noscript>
+    <!-- Optimized font loading - CSP-compliant approach with font-display: swap -->
+    <!-- Preload the font CSS for faster discovery -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" as="style">
+    <!-- Load the font stylesheet (non-blocking due to low priority) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap">
 
     <!-- Canonical URL (default, updated by React for specific pages) -->
     <link rel="canonical" href="https://danpearson.net" />
