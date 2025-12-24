@@ -14,11 +14,20 @@ const LoadingSpinner = ({ size = 'md', className, text }: LoadingSpinnerProps) =
     lg: 'w-12 h-12'
   };
 
+  const loadingText = text || 'Loading';
+
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-2', className)}>
-      <Loader2 className={cn('animate-spin text-primary', sizeClasses[size])} />
-      {text && (
+    <div
+      role="status"
+      aria-label={loadingText}
+      aria-busy="true"
+      className={cn('flex flex-col items-center justify-center gap-2', className)}
+    >
+      <Loader2 className={cn('animate-spin text-primary', sizeClasses[size])} aria-hidden="true" />
+      {text ? (
         <p className="text-sm text-muted-foreground animate-pulse">{text}</p>
+      ) : (
+        <span className="sr-only">{loadingText}</span>
       )}
     </div>
   );
