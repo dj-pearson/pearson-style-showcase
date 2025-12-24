@@ -5,6 +5,7 @@ import { initPerformanceMonitoring } from './lib/performance'
 import { registerServiceWorker } from './lib/registerSW'
 import { initErrorTracking } from './lib/error-tracking'
 import { initErrorAlerting, connectToErrorTracking } from './lib/error-alerting'
+import { initGoogleAnalytics } from './lib/analytics'
 
 // Initialize error tracking first to capture any initialization errors
 initErrorTracking();
@@ -24,6 +25,9 @@ connectToErrorTracking();
 
 // Initialize performance monitoring for Core Web Vitals
 initPerformanceMonitoring();
+
+// Initialize Google Analytics (CSP-compliant, non-blocking)
+initGoogleAnalytics();
 
 // Register Service Worker for PWA offline support
 registerServiceWorker();
