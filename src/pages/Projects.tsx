@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useMemo } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ProjectListSkeleton } from '@/components/skeletons';
@@ -18,6 +18,7 @@ type Project = Tables<"projects">;
 const STORAGE_KEY_PREFIX = 'projectsFilters';
 
 const Projects = () => {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState(() => {
     return localStorage.getItem(`${STORAGE_KEY_PREFIX}_search`) || '';
   });
@@ -233,7 +234,15 @@ const Projects = () => {
             ) : error ? (
               <div className="text-center mobile-section">
                 <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
-                  <p className="text-base text-destructive">Error loading projects. Please try again later.</p>
+                  <p className="text-base text-destructive mb-4">Error loading projects. Please check your connection and try again.</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}
+                    className="mobile-button border-destructive/50 hover:border-destructive text-destructive hover:text-destructive"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Try Again
+                  </Button>
                 </div>
               </div>
             ) : projects && projects.length > 0 ? (

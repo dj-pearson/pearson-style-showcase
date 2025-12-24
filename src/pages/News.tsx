@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { logger } from "@/lib/logger";
 import { useState, useEffect, useMemo } from 'react';
 import Navigation from '../components/Navigation';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, X, Loader2 } from 'lucide-react';
+import { Search, Filter, X, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
@@ -24,6 +24,7 @@ const News = () => {
   const [email, setEmail] = useState('');
   const [isSubscribing, setIsSubscribing] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState(() => {
     return localStorage.getItem(`${STORAGE_KEY_PREFIX}_search`) || '';
   });
@@ -261,7 +262,15 @@ const News = () => {
             ) : error ? (
               <div className="text-center py-12 px-4">
                 <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
-                  <p className="text-base text-destructive">Error loading articles. Please try again later.</p>
+                  <p className="text-base text-destructive mb-4">Error loading articles. Please check your connection and try again.</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['articles'] })}
+                    className="mobile-button border-destructive/50 hover:border-destructive text-destructive hover:text-destructive"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Try Again
+                  </Button>
                 </div>
               </div>
             ) : articles && articles.length > 0 ? (
