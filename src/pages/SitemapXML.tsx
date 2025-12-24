@@ -64,6 +64,7 @@ const SitemapXML = () => {
           { path: '/news', priority: '0.9', changefreq: 'daily' as const, lastmod: articles[0]?.updated_at },
           { path: '/ai-tools', priority: '0.8', changefreq: 'weekly' as const, lastmod: aiTools[0]?.updated_at },
           { path: '/connect', priority: '0.7', changefreq: 'monthly' as const },
+          { path: '/faq', priority: '0.8', changefreq: 'weekly' as const },
         ];
 
         staticPages.forEach(page => {

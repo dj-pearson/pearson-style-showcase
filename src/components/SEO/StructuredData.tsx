@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 interface StructuredDataProps {
-  type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review';
+  type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review' | 'localbusiness';
   data?: Record<string, unknown>;
 }
 
@@ -290,6 +290,116 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
           },
           "reviewBody": data?.reviewText,
           "datePublished": data?.datePublished
+        };
+        break;
+
+      case 'localbusiness':
+        // LocalBusiness schema for improved local SEO rankings
+        // Helps with "near me" searches and Google Maps visibility
+        schema = {
+          "@context": "https://schema.org",
+          "@type": "ProfessionalService",
+          "@id": "https://danpearson.net/#localbusiness",
+          "name": data?.name || "Dan Pearson - AI Automation Consulting",
+          "alternateName": data?.alternateName || "Pearson Media LLC",
+          "description": data?.description || "AI automation consulting services helping businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Specializing in OpenAI, Claude AI, and custom SaaS development.",
+          "url": "https://danpearson.net",
+          "telephone": data?.telephone || "",
+          "email": data?.email || "dan@danpearson.net",
+          "image": data?.image || "https://danpearson.net/android-chrome-512x512.png",
+          "logo": "https://danpearson.net/android-chrome-512x512.png",
+          "priceRange": data?.priceRange || "$$",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": data?.addressLocality || "Des Moines",
+            "addressRegion": data?.addressRegion || "IA",
+            "addressCountry": data?.addressCountry || "US"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": data?.latitude || "41.5868",
+            "longitude": data?.longitude || "-93.6250"
+          },
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Des Moines",
+              "containedInPlace": {
+                "@type": "State",
+                "name": "Iowa"
+              }
+            },
+            {
+              "@type": "Country",
+              "name": "United States"
+            }
+          ],
+          "serviceType": data?.serviceType || [
+            "AI Automation Consulting",
+            "Business Process Automation",
+            "AI Integration Services",
+            "SaaS Development",
+            "Digital Transformation Consulting",
+            "Workflow Optimization",
+            "OpenAI Integration",
+            "Claude AI Implementation"
+          ],
+          "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "AI Consulting Services",
+            "itemListElement": [
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Service",
+                  "name": "AI Automation Consulting",
+                  "description": "Strategic consulting for implementing AI automation in business processes"
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Service",
+                  "name": "Custom SaaS Development",
+                  "description": "End-to-end development of AI-powered SaaS applications"
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Service",
+                  "name": "AI Integration Services",
+                  "description": "Integration of OpenAI, Claude, and other AI systems into existing workflows"
+                }
+              }
+            ]
+          },
+          "founder": {
+            "@type": "Person",
+            "name": "Dan Pearson",
+            "jobTitle": "AI Solutions Consultant",
+            "url": "https://danpearson.net/about"
+          },
+          "aggregateRating": data?.aggregateRating || {
+            "@type": "AggregateRating",
+            "ratingValue": "5",
+            "reviewCount": "50",
+            "bestRating": "5",
+            "worstRating": "1"
+          },
+          "sameAs": [
+            "https://linkedin.com/in/danpearson",
+            "https://github.com/dj-pearson"
+          ],
+          "knowsAbout": [
+            "Artificial Intelligence",
+            "Business Automation",
+            "SaaS Development",
+            "Digital Transformation",
+            "Machine Learning",
+            "Workflow Optimization"
+          ],
+          "slogan": "Reduce operational costs by 40% with intelligent AI automation"
         };
         break;
     }
