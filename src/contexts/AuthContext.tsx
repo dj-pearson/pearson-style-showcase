@@ -169,9 +169,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Verify admin access by calling the admin-auth edge function
+   * This function also updates the authStatus to 'admin_verified' on success
+   * or 'authenticated' on failure (user is logged in but not an admin)
    */
   const verifyAdminAccess = useCallback(async (): Promise<boolean> => {
     logger.debug('Verifying admin access...');
+
+    // Set status to verifying to show loading state
+    setAuthStatus('verifying_admin');
 
     try {
       const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
@@ -182,6 +187,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           error: sessionError?.message,
         });
         setAdminUser(null);
+        setAuthStatus('unauthenticated');
         return false;
       }
 
@@ -210,6 +216,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (functionError || data?.error) {
         logger.warn('Admin verification failed:', functionError?.message || data?.error);
         setAdminUser(null);
+        setAuthStatus('authenticated'); // User is logged in but not an admin
         return false;
       }
 
@@ -224,11 +231,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setAdminUser(adminData);
       // Cache the admin data for faster subsequent loads
       setCachedAdminData(currentSession.user.id, adminData);
+      // Update status to admin_verified
+      setAuthStatus('admin_verified');
       logger.debug('Admin verification successful:', adminData.email);
+
+      // Start session rotation
+      initializeSessionRotation();
+      startPeriodicRotation();
+
       return true;
     } catch (err) {
       logger.error('Error verifying admin access:', err);
       setAdminUser(null);
+      setAuthStatus('authenticated'); // User is logged in but verification failed
       return false;
     }
   }, [setCachedAdminData]);
@@ -484,12 +499,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Sign in with email and password
+   * Note: This is used for direct sign-in without MFA flow.
+   * For MFA flows, AdminLogin handles the Supabase auth directly,
+   * then calls verifyAdminAccess after MFA completion.
    */
   const signIn = useCallback(async (email: string, password: string) => {
     logger.debug('Sign in attempt:', email);
     setError(null);
     isProcessingRef.current = true;
-    setAuthStatus('verifying_admin');
 
     try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -510,6 +527,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setSession(authData.session);
       setUser(authData.user);
 
+      // verifyAdminAccess now handles setting authStatus and starting session rotation
       const adminVerified = await verifyAdminAccess();
 
       if (!adminVerified) {
@@ -525,13 +543,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error: errorMsg };
       }
 
-      setAuthStatus('admin_verified');
       isProcessingRef.current = false;
       logger.info('Sign in successful and admin verified:', email);
-
-      // Initialize and start session rotation
-      initializeSessionRotation();
-      startPeriodicRotation();
 
       // Rotate session after login (sensitive operation)
       rotateAfterSensitiveOperation('login').catch(err => {

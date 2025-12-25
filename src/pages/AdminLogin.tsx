@@ -1,4 +1,4 @@
-import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
+import { useState, ChangeEvent, FormEvent, useEffect, useCallback, useRef } from 'react';
 import { logger } from "@/lib/logger";
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -53,62 +53,121 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState<'google' | 'apple' | null>(null);
-  const [authFlow, setAuthFlow] = useState<'login' | 'mfa-enroll' | 'mfa-verify'>('login');
+  const [authFlow, setAuthFlow] = useState<'login' | 'mfa-enroll' | 'mfa-verify' | 'awaiting-verification'>('login');
   const [mfaFactorId, setMfaFactorId] = useState<string>('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInWithProvider, isAdminVerified, authStatus } = useAuth();
+  const { signInWithProvider, isAdminVerified, authStatus, verifyAdminAccess } = useAuth();
 
-  // Redirect to dashboard if already authenticated
+  // Track if we've already started MFA check to prevent duplicate calls
+  const mfaCheckInProgressRef = useRef(false);
+  // Track if we're awaiting admin verification after MFA
+  const awaitingVerificationRef = useRef(false);
+
+  // Redirect to dashboard if admin verified (handles both direct login and post-MFA verification)
   useEffect(() => {
     if (isAdminVerified) {
-      logger.debug('User already admin verified, redirecting to dashboard');
+      logger.debug('User admin verified, redirecting to dashboard');
       const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
       sessionStorage.removeItem('auth_return_url');
+
+      // If we were awaiting verification after MFA, show success toast
+      if (awaitingVerificationRef.current) {
+        awaitingVerificationRef.current = false;
+        toast({
+          title: "Login successful",
+          description: "Welcome to the admin dashboard",
+        });
+      }
+
       navigate(returnUrl, { replace: true });
     }
-  }, [isAdminVerified, navigate]);
+  }, [isAdminVerified, navigate, toast]);
 
-  // Check if user needs MFA enrollment after login (only when not already verified)
+  // Handle auth status changes - especially for post-MFA verification
   useEffect(() => {
-    const checkMFAStatus = async () => {
-      // Don't check if already admin verified or still loading
-      if (isAdminVerified || authStatus === 'initializing' || authStatus === 'verifying_admin') {
+    if (authFlow === 'awaiting-verification') {
+      if (authStatus === 'admin_verified') {
+        // Admin verification succeeded, navigation will happen via isAdminVerified effect
+        logger.debug('Admin verification succeeded after MFA');
+      } else if (authStatus === 'authenticated' || authStatus === 'unauthenticated' || authStatus === 'error') {
+        // Admin verification failed after MFA
+        logger.warn('Admin verification failed after MFA, status:', authStatus);
+        setError('Access denied. Your account is not authorized for admin access.');
+        setAuthFlow('login');
+        awaitingVerificationRef.current = false;
+
+        // Sign out since the user isn't an admin
+        supabase.auth.signOut().catch(err => {
+          logger.debug('Sign out error:', err);
+        });
+      }
+    }
+  }, [authStatus, authFlow]);
+
+  // Check if user needs MFA enrollment after login
+  // Only runs when auth state is stable (authenticated but not yet admin_verified)
+  const checkMFAStatus = useCallback(async () => {
+    // Prevent duplicate calls
+    if (mfaCheckInProgressRef.current) {
+      logger.debug('MFA check already in progress, skipping');
+      return;
+    }
+
+    // Only check if we have a session but aren't admin verified yet
+    if (isAdminVerified || authStatus !== 'authenticated') {
+      return;
+    }
+
+    mfaCheckInProgressRef.current = true;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        logger.debug('No session found during MFA check');
+        mfaCheckInProgressRef.current = false;
         return;
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // Check the AAL level - if aal2, MFA is already verified for this session
-        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        logger.debug('AAL data:', aalData);
+      // Check the AAL level - if aal2, MFA is already verified for this session
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      logger.debug('AAL data:', aalData);
 
-        if (aalData?.currentLevel === 'aal2') {
-          // MFA already verified, just need admin verification
-          logger.debug('MFA already verified (aal2), session is valid');
-          return;
-        }
-
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        logger.debug('MFA factors:', factors);
-
-        if (!factors?.totp || factors.totp.length === 0) {
-          logger.debug('No MFA enrolled, showing enrollment');
-          setAuthFlow('mfa-enroll');
-        } else if (aalData?.currentLevel === 'aal1' && aalData?.nextLevel === 'aal2') {
-          // User has MFA enrolled but hasn't verified yet this session
-          logger.debug('MFA enrolled but not verified, showing verification');
-          setMfaFactorId(factors.totp[0].id);
-          setAuthFlow('mfa-verify');
-        }
+      if (aalData?.currentLevel === 'aal2') {
+        // MFA already verified, admin verification should happen via AuthContext
+        logger.debug('MFA already verified (aal2), awaiting admin verification');
+        mfaCheckInProgressRef.current = false;
+        return;
       }
-    };
 
-    checkMFAStatus();
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      logger.debug('MFA factors:', factors);
+
+      if (!factors?.totp || factors.totp.length === 0) {
+        logger.debug('No MFA enrolled, showing enrollment');
+        setAuthFlow('mfa-enroll');
+      } else if (aalData?.currentLevel === 'aal1' && aalData?.nextLevel === 'aal2') {
+        // User has MFA enrolled but hasn't verified yet this session
+        logger.debug('MFA enrolled but not verified, showing verification');
+        setMfaFactorId(factors.totp[0].id);
+        setAuthFlow('mfa-verify');
+      }
+    } catch (err) {
+      logger.error('Error checking MFA status:', err);
+    } finally {
+      mfaCheckInProgressRef.current = false;
+    }
   }, [isAdminVerified, authStatus]);
+
+  // Trigger MFA check when auth status becomes 'authenticated'
+  useEffect(() => {
+    if (authStatus === 'authenticated' && authFlow === 'login') {
+      checkMFAStatus();
+    }
+  }, [authStatus, authFlow, checkMFAStatus]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -166,27 +225,58 @@ const AdminLogin = () => {
   };
 
   const handleMFAEnrollmentComplete = async () => {
+    logger.debug('MFA enrollment complete, triggering admin verification');
+
     toast({
       title: "MFA enabled",
-      description: "Two-factor authentication has been set up successfully",
+      description: "Verifying admin access...",
     });
 
-    // Session is already established after MFA enrollment, just navigate
-    const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
-    sessionStorage.removeItem('auth_return_url');
-    navigate(returnUrl, { replace: true });
+    // After MFA enrollment, we need to verify admin access
+    // Set state to show we're awaiting verification
+    awaitingVerificationRef.current = true;
+    setAuthFlow('awaiting-verification');
+
+    // Trigger admin verification - AuthContext will handle the rest
+    try {
+      const verified = await verifyAdminAccess();
+      if (!verified) {
+        // This will be caught by the authStatus useEffect above
+        logger.warn('Admin verification returned false after MFA enrollment');
+      }
+      // If verified, the isAdminVerified effect will redirect to dashboard
+    } catch (err) {
+      logger.error('Admin verification error after MFA enrollment:', err);
+      setError('Failed to verify admin access. Please try again.');
+      setAuthFlow('login');
+      awaitingVerificationRef.current = false;
+      await supabase.auth.signOut();
+    }
   };
 
   const handleMFAVerificationSuccess = async () => {
-    toast({
-      title: "Login successful",
-      description: "Welcome to the admin dashboard",
-    });
+    logger.debug('MFA verification complete, triggering admin verification');
 
-    // Session is already established after MFA verification, just navigate
-    const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
-    sessionStorage.removeItem('auth_return_url');
-    navigate(returnUrl, { replace: true });
+    // After MFA verification, we need to verify admin access
+    // Set state to show we're awaiting verification
+    awaitingVerificationRef.current = true;
+    setAuthFlow('awaiting-verification');
+
+    // Trigger admin verification - AuthContext will handle the rest
+    try {
+      const verified = await verifyAdminAccess();
+      if (!verified) {
+        // This will be caught by the authStatus useEffect above
+        logger.warn('Admin verification returned false after MFA verification');
+      }
+      // If verified, the isAdminVerified effect will redirect to dashboard
+    } catch (err) {
+      logger.error('Admin verification error after MFA verification:', err);
+      setError('Failed to verify admin access. Please try again.');
+      setAuthFlow('login');
+      awaitingVerificationRef.current = false;
+      await supabase.auth.signOut();
+    }
   };
 
   const handleMFACancel = async () => {
@@ -260,14 +350,14 @@ const AdminLogin = () => {
     }
   };
 
-  // Show loading while auth is being checked/restored
-  if (authStatus === 'initializing' || authStatus === 'verifying_admin') {
+  // Show loading while auth is being checked/restored or awaiting verification
+  if (authStatus === 'initializing' || authStatus === 'verifying_admin' || authFlow === 'awaiting-verification') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">
-            {authStatus === 'initializing' ? 'Loading...' : 'Verifying access...'}
+            {authStatus === 'initializing' ? 'Loading...' : 'Verifying admin access...'}
           </p>
         </div>
       </div>
