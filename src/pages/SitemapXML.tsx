@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { logger } from "@/lib/logger";
 import { supabase } from '@/integrations/supabase/client';
+import { SEO_CONFIG, escapeXml, generateSlug } from '@/lib/seo';
+import { TOPIC_HUBS } from './TopicHub';
 
 interface SitemapUrl {
   loc: string;
@@ -10,17 +12,7 @@ interface SitemapUrl {
   images?: Array<{ loc: string; title?: string; caption?: string }>;
 }
 
-const BASE_URL = 'https://danpearson.net';
-
-// XML escape special characters
-const escapeXml = (str: string): string => {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-};
+const BASE_URL = SEO_CONFIG.siteUrl;
 
 const SitemapXML = () => {
   const [sitemapXml, setSitemapXml] = useState<string>('');
@@ -74,6 +66,8 @@ const SitemapXML = () => {
           { path: '/ai-tools', priority: '0.8', changefreq: 'weekly' as const, lastmod: aiTools[0]?.updated_at },
           { path: '/connect', priority: '0.7', changefreq: 'monthly' as const },
           { path: '/faq', priority: '0.8', changefreq: 'weekly' as const },
+          { path: '/topics', priority: '0.8', changefreq: 'weekly' as const },
+          { path: '/search', priority: '0.5', changefreq: 'monthly' as const },
         ];
 
         staticPages.forEach(page => {
@@ -82,6 +76,36 @@ const SitemapXML = () => {
             lastmod: page.lastmod || currentDate,
             changefreq: page.changefreq,
             priority: page.priority
+          });
+        });
+
+        // 1b. Topic Hub pages (programmatic SEO)
+        Object.keys(TOPIC_HUBS).forEach(topicSlug => {
+          allUrls.push({
+            loc: `${BASE_URL}/topics/${topicSlug}`,
+            lastmod: currentDate,
+            changefreq: 'weekly',
+            priority: '0.8'
+          });
+        });
+
+        // 1c. Author archive pages
+        const authors = Array.from(new Set(
+          articles
+            .map(a => a.author)
+            .filter(Boolean)
+        ));
+
+        authors.forEach(author => {
+          if (!author) return;
+          const authorSlug = generateSlug(author);
+          const latestByAuthor = articles.find(a => a.author === author);
+
+          allUrls.push({
+            loc: `${BASE_URL}/author/${authorSlug}`,
+            lastmod: latestByAuthor?.updated_at || currentDate,
+            changefreq: 'weekly',
+            priority: '0.7'
           });
         });
 

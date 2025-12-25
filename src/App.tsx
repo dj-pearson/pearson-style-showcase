@@ -31,6 +31,9 @@ const AuthCallback = lazy(() => import("./components/auth/AuthCallback"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const CategoryArchive = lazy(() => import("./pages/CategoryArchive"));
 const TagArchive = lazy(() => import("./pages/TagArchive"));
+const AuthorArchive = lazy(() => import("./pages/AuthorArchive"));
+const TopicHub = lazy(() => import("./pages/TopicHub"));
+const Topics = lazy(() => import("./pages/Topics"));
 const RSSFeed = lazy(() => import("./pages/RSSFeed"));
 const Search = lazy(() => import("./pages/Search"));
 
@@ -70,6 +73,9 @@ const App = () => (
             <Route path="/news" element={<News />} />
             <Route path="/news/category/:category" element={<CategoryArchive />} />
             <Route path="/news/tag/:tag" element={<TagArchive />} />
+            <Route path="/author/:author" element={<AuthorArchive />} />
+            <Route path="/topics" element={<Topics />} />
+            <Route path="/topics/:topic" element={<TopicHub />} />
             <Route path="/news/:slug" element={<Article />} />
             <Route path="/ai-tools" element={<AITools />} />
             <Route path="/connect" element={<Connect />} />
