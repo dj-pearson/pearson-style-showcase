@@ -25,12 +25,14 @@ const RoutePrefetcher = () => {
 
     // Define prefetch strategy based on current page
     const prefetchMap: Record<string, string[]> = {
-      '/': ['/projects', '/news', '/ai-tools', '/connect'],
+      '/': ['/projects', '/news', '/ai-tools', '/connect', '/topics'],
       '/projects': ['/news', '/ai-tools', '/connect'],
-      '/news': ['/projects', '/ai-tools'],
-      '/ai-tools': ['/projects', '/news'],
+      '/news': ['/projects', '/ai-tools', '/topics'],
+      '/ai-tools': ['/projects', '/news', '/topics'],
       '/about': ['/projects', '/connect'],
       '/connect': ['/projects', '/news'],
+      '/topics': ['/news', '/ai-tools', '/projects'],
+      '/faq': ['/connect', '/news', '/topics'],
     };
 
     const routesToPrefetch = prefetchMap[location.pathname] || [];
