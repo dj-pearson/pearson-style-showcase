@@ -32,6 +32,7 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const CategoryArchive = lazy(() => import("./pages/CategoryArchive"));
 const TagArchive = lazy(() => import("./pages/TagArchive"));
 const RSSFeed = lazy(() => import("./pages/RSSFeed"));
+const Search = lazy(() => import("./pages/Search"));
 
 // Configure QueryClient with optimized defaults for better caching
 const queryClient = new QueryClient({
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/news/:slug" element={<Article />} />
             <Route path="/ai-tools" element={<AITools />} />
             <Route path="/connect" element={<Connect />} />
+            <Route path="/search" element={<Search />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
