@@ -29,6 +29,9 @@ const RobotsTxt = lazy(() => import("./pages/RobotsTxt"));
 const DateArchive = lazy(() => import("./pages/DateArchive"));
 const AuthCallback = lazy(() => import("./components/auth/AuthCallback"));
 const FAQ = lazy(() => import("./pages/FAQ"));
+const CategoryArchive = lazy(() => import("./pages/CategoryArchive"));
+const TagArchive = lazy(() => import("./pages/TagArchive"));
+const RSSFeed = lazy(() => import("./pages/RSSFeed"));
 
 // Configure QueryClient with optimized defaults for better caching
 const queryClient = new QueryClient({
@@ -64,6 +67,8 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/news" element={<News />} />
+            <Route path="/news/category/:category" element={<CategoryArchive />} />
+            <Route path="/news/tag/:tag" element={<TagArchive />} />
             <Route path="/news/:slug" element={<Article />} />
             <Route path="/ai-tools" element={<AITools />} />
             <Route path="/connect" element={<Connect />} />
@@ -80,6 +85,8 @@ const App = () => (
             />
             <Route path="/sitemap.xml" element={<SitemapXML />} />
             <Route path="/robots.txt" element={<RobotsTxt />} />
+            <Route path="/rss.xml" element={<RSSFeed />} />
+            <Route path="/feed" element={<RSSFeed />} />
             
             {/* Date archives - noindex and redirect */}
             <Route path="/2023/*" element={<DateArchive />} />

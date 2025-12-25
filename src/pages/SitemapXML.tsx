@@ -29,10 +29,10 @@ const SitemapXML = () => {
     const generateSitemap = async () => {
       try {
         // Fetch all dynamic content in parallel
-        const [articlesRes, projectsRes, aiToolsRes, categoriesRes] = await Promise.all([
+        const [articlesRes, projectsRes, aiToolsRes] = await Promise.all([
           supabase
             .from('articles')
-            .select('slug, updated_at, created_at, image_url, title, category, featured')
+            .select('slug, updated_at, created_at, image_url, title, category, tags, featured')
             .eq('published', true)
             .order('updated_at', { ascending: false }),
           supabase
@@ -42,16 +42,25 @@ const SitemapXML = () => {
           supabase
             .from('ai_tools')
             .select('id, updated_at, title, image_url')
-            .order('updated_at', { ascending: false }),
-          supabase
-            .from('article_categories')
-            .select('slug, name')
+            .order('updated_at', { ascending: false })
         ]);
 
         const articles = articlesRes.data || [];
         const projects = projectsRes.data || [];
         const aiTools = aiToolsRes.data || [];
-        const categories = categoriesRes.data || [];
+
+        // Extract unique categories and tags from articles
+        const categories = Array.from(new Set(
+          articles
+            .map(a => a.category)
+            .filter(Boolean)
+        )).sort();
+
+        const tags = Array.from(new Set(
+          articles
+            .flatMap(a => a.tags || [])
+            .filter(Boolean)
+        )).sort();
 
         const currentDate = new Date().toISOString();
         const allUrls: SitemapUrl[] = [];
@@ -76,17 +85,34 @@ const SitemapXML = () => {
           });
         });
 
-        // 2. Article category pages (if they exist)
+        // 2. Article category archive pages
         categories.forEach(category => {
+          // Get the latest article in this category for lastmod date
+          const latestInCategory = articles.find(a => a.category === category);
+
           allUrls.push({
-            loc: `${BASE_URL}/news?category=${category.slug}`,
-            lastmod: currentDate,
+            loc: `${BASE_URL}/news/category/${category}`,
+            lastmod: latestInCategory?.updated_at || currentDate,
             changefreq: 'weekly',
             priority: '0.7'
           });
         });
 
-        // 3. Individual article pages with images
+        // 3. Article tag archive pages
+        tags.forEach(tag => {
+          // Get the latest article with this tag for lastmod date
+          const latestWithTag = articles.find(a => a.tags?.includes(tag));
+          const tagSlug = tag.toLowerCase().replace(/\s+/g, '-');
+
+          allUrls.push({
+            loc: `${BASE_URL}/news/tag/${tagSlug}`,
+            lastmod: latestWithTag?.updated_at || currentDate,
+            changefreq: 'weekly',
+            priority: '0.6'
+          });
+        });
+
+        // 4. Individual article pages with images
         articles.forEach(article => {
           const url: SitemapUrl = {
             loc: `${BASE_URL}/news/${article.slug}`,
@@ -108,7 +134,7 @@ const SitemapXML = () => {
           allUrls.push(url);
         });
 
-        // 4. Project pages (if individual project pages exist)
+        // 5. Project pages (if individual project pages exist)
         // Note: Currently projects are on a single page, but prepared for future expansion
         projects.forEach(project => {
           if (project.image_url) {
