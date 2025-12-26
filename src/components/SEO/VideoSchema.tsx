@@ -138,7 +138,7 @@ const VideoSchema: React.FC<VideoSchemaProps> = ({
 
     // Create or update the script tag
     const scriptId = 'video-schema';
-    let existingScript = document.getElementById(scriptId);
+    const existingScript = document.getElementById(scriptId);
 
     if (existingScript) {
       existingScript.remove();

@@ -340,7 +340,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
     }
   };
 
-  const useSuggestedResponse = (response: string) => {
+  const handleSuggestedResponse = (response: string) => {
     setReplyMessage(response);
   };
 
@@ -730,7 +730,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                         <div
                           key={index}
                           className="p-3 rounded-lg border bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-                          onClick={() => useSuggestedResponse(suggestion)}
+                          onClick={() => handleSuggestedResponse(suggestion)}
                         >
                           <p className="text-sm">{suggestion}</p>
                           <Button size="sm" variant="ghost" className="mt-2 text-xs">

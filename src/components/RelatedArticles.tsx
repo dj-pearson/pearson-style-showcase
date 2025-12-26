@@ -38,7 +38,7 @@ const RelatedArticles = ({
       // Strategy: Find articles with matching tags or category
       // Prioritize tag matches, then category matches
 
-      let query = supabase
+      const query = supabase
         .from('articles')
         .select('id, title, slug, excerpt, category, tags, image_url, read_time, view_count, created_at')
         .eq('published', true)

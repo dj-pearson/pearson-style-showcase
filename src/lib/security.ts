@@ -299,7 +299,7 @@ export function validatePasswordStrength(
   }
 
   // Check special characters
-  const hasSpecialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
+  const hasSpecialChars = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(password);
   if (config.requireSpecialChars && !hasSpecialChars) {
     errors.push('Password must contain at least one special character (!@#$%^&*...)');
   } else if (hasSpecialChars) {
