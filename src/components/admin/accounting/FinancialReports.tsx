@@ -43,29 +43,32 @@ export const FinancialReports = () => {
         from = startOfMonth(now);
         to = endOfMonth(now);
         break;
-      case 'last-month':
+      case 'last-month': {
         const lastMonth = subMonths(now, 1);
         from = startOfMonth(lastMonth);
         to = endOfMonth(lastMonth);
         break;
+      }
       case 'this-quarter':
         from = startOfQuarter(now);
         to = endOfQuarter(now);
         break;
-      case 'last-quarter':
+      case 'last-quarter': {
         const lastQuarter = subQuarters(now, 1);
         from = startOfQuarter(lastQuarter);
         to = endOfQuarter(lastQuarter);
         break;
+      }
       case 'this-year':
         from = startOfYear(now);
         to = endOfYear(now);
         break;
-      case 'last-year':
+      case 'last-year': {
         const lastYear = subYears(now, 1);
         from = startOfYear(lastYear);
         to = endOfYear(lastYear);
         break;
+      }
       case 'custom':
         from = startDate ? new Date(startDate) : startOfMonth(now);
         to = endDate ? new Date(endDate) : endOfMonth(now);

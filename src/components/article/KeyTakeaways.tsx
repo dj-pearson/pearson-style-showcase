@@ -81,7 +81,7 @@ export const extractKeyTakeaways = (content: string, maxTakeaways: number = 5): 
 
   // Pattern 1: Look for explicit Key Takeaways/Summary section
   const takeawaysMatch = content.match(
-    /(?:##?\s*(?:Key\s*Takeaways?|Summary|TL;?DR|Highlights?|Main\s*Points?))\s*\n([\s\S]*?)(?=\n##|\n---|\Z)/i
+    /(?:##?\s*(?:Key\s*Takeaways?|Summary|TL;?DR|Highlights?|Main\s*Points?))\s*\n([\s\S]*?)(?=\n##|\n---|$)/i
   );
 
   if (takeawaysMatch) {
@@ -100,10 +100,10 @@ export const extractKeyTakeaways = (content: string, maxTakeaways: number = 5): 
 
   // Pattern 2: Look for numbered lists that could be takeaways
   if (takeaways.length === 0) {
-    const numberedList = content.match(/^\s*\d+[\.\)]\s*\*\*(.+?)\*\*/gm);
+    const numberedList = content.match(/^\s*\d+[.)]\s*\*\*(.+?)\*\*/gm);
     if (numberedList && numberedList.length >= 3) {
       numberedList.slice(0, maxTakeaways).forEach(item => {
-        const cleanItem = item.replace(/^\s*\d+[\.\)]\s*\*\*/, '').replace(/\*\*$/, '').trim();
+        const cleanItem = item.replace(/^\s*\d+[.)]\s*\*\*/, '').replace(/\*\*$/, '').trim();
         if (cleanItem.length > 10 && cleanItem.length < 300) {
           takeaways.push(cleanItem);
         }
