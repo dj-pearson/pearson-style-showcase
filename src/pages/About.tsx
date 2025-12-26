@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Map icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -50,7 +51,7 @@ interface Certification {
 }
 
 const About = () => {
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['profile-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -64,7 +65,7 @@ const About = () => {
   });
 
   // Fetch achievements from database
-  const { data: achievements = [] } = useQuery({
+  const { data: achievements = [], isLoading: isAchievementsLoading } = useQuery({
     queryKey: ['achievements'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -79,7 +80,7 @@ const About = () => {
   });
 
   // Fetch work experience from database
-  const { data: experience = [] } = useQuery({
+  const { data: experience = [], isLoading: isExperienceLoading } = useQuery({
     queryKey: ['work-experience'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -94,7 +95,7 @@ const About = () => {
   });
 
   // Fetch certifications from database
-  const { data: certifications = [] } = useQuery({
+  const { data: certifications = [], isLoading: isCertificationsLoading } = useQuery({
     queryKey: ['certifications'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -151,11 +152,15 @@ const About = () => {
             <div className="flex flex-col md:flex-row gap-8 items-start mb-12">
               <div className="mx-auto md:mx-0 flex-shrink-0">
                 <div className="relative">
-                  <img
-                    src={profile?.profile_photo_url || '/placeholder.svg'}
-                    alt="Dan Pearson"
-                    className="w-48 h-48 rounded-full object-cover border-4 border-primary/20 shadow-2xl shadow-primary/20"
-                  />
+                  {isProfileLoading ? (
+                    <Skeleton className="w-48 h-48 rounded-full" />
+                  ) : (
+                    <img
+                      src={profile?.profile_photo_url || '/placeholder.svg'}
+                      alt="Dan Pearson"
+                      className="w-48 h-48 rounded-full object-cover border-4 border-primary/20 shadow-2xl shadow-primary/20"
+                    />
+                  )}
                   <div className="absolute -bottom-2 -right-2 bg-green-500 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
                     Available
                   </div>
@@ -166,43 +171,61 @@ const About = () => {
                 <h1 className="mobile-heading-lg hero-gradient-text mb-4">
                   Dan Pearson
                 </h1>
-                <p className="text-xl sm:text-2xl text-primary font-semibold mb-4">
-                  {profile?.bio_headline || 'Bridging the gap between sales and technology'}
-                </p>
-                <p className="mobile-body text-muted-foreground mb-6 max-w-2xl">
-                  {profile?.bio_subheadline || 'With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.'}
-                </p>
-
-                <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-primary" />
-                    <span>{profile?.location || 'Des Moines Metropolitan Area'}</span>
+                {isProfileLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-8 w-3/4 mx-auto md:mx-0" />
+                    <Skeleton className="h-5 w-full max-w-2xl mx-auto md:mx-0" />
+                    <Skeleton className="h-5 w-2/3 max-w-2xl mx-auto md:mx-0" />
+                    <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                      <Skeleton className="h-5 w-40" />
+                      <Skeleton className="h-5 w-36" />
+                    </div>
+                    <div className="flex gap-3 mt-6 justify-center md:justify-start">
+                      <Skeleton className="h-9 w-24" />
+                      <Skeleton className="h-9 w-20" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="w-5 h-5 text-primary" />
-                    <span>{profile?.years_experience || 15}+ years experience</span>
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <p className="text-xl sm:text-2xl text-primary font-semibold mb-4">
+                      {profile?.bio_headline || 'Bridging the gap between sales and technology'}
+                    </p>
+                    <p className="mobile-body text-muted-foreground mb-6 max-w-2xl">
+                      {profile?.bio_subheadline || 'With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.'}
+                    </p>
 
-                {/* Social Links */}
-                <div className="flex gap-3 mt-6 justify-center md:justify-start">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(profile?.linkedin_url || 'https://www.linkedin.com/in/danpearson', '_blank')}
-                  >
-                    <Linkedin className="w-4 h-4 mr-2" />
-                    LinkedIn
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(profile?.github_url || 'https://github.com/danpearson', '_blank')}
-                  >
-                    <Github className="w-4 h-4 mr-2" />
-                    GitHub
-                  </Button>
-                </div>
+                    <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-primary" />
+                        <span>{profile?.location || 'Des Moines Metropolitan Area'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="w-5 h-5 text-primary" />
+                        <span>{profile?.years_experience || 15}+ years experience</span>
+                      </div>
+                    </div>
+
+                    {/* Social Links */}
+                    <div className="flex gap-3 mt-6 justify-center md:justify-start">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(profile?.linkedin_url || 'https://www.linkedin.com/in/danpearson', '_blank')}
+                      >
+                        <Linkedin className="w-4 h-4 mr-2" />
+                        LinkedIn
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(profile?.github_url || 'https://github.com/danpearson', '_blank')}
+                      >
+                        <Github className="w-4 h-4 mr-2" />
+                        GitHub
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -231,7 +254,27 @@ const About = () => {
             </Card>
 
             {/* Key Achievements */}
-            {achievements.length > 0 && (
+            {isAchievementsLoading ? (
+              <div className="mb-10">
+                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6 text-primary" />
+                  Key Achievements
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Card key={i} className="border-border bg-card/50">
+                      <CardContent className="p-4 flex items-start gap-3">
+                        <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : achievements.length > 0 && (
               <div className="mb-10">
                 <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
                   <TrendingUp className="w-6 h-6 text-primary" />
@@ -265,7 +308,34 @@ const About = () => {
             )}
 
             {/* Professional Experience */}
-            {experience.length > 0 && (
+            {isExperienceLoading ? (
+              <div className="mb-10">
+                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                  <Briefcase className="w-6 h-6 text-primary" />
+                  Professional Experience
+                </h2>
+                <div className="space-y-6">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="border-border bg-card/50">
+                      <CardContent className="mobile-card">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="space-y-2">
+                            <Skeleton className="h-5 w-48" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-5/6" />
+                          <Skeleton className="h-4 w-4/5" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : experience.length > 0 && (
               <div className="mb-10">
                 <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
                   <Briefcase className="w-6 h-6 text-primary" />
@@ -321,7 +391,21 @@ const About = () => {
                 </CardContent>
               </Card>
 
-              {certifications.length > 0 && (
+              {isCertificationsLoading ? (
+                <Card className="border-border bg-card/50">
+                  <CardContent className="mobile-card">
+                    <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">
+                      <Award className="w-6 h-6 text-primary" />
+                      Certifications
+                    </h2>
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-4 w-full" />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : certifications.length > 0 && (
                 <Card className="border-border bg-card/50 hover:border-primary/30 transition-colors">
                   <CardContent className="mobile-card">
                     <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">

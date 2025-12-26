@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench } from 'lucide-react';
+import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -207,8 +207,14 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
           <div className="px-6 py-4">
             {/* Loading state */}
             {isLoading && (
-              <div className="text-center py-8 text-muted-foreground">
-                Searching...
+              <div
+                className="flex flex-col items-center justify-center py-8 gap-3"
+                role="status"
+                aria-label="Searching"
+                aria-busy="true"
+              >
+                <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
+                <span className="text-sm text-muted-foreground">Searching...</span>
               </div>
             )}
 

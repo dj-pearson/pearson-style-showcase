@@ -260,7 +260,15 @@ const HeroSection = () => {
       {/* Interactive 3D Particle Orb - Drag to spin! (respects reduced motion) */}
       {shouldLoadOrb && !prefersReducedMotion && (
         <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}>
-          <Suspense fallback={null}>
+          <Suspense fallback={
+            <div
+              className="absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-accent/10"
+              role="status"
+              aria-label="Loading 3D visualization"
+            >
+              <div className="absolute inset-0 animate-pulse opacity-30 bg-gradient-radial from-primary/20 via-transparent to-transparent" />
+            </div>
+          }>
             <Interactive3DOrb />
           </Suspense>
         </div>

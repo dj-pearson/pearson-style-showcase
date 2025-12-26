@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, Github, Rocket, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -55,9 +56,40 @@ const CurrentVentures = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-label="Loading ventures">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
+          <Card key={i} className="overflow-hidden">
+            <CardContent className="p-0">
+              {/* Screenshot placeholder */}
+              <Skeleton className="h-48 w-full" />
+              {/* Content */}
+              <div className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                  <Skeleton className="w-10 h-10 rounded" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-4/5" />
+                </div>
+                {/* Tech stack placeholder */}
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-14" />
+                  <Skeleton className="h-6 w-18" />
+                </div>
+                {/* Buttons placeholder */}
+                <div className="flex gap-2 pt-2">
+                  <Skeleton className="h-9 flex-1" />
+                  <Skeleton className="h-9 w-10" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
     );

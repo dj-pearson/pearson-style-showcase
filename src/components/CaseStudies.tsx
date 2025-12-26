@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, ArrowRight, Code, Zap, TrendingUp, LucideIcon } from 'lucide-react';
 import { useAnalytics } from './Analytics';
 import { useQuery } from '@tanstack/react-query';
@@ -47,15 +48,40 @@ const CaseStudies = () => {
 
   if (isLoading) {
     return (
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8" role="status" aria-label="Loading case studies">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
-            <div className="h-12 w-64 bg-muted animate-pulse rounded mx-auto mb-4"></div>
-            <div className="h-6 w-96 bg-muted animate-pulse rounded mx-auto"></div>
+            <Skeleton className="h-12 w-64 mx-auto mb-4" />
+            <Skeleton className="h-6 w-96 max-w-full mx-auto" />
           </div>
           <div className="space-y-8">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-80 bg-muted animate-pulse rounded-lg"></div>
+              <Card key={i} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex flex-col lg:flex-row">
+                    <Skeleton className="lg:w-1/3 h-48 lg:h-80" />
+                    <div className="lg:w-2/3 p-6 sm:p-8 space-y-4">
+                      <Skeleton className="h-8 w-3/4" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <div className="grid grid-cols-2 gap-4 pt-4">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-3 w-full" />
+                          <Skeleton className="h-3 w-3/4" />
+                        </div>
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <div className="flex gap-2">
+                            <Skeleton className="h-6 w-16" />
+                            <Skeleton className="h-6 w-14" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
