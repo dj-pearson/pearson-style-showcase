@@ -1,2 +1,13 @@
 name = "pearson-style-showcase"
-pages_build_output_dir = "dist" 
+pages_build_output_dir = "dist"
+
+# Environment variables for Cloudflare Pages build
+[env.production.vars]
+VITE_SUPABASE_URL = "https://api.danpearson.net"
+VITE_SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc2NjAwMTU0MCwiZXhwIjo0OTIxNjc1MTQwLCJyb2xlIjoiYW5vbiJ9.smyKT5KYiVNCQLTvQR-r1V3auuuxr7eQznTYzSCThUY"
+VITE_FUNCTIONS_URL = "https://functions.danpearson.net"
+
+[env.preview.vars]
+VITE_SUPABASE_URL = "https://api.danpearson.net"
+VITE_SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc2NjAwMTU0MCwiZXhwIjo0OTIxNjc1MTQwLCJyb2xlIjoiYW5vbiJ9.smyKT5KYiVNCQLTvQR-r1V3auuuxr7eQznTYzSCThUY"
+VITE_FUNCTIONS_URL = "https://functions.danpearson.net" 
