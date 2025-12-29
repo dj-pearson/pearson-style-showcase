@@ -1,6 +1,5 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Eye } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { Link } from "react-router-dom";
@@ -72,14 +71,11 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
             ))}
           </div>
           
-          <Link to={`/news/${article.slug}`}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full border-gray-600 hover:border-cyan-500/50 hover:bg-cyan-500/10"
-            >
-              Read More
-            </Button>
+          <Link
+            to={`/news/${article.slug}`}
+            className="inline-flex items-center justify-center w-full h-9 px-3 text-sm font-medium rounded-md border border-gray-600 bg-transparent hover:border-cyan-500/50 hover:bg-cyan-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            Read More
           </Link>
         </div>
       </CardContent>

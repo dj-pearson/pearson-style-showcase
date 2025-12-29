@@ -32,64 +32,27 @@ const RelatedArticles = ({
   limit = 3
 }: RelatedArticlesProps) => {
 
-  const { data: relatedArticles, isLoading } = useQuery({
+  const { data: relatedArticles, isLoading, error } = useQuery({
     queryKey: ['related-articles', currentArticleId, currentTags, currentCategory],
     queryFn: async () => {
-      // Strategy: Find articles with matching tags or category
-      // Prioritize tag matches, then category matches
-
-      const query = supabase
+      // OPTIMIZED: Single query fetches all candidate articles
+      // Relevance scoring happens in-memory (eliminates 2 extra DB round-trips)
+      const { data: articles, error } = await supabase
         .from('articles')
         .select('id, title, slug, excerpt, category, tags, image_url, read_time, view_count, created_at')
         .eq('published', true)
-        .neq('id', currentArticleId);
+        .neq('id', currentArticleId)
+        .order('created_at', { ascending: false })
+        .limit(20); // Fetch enough candidates for in-memory ranking
 
-      // Build a relevance-based query
-      const articles: Article[] = [];
+      if (error) throw error;
+      if (!articles || articles.length === 0) return [];
 
-      // First: Get articles with matching tags
-      if (currentTags.length > 0) {
-        const { data: tagMatches } = await query
-          .overlaps('tags', currentTags)
-          .limit(limit * 2); // Get more to filter
-
-        if (tagMatches) {
-          articles.push(...tagMatches);
-        }
-      }
-
-      // Second: Get articles from same category if we need more
-      if (articles.length < limit && currentCategory) {
-        const { data: categoryMatches } = await query
-          .eq('category', currentCategory)
-          .limit(limit * 2);
-
-        if (categoryMatches) {
-          // Add articles that aren't already in the list
-          const existingIds = new Set(articles.map(a => a.id));
-          const newArticles = categoryMatches.filter(a => !existingIds.has(a.id));
-          articles.push(...newArticles);
-        }
-      }
-
-      // Third: Get recent articles if we still need more
-      if (articles.length < limit) {
-        const { data: recentArticles } = await query
-          .order('created_at', { ascending: false })
-          .limit(limit * 2);
-
-        if (recentArticles) {
-          const existingIds = new Set(articles.map(a => a.id));
-          const newArticles = recentArticles.filter(a => !existingIds.has(a.id));
-          articles.push(...newArticles);
-        }
-      }
-
-      // Calculate relevance score and sort
+      // Calculate relevance score for intelligent ranking
       const scoredArticles = articles.map(article => {
         let score = 0;
 
-        // Points for tag matches
+        // Points for tag matches (highest priority)
         const matchingTags = article.tags?.filter(tag => currentTags.includes(tag)) || [];
         score += matchingTags.length * 3;
 
@@ -131,6 +94,17 @@ const RelatedArticles = ({
             </Card>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">You Might Also Like</h2>
+        <p className="text-muted-foreground text-sm">
+          Unable to load related articles at this time.
+        </p>
       </div>
     );
   }
