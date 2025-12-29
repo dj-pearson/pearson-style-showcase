@@ -403,21 +403,21 @@ const AdminDashboard = () => {
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <header className="border-b bg-card sticky top-0 z-10">
-            <div className="px-4 py-3 sm:py-4">
-              <div className="flex items-center justify-between gap-4">
+            <div className="px-3 sm:px-4 py-3 sm:py-4">
+              <div className="flex items-center justify-between gap-2 sm:gap-4">
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                  <SidebarTrigger className="shrink-0" />
+                  <SidebarTrigger className="shrink-0 h-9 w-9 min-h-[44px] min-w-[44px] flex items-center justify-center" />
                   <div className="flex items-center gap-2 min-w-0">
                     <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
-                    <h1 className="text-lg sm:text-2xl font-bold truncate">Admin Dashboard</h1>
+                    <h1 className="text-base sm:text-lg md:text-2xl font-bold truncate">Admin</h1>
                   </div>
                   {adminUser && (
-                    <Badge variant="secondary" className="hidden sm:inline-flex">Admin</Badge>
+                    <Badge variant="secondary" className="hidden md:inline-flex">Admin</Badge>
                   )}
                 </div>
-                
-                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                  <span className="text-xs sm:text-sm text-muted-foreground hidden md:inline">
+
+                <div className="flex items-center gap-1 sm:gap-2 md:gap-4 shrink-0">
+                  <span className="text-xs sm:text-sm text-muted-foreground hidden lg:inline">
                     Welcome, {adminUser?.username}
                   </span>
                   <Button
@@ -426,10 +426,16 @@ const AdminDashboard = () => {
                     onClick={() => setShowShortcuts(true)}
                     title="Keyboard Shortcuts (Press ?)"
                     aria-label="Show keyboard shortcuts"
+                    className="hidden sm:inline-flex min-h-[44px] min-w-[44px]"
                   >
                     <Keyboard className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="min-h-[44px] px-3 sm:px-4"
+                  >
                     <LogOut className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Logout</span>
                   </Button>
@@ -439,51 +445,51 @@ const AdminDashboard = () => {
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 overflow-auto">
-            <div className="container mx-auto px-4 py-6 sm:py-8">
+          <main className="flex-1 overflow-auto -webkit-overflow-scrolling-touch">
+            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-                    <Database className="h-4 w-4 text-muted-foreground" />
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
+                <Card className="p-0">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                    <CardTitle className="text-xs sm:text-sm font-medium truncate">Projects</CardTitle>
+                    <Database className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.projects}</div>
-                    <p className="text-xs text-muted-foreground">Active projects</p>
+                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                    <div className="text-xl sm:text-2xl font-bold">{stats.projects}</div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Active</p>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Articles</CardTitle>
-                    <FileText className="h-4 w-4 text-muted-foreground" />
+                <Card className="p-0">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                    <CardTitle className="text-xs sm:text-sm font-medium truncate">Articles</CardTitle>
+                    <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.articles}</div>
-                    <p className="text-xs text-muted-foreground">Published articles</p>
+                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                    <div className="text-xl sm:text-2xl font-bold">{stats.articles}</div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Published</p>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">AI Tools</CardTitle>
-                    <Wrench className="h-4 w-4 text-muted-foreground" />
+                <Card className="p-0">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                    <CardTitle className="text-xs sm:text-sm font-medium truncate">AI Tools</CardTitle>
+                    <Wrench className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.aiTools}</div>
-                    <p className="text-xs text-muted-foreground">Available tools</p>
+                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                    <div className="text-xl sm:text-2xl font-bold">{stats.aiTools}</div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Available</p>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <Card className="p-0">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                    <CardTitle className="text-xs sm:text-sm font-medium truncate">Views</CardTitle>
+                    <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.totalViews}</div>
-                    <p className="text-xs text-muted-foreground">Article views</p>
+                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                    <div className="text-xl sm:text-2xl font-bold">{stats.totalViews}</div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
                   </CardContent>
                 </Card>
               </div>
