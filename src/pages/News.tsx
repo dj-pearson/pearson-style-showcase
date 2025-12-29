@@ -302,13 +302,13 @@ const News = () => {
           </div>
 
           {/* Newsletter Signup */}
-          <div className="text-center py-12 sm:py-16 border-t border-gray-800">
-            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-2xl mx-auto">
-              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">Stay Connected</h2>
-              <p className="text-base text-gray-400 mb-5 sm:mb-6 leading-relaxed">
-                Subscribe to get the latest insights on AI, technology, and business strategy delivered directly to your inbox.
+          <div className="text-center py-8 sm:py-12 md:py-16 border-t border-gray-800">
+            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-4 sm:p-6 md:p-8 max-w-2xl mx-auto">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 text-white leading-tight">Stay Connected</h2>
+              <p className="text-sm sm:text-base text-gray-400 mb-4 sm:mb-5 md:mb-6 leading-relaxed">
+                Subscribe to get the latest insights on AI, technology, and business strategy delivered to your inbox.
               </p>
-              <form onSubmit={handleSubscribe} className="flex flex-col gap-3">
+              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
                 <Input
                   type="email"
                   placeholder="Enter your email"
@@ -320,7 +320,7 @@ const News = () => {
                 />
                 <Button
                   type="submit"
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] sm:min-h-[52px] w-full"
+                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] w-full sm:w-auto sm:px-8 active:scale-[0.98] transition-transform"
                   disabled={isSubscribing}
                 >
                   {isSubscribing ? (
