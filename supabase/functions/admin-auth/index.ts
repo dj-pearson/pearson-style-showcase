@@ -725,8 +725,57 @@ serve(async (req) => {
     }
 
     if (action === 'logout') {
+      // SECURITY: Properly invalidate server-side sessions on logout
+      const authHeader = req.headers.get('authorization');
+
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const { data: { user } } = await supabase.auth.getUser(token);
+
+          if (user) {
+            // Delete all sessions for this user from admin_sessions table
+            const { error: deleteError } = await supabase
+              .from('admin_sessions')
+              .delete()
+              .eq('user_id', user.id);
+
+            if (deleteError) {
+              console.error('Failed to delete admin session:', deleteError);
+              // Continue with logout even if session deletion fails
+            } else {
+              console.log('Admin session invalidated successfully');
+            }
+
+            // Log the logout event
+            const clientIP = req.headers.get("x-forwarded-for") || "unknown";
+            const userAgent = req.headers.get("user-agent") || "unknown";
+
+            await supabase.from('admin_activity_log').insert({
+              admin_id: user.id,
+              admin_email: user.email,
+              action: 'LOGOUT',
+              action_category: 'authentication',
+              ip_address: clientIP,
+              user_agent: userAgent,
+              success: true,
+              metadata: {
+                session_invalidated: true,
+                timestamp_utc: new Date().toISOString(),
+              },
+              timestamp: new Date().toISOString(),
+            }).catch(err => {
+              console.error('Failed to log logout event:', err);
+            });
+          }
+        } catch (err) {
+          console.error('Error during session invalidation:', err);
+          // Continue with logout response even if invalidation fails
+        }
+      }
+
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, message: 'Session invalidated' }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
