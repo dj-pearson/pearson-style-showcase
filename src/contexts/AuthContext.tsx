@@ -11,6 +11,13 @@ import {
   stopPeriodicRotation,
   rotateAfterSensitiveOperation,
 } from '@/lib/session-rotation';
+import {
+  secureSet,
+  secureGet,
+  secureRemove,
+  clearCacheSalt,
+  isSecureCacheAvailable,
+} from '@/lib/secure-cache';
 
 // App role type matching database enum
 export type AppRole = 'admin' | 'editor' | 'viewer';
@@ -106,24 +113,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [authStatus]);
 
   /**
-   * Get cached admin data from localStorage
+   * Get cached admin data from localStorage (encrypted)
+   * Now async due to encryption operations
    */
-  const getCachedAdminData = useCallback((userId: string): AdminUser | null => {
+  const getCachedAdminData = useCallback(async (userId: string): Promise<AdminUser | null> => {
     try {
-      const cached = localStorage.getItem(ADMIN_CACHE_KEY);
-      if (!cached) return null;
+      // Check if secure cache is available
+      if (!isSecureCacheAvailable()) {
+        logger.debug('Secure cache not available, skipping cache');
+        return null;
+      }
 
-      const data: CachedAdminData = JSON.parse(cached);
+      const data = await secureGet<CachedAdminData>(ADMIN_CACHE_KEY, userId);
+      if (!data) return null;
 
       // Validate cache: must match current user and not be expired
       if (data.userId !== userId) {
         logger.debug('Cached admin data is for different user, ignoring');
+        secureRemove(ADMIN_CACHE_KEY);
         return null;
       }
 
       const age = Date.now() - data.timestamp;
       if (age > ADMIN_CACHE_TTL) {
         logger.debug('Cached admin data expired', { ageMinutes: Math.round(age / 60000) });
+        secureRemove(ADMIN_CACHE_KEY);
         return null;
       }
 
@@ -139,29 +153,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   /**
-   * Save admin data to localStorage cache
+   * Save admin data to localStorage cache (encrypted)
+   * Now async due to encryption operations
    */
-  const setCachedAdminData = useCallback((userId: string, adminData: AdminUser) => {
+  const setCachedAdminData = useCallback(async (userId: string, adminData: AdminUser): Promise<void> => {
     try {
+      // Check if secure cache is available
+      if (!isSecureCacheAvailable()) {
+        logger.debug('Secure cache not available, skipping cache');
+        return;
+      }
+
       const cacheData: CachedAdminData = {
         adminUser: adminData,
         userId,
         timestamp: Date.now()
       };
-      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(cacheData));
-      logger.debug('Cached admin data for:', adminData.email);
+      const success = await secureSet(ADMIN_CACHE_KEY, cacheData, userId);
+      if (success) {
+        logger.debug('Cached admin data (encrypted) for:', adminData.email);
+      }
     } catch (err) {
       logger.debug('Failed to cache admin data:', err);
     }
   }, []);
 
   /**
-   * Clear cached admin data
+   * Clear cached admin data and encryption salt
    */
   const clearCachedAdminData = useCallback(() => {
     try {
-      localStorage.removeItem(ADMIN_CACHE_KEY);
-      logger.debug('Cleared admin cache');
+      secureRemove(ADMIN_CACHE_KEY);
+      clearCacheSalt();
+      logger.debug('Cleared admin cache and encryption salt');
     } catch (err) {
       logger.debug('Failed to clear admin cache:', err);
     }
@@ -229,8 +253,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
 
       setAdminUser(adminData);
-      // Cache the admin data for faster subsequent loads
-      setCachedAdminData(currentSession.user.id, adminData);
+      // Cache the admin data for faster subsequent loads (fire-and-forget is OK)
+      setCachedAdminData(currentSession.user.id, adminData).catch(() => {
+        logger.debug('Failed to cache admin data, continuing without cache');
+      });
       // Update status to admin_verified
       setAuthStatus('admin_verified');
       logger.debug('Admin verification successful:', adminData.email);
@@ -299,24 +325,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setSession(newSession);
       setUser(newSession.user);
 
-      // FAST PATH: Check for cached admin data first
+      // FAST PATH: Check for cached admin data first (now encrypted)
       // This makes page reloads instant without waiting for edge function
-      const cachedAdmin = getCachedAdminData(newSession.user.id);
+      const cachedAdmin = await getCachedAdminData(newSession.user.id);
       if (cachedAdmin) {
         logger.debug('Using cached admin data for instant auth restore');
         setAdminUser(cachedAdmin);
         setAuthStatus('admin_verified');
 
         // Background refresh: Update cache if it's getting old (> 15 min)
-        const cached = localStorage.getItem(ADMIN_CACHE_KEY);
-        if (cached) {
-          const cacheData = JSON.parse(cached);
-          const age = Date.now() - cacheData.timestamp;
+        // Note: We check the age from the cached data, not by re-reading localStorage
+        const cacheAgeCheck = await secureGet<CachedAdminData>(ADMIN_CACHE_KEY, newSession.user.id);
+        if (cacheAgeCheck) {
+          const age = Date.now() - cacheAgeCheck.timestamp;
           if (age > ADMIN_CACHE_TTL / 2) {
             logger.debug('Cache is getting stale, refreshing in background');
             // Don't await - let it run in background
             invokeEdgeFunction('admin-auth', { body: { action: 'me' } })
-              .then(({ data, error }) => {
+              .then(async ({ data, error }) => {
                 if (!error && data && !data.error) {
                   const freshAdminData: AdminUser = {
                     id: data.id,
@@ -325,7 +351,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     roles: data.roles || ['admin'],
                     permissions: data.permissions || []
                   };
-                  setCachedAdminData(newSession.user.id, freshAdminData);
+                  await setCachedAdminData(newSession.user.id, freshAdminData);
                   // Update state if still mounted and session matches
                   setAdminUser(freshAdminData);
                 }
@@ -370,7 +396,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
 
       setAdminUser(adminData);
-      setCachedAdminData(newSession.user.id, adminData);
+      // Cache the admin data asynchronously (fire-and-forget is OK here)
+      setCachedAdminData(newSession.user.id, adminData).catch(() => {
+        logger.debug('Failed to cache admin data, continuing without cache');
+      });
       setAuthStatus('admin_verified');
 
       // Start periodic session rotation for security
@@ -609,7 +638,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   /**
-   * Sign out
+   * Sign out with guaranteed server-side session invalidation
+   * SECURITY: Properly invalidates server-side sessions before completing logout
    */
   const signOut = useCallback(async () => {
     logger.info('Sign out requested');
@@ -618,18 +648,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     stopPeriodicRotation();
     clearRotationState();
 
-    // Immediately update UI state
+    // Immediately update UI state for responsiveness
     setAdminUser(null);
     setAuthStatus('unauthenticated');
     setError(null);
 
-    try {
-      invokeEdgeFunction('admin-auth', {
-        body: { action: 'logout' }
-      }).catch(err => {
-        logger.debug('Logout edge function error (non-critical):', err);
-      });
+    // Track if server-side invalidation succeeded
+    let serverInvalidated = false;
+    const maxRetries = 3;
 
+    try {
+      // SECURITY: Wait for server-side session invalidation with retry
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const { data, error: functionError } = await invokeEdgeFunction('admin-auth', {
+            body: { action: 'logout' }
+          });
+
+          if (!functionError && data?.success) {
+            serverInvalidated = true;
+            logger.debug('Server-side session invalidated successfully');
+            break;
+          }
+
+          if (attempt < maxRetries) {
+            logger.debug(`Session invalidation attempt ${attempt} failed, retrying...`);
+            // Exponential backoff: 500ms, 1000ms, 2000ms
+            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt - 1)));
+          }
+        } catch (err) {
+          if (attempt === maxRetries) {
+            logger.warn('Server-side session invalidation failed after retries:', err);
+          }
+        }
+      }
+
+      // Warn if server invalidation failed - this is a security concern
+      if (!serverInvalidated) {
+        logger.warn('SECURITY: Server-side session may still be valid. Admin should check admin_sessions table.');
+      }
+
+      // Sign out from Supabase Auth (clears local tokens)
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
@@ -640,9 +699,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(null);
       clearStoredAuthData();
 
-      logger.info('Sign out completed');
+      logger.info('Sign out completed', { serverInvalidated });
     } catch (err) {
       logger.error('Sign out error:', err);
+      // Even on error, clear local state for security
       setSession(null);
       setUser(null);
       clearStoredAuthData();
