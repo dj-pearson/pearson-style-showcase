@@ -12,9 +12,9 @@ import DOMPurify from 'dompurify';
  */
 export function sanitizeHtml(
   dirty: string,
-  options?: any
+  options?: DOMPurify.Config
 ): string {
-  const defaultConfig: any = {
+  const defaultConfig: DOMPurify.Config = {
     ALLOWED_TAGS: [
       'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
@@ -154,14 +154,14 @@ export function sanitizeStringArray(
  * @returns Sanitized object or null if invalid
  */
 export function validateJsonObject(
-  obj: any,
+  obj: unknown,
   allowedKeys?: string[]
-): Record<string, any> | null {
+): Record<string, unknown> | null {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
     return null;
   }
 
-  const sanitized: Record<string, any> = {};
+  const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
     // If allowedKeys is specified, only include allowed keys
