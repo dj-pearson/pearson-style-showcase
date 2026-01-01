@@ -141,14 +141,18 @@ const HeroSection = () => {
     });
 
     // Mouse move parallax effect (Applied to Inner Elements)
-    const handleMouseMove = (e: MouseEvent) => {
+    // Throttled using requestAnimationFrame for optimal performance (60fps max)
+    let rafId: number | null = null;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    const updateParallax = () => {
       if (!containerRef.current) return;
-      const { clientX, clientY } = e;
       const { innerWidth, innerHeight } = window;
 
       // Calculate position from center
-      const xPos = (clientX / innerWidth - 0.5) * 30; // Increased range
-      const yPos = (clientY / innerHeight - 0.5) * 30;
+      const xPos = (lastMouseX / innerWidth - 0.5) * 30;
+      const yPos = (lastMouseY / innerHeight - 0.5) * 30;
 
       gsap.to(nameRef.current, {
         x: xPos,
@@ -167,9 +171,26 @@ const HeroSection = () => {
         duration: 1,
         ease: "power2.out"
       });
+
+      rafId = null;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+
+      // Throttle using requestAnimationFrame - only update once per frame
+      if (rafId === null) {
+        rafId = requestAnimationFrame(updateParallax);
+      }
     };
 
     const handleMouseLeave = () => {
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       // Reset to center when mouse leaves
       gsap.to([nameRef.current, surnameRef.current], {
         x: 0,
@@ -185,6 +206,9 @@ const HeroSection = () => {
     document.addEventListener('mouseleave', handleMouseLeave); // Detect leaving the window
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
     };
