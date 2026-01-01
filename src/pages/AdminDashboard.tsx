@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import SectionErrorBoundary from '@/components/SectionErrorBoundary';
 import {
   Settings,
   LogOut,
@@ -274,51 +275,120 @@ const AdminDashboard = () => {
       );
     }
 
-    // All other views use lazy-loaded components wrapped in Suspense
+    // All other views use lazy-loaded components wrapped in Suspense and SectionErrorBoundary
+    // SectionErrorBoundary prevents one failing module from crashing the entire dashboard
     const lazyContent = (() => {
       switch (activeView) {
         case 'command-center':
-          return <CommandCenterDashboard />;
+          return (
+            <SectionErrorBoundary sectionName="Command Center">
+              <CommandCenterDashboard />
+            </SectionErrorBoundary>
+          );
         case 'support':
-          return <SupportTicketDashboard />;
+          return (
+            <SectionErrorBoundary sectionName="Support Tickets">
+              <SupportTicketDashboard />
+            </SectionErrorBoundary>
+          );
         case 'vault':
-          return <SecureVaultDashboard />;
+          return (
+            <SectionErrorBoundary sectionName="Secure Vault">
+              <SecureVaultDashboard />
+            </SectionErrorBoundary>
+          );
         case 'maintenance':
-          return <MaintenanceDashboard />;
+          return (
+            <SectionErrorBoundary sectionName="Maintenance">
+              <MaintenanceDashboard />
+            </SectionErrorBoundary>
+          );
         case 'profile':
-          return <ProfileSettingsManager />;
+          return (
+            <SectionErrorBoundary sectionName="Profile Settings">
+              <ProfileSettingsManager />
+            </SectionErrorBoundary>
+          );
         case 'testimonials':
-          return <TestimonialsManager />;
+          return (
+            <SectionErrorBoundary sectionName="Testimonials">
+              <TestimonialsManager />
+            </SectionErrorBoundary>
+          );
         case 'ventures':
-          return <VenturesManager />;
+          return (
+            <SectionErrorBoundary sectionName="Ventures">
+              <VenturesManager />
+            </SectionErrorBoundary>
+          );
         case 'tasks':
-          return <TaskManagementDashboard />;
+          return (
+            <SectionErrorBoundary sectionName="Task Management">
+              <TaskManagementDashboard />
+            </SectionErrorBoundary>
+          );
         case 'projects':
-          return <ProjectManager />;
+          return (
+            <SectionErrorBoundary sectionName="Projects">
+              <ProjectManager />
+            </SectionErrorBoundary>
+          );
         case 'articles':
           return (
             <div className="space-y-6">
-              <AIArticleGenerator />
-              <ArticleManager />
+              <SectionErrorBoundary sectionName="AI Article Generator" compact>
+                <AIArticleGenerator />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary sectionName="Article Manager">
+                <ArticleManager />
+              </SectionErrorBoundary>
             </div>
           );
         case 'tools':
-          return <AIToolsManager />;
+          return (
+            <SectionErrorBoundary sectionName="AI Tools">
+              <AIToolsManager />
+            </SectionErrorBoundary>
+          );
         case 'accounting':
-          return <AccountingDashboard />;
+          return (
+            <SectionErrorBoundary sectionName="Accounting">
+              <AccountingDashboard />
+            </SectionErrorBoundary>
+          );
         case 'ai-config':
-          return <AIModelConfigManager />;
+          return (
+            <SectionErrorBoundary sectionName="AI Configuration">
+              <AIModelConfigManager />
+            </SectionErrorBoundary>
+          );
         case 'amazon':
-          return <AmazonPipelineManager />;
+          return (
+            <SectionErrorBoundary sectionName="Amazon Pipeline">
+              <AmazonPipelineManager />
+            </SectionErrorBoundary>
+          );
         case 'newsletter':
-          return <NewsletterManager />;
+          return (
+            <SectionErrorBoundary sectionName="Newsletter">
+              <NewsletterManager />
+            </SectionErrorBoundary>
+          );
         case 'seo':
-          return <SEOManager />;
+          return (
+            <SectionErrorBoundary sectionName="SEO Manager">
+              <SEOManager />
+            </SectionErrorBoundary>
+          );
         case 'settings':
           return (
             <div className="space-y-6">
-              <WebhookSettings />
-              <AnalyticsSettings />
+              <SectionErrorBoundary sectionName="Webhook Settings" compact>
+                <WebhookSettings />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary sectionName="Analytics Settings" compact>
+                <AnalyticsSettings />
+              </SectionErrorBoundary>
 
               <Card>
                 <CardHeader>
@@ -349,8 +419,8 @@ const AdminDashboard = () => {
                           Last login: {adminUser?.username ? 'Recently' : 'Never'}
                         </p>
                       </div>
-                      <Button variant="outline">
-                        <Settings className="h-4 w-4 mr-2" />
+                      <Button variant="outline" aria-label="Edit profile settings">
+                        <Settings className="h-4 w-4 mr-2" aria-hidden="true" />
                         Edit Profile
                       </Button>
                     </div>
