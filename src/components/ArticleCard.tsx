@@ -24,26 +24,24 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
     <Card className="group h-full bg-gray-800/50 border-gray-700 hover:border-cyan-500/50 transition-all duration-300 overflow-hidden">
       {/* Featured Image - Responsive with lazy loading */}
       {article.image_url && (
-        <Link to={`/news/${article.slug}`} className="block">
-          <div className="relative aspect-video overflow-hidden">
-            <OptimizedImage
-              src={article.image_url}
-              alt={article.title}
-              className="w-full h-full transition-transform duration-300 group-hover:scale-105"
-              width={800}
-              height={450}
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            />
-            {article.featured && (
-              <Badge
-                variant="secondary"
-                className="absolute top-2 right-2 bg-yellow-500/90 text-yellow-900 border-yellow-500 text-xs"
-              >
-                Featured
-              </Badge>
-            )}
-          </div>
-        </Link>
+        <div className="relative aspect-video overflow-hidden" aria-hidden="true">
+          <OptimizedImage
+            src={article.image_url}
+            alt=""
+            className="w-full h-full transition-transform duration-300 group-hover:scale-105"
+            width={800}
+            height={450}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+          {article.featured && (
+            <Badge
+              variant="secondary"
+              className="absolute top-2 right-2 bg-yellow-500/90 text-yellow-900 border-yellow-500 text-xs"
+            >
+              Featured
+            </Badge>
+          )}
+        </div>
       )}
 
       <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
