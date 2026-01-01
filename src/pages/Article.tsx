@@ -18,6 +18,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
 import RelatedArticles from '../components/article/RelatedArticles';
 import KeyTakeaways, { extractKeyTakeaways } from '../components/article/KeyTakeaways';
+import OptimizedImage from '../components/OptimizedImage';
 
 type Article = Tables<"articles">;
 
@@ -146,22 +147,22 @@ const Article = () => {
     return (
       <div className="min-h-screen flex flex-col">
         <Navigation />
-        <div id="main-content" className="flex-1 pt-20 px-4 md:px-6">
+        <main id="main-content" className="flex-1 pt-20 px-4 md:px-6" role="main">
           <div className="container mx-auto max-w-4xl">
-            <div className="text-center py-16">
+            <div className="text-center py-16" role="alert">
               <h1 className="text-2xl font-bold mb-4">Article Not Found</h1>
               <p className="text-muted-foreground mb-8">
                 The article you're looking for doesn't exist or has been removed.
               </p>
-              <Link to="/news">
+              <Link to="/news" aria-label="Return to news listing">
                 <Button>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
                   Back to News
                 </Button>
               </Link>
             </div>
           </div>
-        </div>
+        </main>
         <Footer />
       </div>
     );
@@ -286,8 +287,9 @@ const Article = () => {
 
               <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-4 h-4" aria-hidden="true" />
                   <time itemProp="datePublished" dateTime={article.created_at!}>
+                    <span className="sr-only">Published on </span>
                     {formatDate(article.created_at!)}
                   </time>
                 </div>
@@ -300,12 +302,18 @@ const Article = () => {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span>{article.read_time}</span>
+                  <Clock className="w-4 h-4" aria-hidden="true" />
+                  <span>
+                    <span className="sr-only">Reading time: </span>
+                    {article.read_time}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4" />
-                  <span>{article.view_count || 0} views</span>
+                  <Eye className="w-4 h-4" aria-hidden="true" />
+                  <span>
+                    <span className="sr-only">Article has </span>
+                    {article.view_count || 0} views
+                  </span>
                 </div>
                 <div itemProp="author" itemScope itemType="https://schema.org/Person">
                   <span>By <span itemProp="name">{article.author || 'Dan Pearson'}</span></span>
@@ -327,15 +335,24 @@ const Article = () => {
               )}
             </header>
 
-            {/* Article Image */}
+            {/* Article Image - Optimized with lazy loading, WebP support, and responsive sizing */}
             {article.image_url && (
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                <img
+              <figure className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                <OptimizedImage
                   src={article.image_url}
                   alt={article.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full"
+                  priority={true}
+                  width={1200}
+                  height={675}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 896px"
                 />
-              </div>
+                {article.image_url && (
+                  <figcaption className="sr-only">
+                    Featured image for {article.title}
+                  </figcaption>
+                )}
+              </figure>
             )}
 
             {/* Key Takeaways - AI Search Optimization */}
@@ -354,15 +371,19 @@ const Article = () => {
 
                   {/* Affiliate Disclosure */}
                   {article.content.includes('amazon.com') && (
-                    <div className="mt-8 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                    <aside
+                      className="mt-8 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg"
+                      role="note"
+                      aria-label="Affiliate disclosure"
+                    >
                       <div className="flex items-start gap-3">
-                        <ExternalLink className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" />
+                        <ExternalLink className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
                         <div className="text-sm text-gray-300">
                           <strong className="text-cyan-400">Affiliate Disclosure:</strong> This article contains Amazon affiliate links.
                           As an Amazon Associate, I earn from qualifying purchases at no extra cost to you.
                         </div>
                       </div>
-                    </div>
+                    </aside>
                   )}
                 </>
               ) : (
@@ -377,18 +398,28 @@ const Article = () => {
               <AuthorByline authorName={article.author || 'Dan Pearson'} />
             </div>
 
-            {/* Share Section */}
-            <div className="mt-12 pt-8 border-t border-border">
+            {/* Share Section - Accessible with proper ARIA labels */}
+            <aside
+              className="mt-12 pt-8 border-t border-border"
+              aria-label="Share article"
+            >
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p className="text-lg font-semibold text-gray-300">Share this article</p>
-                <div className="flex flex-wrap gap-3 justify-center">
+                <p id="share-heading" className="text-lg font-semibold text-gray-300">
+                  Share this article
+                </p>
+                <div
+                  className="flex flex-wrap gap-3 justify-center"
+                  role="group"
+                  aria-labelledby="share-heading"
+                >
                   <Button
                     variant="outline"
                     size="lg"
                     onClick={() => handleShare('twitter')}
                     className="mobile-button border-gray-600 hover:border-cyan-500"
+                    aria-label={`Share "${article.title}" on Twitter`}
                   >
-                    <Share2 className="w-4 h-4 mr-2" />
+                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
                     Twitter
                   </Button>
                   <Button
@@ -396,8 +427,9 @@ const Article = () => {
                     size="lg"
                     onClick={() => handleShare('linkedin')}
                     className="mobile-button border-gray-600 hover:border-cyan-500"
+                    aria-label={`Share "${article.title}" on LinkedIn`}
                   >
-                    <Share2 className="w-4 h-4 mr-2" />
+                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
                     LinkedIn
                   </Button>
                   <Button
@@ -405,8 +437,9 @@ const Article = () => {
                     size="lg"
                     onClick={() => handleShare('facebook')}
                     className="mobile-button border-gray-600 hover:border-cyan-500"
+                    aria-label={`Share "${article.title}" on Facebook`}
                   >
-                    <Share2 className="w-4 h-4 mr-2" />
+                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
                     Facebook
                   </Button>
                   <Button
@@ -414,13 +447,14 @@ const Article = () => {
                     size="lg"
                     onClick={() => handleShare('copy')}
                     className="mobile-button border-gray-600 hover:border-cyan-500"
+                    aria-label="Copy article link to clipboard"
                   >
-                    <Share2 className="w-4 h-4 mr-2" />
+                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
                     Copy Link
                   </Button>
                 </div>
               </div>
-            </div>
+            </aside>
           </article>
 
           {/* Related Articles - Smart Tag-Based Matching for Internal Linking SEO */}
@@ -432,16 +466,19 @@ const Article = () => {
           />
 
           {/* Article Footer */}
-          <div className="mt-16 pt-8 border-t border-border">
+          <nav
+            className="mt-16 pt-8 border-t border-border"
+            aria-label="Article navigation"
+          >
             <div className="text-center">
-              <Link to="/news">
+              <Link to="/news" aria-label="Return to all articles">
                 <Button size="lg" className="mobile-button">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
                   Back to All Articles
                 </Button>
               </Link>
             </div>
-          </div>
+          </nav>
         </div>
       </div>
       <Footer />
