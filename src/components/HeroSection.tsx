@@ -1,11 +1,8 @@
 import { ArrowRight } from 'lucide-react';
-import { useRef, useState, useEffect, lazy, Suspense } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-
-// Lazy load the 3D orb to prevent render blocking
-const Interactive3DOrb = lazy(() => import('./Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
 
 /**
  * Check if animations should be reduced for accessibility or performance
@@ -31,38 +28,9 @@ function usePrefersReducedMotion(): boolean {
 
 const HeroSection = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
-
-  useEffect(() => {
-    // Skip 3D orb if user prefers reduced motion
-    if (prefersReducedMotion) {
-      return;
-    }
-
-    // Use requestIdleCallback to load 3D orb during browser idle time
-    let idleCallbackId: number | undefined;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    const loadOrb = () => {
-      setShouldLoadOrb(true);
-    };
-
-    if ('requestIdleCallback' in window) {
-      idleCallbackId = (window as any).requestIdleCallback(loadOrb, { timeout: 1000 });
-    } else {
-      timeoutId = setTimeout(loadOrb, 300);
-    }
-
-    return () => {
-      if (idleCallbackId !== undefined && 'cancelIdleCallback' in window) {
-        (window as any).cancelIdleCallback(idleCallbackId);
-      }
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [prefersReducedMotion]);
+  // Note: 3D Orb is now rendered in Index.tsx as a fixed background
+  // to avoid duplicate WebGL contexts and improve performance
   const nameWrapperRef = useRef<HTMLSpanElement>(null);
   const surnameWrapperRef = useRef<HTMLSpanElement>(null);
   const nameRef = useRef<HTMLSpanElement>(null);
@@ -281,22 +249,7 @@ const HeroSection = () => {
         </div>
       </div>
 
-      {/* Interactive 3D Particle Orb - Drag to spin! (respects reduced motion) */}
-      {shouldLoadOrb && !prefersReducedMotion && (
-        <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}>
-          <Suspense fallback={
-            <div
-              className="absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-accent/10"
-              role="status"
-              aria-label="Loading 3D visualization"
-            >
-              <div className="absolute inset-0 animate-pulse opacity-30 bg-gradient-radial from-primary/20 via-transparent to-transparent" />
-            </div>
-          }>
-            <Interactive3DOrb />
-          </Suspense>
-        </div>
-      )}
+      {/* 3D Orb is rendered in Index.tsx as a fixed background for better performance */}
 
       {/* Decorative elements - Mobile optimized */}
       <div className="absolute top-6 sm:top-10 right-6 sm:right-10 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-primary rounded-full animate-ping"></div>
