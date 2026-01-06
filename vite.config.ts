@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => ({
           'markdown-vendor': ['react-markdown', 'remark-gfm', 'react-syntax-highlighter'],
           'charts-vendor': ['recharts'],
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          // GSAP animations - separated to reduce initial bundle
+          'gsap-vendor': ['gsap', '@gsap/react'],
         },
       },
     },

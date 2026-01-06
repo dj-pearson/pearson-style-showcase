@@ -2,7 +2,7 @@
 
 > **Purpose**: This document provides comprehensive guidance for AI assistants (like Claude) working on the Dan Pearson portfolio/showcase repository. It explains the codebase structure, conventions, workflows, and best practices to follow.
 
-**Last Updated**: 2025-11-28
+**Last Updated**: 2026-01-01
 **Repository**: pearson-style-showcase
 **Primary Branch**: main
 **Tech Stack**: React 18 + TypeScript + Vite + Supabase + Tailwind CSS
@@ -40,6 +40,9 @@ A modern, full-stack portfolio and content management system featuring:
 - **3D interactive elements** using Three.js with GSAP animations
 - **Performance-first architecture** with code splitting, lazy loading, and PageSpeed optimizations
 - **OAuth authentication support** with state machine architecture
+- **Advanced security features**: encrypted cache, session rotation, device trust, CSRF protection
+- **Comprehensive mobile optimization** with responsive design and touch targets
+- **Secure Vault system** for credential and secret management with MFA protection
 
 ### Target Platform
 
@@ -62,10 +65,24 @@ A modern, full-stack portfolio and content management system featuring:
   - Document upload with OCR and AI parsing
   - CSV export functionality
 - Newsletter management
-- Analytics tracking
+- Analytics tracking with GA4 integration
 - Contact form handling
 - SEO tools (sitemap, robots.txt, structured data, internal linking)
 - Interactive 3D hero section with GSAP animations
+- **Secure Vault system**:
+  - MFA-gated access to secrets
+  - Command builder with secret placeholders
+  - Template manager for reusable commands
+  - Bulk credential importer
+- **Support ticket system**:
+  - Ticket management with status tracking
+  - Canned responses and knowledge base
+  - Detailed ticket view
+- **Smart alerts system** with real-time notifications
+- **Task management** with AI generation and bulk import
+- **Archive pages** for topics, authors, categories, tags, and dates
+- **RSS feed generation**
+- **Global search functionality**
 
 ---
 
@@ -93,7 +110,7 @@ A modern, full-stack portfolio and content management system featuring:
 
 - **@supabase/supabase-js** (v2.51.0): PostgreSQL database and Edge Functions
 - **Database**: 20+ tables with Row Level Security enabled
-- **Edge Functions**: 18 Deno-based serverless functions
+- **Edge Functions**: 24+ Deno-based serverless functions
 
 ### UI & Styling
 
@@ -159,14 +176,21 @@ A modern, full-stack portfolio and content management system featuring:
 pearson-style-showcase/
 ├── src/
 │   ├── components/          # React components
-│   │   ├── ui/             # shadcn/ui components (48 files)
-│   │   ├── admin/          # Admin dashboard components (28 files)
-│   │   │   ├── command-center/
-│   │   │   ├── support/
-│   │   │   ├── accounting/ # Financial tracking module (13 files)
+│   │   ├── ui/             # shadcn/ui components (48+ files)
+│   │   ├── admin/          # Admin dashboard components (74 files)
+│   │   │   ├── command-center/  # Dashboard & alerts
+│   │   │   ├── support/         # Ticket management system
+│   │   │   ├── vault/           # Secure credential management (8 files)
+│   │   │   │   ├── VaultItemForm.tsx
+│   │   │   │   ├── CommandBuilder.tsx
+│   │   │   │   ├── TemplateManager.tsx
+│   │   │   │   ├── BulkImporter.tsx
+│   │   │   │   └── [4 more...]
+│   │   │   ├── accounting/      # Financial tracking module (14 files)
 │   │   │   │   ├── FinancialOverview.tsx
 │   │   │   │   ├── ChartOfAccountsManager.tsx
 │   │   │   │   ├── JournalEntriesManager.tsx
+│   │   │   │   ├── RecurringTransactionsManager.tsx
 │   │   │   │   ├── PaymentsManager.tsx
 │   │   │   │   ├── InvoicesManager.tsx
 │   │   │   │   ├── ContactsManager.tsx
@@ -174,8 +198,11 @@ pearson-style-showcase/
 │   │   │   │   ├── TaxReports.tsx
 │   │   │   │   ├── DocumentUpload.tsx
 │   │   │   │   └── [4 more...]
+│   │   │   ├── tasks/           # Task management
 │   │   │   ├── AccessReviewReport.tsx    # RBAC compliance
 │   │   │   ├── ActivityLogViewer.tsx     # User activity tracking
+│   │   │   ├── SmartAlerts.tsx           # Real-time alert management
+│   │   │   ├── AIModelConfig.tsx         # AI model configuration
 │   │   │   └── [managers for articles, projects, etc.]
 │   │   ├── SEO/            # SEO-related components
 │   │   ├── article/        # Article-specific components
@@ -185,8 +212,9 @@ pearson-style-showcase/
 │   │   ├── HeroSection.tsx       # GSAP-animated hero with 3D orb
 │   │   ├── Interactive3DOrb.tsx  # Three.js interactive orb
 │   │   ├── RoutePrefetcher.tsx   # Route prefetching for performance
+│   │   ├── URLHandler.tsx        # URL normalization & redirects
 │   │   └── __tests__/      # Component tests
-│   ├── pages/              # Route-level components
+│   ├── pages/              # Route-level components (21 files)
 │   │   ├── Index.tsx       # Homepage
 │   │   ├── About.tsx
 │   │   ├── Projects.tsx
@@ -194,53 +222,70 @@ pearson-style-showcase/
 │   │   ├── Article.tsx
 │   │   ├── AITools.tsx
 │   │   ├── Connect.tsx
-│   │   ├── DateArchive.tsx # NEW: Date-based article archives
+│   │   ├── Search.tsx          # Global search
+│   │   ├── Topics.tsx          # Topic listing with pagination
+│   │   ├── TopicHub.tsx        # Single topic deep-dive
+│   │   ├── AuthorArchive.tsx   # Articles by author
+│   │   ├── CategoryArchive.tsx # Articles by category
+│   │   ├── TagArchive.tsx      # Articles by tag
+│   │   ├── DateArchive.tsx     # Date-based article archives
+│   │   ├── RSSFeed.tsx         # RSS feed generation
 │   │   ├── AdminLogin.tsx
 │   │   ├── AdminDashboard.tsx
 │   │   ├── SitemapXML.tsx
 │   │   ├── RobotsTxt.tsx
 │   │   └── NotFound.tsx
-│   ├── hooks/              # Custom React hooks (8 files)
+│   ├── hooks/              # Custom React hooks (13 files)
 │   │   ├── use-toast.ts
 │   │   ├── use-mobile.tsx
 │   │   ├── useAffiliateTracking.ts
 │   │   ├── useGlobalSearch.ts
 │   │   ├── useKeyboardShortcuts.ts
 │   │   ├── useReadingProgress.ts
-│   │   ├── usePermission.ts        # NEW: RBAC permission checking
-│   │   └── useDeviceCapabilities.ts # NEW: Device capability detection
+│   │   ├── usePermission.ts        # RBAC permission checking
+│   │   ├── useDeviceCapabilities.ts # Device capability detection
+│   │   ├── useAnalytics.ts          # GA4 analytics tracking
+│   │   └── [4 more...]
 │   ├── integrations/       # External service integrations
 │   │   └── supabase/
 │   │       ├── client.ts   # Supabase client setup
-│   │       └── types.ts    # Auto-generated DB types (3619 lines)
+│   │       └── types.ts    # Auto-generated DB types (4028 lines)
 │   ├── contexts/           # React contexts
 │   │   └── AuthContext.tsx # Auth with state machine & OAuth support
 │   ├── services/           # Business logic
 │   │   └── accounting/
 │   │       └── importers.ts # Financial data import utilities
-│   ├── lib/                # Utility libraries
-│   │   ├── security.ts     # Input validation & sanitization
-│   │   ├── performance.ts  # Core Web Vitals monitoring
-│   │   ├── registerSW.ts   # Service worker
-│   │   ├── logger.ts       # Dev-only logging
-│   │   └── utils.ts        # General utilities
+│   ├── lib/                # Utility libraries (15+ files)
+│   │   ├── security.ts           # Input validation & sanitization
+│   │   ├── secure-cache.ts       # AES-GCM encrypted localStorage cache
+│   │   ├── session-rotation.ts   # Periodic token rotation
+│   │   ├── device-trust.ts       # Device fingerprinting & trust
+│   │   ├── csrf.ts               # CSRF protection for OAuth
+│   │   ├── error-tracking.ts     # Error deduplication & Sentry
+│   │   ├── production-logger.ts  # Privacy-aware logging
+│   │   ├── image-optimization.ts # Responsive images & lazy loading
+│   │   ├── oauth-state.ts        # OAuth state management
+│   │   ├── performance.ts        # Core Web Vitals monitoring
+│   │   ├── registerSW.ts         # Service worker
+│   │   ├── logger.ts             # Dev-only logging
+│   │   └── utils.ts              # General utilities
 │   ├── test/
 │   │   └── setup.ts        # Test configuration
 │   ├── App.tsx             # Root component with routing
 │   ├── main.tsx            # Application entry point
-│   ├── index.css           # Global styles (590 lines)
+│   ├── index.css           # Global styles (700+ lines)
 │   └── vite-env.d.ts       # Vite type definitions
 ├── supabase/
-│   ├── functions/          # Edge Functions (18 total)
+│   ├── functions/          # Edge Functions (24+ total)
 │   │   ├── admin-auth/
 │   │   ├── generate-ai-article/
 │   │   ├── amazon-article-pipeline/
 │   │   ├── track-affiliate-click/
 │   │   ├── send-contact-email/
 │   │   ├── newsletter-signup/
-│   │   ├── process-accounting-document/  # NEW: OCR & AI parsing
-│   │   ├── maintenance-runner/           # NEW: Scheduled tasks
-│   │   └── [10 more...]
+│   │   ├── process-accounting-document/  # OCR & AI parsing
+│   │   ├── maintenance-runner/           # Scheduled tasks
+│   │   └── [16 more...]
 │   └── migrations/         # Database schema migrations
 ├── public/                 # Static assets
 │   ├── robots.txt
@@ -1003,6 +1048,123 @@ VITE_FUNCTIONS_URL=https://functions.danpearson.net
 
 **For server-side secrets**, use Supabase Edge Function environment variables.
 
+### Advanced Security Features
+
+#### Encrypted Admin Cache (`src/lib/secure-cache.ts`)
+
+Admin user data is encrypted in localStorage using AES-GCM:
+
+```typescript
+import { secureCache } from '@/lib/secure-cache';
+
+// Store encrypted data
+await secureCache.set('admin_user', userData, userId);
+
+// Retrieve and decrypt
+const userData = await secureCache.get('admin_user', userId);
+
+// Clear cache
+secureCache.clear();
+```
+
+**How it works**:
+- Derives encryption key from user ID + random salt (stored in sessionStorage)
+- Uses Web Crypto API for AES-GCM encryption
+- Protects against XSS attacks reading sensitive cached data
+
+#### Session Rotation (`src/lib/session-rotation.ts`)
+
+Automatic token rotation for enhanced security:
+
+```typescript
+import { sessionRotation } from '@/lib/session-rotation';
+
+// Start rotation (every 30 minutes by default)
+sessionRotation.start();
+
+// Force rotation after sensitive operation
+await sessionRotation.rotateNow();
+
+// Stop rotation
+sessionRotation.stop();
+```
+
+**Triggers rotation after**:
+- Password changes
+- Permission changes
+- MFA toggles
+- Manual request
+
+#### Device Trust System (`src/lib/device-trust.ts`)
+
+"Remember this device" functionality:
+
+```typescript
+import { deviceTrust } from '@/lib/device-trust';
+
+// Generate device fingerprint
+const fingerprint = await deviceTrust.getFingerprint();
+
+// Trust current device (30-day duration)
+await deviceTrust.trustDevice(userId);
+
+// Check if device is trusted
+const isTrusted = await deviceTrust.isDeviceTrusted(userId);
+
+// Revoke device trust
+await deviceTrust.revokeDevice(userId, deviceId);
+```
+
+**Fingerprinting techniques**:
+- Canvas fingerprinting
+- WebGL renderer info
+- User agent + screen resolution
+- Timezone + language
+
+#### CSRF Protection (`src/lib/csrf.ts`)
+
+For OAuth flows and cross-origin requests:
+
+```typescript
+import { csrf } from '@/lib/csrf';
+
+// Generate state for OAuth
+const state = csrf.generateState();
+
+// Validate returned state
+const isValid = csrf.validateState(returnedState);
+```
+
+### Mobile Optimization
+
+The application includes comprehensive mobile optimization:
+
+**CSS Features** (`src/index.css`):
+- Dynamic viewport height (`dvh`) for address bar compatibility
+- Safe-area-insets for iPhone notch/bottom bar
+- 44px minimum touch targets for accessibility
+- Ultra-small screen support (<375px)
+- Responsive typography system
+
+**Best Practices**:
+```css
+/* Use dvh for full-height elements */
+.full-height {
+  min-height: 100dvh;
+}
+
+/* Ensure touch targets are accessible */
+.button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Handle safe areas */
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+```
+
 ---
 
 ## Testing Approach
@@ -1530,9 +1692,14 @@ npx supabase gen types typescript --project-id [id] > src/integrations/supabase/
 
 ### Critical Files to Be Aware Of
 
-- **`src/index.css`** (590 lines): Global styles, CSS variables, custom animations
+- **`src/index.css`** (700+ lines): Global styles, CSS variables, custom animations, mobile optimization
 - **`src/lib/performance.ts`**: Core Web Vitals monitoring
 - **`src/lib/logger.ts`**: Dev-only logging utility
+- **`src/lib/secure-cache.ts`**: AES-GCM encrypted localStorage cache
+- **`src/lib/session-rotation.ts`**: Automatic token rotation service
+- **`src/lib/device-trust.ts`**: Device fingerprinting and trust management
+- **`src/lib/error-tracking.ts`**: Error deduplication and Sentry integration
+- **`src/lib/production-logger.ts`**: Privacy-aware logging with PII masking
 - **`src/components/SEO.tsx`**: Dynamic meta tag management
 - **`src/components/ErrorBoundary.tsx`**: Error handling wrapper
 - **`src/components/auth/ProtectedRoute.tsx`**: Auth route protection with RBAC
@@ -1823,6 +1990,6 @@ For questions or clarifications, refer to:
 
 ---
 
-**Last Updated**: 2025-11-28
+**Last Updated**: 2026-01-01
 **Maintained By**: AI Assistants (Claude)
 **Repository**: https://github.com/dj-pearson/pearson-style-showcase

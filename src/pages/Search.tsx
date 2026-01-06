@@ -224,20 +224,38 @@ const Search = () => {
 
             {/* Results */}
             {!isLoading && results.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <TrendingUp className="w-5 h-5 text-primary" />
+              <div
+                className="space-y-6"
+                role="region"
+                aria-label="Search results"
+              >
+                <div
+                  className="flex items-center gap-2 text-sm font-medium"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <TrendingUp className="w-5 h-5 text-primary" aria-hidden="true" />
                   <span className="text-lg">
                     Found {results.length} result{results.length !== 1 ? 's' : ''} for "{query}"
                   </span>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4" role="list">
                   {results.map((result) => (
                     <Card
                       key={`${result.type}-${result.id}`}
-                      className="cursor-pointer hover:shadow-lg transition-shadow group"
+                      className="cursor-pointer hover:shadow-lg transition-shadow group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                       onClick={() => handleResultClick(result)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleResultClick(result);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="listitem"
+                      aria-label={`${getTypeLabel(result.type)}: ${result.title}`}
                     >
                       <CardContent className="p-6">
                         <div className="flex items-start gap-4">
@@ -252,7 +270,7 @@ const Search = () => {
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2">
-                              <div className="text-primary">
+                              <div className="text-primary" aria-hidden="true">
                                 {getIcon(result.type)}
                               </div>
                               <Badge variant="outline">

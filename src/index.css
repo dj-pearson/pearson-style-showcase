@@ -136,6 +136,24 @@
     -webkit-text-size-adjust: 100%;
     /* Better touch scrolling on iOS */
     -webkit-overflow-scrolling: touch;
+    /* Emergency text wrapping for mobile - prevents horizontal overflow */
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Ensure long text content doesn't cause horizontal scroll */
+  p, h1, h2, h3, h4, h5, h6, span, li, td, th, a {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    -webkit-hyphens: auto;
+    hyphens: auto;
+  }
+
+  /* Code blocks and pre should scroll horizontally, not wrap */
+  pre, code {
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
   }
 
   /* Safe area support for iPhone notch and bottom bar */
@@ -509,11 +527,62 @@
     transform: translateY(0);
   }
 
-  /* Mobile modal optimization */
+  /* Mobile modal optimization - uses dvh for dynamic viewport height */
   .mobile-modal {
     @apply max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl;
-    max-height: 90vh;
+    /* Use dynamic viewport height to handle mobile address bar */
+    max-height: 85dvh;
+    max-height: 85vh; /* Fallback for browsers without dvh support */
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @supports (max-height: 100dvh) {
+    .mobile-modal {
+      max-height: 85dvh;
+    }
+  }
+
+  /* Ultra-small screen support (< 375px) */
+  @media (max-width: 374px) {
+    .mobile-heading-xl {
+      @apply text-2xl;
+    }
+
+    .mobile-heading-lg {
+      @apply text-xl;
+    }
+
+    .mobile-heading-md {
+      @apply text-lg;
+    }
+
+    .mobile-heading-sm {
+      @apply text-base;
+    }
+
+    .mobile-container {
+      @apply px-3;
+    }
+
+    .mobile-card {
+      @apply p-3;
+    }
+
+    .mobile-input {
+      @apply px-3 py-2;
+      min-height: 44px;
+    }
+
+    .mobile-button {
+      @apply px-4 py-2 text-sm;
+      min-height: 44px;
+    }
+
+    /* Reduce grid gaps on very small screens */
+    .mobile-grid {
+      @apply gap-3;
+    }
   }
 
   /* Skeleton loading for mobile */

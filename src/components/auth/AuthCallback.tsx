@@ -54,7 +54,8 @@ const AuthCallback = () => {
       // Get state from URL params or hash
       const stateParam = urlParams.get('state') || hashParams.get('state');
 
-      // Only verify state if one was provided (some flows may not include it)
+      // SECURITY: Verify state parameter is present for CSRF protection
+      // State parameter is REQUIRED for security - OAuth providers should always return it
       if (stateParam) {
         const stateResult = verifyOAuthState(stateParam);
         if (!stateResult.valid) {
@@ -65,9 +66,12 @@ const AuthCallback = () => {
         }
         logger.debug('OAuth state verified successfully');
       } else {
-        // If no state was provided, log a warning but continue
-        // This handles cases where OAuth provider doesn't return state
-        logger.warn('No OAuth state parameter in callback - CSRF protection not applied');
+        // SECURITY FIX: Missing state parameter indicates potential CSRF attack
+        // Do not continue without CSRF protection - this is a security requirement
+        logger.error('OAuth state parameter missing - CSRF protection required');
+        setStatus('error');
+        setErrorMessage('Security validation failed: Missing state parameter. Please try signing in again.');
+        return;
       }
     }
 

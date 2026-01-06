@@ -7,6 +7,10 @@ import {
   validateSlug,
   sanitizeStringArray,
   validateJsonObject,
+  validatePasswordStrength,
+  getPasswordStrengthLabel,
+  validateImageAltText,
+  DEFAULT_PASSWORD_REQUIREMENTS,
 } from '../security';
 
 describe('Security Utilities', () => {
@@ -289,6 +293,198 @@ describe('Security Utilities', () => {
       const result = validateJsonObject(input);
       expect(result).toHaveProperty('name');
       expect(result).not.toHaveProperty('nested');
+    });
+  });
+
+  describe('validatePasswordStrength', () => {
+    it('should accept strong passwords', () => {
+      const result = validatePasswordStrength('MyStr0ng!P@ssw0rd');
+      expect(result.isValid).toBe(true);
+      expect(result.score).toBeGreaterThanOrEqual(75);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should reject short passwords', () => {
+      const result = validatePasswordStrength('Short1!');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Password must be at least 12 characters');
+    });
+
+    it('should require uppercase letters', () => {
+      const result = validatePasswordStrength('alllowercase123!');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Password must contain at least one uppercase letter');
+    });
+
+    it('should require lowercase letters', () => {
+      const result = validatePasswordStrength('ALLUPPERCASE123!');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Password must contain at least one lowercase letter');
+    });
+
+    it('should require numbers', () => {
+      const result = validatePasswordStrength('NoNumbersHere!!');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Password must contain at least one number');
+    });
+
+    it('should require special characters', () => {
+      const result = validatePasswordStrength('NoSpecialChars123');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Password must contain at least one special character (!@#$%^&*...)');
+    });
+
+    it('should reject common passwords', () => {
+      const result = validatePasswordStrength('password123');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('This password is too common and easily guessed');
+    });
+
+    it('should detect sequential characters', () => {
+      const result = validatePasswordStrength('MyP@ss123456word');
+      expect(result.suggestions.some(s => s.includes('sequential'))).toBe(true);
+    });
+
+    it('should detect keyboard patterns', () => {
+      const result = validatePasswordStrength('Qwerty123456!@');
+      expect(result.suggestions.some(s => s.includes('keyboard'))).toBe(true);
+    });
+
+    it('should handle empty input', () => {
+      const result = validatePasswordStrength('');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Password is required');
+    });
+
+    it('should accept custom requirements', () => {
+      const result = validatePasswordStrength('Short1!', {
+        minLength: 6,
+        requireUppercase: false,
+        requireSpecialChars: false,
+      });
+      expect(result.errors).not.toContain('Password must be at least 12 characters');
+    });
+
+    it('should give bonus for extra length', () => {
+      const shortResult = validatePasswordStrength('MyStr0ng!Pass');
+      const longResult = validatePasswordStrength('MyStr0ng!P@sswrdThatIsVeryLong');
+      expect(longResult.score).toBeGreaterThan(shortResult.score);
+    });
+
+    it('should detect repeated characters', () => {
+      const result = validatePasswordStrength('MyStr0ng!!!Pass');
+      expect(result.suggestions.some(s => s.includes('repeat'))).toBe(true);
+    });
+  });
+
+  describe('getPasswordStrengthLabel', () => {
+    it('should return Very Weak for scores below 25', () => {
+      expect(getPasswordStrengthLabel(10)).toEqual({ label: 'Very Weak', color: 'red' });
+      expect(getPasswordStrengthLabel(24)).toEqual({ label: 'Very Weak', color: 'red' });
+    });
+
+    it('should return Weak for scores 25-49', () => {
+      expect(getPasswordStrengthLabel(25)).toEqual({ label: 'Weak', color: 'orange' });
+      expect(getPasswordStrengthLabel(49)).toEqual({ label: 'Weak', color: 'orange' });
+    });
+
+    it('should return Fair for scores 50-74', () => {
+      expect(getPasswordStrengthLabel(50)).toEqual({ label: 'Fair', color: 'yellow' });
+      expect(getPasswordStrengthLabel(74)).toEqual({ label: 'Fair', color: 'yellow' });
+    });
+
+    it('should return Strong for scores 75-89', () => {
+      expect(getPasswordStrengthLabel(75)).toEqual({ label: 'Strong', color: 'green' });
+      expect(getPasswordStrengthLabel(89)).toEqual({ label: 'Strong', color: 'green' });
+    });
+
+    it('should return Very Strong for scores 90+', () => {
+      expect(getPasswordStrengthLabel(90)).toEqual({ label: 'Very Strong', color: 'emerald' });
+      expect(getPasswordStrengthLabel(100)).toEqual({ label: 'Very Strong', color: 'emerald' });
+    });
+  });
+
+  describe('validateImageAltText', () => {
+    it('should accept valid alt text', () => {
+      const result = validateImageAltText('A dog playing in the park');
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should reject empty alt text by default', () => {
+      const result = validateImageAltText('');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Alt text is required for accessibility');
+    });
+
+    it('should allow empty alt text when allowEmpty is true', () => {
+      const result = validateImageAltText('', { allowEmpty: true });
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should allow empty alt text for decorative images', () => {
+      const result = validateImageAltText('Has text but decorative', { isDecorativeImage: true });
+      expect(result.isValid).toBe(true);
+      expect(result.suggestions.some(s => s.includes('Decorative images'))).toBe(true);
+    });
+
+    it('should reject generic alt text', () => {
+      const genericTexts = ['image', 'photo', 'picture', 'Image 1', 'photo 2'];
+      genericTexts.forEach(text => {
+        const result = validateImageAltText(text);
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('Alt text should be descriptive, not generic');
+      });
+    });
+
+    it('should reject alt text with file extensions', () => {
+      const result = validateImageAltText('my-photo.jpg');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Alt text should not include file extensions');
+    });
+
+    it('should suggest removing redundant image prefixes', () => {
+      const result = validateImageAltText('Image of a beautiful sunset');
+      expect(result.suggestions.some(s => s.includes('redundant'))).toBe(true);
+    });
+
+    it('should reject alt text shorter than minLength', () => {
+      const result = validateImageAltText('Hi', { minLength: 5 });
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Alt text should be at least 5 characters');
+    });
+
+    it('should reject alt text exceeding maxLength', () => {
+      const longAlt = 'A'.repeat(150);
+      const result = validateImageAltText(longAlt, { maxLength: 125 });
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Alt text should not exceed 125 characters');
+    });
+
+    it('should reject alt text with HTML characters', () => {
+      const result = validateImageAltText('Image <script>alert(1)</script>');
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Alt text should not contain HTML characters');
+    });
+
+    it('should handle null and undefined', () => {
+      const nullResult = validateImageAltText(null as unknown as string);
+      expect(nullResult.isValid).toBe(false);
+
+      const undefinedResult = validateImageAltText(undefined as unknown as string);
+      expect(undefinedResult.isValid).toBe(false);
+    });
+  });
+
+  describe('DEFAULT_PASSWORD_REQUIREMENTS', () => {
+    it('should have OWASP-recommended defaults', () => {
+      expect(DEFAULT_PASSWORD_REQUIREMENTS.minLength).toBe(12);
+      expect(DEFAULT_PASSWORD_REQUIREMENTS.requireUppercase).toBe(true);
+      expect(DEFAULT_PASSWORD_REQUIREMENTS.requireLowercase).toBe(true);
+      expect(DEFAULT_PASSWORD_REQUIREMENTS.requireNumbers).toBe(true);
+      expect(DEFAULT_PASSWORD_REQUIREMENTS.requireSpecialChars).toBe(true);
+      expect(DEFAULT_PASSWORD_REQUIREMENTS.maxLength).toBe(128);
+      expect(DEFAULT_PASSWORD_REQUIREMENTS.checkCommonPasswords).toBe(true);
     });
   });
 });

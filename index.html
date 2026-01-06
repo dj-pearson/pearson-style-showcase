@@ -69,11 +69,11 @@
       }
     </style>
     
-    <!-- Optimized font loading - CSP-compliant approach with font-display: swap -->
-    <!-- Preload the font CSS for faster discovery -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" as="style">
-    <!-- Load the font stylesheet (non-blocking due to low priority) -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap">
+    <!-- Optimized font loading - CSP-compliant approach with font-display: optional for better CLS -->
+    <!-- Using font-display: optional prevents layout shifts while still loading custom fonts -->
+    <!-- Load fonts asynchronously to prevent render-blocking -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"></noscript>
 
     <!-- Canonical URL (default, updated by React for specific pages) -->
     <link rel="canonical" href="https://danpearson.net" />
