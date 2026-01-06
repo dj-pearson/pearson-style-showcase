@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
-Deno.export default async (req: Request): Promise<Response> => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -21,10 +21,19 @@ Deno.export default async (req: Request): Promise<Response> => {
     const { data: webhookSettings, error: webhookError } = await supabaseClient
       .from('webhook_settings')
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (webhookError || !webhookSettings || !webhookSettings.enabled) {
-      throw new Error('Webhook not configured or disabled');
+    if (webhookError) {
+      console.error('Error fetching webhook settings:', webhookError);
+      throw new Error(`Database error: ${webhookError.message}`);
+    }
+
+    if (!webhookSettings) {
+      throw new Error('Webhook not configured. Please add webhook URL in Settings.');
+    }
+
+    if (!webhookSettings.enabled) {
+      throw new Error('Webhook is disabled. Please enable it in Settings.');
     }
 
     let payload;

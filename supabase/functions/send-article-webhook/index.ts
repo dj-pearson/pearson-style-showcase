@@ -21,10 +21,19 @@ Deno.serve(async (req) => {
     const { data: webhookSettings, error: webhookError } = await supabaseClient
       .from('webhook_settings')
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (webhookError || !webhookSettings || !webhookSettings.enabled) {
-      throw new Error('Webhook not configured or disabled');
+    if (webhookError) {
+      console.error('Error fetching webhook settings:', webhookError);
+      throw new Error(`Database error: ${webhookError.message}`);
+    }
+
+    if (!webhookSettings) {
+      throw new Error('Webhook not configured. Please add webhook URL in Settings.');
+    }
+
+    if (!webhookSettings.enabled) {
+      throw new Error('Webhook is disabled. Please enable it in Settings.');
     }
 
     let payload;
