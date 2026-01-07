@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automated Test Report - 1/6/2026</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; background: #f9fafb; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    h2 { font-size: 1.5rem; margin: 2rem 0 1rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+    h3 { font-size: 1.25rem; margin: 1.5rem 0 0.75rem; }
+    .header { background: #1f2937; color: white; padding: 2rem; margin-bottom: 2rem; border-radius: 8px; }
+    .header p { opacity: 0.8; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-card .value { font-size: 2rem; font-weight: bold; }
+    .stat-card .label { color: #6b7280; font-size: 0.875rem; }
+    .stat-card.success .value { color: #22c55e; }
+    .stat-card.danger .value { color: #ef4444; }
+    .stat-card.warning .value { color: #f59e0b; }
+    .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+    .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+    .badge-passed { background: #dcfce7; color: #166534; }
+    .badge-failed { background: #fee2e2; color: #991b1b; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-critical { background: #fee2e2; color: #991b1b; }
+    .badge-high { background: #ffedd5; color: #9a3412; }
+    .badge-medium { background: #fef3c7; color: #92400e; }
+    .badge-low { background: #e0f2fe; color: #075985; }
+    .progress-bar { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
+    .progress-bar .fill { height: 100%; transition: width 0.3s; }
+    .progress-bar .fill.success { background: #22c55e; }
+    .progress-bar .fill.danger { background: #ef4444; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-weight: 600; }
+    .error-item { border-left: 4px solid #ef4444; padding-left: 1rem; margin-bottom: 1rem; }
+    .error-item.warning { border-color: #f59e0b; }
+    .error-message { font-family: monospace; font-size: 0.875rem; background: #f3f4f6; padding: 0.5rem; border-radius: 4px; overflow-x: auto; }
+    .recommendation { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+    .recommendation.critical { background: #fee2e2; border-left: 4px solid #ef4444; }
+    .recommendation.high { background: #ffedd5; border-left: 4px solid #f97316; }
+    .recommendation.medium { background: #fef3c7; border-left: 4px solid #f59e0b; }
+    .recommendation.low { background: #e0f2fe; border-left: 4px solid #0ea5e9; }
+    .collapsible { cursor: pointer; }
+    .collapsible::after { content: ' ▼'; font-size: 0.75rem; }
+    .collapsible.collapsed::after { content: ' ▶'; }
+    .content { overflow: hidden; transition: max-height 0.3s; }
+    .content.collapsed { max-height: 0 !important; }
+    code { background: #f3f4f6; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.875rem; }
+    .footer { text-align: center; padding: 2rem; color: #6b7280; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧪 Automated Test Report</h1>
+      <p>Generated: 1/6/2026, 10:10:57 PM</p>
+      <p>Duration: 6m 36s | Browser: chromium | Pages: 94</p>
+    </div>
+
+    <div class="summary-grid">
+      <div class="stat-card success">
+        <div class="value">37.1%</div>
+        <div class="label">Pass Rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">7272</div>
+        <div class="label">Total Tests</div>
+      </div>
+      <div class="stat-card success">
+        <div class="value">2696</div>
+        <div class="label">Passed</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="value">4479</div>
+        <div class="label">Failed</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="value">97</div>
+        <div class="label">Warnings</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">1.54s</div>
+        <div class="label">Avg Load Time</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Test Results Distribution</h3>
+      <div class="progress-bar" style="height: 24px;">
+        <div class="fill success" style="width: 37.073707370737075%; display: inline-block;"></div>
+        <div class="fill danger" style="width: 61.5924092409241%; display: inline-block;"></div>
+      </div>
+      <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+        <span><span style="color: #22c55e">■</span> Passed: 2696</span>
+        <span><span style="color: #ef4444">■</span> Failed: 4479</span>
+        <span><span style="color: #f59e0b">■</span> Warnings: 97</span>
+        <span><span style="color: #6b7280">■</span> Skipped: 0</span>
+      </div>
+    </div>
+
+    
+    <h2>📋 Recommendations</h2>
+    
+      <div class="recommendation high">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong>Fix Network Request Failures</strong>
+          <span class="badge badge-high">HIGH</span>
+        </div>
+        <p>10 network request(s) failed, indicating potential API or connectivity issues.</p>
+        <p style="margin-top: 0.5rem;"><strong>Suggested Fix:</strong> Review API endpoints, ensure proper error handling, and check server availability.</p>
+        <p style="margin-top: 0.5rem;"><strong>Affected Pages:</strong> 4</p>
+      </div>
+    
+      <div class="recommendation high">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong>Improve Overall Test Pass Rate</strong>
+          <span class="badge badge-high">HIGH</span>
+        </div>
+        <p>Test pass rate is 37.1%, which is below the recommended 80% threshold.</p>
+        <p style="margin-top: 0.5rem;"><strong>Suggested Fix:</strong> Review failing tests and prioritize fixes based on severity and user impact.</p>
+        <p style="margin-top: 0.5rem;"><strong>Affected Pages:</strong> 94</p>
+      </div>
+    
+      <div class="recommendation medium">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong>Address Accessibility Issues</strong>
+          <span class="badge badge-medium">MEDIUM</span>
+        </div>
+        <p>9 accessibility violation(s) found that may prevent users with disabilities from using the application.</p>
+        <p style="margin-top: 0.5rem;"><strong>Suggested Fix:</strong> Ensure all images have alt text, form inputs have labels, buttons have accessible names, and color contrast meets WCAG guidelines.</p>
+        <p style="margin-top: 0.5rem;"><strong>Affected Pages:</strong> 6</p>
+      </div>
+    
+      <div class="recommendation medium">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong>Resolve Console Errors</strong>
+          <span class="badge badge-medium">MEDIUM</span>
+        </div>
+        <p>16 JavaScript error(s) logged to the console.</p>
+        <p style="margin-top: 0.5rem;"><strong>Suggested Fix:</strong> Check browser console for error details, add proper error handling, and fix any undefined variable issues.</p>
+        <p style="margin-top: 0.5rem;"><strong>Affected Pages:</strong> 10</p>
+      </div>
+    
+    
+
+    
+    <h2>❌ Errors (52)</h2>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">16 HTTP error(s) detected</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL:  | Occurrences: 94</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">2 HTTP error(s) detected</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080 | Occurrences: 94</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">6 HTTP error(s) detected</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/About | Occurrences: 177</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">locator.isVisible: Error: strict mode violation: locator(&#39;input:nth-of-type(1)&#39;) resolved to 2 elements:
+    1) &lt;input value=&quot;&quot; placeholder=&quot;Search articles, tags, or content...&quot; class=&quot;flex h-10 w-full rounded-md border px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm mobile-input pl-12 bg-gray-700/50 border-gray-600 focus:border-cyan-500 text-base&quot;/&gt; aka getByRole(&#39;textbox&#39;, { name: &#39;Search articles, tags, or&#39; })
+    2) &lt;input value=&quot;&quot; required=&quot;&quot; type=&quot;email&quot; placeholder=&quot;Enter your email&quot; class=&quot;flex h-10 w-full rounded-md border px-3 py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm flex-1 bg-gray-700 border-gray-600 focus:border-cyan-500 min-h-[48px] text-base&quot;/&gt; aka getByRole(&#39;textbox&#39;, { name: &#39;Enter your email&#39; })
+
+Call log:
+[2m    - checking visibility of locator(&#39;input:nth-of-type(1)&#39;)[22m
+</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/Article | Occurrences: 4</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>FUNCTIONAL</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">page.evaluate: SyntaxError: Failed to execute &#39;querySelector&#39; on &#39;Document&#39;: &#39;button:has-text(&quot;Submit Your AI Tool&quot;)&#39; is not a valid selector.
+    at eval (eval at evaluate (:290:30), &lt;anonymous&gt;:1:30)
+    at UtilityScript.evaluate (&lt;anonymous&gt;:292:16)
+    at UtilityScript.&lt;anonymous&gt; (&lt;anonymous&gt;:1:44)</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/ai-tools | Occurrences: 1</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">Failed to load resource: the server responded with a status of 503 (Service Unavailable - Refresh Required)</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080 | Occurrences: 14</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">HTTP 503: https://api.danpearson.net/rest/v1/faqs?select=*&amp;status=eq.published&amp;order=display_order.asc</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080 | Occurrences: 1</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">HTTP 503: https://api.danpearson.net/rest/v1/case_studies?select=*&amp;status=eq.published&amp;order=display_order.asc</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080 | Occurrences: 1</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">HTTP 503: https://api.danpearson.net/rest/v1/achievements?select=*&amp;status=eq.published&amp;order=display_order.asc</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/About | Occurrences: 4</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">HTTP 503: https://api.danpearson.net/rest/v1/work_experience?select=*&amp;status=eq.published&amp;order=display_order.asc</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/About | Occurrences: 4</p>
+      </div>
+    
+      <div class="error-item ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>NETWORK</strong>
+          <span class="badge badge-failed">Severity 2</span>
+        </div>
+        <p class="error-message">HTTP 503: https://api.danpearson.net/rest/v1/certifications?select=*&amp;status=eq.published&amp;order=display_order.asc</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/About | Occurrences: 4</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">3 element(s) have interactive elements must have visible focus</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080 | Occurrences: 1</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">1 element(s) have page content should be in landmark regions</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080 | Occurrences: 83</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">10 element(s) have interactive elements must have visible focus</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/About | Occurrences: 92</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">2 element(s) have form inputs must have labels</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/Article | Occurrences: 2</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">1 element(s) have heading levels should increase by one</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/Article | Occurrences: 8</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">1 element(s) have form inputs must have labels</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/projects | Occurrences: 1</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">25 element(s) have links must have discernible text</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/ai-tools | Occurrences: 1</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">1 element(s) have buttons must have discernible text</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/admin/login | Occurrences: 1</p>
+      </div>
+    
+      <div class="error-item warning">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>ACCESSIBILITY</strong>
+          <span class="badge badge-warning">Severity 3</span>
+        </div>
+        <p class="error-message">7 element(s) have interactive elements must have visible focus</p>
+        <p style="font-size: 0.75rem; color: #6b7280;">URL: http://localhost:8080/admin/login | Occurrences: 1</p>
+      </div>
+    
+    <p>... and 32 more errors</p>
+    
+
+    <h2>📄 Pages Tested (94)</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>URL</th>
+            <th>Load Time</th>
+            <th>Tests</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td><code>http://localhost:8080</code></td>
+              <td>1.08s</td>
+              <td>23/33</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/About</code></td>
+              <td>875ms</td>
+              <td>27/34</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/AdminDashboard</code></td>
+              <td>972ms</td>
+              <td>27/35</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/AdminLogin</code></td>
+              <td>725ms</td>
+              <td>27/36</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/AITools</code></td>
+              <td>747ms</td>
+              <td>27/37</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/Article</code></td>
+              <td>826ms</td>
+              <td>68/85</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/AuthorArchive</code></td>
+              <td>823ms</td>
+              <td>27/38</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/CategoryArchive</code></td>
+              <td>932ms</td>
+              <td>27/39</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/Connect</code></td>
+              <td>959ms</td>
+              <td>27/51</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/DateArchive</code></td>
+              <td>718ms</td>
+              <td>27/40</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/about</code></td>
+              <td>845ms</td>
+              <td>26/41</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/projects</code></td>
+              <td>1.12s</td>
+              <td>24/43</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news</code></td>
+              <td>989ms</td>
+              <td>68/90</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/ai-tools</code></td>
+              <td>1.23s</td>
+              <td>23/42</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/connect</code></td>
+              <td>1.08s</td>
+              <td>26/53</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/admin/login</code></td>
+              <td>797ms</td>
+              <td>21/43</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/sponsored-content-the-complete-guide-to-native-advertising-success</code></td>
+              <td>2.61s</td>
+              <td>28/45</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/best-microphones-for-podcasting-your-ultimate-guide</code></td>
+              <td>1.46s</td>
+              <td>28/46</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unlock-your-potential-the-best-ai-productivity-planners-of-2024</code></td>
+              <td>1.85s</td>
+              <td>29/48</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-your-style-top-tapered-sweatpants-for-men</code></td>
+              <td>1.04s</td>
+              <td>28/48</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unlock-your-gains-best-protein-powder-for-muscle-building</code></td>
+              <td>2.10s</td>
+              <td>28/49</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-focus-best-noise-cancelling-headphones-for-work-in-2024</code></td>
+              <td>2.25s</td>
+              <td>28/50</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/top-wrinkle-free-dress-shirts-for-men-stay-sharp-effortlessly</code></td>
+              <td>1.71s</td>
+              <td>28/51</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-your-beast-top-tank-tops-for-gym-men-reviewed</code></td>
+              <td>1.97s</td>
+              <td>28/52</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-speed-the-best-fast-wireless-charging-pads-of-2024</code></td>
+              <td>1.66s</td>
+              <td>28/53</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/navigating-the-ai-revolution-insights-from-today-s-ai-news</code></td>
+              <td>1.66s</td>
+              <td>28/54</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-your-potential-best-performance-underwear-for-men</code></td>
+              <td>1.71s</td>
+              <td>28/55</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-your-potential-the-ultimate-guide-to-men-s-compression-pants</code></td>
+              <td>1.96s</td>
+              <td>28/56</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/untangle-your-workspace-the-best-cable-management-solutions-for-desks</code></td>
+              <td>1.80s</td>
+              <td>28/57</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/navigating-the-modern-news-landscape-trust-ai-and-the-future</code></td>
+              <td>1.48s</td>
+              <td>28/58</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/master-your-craft-the-best-ai-writing-tools-software-for-every-creator</code></td>
+              <td>2.06s</td>
+              <td>29/60</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/master-your-marathon-top-training-resources-reviewed</code></td>
+              <td>1.94s</td>
+              <td>28/60</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/boost-your-business-the-best-crm-software-for-small-business</code></td>
+              <td>1.65s</td>
+              <td>28/61</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-perfect-blends-top-blender-bottles-with-mixer-for-smooth-shakes</code></td>
+              <td>1.60s</td>
+              <td>28/62</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/navigating-the-ai-revolution-key-trends-shaping-our-future</code></td>
+              <td>1.69s</td>
+              <td>28/63</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/stay-warm-dry-top-winter-jackets-for-men-waterproof</code></td>
+              <td>1.80s</td>
+              <td>28/64</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/beyond-the-hype-navigating-the-real-world-impact-of-ai-news</code></td>
+              <td>1.50s</td>
+              <td>29/66</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-your-productivity-top-usb-c-hubs-multiport-reviewed</code></td>
+              <td>1.94s</td>
+              <td>28/66</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/beyond-the-hype-unpacking-the-real-impact-of-ai-news</code></td>
+              <td>1.55s</td>
+              <td>28/67</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/top-smart-watches-for-men-your-ultimate-guide-to-style-tech</code></td>
+              <td>2.05s</td>
+              <td>28/68</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/navigating-the-ai-revolution-breakthroughs-shaping-our-future</code></td>
+              <td>1.53s</td>
+              <td>28/69</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-uninterrupted-power-top-portable-chargers-for-high-capacity-needs</code></td>
+              <td>1.77s</td>
+              <td>28/70</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/navigating-the-ai-revolution-trends-shaping-our-future</code></td>
+              <td>1.40s</td>
+              <td>28/71</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-your-gains-the-ultimate-guide-to-meal-prep-containers-for-bodybuilding</code></td>
+              <td>1.74s</td>
+              <td>28/72</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/top-wireless-video-doorbells-smart-security-made-simple</code></td>
+              <td>1.65s</td>
+              <td>28/73</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/top-casual-sneakers-for-men-style-comfort-unveiled</code></td>
+              <td>2.33s</td>
+              <td>28/74</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/navigating-the-ai-revolution-beyond-the-hype-to-real-world-impact</code></td>
+              <td>1.58s</td>
+              <td>29/76</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/unleash-your-potential-best-gaming-mice-with-programmable-buttons</code></td>
+              <td>1.51s</td>
+              <td>29/77</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/navigating-the-digital-deluge-the-evolution-of-news-consumption</code></td>
+              <td>1.56s</td>
+              <td>28/77</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+            <tr>
+              <td><code>http://localhost:8080/news/boost-your-business-essential-sales-books-for-entrepreneurs</code></td>
+              <td>1.84s</td>
+              <td>28/78</td>
+              <td><span class="badge badge-failed">failed</span></td>
+            </tr>
+          
+        </tbody>
+      </table>
+      <p style="margin-top: 1rem;">... and 44 more pages</p>
+    </div>
+
+    
+    <h2>⚡ Edge Functions (24)</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Function</th>
+            <th>Status</th>
+            <th>Response Time</th>
+            <th>Auth Required</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td><code>admin-auth</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>5.10s</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>ai-content-generator</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>9ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>amazon-article-pipeline</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>3ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>email-webhook-receiver</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>3ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>extract-from-url</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>3ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>generate-ai-article</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>4ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>generate-ai-tasks</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>2ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>generate-social-content</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>3ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>generate-ticket-response</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>3ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>health-check</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>4ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>maintenance-runner</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>5ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>newsletter-signup</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>3ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>optimize-image</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>7ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>process-accounting-document</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>8ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>receive-email</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>2ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>secure-vault</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>2ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>send-article-webhook</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>6ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>send-contact-email</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>2ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>send-notification-email</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>1ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>send-ticket-email</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>2ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>slack-test</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>2ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>test-ai-model</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>2ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>test-api-setup</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>1ms</td>
+              <td>No</td>
+            </tr>
+          
+            <tr>
+              <td><code>track-affiliate-click</code></td>
+              <td><span class="badge badge-failed">503</span></td>
+              <td>3ms</td>
+              <td>No</td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    <div class="footer">
+      <p>Generated by Automated Testing Tool</p>
+      <p>Test run completed in 6m 36s</p>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.collapsible').forEach(el => {
+      el.addEventListener('click', () => {
+        el.classList.toggle('collapsed');
+        const content = el.nextElementSibling;
+        if (content) content.classList.toggle('collapsed');
+      });
+    });
+  </script>
+</body>
+</html>
