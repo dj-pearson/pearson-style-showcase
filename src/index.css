@@ -184,6 +184,27 @@
     border-radius: 0.25rem;
   }
 
+  /* Enhanced focus styles for interactive elements */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex="0"]:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid hsl(195 100% 50%);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+    box-shadow: 0 0 0 4px hsl(195 100% 50% / 0.15);
+  }
+
+  /* Ensure cards with interactive content show focus on children */
+  .group:focus-within {
+    outline: 2px solid hsl(195 100% 50% / 0.5);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+
   /* Optimize tap highlight for mobile */
   * {
     -webkit-tap-highlight-color: hsl(195 100% 50% / 0.1);

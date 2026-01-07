@@ -132,15 +132,13 @@ const Index = () => {
   return (
     <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
       {/* Fixed 3D Background - Interactive (skipped for reduced motion/low performance) */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0" aria-hidden="true" role="presentation">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
         {shouldLoadOrb && !disableHeavyAnimations && (
           <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}>
             <Suspense fallback={
               <div
                 className="absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-accent/10"
-                role="status"
-                aria-label="Loading 3D visualization"
               >
                 <div className="absolute inset-0 animate-pulse opacity-30 bg-gradient-radial from-primary/20 via-transparent to-transparent" />
               </div>
@@ -272,7 +270,7 @@ const Index = () => {
             {/* Services Grid - Mobile First */}
             <div className="mobile-grid">
               {/* NFT Development */}
-              <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/20 cursor-pointer backdrop-blur-sm">
+              <Card className="group hover:scale-[1.02] md:hover:scale-105 transition-all duration-300 bg-card/50 border-border hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/20 backdrop-blur-sm">
                 <CardContent className="mobile-card text-center">
                   <div className="mb-6">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
@@ -287,7 +285,7 @@ const Index = () => {
               </Card>
 
               {/* AI Integration */}
-              <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/20 cursor-pointer backdrop-blur-sm">
+              <Card className="group hover:scale-[1.02] md:hover:scale-105 transition-all duration-300 bg-card/50 border-border hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/20 backdrop-blur-sm">
                 <CardContent className="mobile-card text-center">
                   <div className="mb-6">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
@@ -302,7 +300,7 @@ const Index = () => {
               </Card>
 
               {/* Sales Leadership */}
-              <Card className="group hover:scale-[1.02] md:hover:scale-105 active:scale-[0.98] transition-all duration-300 bg-card/50 border-border hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/20 cursor-pointer backdrop-blur-sm">
+              <Card className="group hover:scale-[1.02] md:hover:scale-105 transition-all duration-300 bg-card/50 border-border hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/20 backdrop-blur-sm">
                 <CardContent className="mobile-card text-center">
                   <div className="mb-6">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
