@@ -148,12 +148,15 @@ const Projects = () => {
             <div className="flex flex-col gap-4">
               {/* Search */}
               <div className="relative w-full">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" />
+                <label htmlFor="project-search" className="sr-only">Search projects</label>
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" aria-hidden="true" />
                 <Input
+                  id="project-search"
                   placeholder="Search projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="mobile-input pl-12 bg-gray-700/50 border-gray-600 focus:border-cyan-500 text-base"
+                  aria-label="Search projects"
                 />
               </div>
 
