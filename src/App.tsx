@@ -36,6 +36,7 @@ const TopicHub = lazy(() => import("./pages/TopicHub"));
 const Topics = lazy(() => import("./pages/Topics"));
 const RSSFeed = lazy(() => import("./pages/RSSFeed"));
 const Search = lazy(() => import("./pages/Search"));
+const Accessibility = lazy(() => import("./pages/Accessibility"));
 
 // Configure QueryClient with optimized defaults for better caching
 const queryClient = new QueryClient({
@@ -81,6 +82,7 @@ const App = () => (
             <Route path="/connect" element={<Connect />} />
             <Route path="/search" element={<Search />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/accessibility" element={<Accessibility />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route

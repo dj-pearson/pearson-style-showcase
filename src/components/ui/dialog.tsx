@@ -27,27 +27,50 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  /** Whether to show the close button (default: true) */
+  showCloseButton?: boolean;
+  /** Custom close button aria-label */
+  closeButtonLabel?: string;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  DialogContentProps
+>(({ className, children, showCloseButton = true, closeButtonLabel = "Close dialog", ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      aria-modal="true"
       className={cn(
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[95vw] sm:max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-lg sm:rounded-lg",
         // Mobile-optimized max-height with dynamic viewport units
         "max-h-[85dvh] max-h-[85vh] overflow-y-auto",
         className
       )}
+      // Focus first focusable element when dialog opens
+      onOpenAutoFocus={(e) => {
+        // Allow default behavior to focus first focusable element
+        // or use a custom autofocus element with data-autofocus
+        const autofocusElement = e.currentTarget.querySelector('[data-autofocus]') as HTMLElement;
+        if (autofocusElement) {
+          e.preventDefault();
+          autofocusElement.focus();
+        }
+      }}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground min-h-[44px] min-w-[44px] flex items-center justify-center -m-2 sm:min-h-0 sm:min-w-0 sm:m-0">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
+      {showCloseButton && (
+        <DialogPrimitive.Close
+          className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground min-h-[44px] min-w-[44px] flex items-center justify-center -m-2 sm:min-h-0 sm:min-w-0 sm:m-0"
+          aria-label={closeButtonLabel}
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">{closeButtonLabel}</span>
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
 ))

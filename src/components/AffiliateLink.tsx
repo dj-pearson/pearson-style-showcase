@@ -33,7 +33,8 @@ export const AffiliateLink = ({ href, asin, articleId, children, className = "" 
       onClick={trackClick}
     >
       {children}
-      <ExternalLink className="h-3 w-3" />
+      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+      <span className="sr-only">(opens in new tab, affiliate link)</span>
     </a>
   );
 };
