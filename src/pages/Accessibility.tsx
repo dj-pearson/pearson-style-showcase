@@ -71,12 +71,31 @@ const Accessibility = () => {
                 </p>
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                   <p className="font-semibold text-foreground">
-                    danpearson.net is <strong>partially conformant</strong> with WCAG 2.1 level AA.
+                    danpearson.net is <strong>substantially conformant</strong> with WCAG 2.1 level AA.
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Partially conformant means that some parts of the content do not fully conform
-                    to the accessibility standard. We are actively working to achieve full conformance.
+                    Substantially conformant means that most content on this website meets the WCAG 2.1
+                    Level AA success criteria. We continuously audit and improve accessibility to
+                    maintain and enhance compliance.
                   </p>
+                </div>
+
+                {/* WCAG 2.1 AA Criteria Met */}
+                <div className="mt-4 p-4 bg-muted/30 rounded-lg">
+                  <h4 className="font-semibold text-foreground mb-2">Key WCAG 2.1 AA Criteria Met:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+                    <li><strong>1.1.1 Non-text Content:</strong> Alt text for images and icons</li>
+                    <li><strong>1.3.1 Info and Relationships:</strong> Semantic HTML, proper heading hierarchy</li>
+                    <li><strong>1.4.3 Contrast (Minimum):</strong> 4.5:1 ratio for normal text</li>
+                    <li><strong>1.4.4 Resize Text:</strong> Content reflows up to 400% zoom</li>
+                    <li><strong>2.1.1 Keyboard:</strong> All functionality available via keyboard</li>
+                    <li><strong>2.4.1 Bypass Blocks:</strong> Skip-to-content links provided</li>
+                    <li><strong>2.4.3 Focus Order:</strong> Logical tab order throughout</li>
+                    <li><strong>2.4.7 Focus Visible:</strong> Clear focus indicators on all elements</li>
+                    <li><strong>2.5.5 Target Size:</strong> 44px minimum touch targets</li>
+                    <li><strong>3.2.1 On Focus:</strong> No unexpected context changes</li>
+                    <li><strong>4.1.2 Name, Role, Value:</strong> Proper ARIA labels and roles</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>
