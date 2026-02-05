@@ -169,15 +169,16 @@ Generate ONLY the response text, no additional formatting or metadata.`;
             }
           }
 
-        } else if (config.provider === "lovable") {
-          const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        } else if (config.provider === "openai" || config.provider === "lovable") {
+          // Note: "lovable" provider is deprecated, using OpenAI endpoint instead
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${apiKey}`,
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              model: config.model_name,
+              model: config.provider === "lovable" ? "gpt-4o-mini" : config.model_name,
               messages: [
                 { role: "system", content: "You are a helpful customer support agent." },
                 { role: "user", content: systemPrompt }

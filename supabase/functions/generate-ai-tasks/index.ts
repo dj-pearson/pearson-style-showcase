@@ -219,14 +219,15 @@ ${text}`;
           }
 
         } else if (config.provider === "lovable") {
-          const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          // Note: "lovable" provider is deprecated, using OpenAI endpoint instead
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${apiKey}`,
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              model: config.model_name,
+              model: "gpt-4o-mini", // Use OpenAI model instead of config.model_name
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
@@ -243,7 +244,7 @@ ${text}`;
             }
           } else {
             const errorText = await response.text();
-            console.error(`Lovable API error: ${response.status} - ${errorText}`);
+            console.error(`OpenAI API error (via lovable config): ${response.status} - ${errorText}`);
           }
         }
 
