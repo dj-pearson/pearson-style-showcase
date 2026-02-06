@@ -1,0 +1,72 @@
+# Progress Log - Enterprise Production Readiness
+
+## Project: pearson-style-showcase
+## Branch: ralph/enterprise-production-ready
+## Started: 2026-02-06
+
+---
+
+## Codebase Patterns
+
+### Tech Stack
+- React 18 + TypeScript + Vite 6 + Tailwind CSS 3 + shadcn/ui
+- Supabase (PostgreSQL + 24 Edge Functions in Deno)
+- TanStack Query v5 for server state
+- React Router v6 with lazy loading
+- Three.js + GSAP for 3D/animations
+- Vitest + Testing Library for tests
+
+### Project Structure
+- Components: src/components/ (PascalCase, functional + hooks)
+- Pages: src/pages/ (lazy-loaded via React.lazy)
+- Hooks: src/hooks/ (camelCase with use prefix, 16 total)
+- Lib: src/lib/ (21 utility modules)
+- Edge Functions: supabase/functions/ (24 functions, Deno runtime)
+- Shared edge utilities: supabase/functions/_shared/
+- Tests: src/**/__tests__/ pattern
+- Database: supabase/migrations/ (42 migration files)
+
+### Import Pattern
+- Always use @/ alias (e.g., @/components/ui/button)
+- Never use deep relative imports
+
+### Build & Dev
+- Dev server: npm run dev (port 8080)
+- Build: npm run build (Vite, output to dist/)
+- Test: npm test (Vitest)
+- Lint: npm run lint (ESLint)
+- Deploy: Cloudflare Pages from main branch
+
+### Key Conventions
+- Functional components only (no class components)
+- TypeScript strict mode enabled
+- Supabase types auto-generated (DO NOT edit src/integrations/supabase/types.ts)
+- shadcn/ui components in src/components/ui/ (copy-paste, not npm)
+- Tailwind-first styling with cn() utility for conditional classes
+- React Hook Form + Zod for forms
+- DOMPurify for HTML sanitization
+- Logger utility (src/lib/logger.ts) instead of console.log
+
+### Security Modules
+- src/lib/security.ts - Input validation and sanitization
+- src/lib/secure-cache.ts - AES-GCM encrypted localStorage
+- src/lib/session-rotation.ts - Automatic token rotation
+- src/lib/device-trust.ts - Device fingerprinting
+- src/lib/csrf.ts - CSRF token management
+- supabase/functions/_shared/rate-limiter.ts - Edge function rate limiting
+
+### Current State (Pre-Ralph)
+- Security: Excellent (9/10) - comprehensive validation, encryption, RBAC
+- Code Quality: Good (7/10) - consistent patterns, TypeScript strict mode
+- Testing: Critical gap (3/10) - only 8 test files, ~3-5% coverage
+- CI/CD: Critical gap (2/10) - workflows documented but NOT created
+- Monitoring: Partial (6/10) - infrastructure exists but not initialized
+- Documentation: Moderate (5/10) - CLAUDE.md is excellent, API docs missing
+- Database: Good (8/10) - 42 migrations, RLS enabled
+- Overall: 5.5/10 - NOT production ready
+
+---
+
+## Iteration Log
+
+(No iterations completed yet - PRD created 2026-02-06)
