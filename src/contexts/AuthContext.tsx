@@ -3,7 +3,8 @@ import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { logger } from '@/lib/logger';
-import { createOAuthState } from '@/lib/oauth-state';
+// oauth-state.ts is still used by AuthCallback for legacy PKCE flows
+// The primary OAuth flow now uses the oauth-proxy edge function
 import {
   initializeSessionRotation,
   clearRotationState,
@@ -593,41 +594,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Sign in with OAuth provider (Google, Apple, etc.)
-   * Generates and stores a CSRF state parameter for security
+   * Uses custom oauth-proxy edge function to bypass GoTrue's GOTRUE_SITE_URL limitation
+   * for self-hosted Supabase. The proxy handles PKCE and state management server-side.
    */
   const signInWithProvider = useCallback(async (provider: Provider) => {
-    logger.debug('OAuth sign in attempt:', provider);
+    logger.debug('OAuth sign in attempt via proxy:', provider);
     setError(null);
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
+      const redirectTo = '/admin/dashboard';
 
-      // Generate CSRF protection state parameter
-      const oauthState = createOAuthState();
-      logger.debug('Generated OAuth state for CSRF protection');
+      // Redirect to oauth-proxy edge function which handles the full OAuth flow
+      // The proxy manages PKCE, state, and redirects back to /auth/callback with a magic link token
+      const oauthUrl = `${functionsUrl}/oauth-proxy?action=authorize&provider=${provider}&redirect_to=${encodeURIComponent(redirectTo)}`;
 
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo,
-          queryParams: provider === 'google' ? {
-            access_type: 'offline',
-            prompt: 'consent',
-            state: oauthState, // Include state for CSRF protection
-          } : {
-            state: oauthState, // Include state for CSRF protection
-          },
-          skipBrowserRedirect: false,
-        }
-      });
+      logger.debug('Redirecting to OAuth proxy:', oauthUrl);
+      window.location.href = oauthUrl;
 
-      if (oauthError) {
-        logger.error('OAuth error:', oauthError);
-        setError(oauthError.message);
-        return { success: false, error: oauthError.message };
-      }
-
-      logger.debug('OAuth redirect initiated:', data);
       return { success: true };
     } catch (err) {
       logger.error('OAuth sign in error:', err);

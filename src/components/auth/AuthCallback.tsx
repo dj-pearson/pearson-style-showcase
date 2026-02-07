@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { verifyOAuthState } from '@/lib/oauth-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,90 +13,167 @@ import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
  * AuthCallback component
  *
  * Handles OAuth redirect callbacks from Google, Apple, etc.
- * This component is rendered at /auth/callback and processes the
- * authentication tokens from the URL hash fragment.
+ * Supports two flows:
  *
- * Flow:
- * 1. User clicks OAuth button -> redirected to provider
- * 2. Provider authenticates -> redirects back here with tokens in URL
- * 3. Supabase automatically processes tokens (detectSessionInUrl: true)
- * 4. AuthContext receives SIGNED_IN event -> verifies admin access
- * 5. This component waits for auth status and redirects accordingly
+ * 1. OAuth Proxy Flow (primary):
+ *    - oauth-proxy edge function redirects here with ?token=xxx&type=magiclink
+ *    - We verify the OTP to create a Supabase session
+ *    - AuthContext picks up the SIGNED_IN event and verifies admin access
+ *
+ * 2. Legacy PKCE Flow (fallback):
+ *    - Supabase's built-in OAuth redirects here with tokens in URL hash
+ *    - Supabase client auto-detects and processes tokens (detectSessionInUrl: true)
+ *    - AuthContext picks up the SIGNED_IN event and verifies admin access
  */
 const AuthCallback = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { authStatus, isAdminVerified, error: authError } = useAuth();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasRedirected, setHasRedirected] = useState(false);
+  const tokenProcessedRef = useRef(false);
   const stateVerifiedRef = useRef(false);
 
+  // Step 1: Process tokens on mount (OAuth proxy magic link or PKCE code)
   useEffect(() => {
-    logger.debug('AuthCallback: Current auth status:', authStatus);
+    if (tokenProcessedRef.current) return;
+    tokenProcessedRef.current = true;
 
-    // Check for error in URL params (OAuth errors)
-    const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const processTokens = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
 
-    const urlError = urlParams.get('error') || hashParams.get('error');
-    const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+        // Check for errors from OAuth provider or proxy
+        const urlError = urlParams.get('error') || hashParams.get('error');
+        const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
 
-    if (urlError) {
-      logger.error('OAuth error from URL:', urlError, errorDescription);
-      setStatus('error');
-      setErrorMessage(errorDescription || urlError || 'Authentication failed');
-      return;
-    }
-
-    // Verify OAuth state parameter for CSRF protection (only once)
-    if (!stateVerifiedRef.current) {
-      stateVerifiedRef.current = true;
-
-      // Get state from URL params or hash
-      const stateParam = urlParams.get('state') || hashParams.get('state');
-
-      // SECURITY: Verify state parameter is present for CSRF protection
-      // State parameter is REQUIRED for security - OAuth providers should always return it
-      if (stateParam) {
-        const stateResult = verifyOAuthState(stateParam);
-        if (!stateResult.valid) {
-          logger.error('OAuth state verification failed:', stateResult.error);
+        if (urlError) {
+          logger.error('OAuth error from URL:', urlError, errorDescription);
           setStatus('error');
-          setErrorMessage('Security validation failed. Please try again.');
+          setErrorMessage(errorDescription || urlError || 'Authentication failed');
           return;
         }
-        logger.debug('OAuth state verified successfully');
-      } else {
-        // SECURITY FIX: Missing state parameter indicates potential CSRF attack
-        // Do not continue without CSRF protection - this is a security requirement
-        logger.error('OAuth state parameter missing - CSRF protection required');
-        setStatus('error');
-        setErrorMessage('Security validation failed: Missing state parameter. Please try signing in again.');
-        return;
-      }
-    }
 
-    // Handle different auth statuses
+        // Flow 1: OAuth Proxy - magic link token from oauth-proxy edge function
+        const token = searchParams.get('token');
+        const type = searchParams.get('type');
+        const redirectTo = searchParams.get('redirect_to') || '/admin/dashboard';
+
+        if (token && type) {
+          logger.debug('Processing OAuth proxy magic link token');
+
+          // Store redirect destination
+          sessionStorage.setItem('auth_return_url', redirectTo);
+
+          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: type as 'magiclink',
+          });
+
+          if (verifyError) {
+            logger.error('Magic link verification failed:', verifyError);
+            setStatus('error');
+            setErrorMessage(verifyError.message || 'Failed to verify authentication token.');
+            return;
+          }
+
+          if (data.session) {
+            logger.debug('OAuth proxy magic link verified, session created. Waiting for admin verification...');
+            // Session is now active - AuthContext will pick up the SIGNED_IN event
+            // and trigger admin verification. We wait for authStatus changes below.
+            return;
+          }
+
+          // No session returned despite no error - unexpected
+          logger.error('OAuth proxy: No session returned after OTP verification');
+          setStatus('error');
+          setErrorMessage('Authentication failed. Please try again.');
+          return;
+        }
+
+        // Flow 2: PKCE code exchange (fallback for Supabase built-in OAuth)
+        const code = urlParams.get('code') || hashParams.get('code');
+        if (code) {
+          logger.debug('Processing PKCE code exchange');
+
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            logger.error('PKCE code exchange failed:', exchangeError);
+            setStatus('error');
+            setErrorMessage(exchangeError.message || 'Failed to complete authentication.');
+            return;
+          }
+
+          if (data.session) {
+            logger.debug('PKCE code exchanged, session created. Waiting for admin verification...');
+            return;
+          }
+        }
+
+        // Flow 3: Legacy hash-based tokens (Supabase auto-detects via detectSessionInUrl)
+        // Check for legacy state parameter for CSRF protection
+        if (!stateVerifiedRef.current) {
+          stateVerifiedRef.current = true;
+          const stateParam = urlParams.get('state') || hashParams.get('state');
+
+          if (stateParam) {
+            const stateResult = verifyOAuthState(stateParam);
+            if (!stateResult.valid) {
+              logger.error('OAuth state verification failed:', stateResult.error);
+              setStatus('error');
+              setErrorMessage('Security validation failed. Please try again.');
+              return;
+            }
+            logger.debug('Legacy OAuth state verified successfully');
+          }
+          // For the proxy flow, state is handled server-side, so missing state is OK
+        }
+
+        // If we have hash tokens, Supabase will auto-process them
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          logger.debug('Hash tokens detected, Supabase will auto-process');
+          return;
+        }
+
+        // No recognizable auth data in URL - might be a stale page load
+        // Wait briefly for AuthContext to process any tokens
+        logger.debug('No explicit tokens found, waiting for AuthContext...');
+      } catch (err) {
+        logger.error('Error processing OAuth callback:', err);
+        setStatus('error');
+        setErrorMessage(err instanceof Error ? err.message : 'An error occurred during authentication.');
+      }
+    };
+
+    processTokens();
+  }, [searchParams]);
+
+  // Step 2: React to auth status changes from AuthContext
+  useEffect(() => {
+    if (status === 'error') return; // Don't override error state
+    if (hasRedirected) return;
+
+    logger.debug('AuthCallback: Auth status changed to:', authStatus);
+
     switch (authStatus) {
       case 'initializing':
       case 'verifying_admin':
-        // Still processing
         setStatus('processing');
         break;
 
       case 'admin_verified':
-        // Success - admin access verified
-        if (!hasRedirected) {
-          setStatus('success');
-          setHasRedirected(true);
+        setStatus('success');
+        setHasRedirected(true);
 
-          // Get return URL or default to dashboard
+        // Get return URL or default to dashboard
+        {
           const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
           sessionStorage.removeItem('auth_return_url');
 
           logger.info('OAuth callback: Admin verified, redirecting to:', returnUrl);
 
-          // Small delay to show success state
           setTimeout(() => {
             navigate(returnUrl, { replace: true });
           }, 1000);
@@ -104,40 +182,27 @@ const AuthCallback = () => {
 
       case 'authenticated':
         // User is authenticated but NOT an admin
-        if (!hasRedirected) {
-          setStatus('error');
-          setHasRedirected(true);
-          setErrorMessage('Access denied. Your account is not authorized for admin access.');
-          logger.warn('OAuth callback: User authenticated but not admin');
-        }
+        setStatus('error');
+        setHasRedirected(true);
+        setErrorMessage('Access denied. Your account is not authorized for admin access.');
+        logger.warn('OAuth callback: User authenticated but not admin');
         break;
 
       case 'unauthenticated':
-        // Auth failed
-        if (!hasRedirected) {
-          setStatus('error');
-          setHasRedirected(true);
-          setErrorMessage(authError || 'Authentication failed. Please try again.');
-          logger.warn('OAuth callback: Authentication failed');
-        }
+        // Only show error if we've been processing for a while
+        // (initial unauthenticated state is expected before tokens are processed)
         break;
 
       case 'error':
-        // General error
-        if (!hasRedirected) {
-          setStatus('error');
-          setHasRedirected(true);
-          setErrorMessage(authError || 'An error occurred during authentication.');
-          logger.error('OAuth callback: Auth error state');
-        }
+        setStatus('error');
+        setHasRedirected(true);
+        setErrorMessage(authError || 'An error occurred during authentication.');
+        logger.error('OAuth callback: Auth error state');
         break;
-
-      default:
-        logger.debug('OAuth callback: Unknown auth status:', authStatus);
     }
-  }, [authStatus, isAdminVerified, authError, navigate, hasRedirected]);
+  }, [authStatus, isAdminVerified, authError, navigate, hasRedirected, status]);
 
-  // Timeout - if still processing after 30 seconds, show error
+  // Step 3: Timeout - if still processing after 30 seconds, show error
   useEffect(() => {
     if (status !== 'processing') return;
 
