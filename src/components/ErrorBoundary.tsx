@@ -167,11 +167,15 @@ class ErrorBoundary extends Component<Props, State> {
       // Specialized UI for chunk load errors (stale deployment)
       if (this.state.isChunkError) {
         return (
-          <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+          <div
+            className="min-h-screen flex items-center justify-center p-4 bg-background"
+            role="status"
+            aria-live="polite"
+          >
             <Card className="max-w-md w-full">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <Download className="h-6 w-6 text-primary" />
+                  <Download className="h-6 w-6 text-primary" aria-hidden="true" />
                   <CardTitle>Update Available</CardTitle>
                 </div>
                 <CardDescription>
@@ -214,11 +218,16 @@ class ErrorBoundary extends Component<Props, State> {
 
       // Default fallback UI for other errors
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div
+          className="min-h-screen flex items-center justify-center p-4 bg-background"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
           <Card className="max-w-2xl w-full">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-6 w-6 text-destructive" />
+                <AlertCircle className="h-6 w-6 text-destructive" aria-hidden="true" />
                 <CardTitle>Something went wrong</CardTitle>
               </div>
               <CardDescription>

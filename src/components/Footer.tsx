@@ -44,7 +44,12 @@ const Footer = () => {
     { name: 'Projects', href: '/projects' },
     { name: 'News', href: '/news' },
     { name: 'AI Tools', href: '/ai-tools' },
-    { name: 'Connect', href: '/connect' }
+    { name: 'Connect', href: '/connect' },
+    { name: 'FAQ', href: '/faq' }
+  ];
+
+  const legalLinks = [
+    { name: 'Accessibility', href: '/accessibility' }
   ];
 
   return (
@@ -87,16 +92,17 @@ const Footer = () => {
             <div className="flex justify-center sm:justify-start space-x-4">
               {socialLinks.map((social) => {
                 const Icon = social.icon;
+                const isExternal = social.href.startsWith('http');
                 return (
                   <a
                     key={social.name}
                     href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    target={isExternal ? "_blank" : undefined}
+                    rel={isExternal ? "noopener noreferrer" : undefined}
                     className="touch-target-lg rounded-xl bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center active:scale-95 hover:shadow-lg hover:shadow-primary/10"
-                    aria-label={`Connect on ${social.name}`}
+                    aria-label={`Connect on ${social.name}${isExternal ? ' (opens in new tab)' : ''}`}
                   >
-                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                   </a>
                 );
               })}
@@ -118,13 +124,26 @@ const Footer = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-sm sm:text-sm text-muted-foreground order-1 sm:order-2">
+            {/* Legal/Accessibility Links */}
+            <nav aria-label="Legal" className="flex items-center gap-3">
+              {legalLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className="hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-muted/20 active:bg-muted/30 px-2"
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </nav>
+            <span className="hidden sm:inline text-border">|</span>
             <span className="font-medium">Built with React & Supabase</span>
             <Link
               to="/admin/login"
               className="flex items-center space-x-2 hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-muted/20 active:bg-muted/30 px-4"
             >
               <span>Admin</span>
-              <ExternalLink className="h-4 w-4" />
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
         </div>

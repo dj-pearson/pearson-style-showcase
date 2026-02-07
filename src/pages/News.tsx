@@ -176,12 +176,15 @@ const News = () => {
             <div className="flex flex-col gap-4">
               {/* Search */}
               <div className="relative w-full">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" />
+                <label htmlFor="article-search" className="sr-only">Search articles</label>
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" aria-hidden="true" />
                 <Input
+                  id="article-search"
                   placeholder="Search articles, tags, or content..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="mobile-input pl-12 bg-gray-700/50 border-gray-600 focus:border-cyan-500 text-base"
+                  aria-label="Search articles"
                 />
               </div>
 
@@ -309,7 +312,9 @@ const News = () => {
                 Subscribe to get the latest insights on AI, technology, and business strategy delivered to your inbox.
               </p>
               <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
+                <label htmlFor="newsletter-email" className="sr-only">Email address for newsletter</label>
                 <Input
+                  id="newsletter-email"
                   type="email"
                   placeholder="Enter your email"
                   value={email}
@@ -317,6 +322,7 @@ const News = () => {
                   className="flex-1 bg-gray-700 border-gray-600 focus:border-cyan-500 min-h-[48px] text-base"
                   required
                   disabled={isSubscribing}
+                  aria-label="Email address for newsletter subscription"
                 />
                 <Button
                   type="submit"

@@ -207,13 +207,14 @@ const AITools = () => {
                               {tool.title}
                             </CardTitle>
                             {tool.link && (
-                              <a 
-                                href={tool.link} 
-                                target="_blank" 
+                              <a
+                                href={tool.link}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-gray-400 hover:text-cyan-400 transition-colors"
+                                aria-label={`Visit ${tool.title} website (opens in new tab)`}
                               >
-                                <ExternalLink className="w-4 h-4" />
+                                <ExternalLink className="w-4 h-4" aria-hidden="true" />
                               </a>
                             )}
                           </div>

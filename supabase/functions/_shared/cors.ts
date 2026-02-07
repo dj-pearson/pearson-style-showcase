@@ -9,14 +9,6 @@ export const ALLOWED_ORIGINS = [
   "https://danpearson.net",
   "https://www.danpearson.net",
 
-  // Lovable project domains
-  "https://53293242-1a3e-40cf-bf21-2a4867985711.lovableproject.com",
-  "https://9bf99955-d7e1-4b0d-8abc-f62199d56772.lovableproject.com",
-  "https://id-preview--53293242-1a3e-40cf-bf21-2a4867985711.lovable.app",
-  "https://id-preview--9bf99955-d7e1-4b0d-8abc-f62199d56772.lovable.app",
-  "https://pearson-style-showcase.lovable.app",
-  "https://preview--pearson-style-showcase.lovable.app",
-
   // Local development
   "http://localhost:8080",
   "http://localhost:5173",

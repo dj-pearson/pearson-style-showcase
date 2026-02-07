@@ -211,16 +211,18 @@ const About = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => window.open(profile?.linkedin_url || 'https://www.linkedin.com/in/danpearson', '_blank')}
+                        aria-label="Visit LinkedIn profile (opens in new tab)"
                       >
-                        <Linkedin className="w-4 h-4 mr-2" />
+                        <Linkedin className="w-4 h-4 mr-2" aria-hidden="true" />
                         LinkedIn
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => window.open(profile?.github_url || 'https://github.com/danpearson', '_blank')}
+                        aria-label="Visit GitHub profile (opens in new tab)"
                       >
-                        <Github className="w-4 h-4 mr-2" />
+                        <Github className="w-4 h-4 mr-2" aria-hidden="true" />
                         GitHub
                       </Button>
                     </div>

@@ -29,10 +29,10 @@ Deno.serve(async (req) => {
       throw new Error('Article not found');
     }
 
-    // Generate social media content using Lovable AI
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      throw new Error('Lovable API key not configured');
+    // Generate social media content using OpenAI
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
     }
 
     const prompt = `Based on this article, create engaging social media posts:
@@ -50,14 +50,14 @@ Return ONLY valid JSON in this exact format:
   "longForm": "your facebook post here"
 }`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 

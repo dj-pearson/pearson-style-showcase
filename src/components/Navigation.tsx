@@ -85,7 +85,7 @@ const Navigation = () => {
         />
       )}
 
-      <nav className="fixed top-0 left-0 right-0 z-50 navbar-blur">
+      <nav className="fixed top-0 left-0 right-0 z-50 navbar-blur" role="navigation" aria-label="Main navigation">
         <div className="container mx-auto mobile-container py-3 sm:py-4">
           <div className="flex items-center justify-between">
             {/* Logo - Mobile First with larger touch target */}
@@ -102,13 +102,13 @@ const Navigation = () => {
             {/* Availability Badge */}
             {profile?.availability_status === 'available' && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" aria-hidden="true" />
                 <span className="text-xs font-medium text-green-500">Available</span>
               </div>
             )}
             {profile?.availability_status === 'limited' && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" aria-hidden="true"></div>
                 <span className="text-xs font-medium text-yellow-500">Limited</span>
               </div>
             )}
@@ -119,8 +119,9 @@ const Navigation = () => {
               size="sm"
               onClick={() => setIsSearchOpen(true)}
               className="flex items-center gap-2 text-muted-foreground hover:text-primary"
+              aria-label="Open search"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4" aria-hidden="true" />
               <span className="hidden xl:inline">Search</span>
               <kbd className="hidden xl:inline px-1.5 py-0.5 text-xs bg-muted rounded">⌘K</kbd>
             </Button>
@@ -157,14 +158,18 @@ const Navigation = () => {
             className="lg:hidden text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
             aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
             aria-expanded={isMenuOpen}
+            aria-controls="mobile-navigation-menu"
           >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            {isMenuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
           </button>
         </div>
 
         {/* Mobile Navigation - Optimized for Touch & Swipe */}
         {isMenuOpen && (
           <div
+            id="mobile-navigation-menu"
+            role="menu"
+            aria-label="Navigation menu"
             className="lg:hidden mt-4 pb-4 border-t border-border"
             style={{
               animation: 'slideDown 0.3s ease-out',
@@ -177,13 +182,13 @@ const Navigation = () => {
               {/* Mobile Availability Badge */}
               {profile?.availability_status === 'available' && (
                 <div className="mx-4 mb-2 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <CheckCircle2 className="w-4 h-4 text-green-500" aria-hidden="true" />
                   <span className="text-sm font-medium text-green-500">Available for Projects</span>
                 </div>
               )}
               {profile?.availability_status === 'limited' && (
                 <div className="mx-4 mb-2 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" aria-hidden="true"></div>
                   <span className="text-sm font-medium text-yellow-500">Limited Availability</span>
                 </div>
               )}

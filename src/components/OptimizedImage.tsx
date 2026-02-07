@@ -181,9 +181,13 @@ export const OptimizedImage = ({
         </picture>
       )}
 
-      {/* Error overlay */}
+      {/* Error overlay - accessible announcement */}
       {hasError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-muted/50"
+          role="alert"
+          aria-live="polite"
+        >
           <p className="text-xs text-muted-foreground">Failed to load image</p>
         </div>
       )}

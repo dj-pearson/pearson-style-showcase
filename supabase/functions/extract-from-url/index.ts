@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
-const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -22,8 +22,8 @@ serve(async (req) => {
       );
     }
 
-    if (!lovableApiKey) {
-      console.error('Lovable API key not found');
+    if (!openaiApiKey) {
+      console.error('OpenAI API key not found');
       return new Response(
         JSON.stringify({ error: 'AI service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -166,15 +166,15 @@ ${pageContent}
 Return ONLY the JSON object, no other text.`;
     }
 
-    // Call Lovable AI API
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call OpenAI API
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: extractionPrompt }
