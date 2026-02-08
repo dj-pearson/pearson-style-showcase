@@ -70,11 +70,48 @@ export const useAnalytics = () => {
     trackEvent('scroll', 'User Engagement', `${percentage}% scrolled`);
   };
 
+  // Conversion tracking methods
+  const trackConversion = (conversionType: string, label?: string, value?: number) => {
+    trackEvent('conversion', conversionType, label, value);
+  };
+
+  const trackNewsletterSignup = (status: 'attempt' | 'success' | 'failure') => {
+    trackEvent(`newsletter_${status}`, 'Newsletter', `Newsletter signup ${status}`);
+    if (status === 'success') {
+      trackEvent('generate_lead', 'Newsletter', 'Newsletter subscription', 1);
+    }
+  };
+
+  const trackContactForm = (status: 'start' | 'submit' | 'success' | 'failure') => {
+    trackEvent(`contact_form_${status}`, 'Contact', `Contact form ${status}`);
+    if (status === 'success') {
+      trackEvent('generate_lead', 'Contact', 'Contact form submission', 1);
+    }
+  };
+
+  const trackBookingIntent = (method: string) => {
+    trackEvent('booking_intent', 'Booking', `Booking via ${method}`, 1);
+  };
+
+  const trackOutboundLink = (url: string, label?: string) => {
+    trackEvent('outbound_click', 'Outbound Link', label || url);
+  };
+
+  const trackCTA = (ctaName: string, pageName: string) => {
+    trackEvent('cta_click', 'CTA', `${ctaName} - ${pageName}`, 1);
+  };
+
   return {
     trackEvent,
     trackClick,
     trackDownload,
     trackScroll,
+    trackConversion,
+    trackNewsletterSignup,
+    trackContactForm,
+    trackBookingIntent,
+    trackOutboundLink,
+    trackCTA,
   };
 };
 

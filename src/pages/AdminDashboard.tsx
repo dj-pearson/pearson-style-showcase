@@ -27,7 +27,9 @@ import {
   Rocket,
   User,
   Calculator,
-  Loader2
+  Loader2,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from '@/components/admin/KeyboardShortcutsHelp';
@@ -94,6 +96,8 @@ const AdminDashboard = () => {
     totalViews: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [activeView, setActiveView] = useState('overview');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const navigate = useNavigate();
@@ -175,6 +179,7 @@ const AdminDashboard = () => {
   }, []);
 
   const loadDashboardData = async () => {
+    setHasError(false);
     try {
       // Optimized queries: only select fields needed for counts and stats
       const [projectsData, articlesData, aiToolsData] = await Promise.all([
@@ -182,6 +187,10 @@ const AdminDashboard = () => {
         supabase.from('articles').select('view_count', { count: 'exact' }),
         supabase.from('ai_tools').select('id', { count: 'exact', head: true })
       ]);
+
+      if (projectsData.error) throw projectsData.error;
+      if (articlesData.error) throw articlesData.error;
+      if (aiToolsData.error) throw aiToolsData.error;
 
       const totalViews = articlesData.data?.reduce((sum, article) => sum + (article.view_count || 0), 0) || 0;
 
@@ -191,11 +200,23 @@ const AdminDashboard = () => {
         aiTools: aiToolsData.count || 0,
         totalViews
       });
+      setLastRefreshed(new Date());
     } catch (error) {
       logger.error('Error loading dashboard data:', error);
+      setHasError(true);
+      toast({
+        variant: "destructive",
+        title: "Failed to load dashboard data",
+        description: "Could not fetch stats. Click refresh to try again.",
+      });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    setIsLoading(true);
+    loadDashboardData();
   };
 
   const handleLogout = async () => {
@@ -226,26 +247,52 @@ const AdminDashboard = () => {
   const renderContent = () => {
     // Overview doesn't need lazy loading as it's lightweight
     if (activeView === 'overview') {
+      const formatRefreshed = () => {
+        if (!lastRefreshed) return 'Not yet loaded';
+        const now = new Date();
+        const diffMs = now.getTime() - lastRefreshed.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec < 10) return 'Just now';
+        if (diffSec < 60) return `${diffSec}s ago`;
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        return lastRefreshed.toLocaleTimeString();
+      };
+
       return (
         <div className="grid gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>System Status</CardTitle>
-              <CardDescription>Current system health and activity</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>System Status</CardTitle>
+                  <CardDescription>Current system health and activity</CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm">Database Connected</span>
+                  <div className={`w-3 h-3 rounded-full ${hasError ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                  <span className="text-sm">{hasError ? 'Database Error' : 'Database Connected'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <span className="text-sm">Authentication Active</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm">All Services Running</span>
+                  <div className={`w-3 h-3 rounded-full ${hasError ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                  <span className="text-sm">{hasError ? 'Some Services Degraded' : 'All Services Running'}</span>
                 </div>
               </div>
             </CardContent>
@@ -265,9 +312,15 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <Database className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">Database synchronized</span>
-                  <span className="text-xs text-muted-foreground">5 minutes ago</span>
+                  <span className="text-sm">Stats last refreshed</span>
+                  <span className="text-xs text-muted-foreground">{formatRefreshed()}</span>
                 </div>
+                {hasError && (
+                  <div className="flex items-center gap-3 text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm">Data fetch failed — click Refresh to retry</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -517,51 +570,61 @@ const AdminDashboard = () => {
           {/* Main Content Area */}
           <main className="flex-1 overflow-auto -webkit-overflow-scrolling-touch">
             <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
-              {/* Stats Cards */}
+              {/* Stats Cards with loading skeletons and error recovery */}
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
-                <Card className="p-0">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                    <CardTitle className="text-xs sm:text-sm font-medium truncate">Projects</CardTitle>
-                    <Database className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
-                    <div className="text-xl sm:text-2xl font-bold">{stats.projects}</div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Active</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="p-0">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                    <CardTitle className="text-xs sm:text-sm font-medium truncate">Articles</CardTitle>
-                    <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
-                    <div className="text-xl sm:text-2xl font-bold">{stats.articles}</div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Published</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="p-0">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                    <CardTitle className="text-xs sm:text-sm font-medium truncate">AI Tools</CardTitle>
-                    <Wrench className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
-                    <div className="text-xl sm:text-2xl font-bold">{stats.aiTools}</div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Available</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="p-0">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                    <CardTitle className="text-xs sm:text-sm font-medium truncate">Views</CardTitle>
-                    <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
-                    <div className="text-xl sm:text-2xl font-bold">{stats.totalViews}</div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
-                  </CardContent>
-                </Card>
+                {hasError ? (
+                  <Card className="col-span-full p-0">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium">Failed to load dashboard stats</p>
+                            <p className="text-xs text-muted-foreground">Check your connection and try again.</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRefresh}
+                          disabled={isLoading}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                          Retry
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    {[
+                      { label: 'Projects', value: stats.projects, sub: 'Active', icon: Database },
+                      { label: 'Articles', value: stats.articles, sub: 'Published', icon: FileText },
+                      { label: 'AI Tools', value: stats.aiTools, sub: 'Available', icon: Wrench },
+                      { label: 'Views', value: stats.totalViews, sub: 'Total', icon: BarChart3 },
+                    ].map(({ label, value, sub, icon: Icon }) => (
+                      <Card key={label} className="p-0">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                          <CardTitle className="text-xs sm:text-sm font-medium truncate">{label}</CardTitle>
+                          <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                        </CardHeader>
+                        <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                          {isLoading ? (
+                            <>
+                              <div className="h-7 sm:h-8 w-12 bg-muted animate-pulse rounded mb-1" />
+                              <div className="h-3 w-10 bg-muted animate-pulse rounded" />
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-xl sm:text-2xl font-bold">{value.toLocaleString()}</div>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">{sub}</p>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </>
+                )}
               </div>
 
               {/* Dynamic Content */}

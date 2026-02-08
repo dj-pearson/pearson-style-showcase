@@ -19,9 +19,11 @@ import {
 } from '@/components/ui/dialog';
 import { Calendar, HelpCircle, Mail, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAnalytics } from '@/components/Analytics';
 
 const Connect = () => {
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+  const { trackBookingIntent, trackOutboundLink, trackCTA } = useAnalytics();
   return (
     <div className="min-h-screen flex flex-col">
       <SEO 
@@ -74,6 +76,7 @@ const Connect = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-base sm:text-lg text-primary hover:underline touch-target font-medium"
+                    onClick={() => trackOutboundLink('https://www.linkedin.com/in/danpearson', 'LinkedIn Profile - Connect Page')}
                   >
                     View Profile →
                   </a>
@@ -98,7 +101,10 @@ const Connect = () => {
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => setIsBookingDialogOpen(true)}
+                      onClick={() => {
+                        trackCTA('Book a Time', 'Connect');
+                        setIsBookingDialogOpen(true);
+                      }}
                     >
                       Book a Time
                     </Button>
@@ -125,7 +131,10 @@ const Connect = () => {
                     className="w-full justify-start gap-3 h-auto py-4"
                     asChild
                   >
-                    <a href="mailto:dan@danpearson.net?subject=Schedule%20a%20Call&body=Hi%20Dan,%0A%0AI'd%20like%20to%20schedule%20a%20call%20to%20discuss%20a%20potential%20project.%0A%0APreferred%20times:%0A%0ABest%20regards">
+                    <a
+                      href="mailto:dan@danpearson.net?subject=Schedule%20a%20Call&body=Hi%20Dan,%0A%0AI'd%20like%20to%20schedule%20a%20call%20to%20discuss%20a%20potential%20project.%0A%0APreferred%20times:%0A%0ABest%20regards"
+                      onClick={() => trackBookingIntent('email')}
+                    >
                       <Mail className="w-5 h-5 text-primary" />
                       <div className="text-left">
                         <div className="font-medium">Request via Email</div>
@@ -144,6 +153,10 @@ const Connect = () => {
                       href="https://www.linkedin.com/in/danpearson"
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => {
+                        trackBookingIntent('linkedin');
+                        trackOutboundLink('https://www.linkedin.com/in/danpearson', 'LinkedIn - Booking');
+                      }}
                     >
                       <ExternalLink className="w-5 h-5 text-primary" />
                       <div className="text-left">

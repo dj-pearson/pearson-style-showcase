@@ -2,6 +2,7 @@ import { lazy, Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import Footer from '../components/Footer';
@@ -40,7 +41,8 @@ function shouldDisableHeavyAnimations(): boolean {
 }
 
 const Index = () => {
-  const { trackClick } = useAnalytics();
+  const { trackCTA } = useAnalytics();
+  const navigate = useNavigate();
   const mainRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -335,8 +337,8 @@ const Index = () => {
                     size="lg"
                     className="mobile-button btn-futuristic text-base sm:text-lg font-bold"
                     onClick={() => {
-                      trackClick('View Projects CTA', 'Homepage');
-                      window.location.href = '/projects';
+                      trackCTA('View Projects', 'Homepage');
+                      navigate('/projects');
                     }}
                   >
                     View My Projects
@@ -347,8 +349,8 @@ const Index = () => {
                     size="lg"
                     className="mobile-button text-base sm:text-lg font-semibold border-primary/50 hover:bg-primary/10 active:bg-primary/20 hover:border-primary"
                     onClick={() => {
-                      trackClick('Get In Touch CTA', 'Homepage');
-                      window.location.href = '/connect';
+                      trackCTA('Get In Touch', 'Homepage');
+                      navigate('/connect');
                     }}
                   >
                     Get In Touch
