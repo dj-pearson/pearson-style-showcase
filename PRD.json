@@ -1,0 +1,234 @@
+{
+  "project": "pearson-style-showcase",
+  "branchName": "claude/platform-improvements",
+  "description": "Platform Improvements - High-impact UX, SEO, accessibility, and performance enhancements identified during codebase audit",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add SEO meta tags to archive pages",
+      "description": "As a site owner, I want all archive pages (TopicHub, AuthorArchive, CategoryArchive, TagArchive, DateArchive) to have proper SEO meta tags so that search engines can index them correctly and drive organic traffic.",
+      "acceptanceCriteria": [
+        "Each archive page uses the SEO component with dynamic title and description based on the archive content",
+        "Canonical URLs are set correctly on each archive page to prevent duplicate content issues",
+        "Structured data (BreadcrumbList) is added to archive pages",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add canonical URL support to SEO component and Article page",
+      "description": "As a site owner, I want canonical URLs on article pages to prevent search engines from seeing duplicate content when articles are accessible from multiple URL patterns.",
+      "acceptanceCriteria": [
+        "SEO component accepts an optional canonical prop",
+        "When canonical is provided, a <link rel='canonical'> tag is rendered in the head",
+        "Article.tsx passes canonical URL (https://danpearson.net/news/{slug}) to SEO component",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add accessibility labels to Vault search and filter inputs",
+      "description": "As a user with a screen reader, I want form inputs in the Vault dashboard and other admin components to have proper labels so I can navigate the interface effectively.",
+      "acceptanceCriteria": [
+        "SecureVaultDashboard search input has aria-label='Search vault items'",
+        "All filter Select components in admin have associated labels or aria-label attributes",
+        "News.tsx search input has aria-label='Search articles'",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add debounce to search inputs on News and admin list pages",
+      "description": "As a user, I want search filtering to be debounced so that typing rapidly doesn't cause unnecessary re-renders and filtering computations on every keystroke.",
+      "acceptanceCriteria": [
+        "Create a useDebounce hook (or use existing pattern) with configurable delay",
+        "News.tsx search uses 300ms debounce before updating filter state",
+        "ArticleManager search uses 300ms debounce",
+        "Search still feels responsive to the user",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Extract localStorage filter persistence into useLocalStorage hook",
+      "description": "As a developer, I want a reusable useLocalStorage hook to reduce boilerplate and prevent sync issues when persisting filter state to localStorage.",
+      "acceptanceCriteria": [
+        "Create src/hooks/useLocalStorage.ts with generic useLocalStorage<T>(key, defaultValue) hook",
+        "Refactor News.tsx to use useLocalStorage for searchTerm, selectedCategory, and sortBy",
+        "Hook handles JSON serialization/deserialization safely with try/catch",
+        "Existing behavior is preserved (filters persist across page visits)",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add loading disabled state to admin mutation action buttons",
+      "description": "As an admin, I want action buttons (delete, publish, webhook send) to show loading state and be disabled during mutations so I don't accidentally trigger duplicate operations.",
+      "acceptanceCriteria": [
+        "ArticleManager delete button shows spinner and is disabled during deleteArticleMutation.isPending",
+        "ArticleManager publish/featured toggles are disabled during their respective mutation.isPending states",
+        "Save button in article dialog shows loading state during save operation",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add lazy loading attributes to markdown-rendered images",
+      "description": "As a user, I want images rendered in article markdown content to lazy load so that pages with many images load faster and use less bandwidth.",
+      "acceptanceCriteria": [
+        "MarkdownRenderer (or equivalent) adds loading='lazy' and decoding='async' to all <img> tags in markdown",
+        "Images have width and height attributes where possible to prevent CLS",
+        "Above-the-fold hero images are excluded from lazy loading",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Verify and fix dark mode color contrast for WCAG AA compliance",
+      "description": "As a user with low vision, I want all text to meet WCAG AA contrast requirements (4.5:1 for normal text, 3:1 for large text) in both light and dark modes.",
+      "acceptanceCriteria": [
+        "Audit muted-foreground color variable against dark mode background for contrast ratio",
+        "Fix any color combinations that fall below 4.5:1 ratio for normal text",
+        "Document the color changes made in commit message",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Current muted-foreground (215 20% 65%) on dark backgrounds may not meet 4.5:1 contrast ratio"
+    },
+    {
+      "id": "US-009",
+      "title": "Add rate limit detection to ContactForm",
+      "description": "As a user, I want to see a clear message if I submit the contact form too many times in quick succession, rather than a generic error.",
+      "acceptanceCriteria": [
+        "ContactForm detects 429 rate limit errors from the edge function response",
+        "A specific user-friendly message is shown: 'Too many messages sent. Please wait a few minutes before trying again.'",
+        "Submit button is temporarily disabled after a rate limit error with a countdown",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add RSS feed auto-discovery meta tag",
+      "description": "As a content consumer, I want the site to expose an RSS feed auto-discovery link so that RSS readers can automatically find and subscribe to the feed.",
+      "acceptanceCriteria": [
+        "Add <link rel='alternate' type='application/rss+xml' title='Dan Pearson - AI Business Automation' href='/rss.xml'> to index.html or SEO component",
+        "RSS feed URL is accessible and returns valid XML",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "RSSFeed.tsx already exists but auto-discovery meta tag may be missing"
+    },
+    {
+      "id": "US-011",
+      "title": "Add copy-to-clipboard feedback in Secure Vault",
+      "description": "As an admin using the Vault, I want to see a toast notification when I copy a secret or command to clipboard so I have confirmation the action succeeded.",
+      "acceptanceCriteria": [
+        "Copy actions in SecureVaultDashboard and CommandBuilder show toast notification on success",
+        "Toast message includes what was copied (e.g., 'Secret copied to clipboard')",
+        "Clipboard API failure shows an error toast",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Replace window.location.href with React Router navigate in remaining components",
+      "description": "As a developer, I want all internal navigation to use React Router's navigate() instead of window.location.href so that navigation is handled client-side without full page reloads.",
+      "acceptanceCriteria": [
+        "Audit all uses of window.location.href for internal paths",
+        "Replace with useNavigate hook and navigate() calls",
+        "External links (mailto:, https:// to third-party sites) are left unchanged",
+        "Navigation behavior is preserved",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Partially addressed - Index.tsx and CaseStudies.tsx already fixed. Check remaining components."
+    },
+    {
+      "id": "US-013",
+      "title": "Add structured data to Connect page for ContactPage schema",
+      "description": "As a site owner, I want the Connect page to have ContactPage structured data so search engines understand it's a contact page and can show rich results.",
+      "acceptanceCriteria": [
+        "Connect.tsx includes StructuredData component with ContactPage schema type",
+        "Schema includes business name, email, and description",
+        "Validates successfully with Google's Rich Results Test",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Add error boundary per tab in admin dashboard for independent failure isolation",
+      "description": "As an admin, I want each admin dashboard section to fail independently so that an error in one section (e.g., accounting) doesn't crash other sections (e.g., articles).",
+      "acceptanceCriteria": [
+        "Verify all lazy-loaded admin sections are wrapped in SectionErrorBoundary",
+        "Test that each section can fail without affecting the sidebar or other sections",
+        "Add SectionErrorBoundary to any sections missing it",
+        "Typecheck passes",
+        "Build succeeds with npm run build"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Most sections already have SectionErrorBoundary, but verify complete coverage"
+    },
+    {
+      "id": "US-015",
+      "title": "Add newsletter signup conversion tracking to GA4 as a goal",
+      "description": "As a site owner, I want newsletter signups tracked as GA4 conversions so I can measure signup rates and optimize the funnel in Google Analytics.",
+      "acceptanceCriteria": [
+        "Newsletter signup success fires a 'generate_lead' event (already implemented in Analytics.tsx)",
+        "Document in README or CLAUDE.md that 'generate_lead' and 'newsletter_success' events should be marked as conversions in GA4 admin",
+        "Contact form success also fires 'generate_lead' event",
+        "Verify events appear in GA4 Realtime report during testing",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "Analytics enhancement partially implemented - tracking methods added, GA4 conversion marking is a manual step in Google Analytics admin"
+    }
+  ]
+}

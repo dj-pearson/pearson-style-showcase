@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, ArrowRight, Code, Zap, TrendingUp, LucideIcon } from 'lucide-react';
 import { useAnalytics } from './Analytics';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +30,8 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 const CaseStudies = () => {
-  const { trackClick } = useAnalytics();
+  const { trackCTA } = useAnalytics();
+  const navigate = useNavigate();
 
   // Fetch case studies from database
   const { data: caseStudies = [], isLoading } = useQuery({
@@ -208,8 +210,8 @@ const CaseStudies = () => {
           <Button
             size="lg"
             onClick={() => {
-              trackClick('Discuss Your Project CTA', 'Case Studies');
-              window.location.href = '/connect';
+              trackCTA('Discuss Your Project', 'Case Studies');
+              navigate('/connect');
             }}
             className="btn-futuristic"
           >

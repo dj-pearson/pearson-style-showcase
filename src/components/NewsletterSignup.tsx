@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { Loader2, Mail, ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useAnalytics } from '@/components/Analytics';
 
 const newsletterSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -19,6 +20,7 @@ type NewsletterFormData = z.infer<typeof newsletterSchema>;
 const NewsletterSignup = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
+  const { trackNewsletterSignup } = useAnalytics();
 
   const {
     register,
@@ -31,7 +33,8 @@ const NewsletterSignup = () => {
 
   const onSubmit = async (data: NewsletterFormData) => {
     setIsSubmitting(true);
-    
+    trackNewsletterSignup('attempt');
+
     try {
       const { data: result, error } = await invokeEdgeFunction('newsletter-signup', {
         body: { email: data.email }
@@ -41,15 +44,17 @@ const NewsletterSignup = () => {
         logger.error('Newsletter signup error:', error);
         throw new Error(error.message || 'Failed to subscribe');
       }
-      
+
+      trackNewsletterSignup('success');
       toast({
         title: "Successfully subscribed!",
         description: result.message || "Thank you for subscribing. Check your inbox for a welcome email!",
       });
-      
+
       reset();
     } catch (error) {
       logger.error('Newsletter signup failed:', error);
+      trackNewsletterSignup('failure');
       toast({
         title: "Subscription failed",
         description: error instanceof Error ? error.message : "Please try again later or contact me directly.",
