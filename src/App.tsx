@@ -12,6 +12,9 @@ import RoutePrefetcher from "./components/RoutePrefetcher";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AccessibilityProvider } from "./contexts/AccessibilityContext";
+import AccessibilityWidget from "./components/AccessibilityWidget";
+import RouteAnnouncer from "./components/RouteAnnouncer";
 
 // Lazy load pages to reduce initial bundle and improve FID
 import Index from "./pages/Index";
@@ -61,8 +64,10 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <AccessibilityProvider>
           <AuthProvider>
             <URLHandler>
+            <RouteAnnouncer />
             <Analytics />
             <ScrollTracker />
             <RoutePrefetcher />
@@ -143,6 +148,8 @@ const App = () => (
             </Suspense>
             </URLHandler>
           </AuthProvider>
+          <AccessibilityWidget />
+          </AccessibilityProvider>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

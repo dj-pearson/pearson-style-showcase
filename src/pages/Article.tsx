@@ -98,7 +98,7 @@ const Article = () => {
           type="article"
         />
         <Navigation />
-        <div id="main-content" className="flex-1 pt-20 px-4 md:px-6" role="status" aria-label="Loading article">
+        <main id="main-content" className="flex-1 pt-20 px-4 md:px-6" role="status" aria-label="Loading article">
           <div className="container mx-auto max-w-4xl">
             <div className="animate-pulse space-y-8">
               {/* Breadcrumb skeleton */}
@@ -137,7 +137,7 @@ const Article = () => {
               </div>
             </div>
           </div>
-        </div>
+        </main>
         <Footer />
       </div>
     );
@@ -256,7 +256,7 @@ const Article = () => {
       />
 
       <Navigation />
-      <div id="main-content" className="flex-1 pt-20 px-4 md:px-6">
+      <main id="main-content" className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-4xl">
           {/* Breadcrumbs */}
           <div className="mb-6">
@@ -480,7 +480,7 @@ const Article = () => {
             </div>
           </nav>
         </div>
-      </div>
+      </main>
       <Footer />
     </div>
   );

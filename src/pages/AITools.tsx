@@ -51,17 +51,17 @@ const AITools = () => {
   const getIcon = (category: string) => {
     switch (category?.toLowerCase()) {
       case 'chatbot':
-        return <Bot className="w-8 h-8" />;
+        return <Bot className="w-8 h-8" aria-hidden="true" />;
       case 'automation':
-        return <Brain className="w-8 h-8" />;
+        return <Brain className="w-8 h-8" aria-hidden="true" />;
       case 'image':
-        return <Image className="w-8 h-8" />;
+        return <Image className="w-8 h-8" aria-hidden="true" />;
       case 'development':
-        return <Code className="w-8 h-8" />;
+        return <Code className="w-8 h-8" aria-hidden="true" />;
       case 'content':
-        return <FileText className="w-8 h-8" />;
+        return <FileText className="w-8 h-8" aria-hidden="true" />;
       default:
-        return <Sparkles className="w-8 h-8" />;
+        return <Sparkles className="w-8 h-8" aria-hidden="true" />;
     }
   };
 
@@ -89,7 +89,7 @@ const AITools = () => {
         }}
       />
       <Navigation />
-      <div id="main-content" className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
+      <main id="main-content" className="flex-1 pt-20 sm:pt-24 px-4 sm:px-6">
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center py-8 sm:py-12 lg:py-16">
@@ -343,7 +343,7 @@ const AITools = () => {
             </div>
           </div>
         </div>
-      </div>
+      </main>
       <Footer />
     </div>
   );
