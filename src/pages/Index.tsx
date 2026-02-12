@@ -276,7 +276,7 @@ const Index = () => {
                 <CardContent className="mobile-card text-center">
                   <div className="mb-6">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                      <Code className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                      <Code className="w-8 h-8 sm:w-10 sm:h-10 text-white" aria-hidden="true" />
                     </div>
                   </div>
                   <h3 className="mobile-heading-sm text-foreground mb-4">NFT Development</h3>
@@ -291,7 +291,7 @@ const Index = () => {
                 <CardContent className="mobile-card text-center">
                   <div className="mb-6">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-                      <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                      <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-white" aria-hidden="true" />
                     </div>
                   </div>
                   <h3 className="mobile-heading-sm text-foreground mb-4">AI Integration</h3>
@@ -306,7 +306,7 @@ const Index = () => {
                 <CardContent className="mobile-card text-center">
                   <div className="mb-6">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-                      <Globe className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                      <Globe className="w-8 h-8 sm:w-10 sm:h-10 text-white" aria-hidden="true" />
                     </div>
                   </div>
                   <h3 className="mobile-heading-sm text-foreground mb-4">Sales Leadership</h3>
@@ -342,7 +342,7 @@ const Index = () => {
                     }}
                   >
                     View My Projects
-                    <ArrowRight className="ml-2 w-5 h-5" />
+                    <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
                   </Button>
                   <Button
                     variant="outline"

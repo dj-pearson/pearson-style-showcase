@@ -1033,3 +1033,99 @@
     outline: none !important;
   }
 }
+
+/* =========================================
+   ACCESSIBILITY WIDGET MODES
+   User-controlled accessibility preferences
+   ========================================= */
+
+/*
+ * High Contrast Mode
+ * WCAG 1.4.3, 1.4.6 - Enhanced contrast for users who need it
+ */
+.a11y-high-contrast {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --muted-foreground: 0 0% 85%;
+  --card: 0 0% 5%;
+  --border: 0 0% 40%;
+}
+
+.a11y-high-contrast body {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+.a11y-high-contrast .text-muted-foreground {
+  color: hsl(0 0% 85%) !important;
+}
+
+.a11y-high-contrast .text-gray-400,
+.a11y-high-contrast .text-gray-500 {
+  color: hsl(0 0% 80%) !important;
+}
+
+.a11y-high-contrast a,
+.a11y-high-contrast button {
+  outline-offset: 2px;
+}
+
+.a11y-high-contrast *:focus-visible {
+  outline: 3px solid #ffff00 !important;
+  outline-offset: 3px;
+}
+
+/*
+ * Reduced Motion Mode
+ * WCAG 2.3.3 - User-triggered reduced motion
+ */
+.a11y-reduced-motion,
+.a11y-reduced-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.a11y-reduced-motion .animate-pulse,
+.a11y-reduced-motion .animate-spin,
+.a11y-reduced-motion .animate-bounce,
+.a11y-reduced-motion .animate-fade-in {
+  animation: none !important;
+}
+
+/*
+ * Highlight Links Mode
+ * WCAG 1.4.1 - Use of color: ensures links are identifiable without color alone
+ */
+.a11y-highlight-links a:not([role="button"]) {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+}
+
+.a11y-highlight-links a:not([role="button"]):hover,
+.a11y-highlight-links a:not([role="button"]):focus {
+  outline: 2px solid currentColor !important;
+  outline-offset: 2px;
+  text-decoration: underline !important;
+}
+
+/*
+ * Large Cursor Mode
+ * Increased pointer visibility
+ */
+.a11y-large-cursor,
+.a11y-large-cursor * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M4 4l20 8-8 4-4 8z' fill='%23000' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E") 4 4, auto !important;
+}
+
+.a11y-large-cursor a,
+.a11y-large-cursor button,
+.a11y-large-cursor [role="button"],
+.a11y-large-cursor input,
+.a11y-large-cursor select,
+.a11y-large-cursor textarea,
+.a11y-large-cursor [tabindex] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23000' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23fff' stroke-width='1'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23000'/%3E%3C/svg%3E") 16 16, pointer !important;
+}

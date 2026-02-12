@@ -118,11 +118,11 @@ const Search = () => {
   const getIcon = (type: SearchResult['type']) => {
     switch (type) {
       case 'article':
-        return <FileText className="w-5 h-5" />;
+        return <FileText className="w-5 h-5" aria-hidden="true" />;
       case 'project':
-        return <Folder className="w-5 h-5" />;
+        return <Folder className="w-5 h-5" aria-hidden="true" />;
       case 'ai_tool':
-        return <Wrench className="w-5 h-5" />;
+        return <Wrench className="w-5 h-5" aria-hidden="true" />;
     }
   };
 
@@ -150,7 +150,7 @@ const Search = () => {
 
       <Navigation />
 
-      <div id="main-content" className="flex-1 pt-20 px-4 md:px-6">
+      <main id="main-content" className="flex-1 pt-20 px-4 md:px-6">
         <div className="container mx-auto max-w-4xl">
           {/* Back Button */}
           <div className="mb-6">
@@ -176,14 +176,17 @@ const Search = () => {
           {/* Search Input */}
           <form onSubmit={handleSearch} className="mb-8">
             <div className="relative">
-              <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" aria-hidden="true" />
+              <label htmlFor="search-input" className="sr-only">Search for articles, projects, AI tools</label>
               <Input
+                id="search-input"
                 type="text"
                 placeholder="Search for articles, projects, AI tools..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-12 h-14 text-lg"
                 autoFocus
+                aria-label="Search for articles, projects, AI tools"
               />
             </div>
           </form>
@@ -313,7 +316,7 @@ const Search = () => {
             )}
           </div>
         </div>
-      </div>
+      </main>
 
       <Footer />
     </div>

@@ -73,7 +73,7 @@ const Footer = () => {
           {/* Quick Links */}
           <div className="space-y-4 text-center sm:text-left">
             <h4 className="text-lg sm:text-lg font-semibold text-foreground">Quick Links</h4>
-            <nav className="flex flex-col space-y-1">
+            <nav aria-label="Quick links" className="flex flex-col space-y-1">
               {quickLinks.map((link) => (
                 <Link
                   key={link.name}
