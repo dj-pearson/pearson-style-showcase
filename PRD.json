@@ -1,7 +1,7 @@
 {
   "project": "pearson-style-showcase",
   "branchName": "ralph/enterprise-production-ready",
-  "description": "Enterprise Production Readiness - Comprehensive initiative to bring the Dan Pearson portfolio platform to production-grade quality with CI/CD pipelines, test coverage, edge function hardening, monitoring, API documentation, and accessibility compliance.",
+  "description": "Enterprise Production Readiness & Platform Audit - Comprehensive initiative to bring the Dan Pearson portfolio platform to production-grade quality with CI/CD pipelines, test coverage, edge function hardening, monitoring, API documentation, accessibility compliance, plus security hardening, performance optimization, UI/UX improvements, and design system consistency identified through a full platform audit.",
   "userStories": [
     {
       "id": "US-001",
@@ -442,6 +442,423 @@
       "priority": 25,
       "passes": false,
       "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Fix XSS vulnerabilities in MarkdownRenderer custom HTML parsing",
+      "description": "As a security engineer, I need the MarkdownRenderer's custom syntax parser hardened against XSS so that user-authored markdown content cannot execute arbitrary JavaScript.",
+      "acceptanceCriteria": [
+        "Audit src/components/MarkdownRenderer.tsx custom HTML syntax parser (lines 29-52) and identify all regex-based replacements that output unsanitized user input",
+        "Validate all URLs at parse time (not click time) using validateUrl from src/lib/security.ts - reject javascript:, data:, and vbscript: protocols",
+        "Sanitize data-url, data-style, and all data-* attributes before rendering custom buttons, alerts, and badges",
+        "Remove 'button' from DOMPurify ALLOWED_TAGS or ensure onclick handlers cannot execute user-provided code",
+        "Add img src validation using validateUrl to reject data:image/svg URIs that could contain embedded JavaScript (lines 161-176)",
+        "Add unit tests in src/components/__tests__/MarkdownRenderer.test.tsx with XSS attack vectors: javascript: URLs, event handler injection, SVG XSS, and nested encoding attacks",
+        "All existing markdown rendering still works correctly after changes",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "CRITICAL: Security audit identified stored XSS vectors through custom [button:], [alert:], and [badge:] syntax plus unvalidated image sources."
+    },
+    {
+      "id": "US-027",
+      "title": "Fix session rotation race condition for multi-tab safety",
+      "description": "As a security engineer, I need the session rotation mechanism to be safe across multiple browser tabs so that concurrent rotations don't desynchronize tokens or cause session invalidation.",
+      "acceptanceCriteria": [
+        "Update src/lib/session-rotation.ts to replace the in-memory pendingRotation flag with a localStorage-based atomic lock using timestamps",
+        "Implement inter-tab communication via storage events so that when one tab rotates, other tabs recognize the rotation and update their local state",
+        "Add a distributed lock timeout of 30 seconds to prevent hung rotations from blocking all tabs",
+        "Ensure that between setting the lock and completing the token refresh (lines 152-174), no other tab can initiate a concurrent rotation",
+        "Add a fallback mechanism: if rotation fails, the session should remain valid with the previous token rather than invalidating",
+        "Add unit tests verifying: single-tab rotation works, lock prevents concurrent rotations, lock timeout releases after 30s, and failed rotation preserves previous session",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "CRITICAL: Race condition between pendingRotation flag check and token refresh allows multiple tabs to trigger concurrent rotations."
+    },
+    {
+      "id": "US-028",
+      "title": "Harden OAuth state parameter with session and provider binding",
+      "description": "As a security engineer, I need the OAuth state parameter cryptographically bound to the user session and provider so that state parameter interception or replay attacks are prevented.",
+      "acceptanceCriteria": [
+        "Update src/lib/oauth-state.ts to bind the state parameter to: a CSRF token from src/lib/csrf.ts, the OAuth provider name, and the intended redirect URL",
+        "Include provider and redirect_to in the state hash verification so that a state generated for one provider cannot be used for another",
+        "Replace the immediate state clearing after verification (line 56) with a configurable retention period (default 5 minutes) to handle slow redirects without introducing replay risk",
+        "Update src/lib/csrf.ts to use crypto.getRandomValues() instead of Date.now().toString(36) for token generation (line 99-104) to prevent enumerable/predictable tokens",
+        "Reduce CSRF token expiration from 4 hours to 30 minutes for OAuth-related flows",
+        "Ensure all OAuth flows (proxy, PKCE, legacy) consistently validate state through the updated mechanism",
+        "Add unit tests verifying: state includes provider binding, cross-provider state is rejected, expired state is rejected, and CSRF tokens are cryptographically random",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "CRITICAL: OAuth state only bound to time and random data, not session or provider. CSRF tokens use predictable Date.now()."
+    },
+    {
+      "id": "US-029",
+      "title": "Secure device trust tokens against replay attacks",
+      "description": "As a security engineer, I need device trust tokens hashed before storage and bound to additional entropy so that stolen trust tokens cannot be replayed from other devices.",
+      "acceptanceCriteria": [
+        "Update src/lib/device-trust.ts to hash trust tokens using SHA-256 before storing in localStorage - never store plaintext fingerprints or trust tokens",
+        "Add rate limiting to trust token verification (max 5 verifications per minute) to prevent brute-force fingerprint guessing",
+        "Bind trust tokens to at least 3 entropy sources beyond canvas/WebGL fingerprinting (e.g., timezone, installed fonts hash, screen dimensions)",
+        "Add automatic trust token rotation: when a trusted device is verified, rotate the stored token to a new value (forward secrecy)",
+        "Ensure device fingerprints are generated using the Web Crypto API (crypto.subtle.digest) rather than custom hashing",
+        "Add 'last used' timestamp to trust records and invalidate tokens not used within 14 days (rather than 30-day flat expiry)",
+        "Add unit tests verifying: tokens are stored hashed, rate limiting blocks rapid verification attempts, rotated tokens remain valid, and inactive tokens expire",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": "HIGH: Trust tokens stored as plaintext hex in localStorage. 30-day tokens can be replayed indefinitely once stolen."
+    },
+    {
+      "id": "US-030",
+      "title": "Reduce admin cache TTL and add re-verification for sensitive operations",
+      "description": "As a security engineer, I need shorter admin data cache TTL and re-verification on sensitive operations so that stale permissions cannot be exploited after role changes.",
+      "acceptanceCriteria": [
+        "Update src/contexts/AuthContext.tsx ADMIN_CACHE_TTL from 30 minutes to 10 minutes (line 28)",
+        "Update the background refresh trigger from 15 minutes to 5 minutes so admin roles stay fresh",
+        "Add a re-verification guard function that forces an immediate admin-auth edge function check before: user role changes, permission modifications, vault access, and financial transaction approvals",
+        "When background admin verification fails, show a visible warning banner instead of silently continuing (fix lines 337-362)",
+        "When server-side sign-out fails (lines 671-673), show an error toast with a 'Retry Sign Out' button rather than silently proceeding",
+        "Normalize error messages in auth flows to generic messages (e.g., 'Authentication failed') to prevent user enumeration - remove distinction between 'not admin' vs 'not authenticated'",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "HIGH: 30-min cache means compromised admin roles stay valid too long. Silent failures in sign-out leave server sessions alive."
+    },
+    {
+      "id": "US-031",
+      "title": "Fix secure cache encryption key derivation weakness",
+      "description": "As a security engineer, I need the secure cache to use proper key derivation so that the AES-GCM encryption protecting cached admin data is resistant to key recovery attacks.",
+      "acceptanceCriteria": [
+        "Update src/lib/secure-cache.ts to use PBKDF2 with at least 100,000 iterations for key derivation instead of the current simple userId:salt concatenation (lines 61-80)",
+        "Initialize the salt synchronously on app startup to prevent the race condition where two simultaneous getOrCreateSalt() calls generate different salts (lines 24-44)",
+        "Fix the fallback salt generation (lines 38-43) to be consistent with sessionStorage salt so decryption doesn't fail",
+        "Add a cache version marker so that if the key derivation changes, old cached data is gracefully cleared rather than causing decryption errors",
+        "Add unit tests verifying: PBKDF2 key derivation produces consistent keys, wrong userId cannot decrypt data, salt initialization is atomic, and cache version migration works",
+        "Typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "HIGH: Key derivation from userId:salt with no stretching is weak. Salt race condition can cause decryption failures."
+    },
+    {
+      "id": "US-032",
+      "title": "Fix Three.js memory leaks and optimize particle system performance",
+      "description": "As a performance engineer, I need the Interactive3DOrb to reuse allocated memory and reduce computational complexity so that it doesn't cause garbage collection stutter and high CPU usage.",
+      "acceptanceCriteria": [
+        "Refactor src/components/Interactive3DOrb.tsx NetworkSystem to pre-allocate Float32Array buffers for positions and colors at initialization time instead of creating new arrays every frame (lines 112-114)",
+        "Store reusable THREE.Vector3 objects in useRef and reuse them in the animation loop instead of creating 150-1200 new Vector3 objects per frame (line 129)",
+        "Optimize the O(n^2) particle connection logic (lines 159-176) by implementing spatial grid partitioning or limiting the connection check radius to reduce from 11,175+ distance calculations per frame",
+        "Add explicit .dispose() calls for all Three.js geometries, materials, and textures in the component cleanup/unmount function",
+        "Verify the optimization by measuring: before/after garbage collection frequency, CPU usage on mid-range device (throttle in DevTools), and steady-state memory after 60 seconds",
+        "Ensure visual appearance of the orb and particle connections is unchanged after optimization",
+        "Typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "HIGH: Creates 9,000-72,000 temporary objects per second causing GC stutters. O(n^2) connection logic burns CPU on mid-range devices."
+    },
+    {
+      "id": "US-033",
+      "title": "Add pagination to list page database queries",
+      "description": "As a user, I need paginated data loading on list pages so that pages load fast regardless of how much content exists in the database.",
+      "acceptanceCriteria": [
+        "Update src/pages/News.tsx to fetch articles with .range(offset, offset + pageSize) where pageSize is 12, instead of fetching all articles at once (lines 51-65)",
+        "Add a pagination UI component to the News page with page numbers, previous/next buttons, and current page indicator",
+        "Update src/pages/Projects.tsx to paginate projects with a page size of 9",
+        "Update src/pages/AITools.tsx to paginate AI tools with a page size of 12",
+        "Update React Query keys to include page number (e.g., ['articles', { page, category, sort }]) so each page is independently cached",
+        "Implement proper loading states during page transitions - show skeleton for new page content while keeping pagination controls visible",
+        "Fix RelatedArticles.tsx (line 46) to fetch only 3-5 candidates instead of 20 (67% data waste)",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "HIGH: All list pages fetch every record. Scales poorly - estimated 40-60% slower as data grows."
+    },
+    {
+      "id": "US-034",
+      "title": "Add React.memo and memoization to frequently re-rendered list components",
+      "description": "As a performance engineer, I need list item components memoized so that parent state changes don't trigger unnecessary re-renders of unchanged list items.",
+      "acceptanceCriteria": [
+        "Wrap src/components/ArticleCard.tsx with React.memo and memoize the date formatting function with useMemo (lines 15-21)",
+        "Add useCallback to all event handler props passed to ArticleCard from parent components",
+        "Audit the 74 admin components and wrap the top 10 most frequently rendered list item components with React.memo (identify by checking which appear inside .map() calls)",
+        "Add staleTime: 10 * 60 * 1000 (10 minutes) to the Navigation.tsx profile query to prevent unnecessary refetches on every render (lines 18-28)",
+        "Ensure memoization doesn't break any existing behavior - all props are compared correctly and components still update when their specific data changes",
+        "Typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "MEDIUM: ArticleCard and admin list items re-render on every parent state change. Navigation profile query refetches on every render."
+    },
+    {
+      "id": "US-035",
+      "title": "Improve form accessibility with labels, ARIA attributes, and iOS zoom prevention",
+      "description": "As a user with accessibility needs, I need all form inputs to have proper labels, ARIA attributes, and correct font sizing so that forms are usable with screen readers and don't trigger unwanted zoom on iOS.",
+      "acceptanceCriteria": [
+        "Add visible or sr-only <label> elements with htmlFor to every form input that lacks one - specifically: NewsletterSignup.tsx email input (line 87), and any admin dashboard form inputs missing labels",
+        "Add aria-invalid='true' and aria-describedby pointing to error message elements on all form inputs that show validation errors (NewsletterSignup.tsx line 82-93, ContactForm.tsx)",
+        "Add font-size: 16px (via Tailwind text-base class) to ALL form inputs across the application to prevent iOS Safari auto-zoom - audit shows only ContactForm.tsx (line 234) has this fix currently",
+        "Add a character counter below the ContactForm.tsx message textarea showing 'X / 1000 characters' that updates as the user types",
+        "Ensure all form error messages are visible to colorblind users by adding an error icon alongside the red border (not just color change)",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "HIGH: Newsletter input has no label (WCAG violation). Missing font-size: 16px causes iOS zoom on most form inputs."
+    },
+    {
+      "id": "US-036",
+      "title": "Reorganize admin dashboard sidebar with collapsible groups",
+      "description": "As an admin user, I need the dashboard sidebar organized into logical collapsible groups so that I can navigate 18+ menu items efficiently, especially on mobile.",
+      "acceptanceCriteria": [
+        "Refactor src/pages/AdminDashboard.tsx sidebar to group the 18 menu items into collapsible sections: 'Content' (Articles, Projects, AI Tools, Media), 'Operations' (Amazon Pipeline, Analytics, Newsletter, Tasks), 'Finance' (Accounting, Invoices), 'Security' (Vault, Whitelist, Access Review, Activity Log), 'System' (Support, Alerts, AI Config, Settings)",
+        "Each group should be collapsible/expandable with a chevron icon and group label",
+        "Remember the user's expanded/collapsed state in localStorage so groups stay open/closed across sessions",
+        "On mobile screens (<640px), start with all groups collapsed except the one containing the active tab",
+        "Add individual error handling per stats card on the dashboard (lines 574-627) - if one query fails, only that stat shows an error instead of replacing all 4 stats",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": "HIGH: 18 flat menu items are hard to scan. Mobile experience especially poor. Stats cards all disappear when any single query fails."
+    },
+    {
+      "id": "US-037",
+      "title": "Optimize mobile UX for News page filters and admin dashboard header",
+      "description": "As a mobile user, I need filter controls and the admin header to work well on small screens so that the app is fully usable on phones.",
+      "acceptanceCriteria": [
+        "Refactor src/pages/News.tsx filter section (lines 192-235): on mobile (<640px), collapse the search + 2 dropdowns + clear button into a single 'Filter' button that opens a bottom sheet/drawer containing all filter controls",
+        "Add a filter count badge on the mobile 'Filter' button showing how many filters are active",
+        "Optimize src/pages/AdminDashboard.tsx header (line 528-567) for mobile: hide the username text on screens <640px, stack the action buttons vertically on very small screens (<375px), and abbreviate 'Keyboard Shortcuts' button to just an icon",
+        "Add a Suspense timeout message for admin module loading (lines 74-81): after 10 seconds, show 'Module is taking longer than expected' with a reload button",
+        "Ensure all touch targets in the refactored components meet the 44px minimum height/width requirement",
+        "Typecheck passes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": "MEDIUM: News page shows 4 stacked filter rows on mobile. Admin header crams 4 elements into small screen."
+    },
+    {
+      "id": "US-038",
+      "title": "Fix dark mode inconsistencies and add high contrast mode support",
+      "description": "As a user, I need consistent dark mode styling across all components and optional high contrast mode so that the site is comfortable to read in all lighting conditions.",
+      "acceptanceCriteria": [
+        "Fix src/components/HeroSection.tsx (lines 194-207): replace inline color styles (color: '#00d4ff', 'white') with Tailwind classes (text-cyan-400, text-white) so that dark mode theme switching works correctly",
+        "Update src/components/OptimizedImage.tsx loading placeholder from bg-muted/30 to bg-muted/50 for better visibility in dark mode (lines 145-147)",
+        "Add @media (prefers-contrast: more) CSS rules in src/index.css that increase border widths from 1px to 2px, text from regular to medium weight, and ensure all text meets 7:1 contrast ratio (WCAG AAA)",
+        "Add @media (prefers-reduced-motion: reduce) rule for scroll-behavior: auto in src/index.css to disable smooth scrolling for users who prefer reduced motion",
+        "Audit all components using hardcoded color values (hex codes) instead of CSS variables or Tailwind classes and replace them with theme-aware alternatives",
+        "Typecheck passes"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": "MEDIUM: Hero section uses inline colors that don't respond to theme changes. No high contrast mode support anywhere."
+    },
+    {
+      "id": "US-039",
+      "title": "Standardize design system consistency for buttons, inputs, and badges",
+      "description": "As a designer, I need consistent sizing, spacing, and styling across all interactive elements so that the UI feels cohesive and professional.",
+      "acceptanceCriteria": [
+        "Create a design system reference document at src/lib/design-tokens.ts that exports constants for: button heights (sm: 36px, md: 44px, lg: 52px), input heights (44px standard), minimum touch target (44px), and standard border radius values",
+        "Audit all button instances across the codebase and ensure they all use min-h-[44px] for touch targets (some currently use h-10 or h-9 which are 40px/36px)",
+        "Standardize badge opacity: use consistent 20% opacity backgrounds for informational badges and 90% for critical/featured badges across ArticleCard.tsx and all admin components",
+        "Ensure no text goes below 14px (text-sm) on mobile screens - audit for text-xs usage in mobile-visible contexts (ArticleCard.tsx meta info uses text-xs on mobile)",
+        "Add the standardized min-height and font-size to form inputs globally via Tailwind config or a shared input class, rather than inline per-component fixes",
+        "Typecheck passes"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": "MEDIUM: Buttons range from h-9 to min-h-[44px]. Badge opacity varies between 20% and 90%. Text drops to 12px on mobile."
+    },
+    {
+      "id": "US-040",
+      "title": "Add noindex meta tags to admin routes and canonical URLs to public pages",
+      "description": "As an SEO specialist, I need admin pages hidden from search engines and canonical URLs on all public pages so that search results are clean and duplicate content is prevented.",
+      "acceptanceCriteria": [
+        "Add <meta name='robots' content='noindex, nofollow'> to src/pages/AdminLogin.tsx and src/pages/AdminDashboard.tsx via the SEO component",
+        "Add canonical URL prop to the SEO component on all public pages: News.tsx, Projects.tsx, About.tsx, Connect.tsx, Search.tsx, Topics.tsx, AITools.tsx",
+        "Ensure canonical URLs strip query parameters and trailing slashes (e.g., /news?page=2 canonicalizes to /news)",
+        "Add canonical URL to Article.tsx that resolves to the clean slug URL (e.g., https://danpearson.net/news/article-slug)",
+        "Remove NotFound.tsx from sitemap generation in SitemapXML.tsx if present",
+        "Verify all canonical URLs use the production domain (https://danpearson.net) not localhost",
+        "Typecheck passes"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": "MEDIUM: Admin pages indexable by search engines. Public pages lack canonical URLs, risking duplicate content."
+    },
+    {
+      "id": "US-041",
+      "title": "Add Subresource Integrity and tighten external script loading",
+      "description": "As a security engineer, I need all external scripts loaded with Subresource Integrity hashes so that compromised CDNs cannot inject malicious code.",
+      "acceptanceCriteria": [
+        "Add integrity and crossorigin='anonymous' attributes to the Google Tag Manager script tag in index.html (lines 39, 57-66)",
+        "Add integrity attributes to any preloaded font files in index.html",
+        "Add a Content-Security-Policy require-sri-for directive for scripts if browser support allows, with fallback for older browsers",
+        "Remove localhost from the ALLOWED_ORIGINS list in supabase/functions/admin-auth/index.ts for production deployments - make it environment-variable controlled",
+        "Parameterize the ALLOWED_ORIGINS in edge functions to use an environment variable (ALLOWED_ORIGINS) instead of hardcoded arrays",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": "MEDIUM: External scripts loaded without integrity checks. CORS origins hardcoded with localhost included."
+    },
+    {
+      "id": "US-042",
+      "title": "Tighten ESLint rules and eliminate type safety gaps",
+      "description": "As a developer, I need stricter ESLint rules enforced and 'any' types eliminated so that the type system catches bugs before they reach production.",
+      "acceptanceCriteria": [
+        "Update eslint.config.js to change @typescript-eslint/no-explicit-any from 'off' to 'warn'",
+        "Update eslint.config.js to change @typescript-eslint/no-unused-vars from 'off' to 'warn'",
+        "Update eslint.config.js to change @typescript-eslint/no-unused-expressions from 'off' to 'warn'",
+        "Fix the top 20 highest-risk 'any' usages (prioritize: SmartAlerts.tsx real-time payload, LiveActivityFeed.tsx Supabase callbacks, RevenueChart.tsx Recharts tooltip) by replacing with proper typed interfaces",
+        "Create src/types/supabase-realtime.ts with proper types for Supabase real-time channel payloads used across admin components",
+        "Create src/types/recharts.ts with proper types for Recharts custom tooltip and formatter props",
+        "Verify npm run lint passes with the updated rules (warnings are acceptable, errors are not)",
+        "Typecheck passes"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": "MEDIUM: 227 'any' occurrences. ESLint rules disabled for type safety checks. Real-time payloads completely untyped."
+    },
+    {
+      "id": "US-043",
+      "title": "Add unsaved changes warning to admin forms",
+      "description": "As an admin user, I need a warning when navigating away from forms with unsaved changes so that I don't accidentally lose my work.",
+      "acceptanceCriteria": [
+        "Create src/hooks/useUnsavedChanges.ts hook that tracks form dirty state and registers a beforeunload event listener and react-router-dom navigation blocker",
+        "Integrate useUnsavedChanges into ArticleManager.tsx to warn when leaving the article editor with unsaved changes",
+        "Integrate useUnsavedChanges into the accounting module forms (JournalEntriesManager.tsx, InvoicesManager.tsx) to protect financial data entry",
+        "Show a confirmation dialog (using the shadcn AlertDialog component) with 'Discard Changes' and 'Keep Editing' buttons when the user tries to navigate away",
+        "Ensure the warning fires for: sidebar tab changes within the admin dashboard, browser back button, browser tab close, and browser refresh",
+        "Clean up the beforeunload listener when the form is saved or the component unmounts",
+        "Typecheck passes"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": "MEDIUM: No unsaved changes protection. Users can lose article drafts or financial entries by clicking sidebar items."
+    },
+    {
+      "id": "US-044",
+      "title": "Improve loading skeleton accuracy and add missing skeletons",
+      "description": "As a user, I need loading skeletons that match the actual content layout so that page load feels smooth and content doesn't jump around.",
+      "acceptanceCriteria": [
+        "Add a search results skeleton to src/components/GlobalSearch.tsx that shows 3 skeleton article cards while isLoading is true (currently shows no visual feedback during search)",
+        "Update the News page ArticleListSkeleton usage (line 264) to pass the expected result count based on current filters, rather than always showing 6 skeleton cards",
+        "Add a generic SectionSkeleton component to src/components/skeletons/ that can be configured with: number of rows, row height, and optional header skeleton",
+        "Add a timeout message to admin module Suspense fallbacks (AdminDashboard.tsx lines 74-81): after 10 seconds of loading, show 'This module is taking longer than expected' with a retry button",
+        "Ensure all skeleton animations respect prefers-reduced-motion by using opacity fade instead of shimmer animation when reduced motion is preferred",
+        "Typecheck passes"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": "LOW: Search shows no loading feedback. News page shows wrong skeleton count. Admin modules can load indefinitely."
+    },
+    {
+      "id": "US-045",
+      "title": "Optimize navigation animations and add mobile touch device detection",
+      "description": "As a mobile user, I need smooth navigation animations and optimized touch interactions so that the app feels native and responsive on my device.",
+      "acceptanceCriteria": [
+        "Refactor src/components/Navigation.tsx mobile menu animation (lines 206-208) from CSS staggered animations to a single GSAP timeline for smoother performance on budget Android devices",
+        "Add touch device detection in src/components/HeroSection.tsx (lines 146-174) to skip mouse move parallax event listeners on touch-only devices (saves unnecessary code execution)",
+        "Add will-change: transform CSS hint to elements that animate with GSAP transforms, and remove it after animation completes to free GPU memory",
+        "Verify the navigation backdrop-blur and semi-transparent background works correctly on mobile when content scrolls behind the fixed nav bar (line 88)",
+        "Ensure all navigation animations complete within 300ms on mobile to feel responsive",
+        "Typecheck passes"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": "LOW: CSS stagger animations cause jank on budget phones. Mouse move listeners run on touch-only devices."
+    },
+    {
+      "id": "US-046",
+      "title": "Add auto-refresh and individual error recovery to admin dashboard stats",
+      "description": "As an admin user, I need the dashboard to auto-refresh its data and handle individual stat failures gracefully so that I always see current information.",
+      "acceptanceCriteria": [
+        "Refactor AdminDashboard.tsx stats section (lines 574-627) to query each stat independently so that if one API call fails, only that stat card shows an error while the other 3 remain visible",
+        "Add auto-refresh to the dashboard stats with a 5-minute interval using React Query's refetchInterval option",
+        "Show a subtle 'last updated X minutes ago' indicator that updates in real-time for each stat card",
+        "Add a manual 'Refresh' button in the dashboard header that refetches all stats immediately with a loading indicator",
+        "When a stat query fails, show a compact error state within that stat card with a 'Retry' button instead of replacing the entire stats grid",
+        "Typecheck passes"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": "MEDIUM: Stats can go stale with no auto-refresh. Single query failure replaces all 4 stat cards with error."
+    },
+    {
+      "id": "US-047",
+      "title": "Add bundle analysis tooling and React Query DevTools for development",
+      "description": "As a developer, I need bundle analysis visualization and query debugging tools so that I can identify performance bottlenecks and optimize data fetching.",
+      "acceptanceCriteria": [
+        "Install rollup-plugin-visualizer (or vite-plugin-visualizer) as a dev dependency and add a 'build:analyze' script to package.json that generates a bundle visualization HTML report",
+        "Configure the bundle visualizer to output to stats.html in the project root (add to .gitignore)",
+        "Install @tanstack/react-query-devtools as a dev dependency and add the ReactQueryDevtools component to src/App.tsx (only in development mode)",
+        "Conditionally load the devtools only when import.meta.env.DEV is true to ensure zero production bundle impact",
+        "Run the bundle analyzer once and document the current bundle composition (top 5 largest chunks) as a baseline in a comment in vite.config.ts",
+        "Typecheck passes"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": "LOW: No way to visualize bundle composition or debug React Query cache/refetch behavior during development."
+    },
+    {
+      "id": "US-048",
+      "title": "Fix broken OptimizedImage test and add missing await keywords",
+      "description": "As a developer, I need the only existing component test fixed so that it actually validates behavior and serves as a reliable example for future tests.",
+      "acceptanceCriteria": [
+        "Fix src/components/__tests__/OptimizedImage.test.tsx by adding missing 'await' keywords before all waitFor() calls",
+        "Fix the test that checks intersection observer behavior to actually trigger the observer callback rather than just checking initial DOM state",
+        "Fix the placeholder/loading state test to not depend on a specific CSS class name (animate-pulse) - use aria-busy or role='img' instead",
+        "Add a new test case: verify that priority={true} sets loading='eager' and non-priority sets loading='lazy'",
+        "Add a new test case: verify that the alt text is properly passed through to the rendered img element",
+        "Run 'npm test -- --run' and verify all OptimizedImage tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": "HIGH: The only component test in the codebase is broken with missing awaits. Sets a bad example for future tests."
+    },
+    {
+      "id": "US-049",
+      "title": "Add CSRF-protected fetch wrapper usage to all state-changing Supabase calls",
+      "description": "As a security engineer, I need all state-changing API calls to include CSRF protection so that cross-site request forgery attacks are prevented.",
+      "acceptanceCriteria": [
+        "Audit all Supabase mutation calls (insert, update, delete, functions.invoke with POST/PUT/DELETE) across the codebase to identify those not using the csrfFetch wrapper from src/lib/csrf.ts",
+        "Create a wrapper utility src/lib/secure-supabase.ts that provides secure versions of Supabase mutation methods that automatically include CSRF tokens in headers",
+        "Update the top 10 most critical mutation calls to use the secure wrapper: admin auth operations, vault CRUD, accounting transactions, article publish/delete, and user role changes",
+        "Ensure the CSRF token is validated server-side in edge functions that handle sensitive operations (admin-auth, secure-vault, process-accounting-document)",
+        "Add a CSP header X-CSRF-Token to the edge function CORS allowed headers list",
+        "Typecheck passes"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": "HIGH: csrfFetch wrapper exists but is not consistently used. Many state-changing operations lack CSRF protection."
+    },
+    {
+      "id": "US-050",
+      "title": "Normalize API error messages to prevent information leakage",
+      "description": "As a security engineer, I need all user-facing error messages to be generic so that technical details, stack traces, and system information are never exposed to end users.",
+      "acceptanceCriteria": [
+        "Create src/lib/error-normalizer.ts with a normalizeError() function that maps technical Supabase/API error messages to user-friendly messages (e.g., 'PGRST116' -> 'The requested item was not found')",
+        "Define a mapping of common error codes to friendly messages: 401 -> 'Please sign in to continue', 403 -> 'You don\\'t have permission for this action', 404 -> 'The requested item was not found', 500 -> 'Something went wrong. Please try again.'",
+        "Update src/pages/News.tsx (line 144) to use normalizeError instead of exposing raw error.message to users",
+        "Update src/components/auth/AuthCallback.tsx to remove the distinction between 'not admin' and 'not authenticated' error messages (line 187) - use a generic 'Authentication failed'",
+        "Audit all toast.error() calls across the codebase and ensure none pass raw error.message directly - all should go through normalizeError()",
+        "Ensure the original technical error is still logged via the production logger for debugging, but never shown to users",
+        "Typecheck passes"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": "MEDIUM: Error messages leak Supabase internals, component names, and distinguish auth failure types enabling enumeration."
     }
   ]
 }
