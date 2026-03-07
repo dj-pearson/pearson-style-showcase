@@ -1,14 +1,74 @@
 User-agent: *
 Allow: /
-
-# Block date archives and admin routes from being indexed
 Disallow: /admin/
 Disallow: /2023/
 Disallow: /2025/
 Disallow: /*?ref=*
 
+# Block search/filter pages with thin content
+Disallow: /search?*
+
 # Sitemap location
 Sitemap: https://danpearson.net/sitemap.xml
+
+# ========================================
+# AI Search Crawlers (Beneficial - ALLOWED)
+# These crawlers power AI search features
+# and properly attribute content sources
+# ========================================
+
+# OpenAI SearchBot (powers ChatGPT search)
+User-agent: OAI-SearchBot
+Allow: /
+Crawl-delay: 2
+
+# Google AI (Gemini search integration)
+User-agent: Google-Extended
+Allow: /
+
+# Anthropic Claude web search
+User-agent: anthropic-ai
+Allow: /
+Crawl-delay: 2
+
+# Perplexity AI search
+User-agent: PerplexityBot
+Allow: /
+Crawl-delay: 2
+
+# Microsoft Copilot / Bing AI
+User-agent: Bingbot
+Allow: /
+
+# ========================================
+# AI Training Scrapers (Non-beneficial - BLOCKED)
+# These crawlers scrape content for model
+# training without attribution or benefit
+# ========================================
+
+# Common Crawl (bulk scraping for training)
+User-agent: CCBot
+Disallow: /
+
+# GPTBot (OpenAI training data collection)
+User-agent: GPTBot
+Disallow: /
+
+# Google AI training (separate from search)
+User-agent: Google-Extended
+Disallow: /admin/
+
+# Bytedance AI scraper
+User-agent: Bytespider
+Disallow: /
+
+# Meta AI training scraper
+User-agent: FacebookBot
+Disallow: /
+
+# Cohere AI scraper
+User-agent: cohere-ai
+Disallow: /
 
 # Handle redirects for SEO (informational only - actual redirects handled by server)
 # Canonical domain: https://danpearson.net (no www, HTTPS only)

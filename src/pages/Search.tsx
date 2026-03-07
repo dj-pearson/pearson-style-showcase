@@ -145,7 +145,7 @@ const Search = () => {
         description={query ? `Search results for ${query} across articles, projects, and AI tools on Dan Pearson's portfolio.` : 'Search across articles, projects, and AI tools on Dan Pearson\'s portfolio.'}
         url={`https://danpearson.net/search${query ? `?q=${encodeURIComponent(query)}` : ''}`}
         type="website"
-        noIndex={false}
+        noIndex={true}
       />
 
       <Navigation />
