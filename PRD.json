@@ -421,8 +421,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Completed in claude/critical-platform-improvements-H67AO. Created RouteErrorBoundary, SuspenseFallback, HeroErrorBoundary. All routes wrapped with errorElement. Build passes."
     },
     {
       "id": "US-025",
@@ -458,8 +458,8 @@
         "Typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
-      "notes": "CRITICAL: Security audit identified stored XSS vectors through custom [button:], [alert:], and [badge:] syntax plus unvalidated image sources."
+      "passes": true,
+      "notes": "Completed in claude/critical-platform-improvements-H67AO. URL validation at parse time, button element removed from ALLOWED_TAGS (replaced with span[data-custom-btn]), style/type/variant whitelists, SVG XSS blocked in img src validation, post-sanitization img src check. Build passes. Unit tests deferred to US-007/US-008."
     },
     {
       "id": "US-027",
@@ -475,8 +475,8 @@
         "Typecheck passes"
       ],
       "priority": 27,
-      "passes": false,
-      "notes": "CRITICAL: Race condition between pendingRotation flag check and token refresh allows multiple tabs to trigger concurrent rotations."
+      "passes": true,
+      "notes": "Completed in claude/critical-platform-improvements-H67AO. Replaced in-memory pendingRotation with localStorage-based distributed lock (acquireRotationLock/releaseRotationLock with 30s timeout). Inter-tab communication via storage events (setupInterTabListener). Failed rotations preserve previous session. Build passes."
     },
     {
       "id": "US-028",
@@ -493,8 +493,8 @@
         "Typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
-      "notes": "CRITICAL: OAuth state only bound to time and random data, not session or provider. CSRF tokens use predictable Date.now()."
+      "passes": true,
+      "notes": "Completed in claude/critical-platform-improvements-H67AO. OAuth state now bound to CSRF token + provider + redirect via SHA-256 hash. Provider and redirect verified at validation time. 5-min retention period replaces immediate clearing. CSRF token nonce uses crypto.getRandomValues() instead of Date.now(). AuthCallback.tsx updated for async verification. Build passes."
     },
     {
       "id": "US-029",

@@ -7,9 +7,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Analytics from "./components/Analytics";
 import ScrollTracker from "./components/ScrollTracker";
-import LoadingSpinner from "./components/LoadingSpinner";
 import RoutePrefetcher from "./components/RoutePrefetcher";
 import ErrorBoundary from "./components/ErrorBoundary";
+import RouteErrorBoundary from "./components/RouteErrorBoundary";
+import SuspenseFallback from "./components/SuspenseFallback";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AccessibilityProvider } from "./contexts/AccessibilityContext";
@@ -71,25 +72,25 @@ const App = () => (
             <Analytics />
             <ScrollTracker />
             <RoutePrefetcher />
-            <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
+            <Suspense fallback={<SuspenseFallback />}>
               <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/news" element={<News />} />
-            <Route path="/news/category/:category" element={<CategoryArchive />} />
-            <Route path="/news/tag/:tag" element={<TagArchive />} />
-            <Route path="/author/:author" element={<AuthorArchive />} />
-            <Route path="/topics" element={<Topics />} />
-            <Route path="/topics/:topic" element={<TopicHub />} />
-            <Route path="/news/:slug" element={<Article />} />
-            <Route path="/ai-tools" element={<AITools />} />
-            <Route path="/connect" element={<Connect />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/accessibility" element={<Accessibility />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/" element={<Index />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/about" element={<About />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/projects" element={<Projects />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/news" element={<News />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/news/category/:category" element={<CategoryArchive />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/news/tag/:tag" element={<TagArchive />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/author/:author" element={<AuthorArchive />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/topics" element={<Topics />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/topics/:topic" element={<TopicHub />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/news/:slug" element={<Article />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/ai-tools" element={<AITools />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/connect" element={<Connect />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/search" element={<Search />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/faq" element={<FAQ />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/accessibility" element={<Accessibility />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/admin/login" element={<AdminLogin />} errorElement={<RouteErrorBoundary />} />
+            <Route path="/auth/callback" element={<AuthCallback />} errorElement={<RouteErrorBoundary />} />
             <Route
               path="/admin/dashboard"
               element={
@@ -97,6 +98,7 @@ const App = () => (
                   <AdminDashboard />
                 </ProtectedRoute>
               }
+              errorElement={<RouteErrorBoundary />}
             />
             <Route path="/sitemap.xml" element={<SitemapXML />} />
             <Route path="/robots.txt" element={<RobotsTxt />} />

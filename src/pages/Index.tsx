@@ -5,6 +5,7 @@ import { useGSAP } from '@gsap/react';
 import { useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
+import HeroErrorBoundary from '../components/HeroErrorBoundary';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
 import StructuredData from '../components/SEO/StructuredData';
@@ -138,15 +139,17 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
         {shouldLoadOrb && !disableHeavyAnimations && (
           <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}>
-            <Suspense fallback={
-              <div
-                className="absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-accent/10"
-              >
-                <div className="absolute inset-0 animate-pulse opacity-30 bg-gradient-radial from-primary/20 via-transparent to-transparent" />
-              </div>
-            }>
-              <Interactive3DOrb />
-            </Suspense>
+            <HeroErrorBoundary>
+              <Suspense fallback={
+                <div
+                  className="absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-accent/10"
+                >
+                  <div className="absolute inset-0 animate-pulse opacity-30 bg-gradient-radial from-primary/20 via-transparent to-transparent" />
+                </div>
+              }>
+                <Interactive3DOrb />
+              </Suspense>
+            </HeroErrorBoundary>
           </div>
         )}
       </div>
@@ -261,7 +264,9 @@ const Index = () => {
       <Navigation />
       <main id="main-content" className="relative z-10 pointer-events-none" ref={contentRef}>
         <div ref={heroRef} className="pointer-events-auto">
-          <HeroSection />
+          <HeroErrorBoundary>
+            <HeroSection />
+          </HeroErrorBoundary>
         </div>
 
         {/* Authority Section - SEO Enhancement */}

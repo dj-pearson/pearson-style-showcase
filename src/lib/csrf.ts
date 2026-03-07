@@ -34,8 +34,11 @@ async function generateSecureToken(): Promise<string> {
  */
 async function generateBoundToken(): Promise<string> {
   const randomPart = await generateSecureToken();
-  const timestamp = Date.now().toString(36);
-  const combined = `${timestamp}.${randomPart}`;
+  // Use crypto.getRandomValues for the nonce instead of predictable Date.now()
+  const nonceBytes = new Uint8Array(8);
+  crypto.getRandomValues(nonceBytes);
+  const nonce = btoa(String.fromCharCode(...nonceBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const combined = `${nonce}.${randomPart}`;
 
   // Hash the combined value for additional security
   const encoder = new TextEncoder();
@@ -47,7 +50,7 @@ async function generateBoundToken(): Promise<string> {
     .replace(/\//g, '_')
     .replace(/=/g, '');
 
-  return `${timestamp}.${hashBase64}`;
+  return `${nonce}.${hashBase64}`;
 }
 
 /**

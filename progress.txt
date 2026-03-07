@@ -69,4 +69,48 @@
 
 ## Iteration Log
 
-(No iterations completed yet - PRD created 2026-02-06)
+### Iteration 1 - Critical Platform Improvements
+**Date**: 2026-03-07
+**Branch**: claude/critical-platform-improvements-H67AO
+**Stories Completed**: 4
+
+#### US-026: Fix XSS vulnerabilities in MarkdownRenderer [PASSED]
+- Hardened custom syntax parser ([button:], [alert:], [badge:]) with URL validation at parse time
+- Replaced `button` HTML elements with `span[data-custom-btn]` to prevent onclick injection
+- Added whitelist validation for style, type, and variant attributes
+- Added img src validation blocking data:image/svg and javascript: protocols
+- Post-sanitization img src check in CustomHTMLRenderer
+- Text content sanitized through DOMPurify before rendering
+
+#### US-027: Fix session rotation race condition [PASSED]
+- Replaced in-memory `pendingRotation` flag with localStorage-based distributed lock
+- Lock includes tab ID and timestamp with 30-second timeout for hung rotations
+- Read-after-write verification prevents race between concurrent tab lock acquisitions
+- Inter-tab communication via `storage` event listener syncs rotation state
+- Failed rotations explicitly preserve previous session token (no invalidation)
+- Cleanup of lock and listeners on logout
+
+#### US-028: Harden OAuth state parameter [PASSED]
+- OAuth state now cryptographically bound to CSRF token + provider name + redirect URL via SHA-256 hash
+- State format: `{random}.{bindingHash}` where hash covers all binding parameters
+- Provider mismatch verification prevents cross-provider state reuse attacks
+- 5-minute retention period replaces immediate clearing (handles slow redirects)
+- CSRF token generation updated: `crypto.getRandomValues()` replaces predictable `Date.now().toString(36)`
+- AuthCallback.tsx updated for async verification flow
+- Backward-compatible: legacy states without provider binding still verify via timing-safe comparison
+
+#### US-024: Add comprehensive error boundaries and fallback UI [PASSED]
+- Created `RouteErrorBoundary.tsx`: per-route error element with Try Again / Go Home recovery
+- Created `SuspenseFallback.tsx`: skeleton loading UI matching typical page layout
+- Created `HeroErrorBoundary.tsx`: lightweight boundary for Three.js/GSAP with static gradient fallback
+- All lazy-loaded routes in App.tsx wrapped with `errorElement={<RouteErrorBoundary />}`
+- Suspense fallback replaced with SuspenseFallback component
+- HeroSection and Interactive3DOrb wrapped with HeroErrorBoundary in Index.tsx
+
+#### Build Verification
+- `npm run build` passes with no errors (23.6s build time)
+- No TypeScript errors introduced
+
+#### Remaining Stories (46 remaining in PRD)
+- US-001 through US-023 (CI/CD, testing, monitoring, accessibility)
+- US-025, US-029 through US-050 (security hardening, performance, UX improvements)
