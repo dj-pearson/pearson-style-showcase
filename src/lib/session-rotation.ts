@@ -5,6 +5,8 @@
  * - Rotates tokens after sensitive operations (password change, permission change)
  * - Periodic rotation based on configurable interval
  * - Maintains session continuity during rotation
+ * - Multi-tab safe via localStorage-based distributed lock
+ * - Inter-tab communication via storage events
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +15,7 @@ import { logger } from '@/lib/logger';
 
 // Configuration
 const SESSION_ROTATION_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const LOCK_TIMEOUT_MS = 30 * 1000; // 30 second lock timeout to prevent hung rotations
 const SENSITIVE_OPERATIONS = [
   'password_change',
   'email_change',
@@ -29,6 +32,8 @@ type SensitiveOperation = typeof SENSITIVE_OPERATIONS[number];
 // Storage keys
 const LAST_ROTATION_KEY = 'session_last_rotation';
 const ROTATION_COUNT_KEY = 'session_rotation_count';
+const ROTATION_LOCK_KEY = 'session_rotation_lock';
+const ROTATION_COMPLETED_KEY = 'session_rotation_completed';
 
 interface RotationResult {
   success: boolean;
@@ -39,18 +44,168 @@ interface RotationResult {
 interface RotationState {
   lastRotation: number;
   rotationCount: number;
-  pendingRotation: boolean;
 }
+
+interface RotationLock {
+  tabId: string;
+  timestamp: number;
+}
+
+// Unique ID for this browser tab
+const TAB_ID = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // In-memory state
 let rotationState: RotationState = {
   lastRotation: 0,
   rotationCount: 0,
-  pendingRotation: false,
 };
 
 // Rotation timer
 let rotationTimer: ReturnType<typeof setInterval> | null = null;
+
+// Storage event listener reference for cleanup
+let storageListener: ((event: StorageEvent) => void) | null = null;
+
+/**
+ * Acquire a distributed lock using localStorage with timestamp-based expiry.
+ * Returns true if lock was acquired, false if another tab holds it.
+ */
+function acquireRotationLock(): boolean {
+  try {
+    const existingLock = localStorage.getItem(ROTATION_LOCK_KEY);
+
+    if (existingLock) {
+      const lock: RotationLock = JSON.parse(existingLock);
+
+      // Check if lock is expired (hung rotation)
+      if (Date.now() - lock.timestamp < LOCK_TIMEOUT_MS) {
+        // Lock is still valid and held by another tab (or this tab)
+        if (lock.tabId === TAB_ID) {
+          // We already hold the lock
+          return true;
+        }
+        logger.debug('Rotation lock held by another tab', { lockTabId: lock.tabId });
+        return false;
+      }
+
+      // Lock expired - safe to take over
+      logger.warn('Rotation lock expired, taking over from stale lock', {
+        staleTabId: lock.tabId,
+        lockAge: Date.now() - lock.timestamp,
+      });
+    }
+
+    // Acquire the lock
+    const newLock: RotationLock = {
+      tabId: TAB_ID,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(ROTATION_LOCK_KEY, JSON.stringify(newLock));
+
+    // Double-check to handle race condition (read-after-write verification)
+    const verifyLock = localStorage.getItem(ROTATION_LOCK_KEY);
+    if (verifyLock) {
+      const verified: RotationLock = JSON.parse(verifyLock);
+      if (verified.tabId !== TAB_ID) {
+        // Another tab won the race
+        return false;
+      }
+    }
+
+    return true;
+  } catch (err) {
+    logger.warn('Failed to acquire rotation lock:', err);
+    return false;
+  }
+}
+
+/**
+ * Release the distributed lock (only if we hold it)
+ */
+function releaseRotationLock(): void {
+  try {
+    const existingLock = localStorage.getItem(ROTATION_LOCK_KEY);
+    if (existingLock) {
+      const lock: RotationLock = JSON.parse(existingLock);
+      if (lock.tabId === TAB_ID) {
+        localStorage.removeItem(ROTATION_LOCK_KEY);
+      }
+    }
+  } catch (err) {
+    logger.warn('Failed to release rotation lock:', err);
+  }
+}
+
+/**
+ * Notify other tabs that rotation completed via a storage event signal
+ */
+function notifyRotationCompleted(): void {
+  try {
+    // Writing to localStorage triggers 'storage' events in other tabs
+    localStorage.setItem(ROTATION_COMPLETED_KEY, Date.now().toString());
+  } catch {
+    // Non-critical
+  }
+}
+
+/**
+ * Listen for rotation completion from other tabs
+ */
+function setupInterTabListener(): void {
+  if (storageListener) return; // Already listening
+
+  storageListener = (event: StorageEvent) => {
+    // Another tab completed a rotation - update our local state
+    if (event.key === ROTATION_COMPLETED_KEY && event.newValue) {
+      const completedAt = parseInt(event.newValue, 10);
+      if (!isNaN(completedAt)) {
+        logger.debug('Rotation completed by another tab, updating local state');
+        syncRotationStateFromStorage();
+      }
+    }
+
+    // Another tab cleared rotation state (logout)
+    if (event.key === LAST_ROTATION_KEY && event.newValue === null) {
+      logger.debug('Rotation state cleared by another tab (logout)');
+      rotationState = {
+        lastRotation: 0,
+        rotationCount: 0,
+      };
+      stopPeriodicRotation();
+    }
+  };
+
+  window.addEventListener('storage', storageListener);
+}
+
+/**
+ * Remove inter-tab listener
+ */
+function removeInterTabListener(): void {
+  if (storageListener) {
+    window.removeEventListener('storage', storageListener);
+    storageListener = null;
+  }
+}
+
+/**
+ * Sync rotation state from localStorage (used after another tab rotates)
+ */
+function syncRotationStateFromStorage(): void {
+  try {
+    const storedLastRotation = localStorage.getItem(LAST_ROTATION_KEY);
+    const storedCount = localStorage.getItem(ROTATION_COUNT_KEY);
+
+    if (storedLastRotation) {
+      rotationState.lastRotation = parseInt(storedLastRotation, 10);
+    }
+    if (storedCount) {
+      rotationState.rotationCount = parseInt(storedCount, 10);
+    }
+  } catch {
+    // Non-critical
+  }
+}
 
 /**
  * Initialize session rotation from stored state
@@ -63,19 +218,21 @@ export function initializeSessionRotation(): void {
     rotationState = {
       lastRotation: storedLastRotation ? parseInt(storedLastRotation, 10) : Date.now(),
       rotationCount: storedCount ? parseInt(storedCount, 10) : 0,
-      pendingRotation: false,
     };
+
+    // Set up inter-tab communication
+    setupInterTabListener();
 
     logger.debug('Session rotation initialized', {
       lastRotation: new Date(rotationState.lastRotation).toISOString(),
       rotationCount: rotationState.rotationCount,
+      tabId: TAB_ID,
     });
   } catch (err) {
     logger.warn('Failed to initialize session rotation state:', err);
     rotationState = {
       lastRotation: Date.now(),
       rotationCount: 0,
-      pendingRotation: false,
     };
   }
 }
@@ -105,11 +262,12 @@ export function clearRotationState(): void {
     rotationState = {
       lastRotation: 0,
       rotationCount: 0,
-      pendingRotation: false,
     };
 
     localStorage.removeItem(LAST_ROTATION_KEY);
     localStorage.removeItem(ROTATION_COUNT_KEY);
+    releaseRotationLock();
+    removeInterTabListener();
 
     if (rotationTimer) {
       clearInterval(rotationTimer);
@@ -126,6 +284,8 @@ export function clearRotationState(): void {
  * Check if session rotation is needed based on time
  */
 export function isRotationNeeded(): boolean {
+  // Re-sync from storage in case another tab rotated recently
+  syncRotationStateFromStorage();
   const timeSinceLastRotation = Date.now() - rotationState.lastRotation;
   return timeSinceLastRotation >= SESSION_ROTATION_INTERVAL;
 }
@@ -140,19 +300,18 @@ export function getTimeUntilRotation(): number {
 
 /**
  * Rotate session token
- * Uses Supabase's refreshSession to get a new token while maintaining the session
+ * Uses localStorage-based distributed lock for multi-tab safety.
+ * If rotation fails, the previous session token remains valid (no invalidation).
  */
 export async function rotateSession(reason: string = 'scheduled'): Promise<RotationResult> {
-  // Prevent concurrent rotations
-  if (rotationState.pendingRotation) {
-    logger.debug('Rotation already in progress, skipping');
+  // Acquire distributed lock (prevents concurrent rotations across tabs)
+  if (!acquireRotationLock()) {
+    logger.debug('Rotation lock held by another tab, skipping');
     return { success: true, newSession: false };
   }
 
-  rotationState.pendingRotation = true;
-
   try {
-    logger.info('Starting session rotation', { reason });
+    logger.info('Starting session rotation', { reason, tabId: TAB_ID });
 
     // Get current session
     const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
@@ -166,12 +325,17 @@ export async function rotateSession(reason: string = 'scheduled'): Promise<Rotat
     const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
 
     if (refreshError || !newSession) {
-      logger.error('Failed to rotate session', { error: refreshError?.message });
+      // SECURITY: On failure, preserve the previous session rather than invalidating
+      // This prevents failed rotations from logging users out
+      logger.error('Failed to rotate session, preserving previous token', { error: refreshError?.message });
       return { success: false, error: refreshError?.message || 'Rotation failed' };
     }
 
     // Update rotation state
     updateRotationState(Date.now());
+
+    // Notify other tabs that rotation completed
+    notifyRotationCompleted();
 
     logger.info('Session rotated successfully', {
       reason,
@@ -195,10 +359,11 @@ export async function rotateSession(reason: string = 'scheduled'): Promise<Rotat
 
     return { success: true, newSession: true };
   } catch (err) {
+    // SECURITY: On unexpected error, preserve the previous session
     logger.error('Session rotation error:', err);
     return { success: false, error: 'Unexpected error during rotation' };
   } finally {
-    rotationState.pendingRotation = false;
+    releaseRotationLock();
   }
 }
 
@@ -224,6 +389,9 @@ export function startPeriodicRotation(): void {
   if (rotationState.lastRotation === 0) {
     initializeSessionRotation();
   }
+
+  // Ensure inter-tab listener is active
+  setupInterTabListener();
 
   // Calculate initial delay based on time since last rotation
   const timeUntilNextRotation = getTimeUntilRotation();

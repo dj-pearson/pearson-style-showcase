@@ -119,7 +119,9 @@ const AuthCallback = () => {
           const stateParam = urlParams.get('state') || hashParams.get('state');
 
           if (stateParam) {
-            const stateResult = verifyOAuthState(stateParam);
+            // verifyOAuthState now validates provider binding when metadata is available
+            // For legacy states without provider binding, it falls back to basic state matching
+            const stateResult = await verifyOAuthState(stateParam);
             if (!stateResult.valid) {
               logger.error('OAuth state verification failed:', stateResult.error);
               setStatus('error');

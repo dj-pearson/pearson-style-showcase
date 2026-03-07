@@ -25,27 +25,50 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content, 
   className = '' 
 }) => {
+  // Allowed style values for custom components (whitelist approach)
+  const ALLOWED_BUTTON_STYLES = ['primary', 'secondary', 'outline', 'destructive'];
+  const ALLOWED_ALERT_TYPES = ['info', 'warning', 'success', 'error'];
+  const ALLOWED_BADGE_VARIANTS = ['default', 'secondary', 'destructive', 'outline'];
+
   // Custom component for rendering HTML buttons and components
   const renderCustomHTML = (htmlContent: string) => {
     // Parse custom button syntax: [button:text:url:style]
     const buttonRegex = /\[button:([^:]+):([^:]+):?([^\]]*)\]/g;
     let processedContent = htmlContent.replace(buttonRegex, (match, text, url, style = 'primary') => {
+      // SECURITY: Validate URL at parse time to prevent XSS via javascript:, data:, vbscript: protocols
+      const validatedUrl = validateUrl(url);
+      if (!validatedUrl) {
+        // Render as plain text if URL is invalid
+        return `<span>${DOMPurify.sanitize(text, { ALLOWED_TAGS: [] })}</span>`;
+      }
+      // SECURITY: Whitelist style values to prevent attribute injection
+      const safeStyle = ALLOWED_BUTTON_STYLES.includes(style) ? style : 'primary';
       const buttonId = `btn-${Math.random().toString(36).substr(2, 9)}`;
-      return `<button data-custom-btn="${buttonId}" data-url="${url}" data-style="${style}">${text}</button>`;
+      // Sanitize text content (strip all HTML)
+      const safeText = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
+      return `<span data-custom-btn="${buttonId}" data-url="${validatedUrl}" data-style="${safeStyle}">${safeText}</span>`;
     });
 
     // Parse custom alert syntax: [alert:type:message]
     const alertRegex = /\[alert:([^:]+):([^\]]+)\]/g;
     processedContent = processedContent.replace(alertRegex, (match, type, message) => {
+      // SECURITY: Whitelist alert type values
+      const safeType = ALLOWED_ALERT_TYPES.includes(type) ? type : 'info';
       const alertId = `alert-${Math.random().toString(36).substr(2, 9)}`;
-      return `<div data-custom-alert="${alertId}" data-type="${type}">${message}</div>`;
+      // Sanitize message content (allow limited formatting)
+      const safeMessage = DOMPurify.sanitize(message, { ALLOWED_TAGS: ['strong', 'em'] });
+      return `<div data-custom-alert="${alertId}" data-type="${safeType}">${safeMessage}</div>`;
     });
 
     // Parse custom badge syntax: [badge:text:variant]
     const badgeRegex = /\[badge:([^:]+):?([^\]]*)\]/g;
     processedContent = processedContent.replace(badgeRegex, (match, text, variant = 'default') => {
+      // SECURITY: Whitelist variant values
+      const safeVariant = ALLOWED_BADGE_VARIANTS.includes(variant) ? variant : 'default';
       const badgeId = `badge-${Math.random().toString(36).substr(2, 9)}`;
-      return `<span data-custom-badge="${badgeId}" data-variant="${variant}">${text}</span>`;
+      // Sanitize text content (strip all HTML)
+      const safeText = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
+      return `<span data-custom-badge="${badgeId}" data-variant="${safeVariant}">${safeText}</span>`;
     });
 
     return processedContent;
@@ -159,11 +182,37 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     },
 
     img({ src, alt }: MarkdownComponentProps) {
+      // SECURITY: Validate image src to reject javascript:, data:image/svg (can contain JS), and other dangerous URIs
+      let safeSrc = src;
+      if (src) {
+        // Block data: URIs with SVG (can embed JavaScript) and other dangerous protocols
+        const lowerSrc = src.toLowerCase().trim();
+        if (lowerSrc.startsWith('data:image/svg') ||
+            lowerSrc.startsWith('javascript:') ||
+            lowerSrc.startsWith('vbscript:')) {
+          safeSrc = undefined;
+        }
+        // For http/https URLs, validate them
+        if (lowerSrc.startsWith('http:') || lowerSrc.startsWith('https:')) {
+          safeSrc = validateUrl(src) || undefined;
+        }
+        // Allow relative URLs and safe data: URIs (non-SVG like data:image/png)
+      }
+
+      if (!safeSrc) {
+        return (
+          <div className="my-6 p-4 bg-muted rounded-lg text-center text-muted-foreground">
+            <p className="text-sm">Image could not be displayed</p>
+            {alt && <p className="text-sm italic mt-1">{alt}</p>}
+          </div>
+        );
+      }
+
       return (
         <div className="my-6">
-          <img 
-            src={src} 
-            alt={alt} 
+          <img
+            src={safeSrc}
+            alt={alt}
             className="w-full rounded-lg shadow-lg"
             loading="lazy"
           />
@@ -195,14 +244,16 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
     // Sanitize HTML to prevent XSS attacks
     const sanitizedHtml = React.useMemo(() => {
-      return DOMPurify.sanitize(html, {
+      // SECURITY: 'button' removed from ALLOWED_TAGS - custom buttons use span[data-custom-btn] instead
+      // This prevents onclick handler injection via button elements
+      const sanitized = DOMPurify.sanitize(html, {
         ALLOWED_TAGS: [
           'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
           'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
-          'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'button'
+          'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'
         ],
         ALLOWED_ATTR: [
-          'href', 'src', 'alt', 'title', 'class', 'id', 
+          'href', 'src', 'alt', 'title', 'class', 'id',
           'data-custom-btn', 'data-url', 'data-style',
           'data-custom-alert', 'data-type',
           'data-custom-badge', 'data-variant'
@@ -211,6 +262,25 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         ALLOW_UNKNOWN_PROTOCOLS: false,
         ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/i,
       });
+
+      // SECURITY: Post-sanitization - validate all img src attributes to block SVG XSS
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = sanitized;
+      const images = tempDiv.querySelectorAll('img');
+      images.forEach((img) => {
+        const src = img.getAttribute('src');
+        if (src) {
+          const lowerSrc = src.toLowerCase().trim();
+          if (lowerSrc.startsWith('data:image/svg') ||
+              lowerSrc.startsWith('javascript:') ||
+              lowerSrc.startsWith('vbscript:')) {
+            img.removeAttribute('src');
+            img.setAttribute('alt', 'Image blocked for security');
+          }
+        }
+      });
+
+      return tempDiv.innerHTML;
     }, [html]);
 
     React.useEffect(() => {
@@ -218,34 +288,38 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
       const container = containerRef.current;
 
-      // Handle custom buttons
+      // Handle custom buttons (now rendered as span elements for security)
       const customButtons = container.querySelectorAll('[data-custom-btn]');
       customButtons.forEach((btn) => {
         const url = btn.getAttribute('data-url');
-        const style = btn.getAttribute('data-style') || 'primary';
-        
-        btn.className = `inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background h-10 py-2 px-4 ${
+        // SECURITY: Re-validate style against whitelist (defense in depth)
+        const rawStyle = btn.getAttribute('data-style') || 'primary';
+        const style = ALLOWED_BUTTON_STYLES.includes(rawStyle) ? rawStyle : 'primary';
+
+        btn.setAttribute('role', 'button');
+        btn.setAttribute('tabindex', '0');
+        btn.className = `inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer ring-offset-background h-10 py-2 px-4 ${
           style === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
           style === 'secondary' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80' :
           style === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
           style === 'destructive' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' :
           'bg-primary text-primary-foreground hover:bg-primary/90'
         } my-2 mx-1`;
-        
+
         if (url) {
-          btn.addEventListener('click', () => {
-            // SECURITY: Validate URL to prevent XSS via javascript: protocol
+          // SECURITY: Re-validate URL at click time (defense in depth - already validated at parse time)
+          const handleClick = () => {
             const validatedUrl = validateUrl(url);
             if (!validatedUrl) {
-              console.error('Invalid or unsafe URL blocked:', url);
               return;
             }
-
-            // Safe to navigate - validated URL is http/https only
-            if (validatedUrl.startsWith('http')) {
-              window.open(validatedUrl, '_blank', 'noopener,noreferrer');
-            } else {
-              window.location.href = validatedUrl;
+            window.open(validatedUrl, '_blank', 'noopener,noreferrer');
+          };
+          btn.addEventListener('click', handleClick);
+          btn.addEventListener('keydown', (e) => {
+            if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') {
+              e.preventDefault();
+              handleClick();
             }
           });
         }
@@ -279,15 +353,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         };
         
         badge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${variantMap[variant as keyof typeof variantMap] || variantMap.default} mx-1`;
-      });
-
-      // Style any existing buttons to match our design system
-      const htmlButtons = container.querySelectorAll('button:not([data-custom-btn])');
-      htmlButtons.forEach((btn) => {
-        // Only apply default styling if button doesn't already have extensive styling
-        if (!btn.getAttribute('style')?.includes('background') && !btn.className.includes('bg-')) {
-          btn.className = `${btn.className} inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4`.trim();
-        }
       });
 
       // Style any links in HTML (but preserve amazon-button and other custom classes)
@@ -342,11 +407,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     );
   } else if (containsHTML && containsMarkdown) {
     // Mixed content - sanitize and render HTML first, then process any remaining markdown
+    // SECURITY: 'button' removed from ALLOWED_TAGS - custom buttons use span[data-custom-btn]
     const sanitizedContent = DOMPurify.sanitize(processedContent, {
       ALLOWED_TAGS: [
         'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
-        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'button'
+        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'
       ],
       ALLOWED_ATTR: [
         'href', 'src', 'alt', 'title', 'class', 'id',
