@@ -198,6 +198,44 @@ export function measureCLS() {
 }
 
 /**
+ * Measure Interaction to Next Paint (INP) - replaces FID as Core Web Vital
+ * INP measures responsiveness across ALL interactions, not just the first one
+ */
+export function measureINP() {
+  if (!('PerformanceObserver' in window)) return;
+
+  let maxINP = 0;
+
+  try {
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as (PerformanceEntry & { duration?: number; interactionId?: number })[]) {
+        if (entry.interactionId && entry.duration) {
+          if (entry.duration > maxINP) {
+            maxINP = entry.duration;
+          }
+        }
+      }
+    });
+
+    observer.observe({ type: 'event', buffered: true } as PerformanceObserverInit);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && maxINP > 0) {
+        reportMetric({
+          name: 'INP',
+          value: maxINP,
+          rating: getRating('INP', maxINP),
+          timestamp: Date.now(),
+        });
+        observer.disconnect();
+      }
+    });
+  } catch (error) {
+    logger.log('[Performance] Error measuring INP:', error);
+  }
+}
+
+/**
  * Measure Time to First Byte (TTFB)
  */
 export function measureTTFB() {
@@ -240,6 +278,7 @@ function measureAll() {
   measureFCP();
   measureLCP();
   measureFID();
+  measureINP();
   measureCLS();
   measureTTFB();
 }

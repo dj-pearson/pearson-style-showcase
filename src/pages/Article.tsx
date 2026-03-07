@@ -184,6 +184,12 @@ const Article = () => {
         url={`https://danpearson.net/news/${article.slug}`}
         type="article"
         image={(article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg'))}
+        publishedTime={article.created_at || undefined}
+        modifiedTime={article.updated_at || undefined}
+        section={article.category}
+        tags={article.tags || []}
+        citationSource={`Dan Pearson - ${article.category}`}
+        contentSummary={keyTakeaways.length > 0 ? keyTakeaways.slice(0, 3).join('. ') : article.excerpt || undefined}
       />
 
       {/* Enhanced Article Schema with Author Authority & AI Search Optimization */}

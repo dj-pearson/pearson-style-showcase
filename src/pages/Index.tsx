@@ -156,6 +156,8 @@ const Index = () => {
         keywords="AI business automation, AI automation consultant, business process automation, AI integration services, AI consultant Des Moines, AI tools for business, business automation Iowa, digital transformation consultant, AI implementation, reduce business costs with AI"
         url="https://danpearson.net"
         type="website"
+        contentSummary="Dan Pearson is an AI automation consultant who helps businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Based in Des Moines, Iowa, serving businesses nationwide."
+        citationSource="Dan Pearson - AI Business Automation Consultant"
       />
 
       {/* Enhanced Person Schema for AI Citation */}
@@ -221,6 +223,23 @@ const Index = () => {
           name: 'Pearson Media LLC',
           email: 'dan@danpearson.net',
           phone: ''
+        }}
+      />
+
+      {/* SiteNavigationElement Schema - helps search engines and AI understand site structure */}
+      <StructuredData
+        type="sitenavigation"
+        data={{
+          name: 'Main Navigation',
+          items: [
+            { name: 'Home', url: 'https://danpearson.net/', description: 'AI Business Automation Consultant' },
+            { name: 'About', url: 'https://danpearson.net/about', description: 'About Dan Pearson - AI Engineer & Business Development Expert' },
+            { name: 'Projects', url: 'https://danpearson.net/projects', description: 'AI automation projects and case studies' },
+            { name: 'News', url: 'https://danpearson.net/news', description: 'Latest articles on AI automation and business' },
+            { name: 'AI Tools', url: 'https://danpearson.net/ai-tools', description: 'Recommended AI tools for business' },
+            { name: 'FAQ', url: 'https://danpearson.net/faq', description: 'Frequently asked questions about AI automation' },
+            { name: 'Connect', url: 'https://danpearson.net/connect', description: 'Get in touch for AI consulting' }
+          ]
         }}
       />
 

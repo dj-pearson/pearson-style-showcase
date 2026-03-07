@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 interface StructuredDataProps {
-  type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review' | 'localbusiness';
+  type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review' | 'localbusiness' | 'sitenavigation';
   data?: Record<string, unknown>;
 }
 
@@ -400,6 +400,20 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
             "Workflow Optimization"
           ],
           "slogan": "Reduce operational costs by 40% with intelligent AI automation"
+        };
+        break;
+
+      case 'sitenavigation':
+        schema = {
+          "@context": "https://schema.org",
+          "@type": "SiteNavigationElement",
+          "name": data?.name || "Main Navigation",
+          "hasPart": (data?.items as Array<{ name: string; url: string; description?: string }>)?.map(item => ({
+            "@type": "WebPage",
+            "name": item.name,
+            "url": item.url,
+            ...(item.description ? { "description": item.description } : {})
+          })) || []
         };
         break;
     }

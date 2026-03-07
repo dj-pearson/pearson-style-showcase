@@ -27,6 +27,7 @@ const NotFound = () => {
         keywords="404, page not found"
         url={`https://danpearson.net${location.pathname}`}
         type="website"
+        noIndex={true}
       />
       <Navigation />
       <main id="main-content" className="flex-1 pt-20 sm:pt-24 mobile-container flex items-center justify-center">

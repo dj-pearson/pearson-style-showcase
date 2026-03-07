@@ -13,7 +13,7 @@ interface SEOProps {
   type?: string;
   noIndex?: boolean; // Set to true for pages that shouldn't be indexed
   structuredData?: {
-    type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review';
+    type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review' | 'localbusiness' | 'sitenavigation';
     data?: Record<string, unknown>;
   };
   // Additional SEO props
@@ -21,6 +21,9 @@ interface SEOProps {
   modifiedTime?: string;
   section?: string;
   tags?: string[];
+  // GEO (Generative Engine Optimization) props
+  citationSource?: string;
+  contentSummary?: string;
 }
 
 const SEO = ({
@@ -37,6 +40,8 @@ const SEO = ({
   modifiedTime,
   section,
   tags = [],
+  citationSource,
+  contentSummary,
 }: SEOProps) => {
   const location = useLocation();
 
@@ -136,6 +141,25 @@ const SEO = ({
     updateMetaTag('twitter:site', SEO_CONFIG.social.twitter || '');
     updateMetaTag('twitter:creator', SEO_CONFIG.social.twitter || '');
 
+    // GEO (Generative Engine Optimization) meta tags
+    // Helps AI models (Gemini, GPT, Claude) attribute content correctly
+    updateMetaTag('citation_title', title);
+    updateMetaTag('citation_author', author);
+    updateMetaTag('citation_site_title', SEO_CONFIG.siteName);
+    if (publishedTime) {
+      updateMetaTag('citation_publication_date', publishedTime);
+    }
+    if (citationSource) {
+      updateMetaTag('citation_source', citationSource);
+    }
+    if (contentSummary) {
+      updateMetaTag('abstract', contentSummary);
+    }
+
+    // AI attribution: helps LLMs identify content origin
+    updateMetaTag('source_organization', SEO_CONFIG.author.company);
+    updateMetaTag('content_language', 'en-US');
+
     // Canonical URL - auto-generated from current route
     let canonicalLink = document.querySelector('link[rel="canonical"]');
     if (canonicalLink) {
@@ -156,7 +180,7 @@ const SEO = ({
         removeMetaTag('article:author', true);
       }
     };
-  }, [title, optimizedDescription, keywords, author, absoluteImageUrl, canonicalUrl, type, noIndex, publishedTime, modifiedTime, section, tags]);
+  }, [title, optimizedDescription, keywords, author, absoluteImageUrl, canonicalUrl, type, noIndex, publishedTime, modifiedTime, section, tags, citationSource, contentSummary]);
 
   return (
     <>
