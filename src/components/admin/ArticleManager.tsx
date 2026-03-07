@@ -16,6 +16,7 @@ import ArticleEditor from '../ArticleEditor';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+import { notifyArticleUpdated, notifyArticleDeleted } from '@/services/google-indexing';
 import { useMutation } from '@tanstack/react-query';
 import {
   Plus,
@@ -167,6 +168,20 @@ export const ArticleManager: React.FC = () => {
         title: data.published ? "Article published" : "Article unpublished",
         description: "Status updated successfully.",
       });
+
+      // Notify Google Indexing API when publish status changes
+      const article = articles.find(a => a.id === data.id);
+      if (article?.slug) {
+        if (data.published) {
+          notifyArticleUpdated(article.slug).catch(err =>
+            logger.error('Google indexing notification failed:', err)
+          );
+        } else {
+          notifyArticleDeleted(article.slug).catch(err =>
+            logger.error('Google indexing notification failed:', err)
+          );
+        }
+      }
     },
   });
 
@@ -248,11 +263,19 @@ export const ArticleManager: React.FC = () => {
         description: "Could not delete article. Please try again.",
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, _id, context) => {
       toast({
         title: "Article deleted",
         description: "The article has been deleted successfully.",
       });
+
+      // Notify Google Indexing API about deleted article
+      const deletedArticle = context?.previousArticles?.find(a => a.id === _id);
+      if (deletedArticle?.slug && deletedArticle?.published) {
+        notifyArticleDeleted(deletedArticle.slug).catch(err =>
+          logger.error('Google indexing notification failed:', err)
+        );
+      }
     },
   });
 
@@ -500,6 +523,13 @@ export const ArticleManager: React.FC = () => {
             description: "Your article has been updated successfully.",
           });
         }
+
+        // Notify Google Indexing API for published articles
+        if (articleData.published && articleData.slug) {
+          notifyArticleUpdated(articleData.slug).catch(err =>
+            logger.error('Google indexing notification failed:', err)
+          );
+        }
       } else {
         // Create new article
         const { data: newArticle, error } = await supabase
@@ -518,6 +548,13 @@ export const ArticleManager: React.FC = () => {
           });
           // Send to webhook in background
           sendToWebhook(newArticle.id);
+
+          // Notify Google Indexing API
+          if (articleData.slug) {
+            notifyArticleUpdated(articleData.slug).catch(err =>
+              logger.error('Google indexing notification failed:', err)
+            );
+          }
         } else {
           toast({
             title: "Article created",
