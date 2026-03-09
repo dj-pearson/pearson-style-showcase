@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { callAIWithVision } from "../_shared/ai-helper.ts";
 
 interface ProcessDocumentRequest {
   documentId: string;
@@ -25,16 +26,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY');
-    if (!CLAUDE_API_KEY) {
-      throw new Error('CLAUDE_API_KEY not configured');
-    }
-
     const requestData: ProcessDocumentRequest = await req.json();
     documentId = requestData.documentId;
     const { documentType, relatedEntityType, relatedEntityId } = requestData;
 
-    console.log('Processing document:', documentId, 'Type:', documentType);
+    console.log('[Document] Processing document:', documentId, 'Type:', documentType);
 
     // Fetch document metadata
     const { data: document, error: docError } = await supabaseClient
@@ -56,7 +52,7 @@ serve(async (req) => {
       })
       .eq('id', documentId);
 
-    console.log('Downloading file from storage:', document.file_path);
+    console.log('[Document] Downloading file from storage:', document.file_path);
 
     // Download file from Supabase storage
     const { data: fileData, error: storageError } = await supabaseClient
@@ -68,9 +64,9 @@ serve(async (req) => {
       throw new Error(`Failed to download file: ${storageError?.message}`);
     }
 
-    console.log('File downloaded, size:', fileData.size);
+    console.log('[Document] File downloaded, size:', fileData.size);
 
-    // Convert file to base64 for Claude API
+    // Convert file to base64
     const arrayBuffer = await fileData.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
@@ -85,9 +81,8 @@ serve(async (req) => {
 
     // Determine media type
     const fileType = document.file_type || 'application/pdf';
-    const isPdf = fileType === 'application/pdf' || document.file_path?.endsWith('.pdf');
 
-    console.log('Sending to Claude for OCR and parsing... (isPdf:', isPdf, 'fileType:', fileType, ')');
+    console.log('[Document] Sending to vision AI for OCR...');
 
     // Build the parsing prompt based on document type
     const parsingPrompts: Record<string, string> = {
@@ -202,77 +197,16 @@ Return ONLY valid JSON.`
 
     const parsingPrompt = parsingPrompts[documentType] || parsingPrompts.other;
 
-    // Build the content block based on file type
-    // Claude vision only accepts image/jpeg, image/png, image/gif, image/webp
-    // For PDFs, use the 'document' content type instead
-    let fileContentBlock;
-    if (isPdf) {
-      fileContentBlock = {
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: base64,
-        },
-      };
-    } else {
-      // Map to a supported image media type
-      const supportedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      const imageMediaType = supportedImageTypes.includes(fileType) ? fileType : 'image/png';
-      fileContentBlock = {
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: imageMediaType,
-          data: base64,
-        },
-      };
-    }
-
-    // Use Claude's Messages API - single call for OCR + parsing
-    const headers: Record<string, string> = {
-      'x-api-key': CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    };
-    // PDF support requires the beta header
-    if (isPdf) {
-      headers['anthropic-beta'] = 'pdfs-2024-09-25';
-    }
-
-    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        system: 'You are an expert at extracting structured data from financial documents. First read and extract all text from the document, then parse it into the requested JSON format. Always return valid JSON without any explanations or markdown formatting.',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              fileContentBlock,
-              {
-                type: 'text',
-                text: parsingPrompt,
-              },
-            ],
-          },
-        ],
-        temperature: 0.1,
-      }),
+    // Use shared AI helper with multi-model fallback and proper PDF handling
+    const aiResult = await callAIWithVision(base64, fileType, parsingPrompt, {
+      lightweight: true,
+      maxTokens: 4096,
+      temperature: 0.1,
+      systemPrompt: 'You are an expert at extracting structured data from financial documents. First read and extract all text from the document, then parse it into the requested JSON format. Always return valid JSON without any explanations or markdown formatting.',
     });
 
-    if (!claudeResponse.ok) {
-      const errorText = await claudeResponse.text();
-      console.error('Claude API error:', claudeResponse.status, errorText);
-      throw new Error(`Claude API failed: ${claudeResponse.status} - ${errorText}`);
-    }
-
-    const claudeData = await claudeResponse.json();
-    const aiContent = claudeData.content[0].text;
-
-    console.log('Claude processing completed, response length:', aiContent.length);
+    const aiContent = aiResult.text;
+    console.log(`[Document] AI processing completed via ${aiResult.provider}/${aiResult.model}, response length: ${aiContent.length}`);
 
     // Parse JSON response (handle potential markdown code blocks)
     let parsedData;
@@ -281,7 +215,7 @@ Return ONLY valid JSON.`
       const jsonStr = jsonMatch ? jsonMatch[1] : aiContent;
       parsedData = JSON.parse(jsonStr);
     } catch (e) {
-      console.error('Failed to parse Claude response:', e);
+      console.error('[Document] Failed to parse AI response:', e);
       parsedData = { error: 'Failed to parse AI response', raw: aiContent };
     }
 
@@ -291,7 +225,7 @@ Return ONLY valid JSON.`
     const extractedVendor = parsedData.vendor_name || parsedData.merchant_name || parsedData.payee_name || null;
     const extractedInvoiceNumber = parsedData.invoice_number || parsedData.receipt_number || parsedData.payment_number || null;
 
-    console.log('Updating document with parsed data...');
+    console.log('[Document] Updating document with parsed data...');
 
     // Update document with results
     const { data: updatedDoc, error: updateError } = await supabaseClient
@@ -318,11 +252,11 @@ Return ONLY valid JSON.`
       .single();
 
     if (updateError) {
-      console.error('Failed to update document:', updateError);
+      console.error('[Document] Failed to update document:', updateError);
       throw updateError;
     }
 
-    console.log('Document processing completed successfully');
+    console.log('[Document] Document processing completed successfully');
 
     return new Response(
       JSON.stringify({
@@ -336,7 +270,7 @@ Return ONLY valid JSON.`
       }
     );
   } catch (error) {
-    console.error('Error in process-accounting-document function:', error);
+    console.error('[Document] Error in process-accounting-document function:', error);
 
     // Try to update document status to failed
     if (documentId) {
@@ -354,7 +288,7 @@ Return ONLY valid JSON.`
           })
           .eq('id', documentId);
       } catch (e) {
-        console.error('Failed to update error status:', e);
+        console.error('[Document] Failed to update error status:', e);
       }
     }
 
