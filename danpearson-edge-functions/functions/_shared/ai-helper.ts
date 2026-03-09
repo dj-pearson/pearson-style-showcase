@@ -139,6 +139,15 @@ export async function callAIWithConfig(
       switch (config.provider) {
         case "gemini-paid":
         case "gemini-free": {
+          // Filter out non-standard fields from configuration that Gemini rejects
+          const geminiGenConfig = config.configuration
+            ? Object.fromEntries(
+                Object.entries(config.configuration).filter(
+                  ([key]) => !['thinking', 'last_error', 'thinkingConfig'].includes(key)
+                )
+              )
+            : {};
+
           response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
             {
@@ -151,7 +160,7 @@ export async function callAIWithConfig(
                 generationConfig: {
                   temperature,
                   maxOutputTokens: maxTokens,
-                  ...(config.configuration || {})
+                  ...geminiGenConfig
                 }
               })
             }
@@ -303,6 +312,15 @@ export async function callAIWithVision(
           }
           const [, mimeType, base64Data] = matches;
 
+          // Filter out non-standard fields from configuration that Gemini rejects
+          const geminiConfig = config.configuration
+            ? Object.fromEntries(
+                Object.entries(config.configuration).filter(
+                  ([key]) => !['thinking', 'last_error', 'thinkingConfig'].includes(key)
+                )
+              )
+            : {};
+
           response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
             {
@@ -323,7 +341,7 @@ export async function callAIWithVision(
                 generationConfig: {
                   temperature,
                   maxOutputTokens: maxTokens,
-                  ...(config.configuration || {})
+                  ...geminiConfig
                 }
               })
             }
@@ -408,7 +426,7 @@ export async function callAIWithVision(
         }
 
         case "claude": {
-          // Claude with vision
+          // Claude with vision - handles both images and PDFs
           const matches = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
           if (!matches) {
             console.error("[AI Vision] Invalid image data URL format");
@@ -416,13 +434,46 @@ export async function callAIWithVision(
           }
           const [, mediaType, base64Data] = matches;
 
+          const isPdf = mediaType === 'application/pdf';
+          const claudeHeaders: Record<string, string> = {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01"
+          };
+
+          // PDF support requires the beta header
+          if (isPdf) {
+            claudeHeaders["anthropic-beta"] = "pdfs-2024-09-25";
+          }
+
+          // Build content block: PDFs use 'document' type, images use 'image' type
+          let contentBlock;
+          if (isPdf) {
+            contentBlock = {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: base64Data
+              }
+            };
+          } else {
+            // Claude only accepts these image media types
+            const supportedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            const safeMediaType = supportedImageTypes.includes(mediaType) ? mediaType : 'image/png';
+            contentBlock = {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: safeMediaType,
+                data: base64Data
+              }
+            };
+          }
+
           response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01"
-            },
+            headers: claudeHeaders,
             body: JSON.stringify({
               model: config.model_name,
               max_tokens: maxTokens,
@@ -430,14 +481,7 @@ export async function callAIWithVision(
                 {
                   role: "user",
                   content: [
-                    {
-                      type: "image",
-                      source: {
-                        type: "base64",
-                        media_type: mediaType,
-                        data: base64Data
-                      }
-                    },
+                    contentBlock,
                     { type: "text", text: prompt }
                   ]
                 }
