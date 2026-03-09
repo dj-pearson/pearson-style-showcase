@@ -704,7 +704,7 @@ const InvoiceForm = ({
         invoice_number: formData.invoice_number,
         invoice_date: formData.invoice_date,
         due_date: formData.due_date || null,
-        contact_id: formData.contact_id || null,
+        contact_id: formData.contact_id && formData.contact_id !== 'none' ? formData.contact_id : null,
         subtotal: subtotal,
         total_amount: subtotal,
         amount_due: subtotal,
@@ -746,7 +746,7 @@ const InvoiceForm = ({
           quantity: item.quantity,
           unit_price: item.unit_price,
           line_total: item.line_total,
-          expense_category_id: item.expense_category_id || null,
+          expense_category_id: item.expense_category_id && item.expense_category_id !== 'none' ? item.expense_category_id : null,
         }));
 
         const { error: itemsError } = await supabase.from('invoice_items').insert(items);
@@ -833,7 +833,7 @@ const InvoiceForm = ({
               <SelectValue placeholder="Select contact" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No contact</SelectItem>
+              <SelectItem value="none">No contact</SelectItem>
               {contacts.map((contact: any) => (
                 <SelectItem key={contact.id} value={contact.id}>
                   {contact.contact_name} ({contact.contact_type})
@@ -904,7 +904,7 @@ const InvoiceForm = ({
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {expenseCategories.map((cat: any) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             {cat.name}
