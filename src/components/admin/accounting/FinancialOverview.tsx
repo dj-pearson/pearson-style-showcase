@@ -22,15 +22,16 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
   const currentMonth = useMemo(() => new Date(), []);
   const currentMonthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
   const currentMonthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
+  const twelveMonthsAgo = useMemo(() => subMonths(currentMonth, 12), [currentMonth]);
 
-  // Fetch invoices for revenue and expenses
+  // Fetch invoices for revenue and expenses (last 12 months for meaningful overview)
   const { data: invoices } = useQuery({
-    queryKey: ['invoices', 'overview'],
+    queryKey: ['invoices', 'overview', twelveMonthsAgo.toISOString().slice(0, 7)],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
-        .gte('invoice_date', currentMonthStart.toISOString().split('T')[0])
+        .gte('invoice_date', twelveMonthsAgo.toISOString().split('T')[0])
         .lte('invoice_date', currentMonthEnd.toISOString().split('T')[0]);
 
       if (error) throw error;
@@ -38,14 +39,14 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
     },
   });
 
-  // Fetch platform transactions
+  // Fetch platform transactions (last 12 months)
   const { data: platformTransactions } = useQuery({
-    queryKey: ['platform_transactions', 'overview'],
+    queryKey: ['platform_transactions', 'overview', twelveMonthsAgo.toISOString().slice(0, 7)],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('platform_transactions')
         .select('*, platforms(name, platform_type)')
-        .gte('transaction_date', currentMonthStart.toISOString().split('T')[0])
+        .gte('transaction_date', twelveMonthsAgo.toISOString().split('T')[0])
         .lte('transaction_date', currentMonthEnd.toISOString().split('T')[0])
         .order('transaction_date', { ascending: false });
 
@@ -54,14 +55,14 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
     },
   });
 
-  // Fetch Amazon affiliate stats for additional revenue
+  // Fetch Amazon affiliate stats for additional revenue (last 12 months)
   const { data: amazonStats } = useQuery({
-    queryKey: ['amazon_stats', 'overview'],
+    queryKey: ['amazon_stats', 'overview', twelveMonthsAgo.toISOString().slice(0, 7)],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('amazon_affiliate_stats')
         .select('revenue, commission')
-        .gte('date', currentMonthStart.toISOString().split('T')[0])
+        .gte('date', twelveMonthsAgo.toISOString().split('T')[0])
         .lte('date', currentMonthEnd.toISOString().split('T')[0]);
 
       if (error) throw error;
@@ -105,7 +106,9 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
         totalRevenue += Number(invoice.amount_paid || 0);
         outstandingAmount += Number(invoice.amount_due || 0);
       } else if (invoice.invoice_type === 'purchase') {
-        totalExpenses += Number(invoice.amount_paid || 0);
+        // Include total_amount as expense (accrual: bills received), amount_paid as cash out
+        totalExpenses += Number(invoice.total_amount || invoice.amount_paid || 0);
+        outstandingAmount += Number(invoice.amount_due || 0); // Bills to pay
       }
     });
 
@@ -156,7 +159,7 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
         if (invoice.invoice_type === 'sales') {
           monthlyData[monthKey].revenue += Number(invoice.amount_paid || 0);
         } else if (invoice.invoice_type === 'purchase') {
-          monthlyData[monthKey].expenses += Number(invoice.amount_paid || 0);
+          monthlyData[monthKey].expenses += Number(invoice.total_amount || invoice.amount_paid || 0);
         }
       }
     });
@@ -214,7 +217,7 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
       <div>
         <h3 className="text-lg font-semibold">Financial Overview</h3>
         <p className="text-sm text-muted-foreground">
-          {format(currentMonthStart, 'MMMM yyyy')} - Real-time financial metrics
+          Last 12 months - Real-time financial metrics
         </p>
       </div>
 

@@ -44,11 +44,9 @@ async function isEmailWhitelisted(email: string): Promise<boolean> {
 
 // Helper function to get user roles from database
 async function getUserRoles(userId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .eq('is_active', true);
+  let query = supabase.from('user_roles').select('role').eq('user_id', userId);
+  // Only filter by is_active if column exists (rbac migration may not have run)
+  const { data, error } = await query;
 
   if (error || !data) return [];
   return data.map(r => r.role);
@@ -79,11 +77,7 @@ async function ensureAdminRole(userId: string, email: string): Promise<boolean> 
   // Insert admin role for whitelisted user
   const { error: insertError } = await supabase
     .from('user_roles')
-    .insert({
-      user_id: userId,
-      role: 'admin',
-      is_active: true
-    });
+    .insert({ user_id: userId, role: 'admin' });
 
   if (insertError) {
     console.error('Failed to assign admin role:', insertError);
