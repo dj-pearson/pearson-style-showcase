@@ -52,6 +52,10 @@ SUPABASE_COOLIFY_COMMANDS.md
 db_cluster-*.backup.gz
 backups/
 
+# Accounting exports (sensitive data - never commit)
+accounting_documents_rows.csv
+accounting_*.csv
+
 # Edge Functions - ONLY ignore .env files, not the code!
 danpearson-edge-functions/.env
 danpearson-edge-functions/.env.*

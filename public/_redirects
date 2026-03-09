@@ -1,4 +1,13 @@
 # SPA fallback for React Router
-# Cloudflare Pages automatically serves static assets
-# This handles client-side routing by serving index.html for unmatched routes
-/:splat    /index.html    200
+# Cloudflare Pages automatically serves static assets first,
+# then falls through to these rules for client-side routing.
+
+# Exclude static assets from the SPA fallback
+/sw.js             /sw.js             200
+/manifest.json     /manifest.json     200
+/robots.txt        /robots.txt        200
+/favicon.ico       /favicon.ico       200
+/sitemap.xml       /sitemap.xml       200
+
+# SPA catch-all: serve index.html for all other routes
+/*    /index.html    200
