@@ -70,14 +70,24 @@ serve(async (req) => {
 
     console.log('File downloaded, size:', fileData.size);
 
-    // Convert file to base64 for Claude vision API
+    // Convert file to base64 for Claude API
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const uint8Array = new Uint8Array(arrayBuffer);
 
-    // Determine media type for Claude's API
-    const mediaType = document.file_type || 'application/pdf';
+    // Build binary string in chunks to avoid stack overflow, then encode as base64 once
+    let binaryString = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binaryString += String.fromCharCode(...chunk);
+    }
+    const base64 = btoa(binaryString);
 
-    console.log('Sending to Claude for OCR and parsing...');
+    // Determine media type
+    const fileType = document.file_type || 'application/pdf';
+    const isPdf = fileType === 'application/pdf' || document.file_path?.endsWith('.pdf');
+
+    console.log('Sending to Claude for OCR and parsing... (isPdf:', isPdf, 'fileType:', fileType, ')');
 
     // Build the parsing prompt based on document type
     const parsingPrompts: Record<string, string> = {
@@ -192,30 +202,56 @@ Return ONLY valid JSON.`
 
     const parsingPrompt = parsingPrompts[documentType] || parsingPrompts.other;
 
-    // Use Claude's Messages API with vision - single call for OCR + parsing
+    // Build the content block based on file type
+    // Claude vision only accepts image/jpeg, image/png, image/gif, image/webp
+    // For PDFs, use the 'document' content type instead
+    let fileContentBlock;
+    if (isPdf) {
+      fileContentBlock = {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: base64,
+        },
+      };
+    } else {
+      // Map to a supported image media type
+      const supportedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      const imageMediaType = supportedImageTypes.includes(fileType) ? fileType : 'image/png';
+      fileContentBlock = {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: imageMediaType,
+          data: base64,
+        },
+      };
+    }
+
+    // Use Claude's Messages API - single call for OCR + parsing
+    const headers: Record<string, string> = {
+      'x-api-key': CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    };
+    // PDF support requires the beta header
+    if (isPdf) {
+      headers['anthropic-beta'] = 'pdfs-2024-09-25';
+    }
+
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 4096,
-        system: 'You are an expert at extracting structured data from financial documents. First read and extract all text from the document image, then parse it into the requested JSON format. Always return valid JSON without any explanations or markdown formatting.',
+        system: 'You are an expert at extracting structured data from financial documents. First read and extract all text from the document, then parse it into the requested JSON format. Always return valid JSON without any explanations or markdown formatting.',
         messages: [
           {
             role: 'user',
             content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mediaType,
-                  data: base64,
-                },
-              },
+              fileContentBlock,
               {
                 type: 'text',
                 text: parsingPrompt,
