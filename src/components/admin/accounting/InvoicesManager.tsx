@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, FileText, ExternalLink, Download, Edit, Eye, Upload as UploadIcon, Trash2, X } from 'lucide-react';
+import { Plus, FileText, ExternalLink, Download, Edit, Eye, Upload as UploadIcon, Trash2, X, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -88,7 +88,7 @@ export const InvoicesManager = () => {
   const queryClient = useQueryClient();
 
   // Fetch invoices using TanStack Query
-  const { data: invoices = [], isLoading } = useQuery({
+  const { data: invoices = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['invoices', filterType, filterStatus],
     queryFn: async () => {
       let query = supabase
@@ -425,11 +425,25 @@ export const InvoicesManager = () => {
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
+          ) : isError ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-destructive font-medium">Failed to load invoices</p>
+              <p className="text-sm mt-1">{error instanceof Error ? error.message : 'Unknown error'}</p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
           ) : invoices.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No invoices found</p>
               <p className="text-sm">Create your first invoice or import from integrations</p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
             </div>
           ) : (
             <div className="border rounded-lg">

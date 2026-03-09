@@ -39,6 +39,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createImporter, ManualCSVImporter } from '@/services/accounting/importers';
 import { DocumentUpload } from './DocumentUpload';
@@ -429,49 +430,15 @@ export const ImportIntegrationsManager = () => {
                   }
                 }}
                 onApprove={async (documentId, parsedData) => {
-                  const lineItems = parsedData.line_items || parsedData.items || [];
-                  const totalAmount = parseFloat(parsedData.total_amount || parsedData.totalAmount || parsedData.amount || '0') || 0;
-                  const invoiceData = {
-                    invoice_type: 'purchase' as const,
-                    invoice_number: parsedData.invoice_number || parsedData.invoiceNumber || `SCAN-${Date.now()}`,
-                    invoice_date: parsedData.invoice_date || parsedData.invoiceDate || parsedData.date || new Date().toISOString().split('T')[0],
-                    due_date: parsedData.due_date || parsedData.dueDate || null,
-                    subtotal: totalAmount,
-                    total_amount: totalAmount,
-                    amount_due: totalAmount,
-                    amount_paid: 0,
-                    status: 'draft',
-                    import_source: 'ai_scan',
-                    notes: parsedData.vendor_name
-                      ? `Vendor: ${parsedData.vendor_name}${parsedData.notes ? '\n' + parsedData.notes : ''}`
-                      : parsedData.notes || null,
-                  };
-                  const { data: inserted, error: insertError } = await supabase
-                    .from('invoices')
-                    .insert([invoiceData])
-                    .select()
-                    .single();
-                  if (insertError) throw insertError;
-                  const validItems = lineItems.filter((item: any) => item.description);
-                  if (validItems.length > 0 && inserted) {
-                    const items = validItems.map((item: any, index: number) => ({
-                      invoice_id: inserted.id,
-                      line_number: index + 1,
-                      description: item.description,
-                      quantity: item.quantity || 1,
-                      unit_price: item.unit_price || item.amount || item.total || 0,
-                      line_total: item.amount || item.total || ((item.quantity || 1) * (item.unit_price || 0)),
-                    }));
-                    await supabase.from('invoice_items').insert(items);
-                  }
-                  await supabase
-                    .from('accounting_documents')
-                    .update({ related_entity_type: 'invoice', related_entity_id: inserted.id })
-                    .eq('id', documentId);
+                  const { data, error } = await invokeEdgeFunction('create-invoice-from-document', {
+                    body: { documentId, parsedData },
+                  });
+                  if (error) throw error;
+                  if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
                   queryClient.invalidateQueries({ queryKey: ['invoices'] });
                   toast({
                     title: 'Invoice created',
-                    description: `Invoice ${invoiceData.invoice_number} created. Review in Invoices tab.`,
+                    description: `Invoice ${data.invoice_number} created. Review in Invoices tab.`,
                   });
                 }}
                 onDeny={async (documentId) => {
