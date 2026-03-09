@@ -420,13 +420,32 @@ export const ImportIntegrationsManager = () => {
                 relatedEntityType="expense"
                 autoProcess={true}
                 showExistingDocuments={true}
-                onUploadComplete={(documentId, parsedData) => {
+                onUploadComplete={async (documentId, parsedData) => {
                   if (parsedData) {
                     toast({
                       title: 'Document processed',
-                      description: `Extracted: ${parsedData.vendor_name || 'Invoice'} - ${parsedData.total_amount ? `$${parsedData.total_amount}` : 'amount pending'}. Approve below to create invoice.`,
+                      description: `Extracted: ${parsedData.vendor_name || 'Invoice'} - ${parsedData.total_amount ? `$${parsedData.total_amount}` : 'amount pending'}. Creating invoice...`,
                     });
-                    queryClient.invalidateQueries({ queryKey: ['invoices'] });
+                    try {
+                      const { data, error } = await invokeEdgeFunction('create-invoice-from-document', {
+                        body: { documentId, parsedData },
+                      });
+                      if (error) throw error;
+                      if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
+                      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+                      toast({
+                        title: 'Invoice created',
+                        description: `Invoice ${data.invoice_number} created. View in Invoices tab.`,
+                      });
+                    } catch (err) {
+                      logger.error('Auto-create invoice failed:', err);
+                      toast({
+                        title: 'Invoice creation failed',
+                        description: err instanceof Error ? err.message : 'Click Approve below to create manually.',
+                        variant: 'destructive',
+                      });
+                      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+                    }
                   }
                 }}
                 onApprove={async (documentId, parsedData) => {
