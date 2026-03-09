@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, File, CheckCircle, XCircle, Loader2, Eye, Download, Trash2 } from 'lucide-react';
+import { Upload, File, CheckCircle, XCircle, Loader2, Eye, Download, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -35,6 +35,9 @@ interface DocumentUploadProps {
   onError?: (error: string) => void;
   autoProcess?: boolean; // Auto-trigger OCR/AI processing after upload
   showExistingDocuments?: boolean; // Show list of existing documents
+  /** When provided, shows Approve/Deny buttons for completed documents (e.g. approval queue) */
+  onApprove?: (documentId: string, parsedData: any) => Promise<void>;
+  onDeny?: (documentId: string) => Promise<void>;
 }
 
 interface UploadedDocument {
@@ -52,6 +55,8 @@ interface UploadedDocument {
   extracted_invoice_number: string | null;
   ai_parsed_data: any;
   created_at: string;
+  related_entity_type?: string | null;
+  related_entity_id?: string | null;
 }
 
 export const DocumentUpload: React.FC<DocumentUploadProps> = ({
@@ -62,6 +67,8 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
   onError,
   autoProcess = true,
   showExistingDocuments = false,
+  onApprove,
+  onDeny,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState<DocumentType>(defaultDocumentType || 'invoice');
@@ -71,15 +78,17 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const [existingDocuments, setExistingDocuments] = useState<UploadedDocument[]>([]);
   const [selectedDocument, setSelectedDocument] = useState<UploadedDocument | null>(null);
   const [showParsedData, setShowParsedData] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [denyingId, setDenyingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Load existing documents if enabled
+  // Load existing documents if enabled (load all when no relatedEntityId, e.g. approval queue)
   React.useEffect(() => {
-    if (showExistingDocuments && relatedEntityId) {
+    if (showExistingDocuments) {
       loadExistingDocuments();
     }
-  }, [showExistingDocuments, relatedEntityId]);
+  }, [showExistingDocuments, relatedEntityId, relatedEntityType]);
 
   const loadExistingDocuments = async () => {
     try {
@@ -312,6 +321,43 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
     }
   };
 
+  const handleApprove = async (doc: UploadedDocument) => {
+    if (!onApprove || !doc.ai_parsed_data) return;
+    setApprovingId(doc.id);
+    try {
+      await onApprove(doc.id, doc.ai_parsed_data);
+      loadExistingDocuments();
+    } catch (error) {
+      logger.error('Approve failed:', error);
+      toast({
+        title: 'Approve failed',
+        description: 'Failed to create invoice from document',
+        variant: 'destructive',
+      });
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleDeny = async (doc: UploadedDocument) => {
+    if (!onDeny) return;
+    if (!confirm(`Deny and remove "${doc.file_name}" from the queue?`)) return;
+    setDenyingId(doc.id);
+    try {
+      await onDeny(doc.id);
+      loadExistingDocuments();
+    } catch (error) {
+      logger.error('Deny failed:', error);
+      toast({
+        title: 'Deny failed',
+        description: 'Failed to process',
+        variant: 'destructive',
+      });
+    } finally {
+      setDenyingId(null);
+    }
+  };
+
   const handleDelete = async (doc: UploadedDocument) => {
     if (!confirm(`Are you sure you want to delete "${doc.file_name}"?`)) {
       return;
@@ -521,6 +567,44 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
                     )}
                   </div>
                   <div className="flex items-center gap-1">
+                    {doc.ai_status === 'completed' && doc.related_entity_type === 'invoice' && (
+                      <Badge variant="secondary" className="gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        Approved
+                      </Badge>
+                    )}
+                    {doc.ai_status === 'completed' && doc.ai_parsed_data && onApprove && doc.related_entity_type !== 'invoice' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleApprove(doc)}
+                        disabled={!!approvingId}
+                        title="Approve and create invoice"
+                      >
+                        {approvingId === doc.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                        <span className="ml-1 sr-only sm:not-sr-only">Approve</span>
+                      </Button>
+                    )}
+                    {doc.ai_status === 'completed' && onDeny && doc.related_entity_type !== 'invoice' && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeny(doc)}
+                        disabled={!!denyingId}
+                        title="Deny document"
+                      >
+                        {denyingId === doc.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                        <span className="ml-1 sr-only sm:not-sr-only">Deny</span>
+                      </Button>
+                    )}
                     {doc.ai_status === 'completed' && doc.ai_parsed_data && (
                       <Button
                         variant="ghost"

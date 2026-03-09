@@ -410,7 +410,7 @@ export const ImportIntegrationsManager = () => {
             <CardHeader>
               <CardTitle>Upload Invoices & Receipts</CardTitle>
               <CardDescription>
-                Upload PDF invoices or receipt images. AI will extract data and map it to the correct fields automatically.
+                Upload PDF invoices or receipt images. AI will extract data. Review and approve below to create invoices.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -423,10 +423,66 @@ export const ImportIntegrationsManager = () => {
                   if (parsedData) {
                     toast({
                       title: 'Document processed',
-                      description: `Extracted: ${parsedData.vendor_name || 'Invoice'} - ${parsedData.total_amount ? `$${parsedData.total_amount}` : 'amount pending'}`,
+                      description: `Extracted: ${parsedData.vendor_name || 'Invoice'} - ${parsedData.total_amount ? `$${parsedData.total_amount}` : 'amount pending'}. Approve below to create invoice.`,
                     });
                     queryClient.invalidateQueries({ queryKey: ['invoices'] });
                   }
+                }}
+                onApprove={async (documentId, parsedData) => {
+                  const lineItems = parsedData.line_items || parsedData.items || [];
+                  const totalAmount = parseFloat(parsedData.total_amount || parsedData.totalAmount || parsedData.amount || '0') || 0;
+                  const invoiceData = {
+                    invoice_type: 'purchase' as const,
+                    invoice_number: parsedData.invoice_number || parsedData.invoiceNumber || `SCAN-${Date.now()}`,
+                    invoice_date: parsedData.invoice_date || parsedData.invoiceDate || parsedData.date || new Date().toISOString().split('T')[0],
+                    due_date: parsedData.due_date || parsedData.dueDate || null,
+                    subtotal: totalAmount,
+                    total_amount: totalAmount,
+                    amount_due: totalAmount,
+                    amount_paid: 0,
+                    status: 'draft',
+                    import_source: 'ai_scan',
+                    notes: parsedData.vendor_name
+                      ? `Vendor: ${parsedData.vendor_name}${parsedData.notes ? '\n' + parsedData.notes : ''}`
+                      : parsedData.notes || null,
+                  };
+                  const { data: inserted, error: insertError } = await supabase
+                    .from('invoices')
+                    .insert([invoiceData])
+                    .select()
+                    .single();
+                  if (insertError) throw insertError;
+                  const validItems = lineItems.filter((item: any) => item.description);
+                  if (validItems.length > 0 && inserted) {
+                    const items = validItems.map((item: any, index: number) => ({
+                      invoice_id: inserted.id,
+                      line_number: index + 1,
+                      description: item.description,
+                      quantity: item.quantity || 1,
+                      unit_price: item.unit_price || item.amount || item.total || 0,
+                      line_total: item.amount || item.total || ((item.quantity || 1) * (item.unit_price || 0)),
+                    }));
+                    await supabase.from('invoice_items').insert(items);
+                  }
+                  await supabase
+                    .from('accounting_documents')
+                    .update({ related_entity_type: 'invoice', related_entity_id: inserted.id })
+                    .eq('id', documentId);
+                  queryClient.invalidateQueries({ queryKey: ['invoices'] });
+                  toast({
+                    title: 'Invoice created',
+                    description: `Invoice ${invoiceData.invoice_number} created. Review in Invoices tab.`,
+                  });
+                }}
+                onDeny={async (documentId) => {
+                  const { data: doc } = await supabase.from('accounting_documents').select('file_path').eq('id', documentId).single();
+                  if (doc?.file_path) {
+                    await supabase.storage.from('accounting-documents').remove([doc.file_path]);
+                  }
+                  const { error: dbError } = await supabase.from('accounting_documents').delete().eq('id', documentId);
+                  if (dbError) throw dbError;
+                  queryClient.invalidateQueries({ queryKey: ['invoices'] });
+                  toast({ title: 'Document removed', description: 'Document denied and removed from queue.' });
                 }}
                 onError={(error) => logger.error('Upload error:', error)}
               />
