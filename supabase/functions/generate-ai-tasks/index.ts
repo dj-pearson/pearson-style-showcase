@@ -188,48 +188,26 @@ ${text}`;
             console.error(`Claude API error: ${response.status} - ${errorText}`);
           }
 
-        } else if (config.provider === "openai") {
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              model: config.model_name,
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
-              ],
-              temperature: 0.3,
-              max_tokens: 4096
-            })
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.choices?.[0]?.message?.content;
-            if (generatedResponse) {
-              usedConfig = config;
-              break;
-            }
-          } else {
-            const errorText = await response.text();
-            console.error(`OpenAI API error: ${response.status} - ${errorText}`);
+        } else if (config.provider === "openai" || config.provider === "lovable") {
+          // Deprecated: redirect openai/lovable configs to Claude
+          console.warn(`Provider "${config.provider}" is deprecated, falling back to Claude`);
+          const claudeKey = Deno.env.get('CLAUDE_API_KEY');
+          if (!claudeKey) {
+            console.error('CLAUDE_API_KEY not configured for fallback');
+            continue;
           }
-
-        } else if (config.provider === "lovable") {
-          // Note: "lovable" provider is deprecated, using OpenAI endpoint instead
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          const response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              "x-api-key": claudeKey,
+              "anthropic-version": "2023-06-01"
             },
             body: JSON.stringify({
-              model: "gpt-4o-mini", // Use OpenAI model instead of config.model_name
+              model: "claude-sonnet-4-6",
+              max_tokens: 4096,
+              system: systemPrompt,
               messages: [
-                { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
               ]
             })
@@ -237,14 +215,14 @@ ${text}`;
 
           if (response.ok) {
             const result = await response.json();
-            generatedResponse = result.choices?.[0]?.message?.content;
+            generatedResponse = result.content?.[0]?.text;
             if (generatedResponse) {
               usedConfig = config;
               break;
             }
           } else {
             const errorText = await response.text();
-            console.error(`OpenAI API error (via lovable config): ${response.status} - ${errorText}`);
+            console.error(`Claude API fallback error: ${response.status} - ${errorText}`);
           }
         }
 

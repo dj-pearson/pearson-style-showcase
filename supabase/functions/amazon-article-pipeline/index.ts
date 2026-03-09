@@ -239,10 +239,10 @@ async function enrichProductData(products: any[], log: (level: string, message: 
 
 // Enhanced AI prompt for better SEO and conversion optimization
 async function generateArticleContent(products: any[], niche: string, wordCount: number) {
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+  const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
-  if (!openaiApiKey) {
-    throw new Error('OPENAI_API_KEY not configured');
+  if (!claudeApiKey) {
+    throw new Error('CLAUDE_API_KEY not configured');
   }
 
   const prompt = `You are an expert Amazon affiliate product reviewer. Create a compelling, SEO-optimized article about "${niche}" that will rank well in Google and drive affiliate sales.
@@ -345,34 +345,31 @@ Return ONLY valid JSON (no markdown code blocks) in this exact format:
 
 IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting, just pure JSON.`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
+      'x-api-key': claudeApiKey,
+      'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      system: 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.',
       messages: [
-        {
-          role: 'system',
-          content: 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.'
-        },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 20000, // Increased significantly to prevent truncation of detailed articles
-      response_format: { type: "json_object" } // Force JSON mode
     })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`AI generation failed: ${response.status} ${errorText}`);
+    throw new Error(`Claude API failed: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
+  const content = data.content[0].text;
 
   // Extract JSON from markdown code blocks if present
   let jsonContent = content;

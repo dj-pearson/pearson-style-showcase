@@ -145,16 +145,23 @@ async function checkExternalAPIs(): Promise<ServiceHealth[]> {
     }
   }
 
-  // Check OpenAI API if configured
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-  if (openaiApiKey) {
+  // Check Claude API if configured
+  const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
+  if (claudeApiKey) {
     const startCheck = Date.now();
     try {
-      const response = await fetch('https://api.openai.com/v1/models', {
-        method: 'GET',
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'ping' }],
+        }),
       });
 
       const latency = Date.now() - startCheck;

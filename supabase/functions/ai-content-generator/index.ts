@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API');
+const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -60,13 +60,13 @@ serve(async (req) => {
       console.log(`Direct AI Content Request - Type: ${type}, Prompt: ${prompt}`);
     }
 
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not found');
+    if (!claudeApiKey) {
+      console.error('Claude API key not found');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -114,36 +114,37 @@ serve(async (req) => {
         systemPrompt = 'You are a helpful content creation assistant. Generate high-quality content based on the user\'s request.';
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'x-api-key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: `${userPrompt}${context ? `\n\nContext: ${context}` : ''}` }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
       }),
     });
 
     if (!response.ok) {
-      console.error('OpenAI API error:', response.status, response.statusText);
+      console.error('Claude API error:', response.status, response.statusText);
       return new Response(
-        JSON.stringify({ error: 'Failed to generate content' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        JSON.stringify({ error: 'Failed to generate content' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
     const data = await response.json();
-    const generatedContent = data.choices[0].message.content;
+    const generatedContent = data.content[0].text;
 
     console.log('AI Content Generated Successfully');
 

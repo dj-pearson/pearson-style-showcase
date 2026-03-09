@@ -126,47 +126,48 @@ serve(async (req) => {
     });
   }
 
-  // Test 3: OpenAI
+  // Test 3: Claude (Anthropic)
   try {
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
-    if (!openaiApiKey) {
+    if (!claudeApiKey) {
       results.tests.push({
-        name: 'OpenAI',
+        name: 'Claude',
         status: 'not_configured',
-        message: 'OPENAI_API_KEY environment variable not set',
+        message: 'CLAUDE_API_KEY environment variable not set',
         required: 'required'
       });
     } else {
       // Test with a simple completion
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'claude-sonnet-4-6',
+          max_tokens: 20,
           messages: [
             { role: 'user', content: 'Say "API test successful" if you can read this.' }
           ],
-          max_tokens: 20
         })
       });
 
       if (response.ok) {
         const data = await response.json();
         results.tests.push({
-          name: 'OpenAI',
+          name: 'Claude',
           status: 'success',
           message: 'API key is valid and AI is responding',
-          sample_response: data.choices[0]?.message?.content?.substring(0, 100),
+          sample_response: data.content?.[0]?.text?.substring(0, 100),
           required: 'required'
         });
       } else {
         const errorText = await response.text();
         results.tests.push({
-          name: 'OpenAI',
+          name: 'Claude',
           status: 'error',
           message: `API returned error: ${response.status}`,
           details: errorText,
@@ -176,9 +177,9 @@ serve(async (req) => {
     }
   } catch (error) {
     results.tests.push({
-      name: 'OpenAI',
+      name: 'Claude',
       status: 'error',
-      message: 'Failed to test OpenAI',
+      message: 'Failed to test Claude',
       error: (error as Error).message,
       required: 'required'
     });
@@ -319,10 +320,10 @@ serve(async (req) => {
     );
   }
 
-  const openaiTest = results.tests.find((t: any) => t.name === 'OpenAI');
-  if (openaiTest?.status !== 'success') {
+  const claudeTest = results.tests.find((t: any) => t.name === 'Claude');
+  if (claudeTest?.status !== 'success') {
     results.recommendations.push(
-      'OpenAI is required for article generation. Configure OPENAI_API_KEY'
+      'Claude is required for article generation. Configure CLAUDE_API_KEY'
     );
   }
 

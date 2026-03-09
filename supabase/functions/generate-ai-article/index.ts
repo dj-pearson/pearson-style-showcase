@@ -16,9 +16,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+    const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY');
+    if (!CLAUDE_API_KEY) {
+      throw new Error('CLAUDE_API_KEY not configured');
     }
 
     console.log('Fetching articles from AI news website...');
@@ -62,20 +62,19 @@ serve(async (req) => {
     console.log('Original article title:', title);
     console.log('Generating new article with AI...');
 
-    // Generate a completely new article with AI
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Generate a completely new article with AI using Claude
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like. 
-            
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        system: `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like.
+
             Rules:
             - Write in a conversational, professional tone
             - Create completely original content - do NOT copy from the source
@@ -84,8 +83,8 @@ serve(async (req) => {
             - Structure with clear headings (use ## and ### for markdown)
             - Aim for 800-1200 words
             - Write for both technical and non-technical readers
-            - Include actionable insights`
-          },
+            - Include actionable insights`,
+        messages: [
           {
             role: 'user',
             content: `Based on this article about "${title}", write a completely new, SEO-optimized article with a fresh perspective.
@@ -118,12 +117,12 @@ Make sure the content is:
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('AI API error:', aiResponse.status, errorText);
-      throw new Error(`AI API failed: ${aiResponse.status}`);
+      console.error('Claude API error:', aiResponse.status, errorText);
+      throw new Error(`Claude API failed: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    const aiContent = aiData.choices[0].message.content;
+    const aiContent = aiData.content[0].text;
     
     console.log('AI response received, parsing...');
 
