@@ -210,6 +210,9 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
       if (autoProcess) {
         setIsProcessing(true);
         await processDocument(documentRecord.id);
+      } else if (onUploadComplete) {
+        // Only call with null if not auto-processing (processDocument handles the callback)
+        onUploadComplete(documentRecord.id, null);
       }
 
       setUploadProgress(100);
@@ -223,10 +226,6 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
       // Reload documents list
       if (showExistingDocuments) {
         loadExistingDocuments();
-      }
-
-      if (onUploadComplete) {
-        onUploadComplete(documentRecord.id, null);
       }
     } catch (error: any) {
       logger.error('Upload failed:', error);

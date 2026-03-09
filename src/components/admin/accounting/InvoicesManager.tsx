@@ -256,7 +256,7 @@ export const InvoicesManager = () => {
                     relatedEntityId={selectedInvoice?.id}
                     autoProcess={true}
                     showExistingDocuments={false}
-                    onUploadComplete={(documentId, parsedData) => {
+                    onUploadComplete={async (documentId, parsedData) => {
                       if (parsedData) {
                         const extractedData: ParsedInvoiceData = {
                           invoice_number: parsedData.invoice_number || parsedData.invoiceNumber || '',
@@ -267,13 +267,78 @@ export const InvoicesManager = () => {
                           notes: parsedData.description || parsedData.notes || '',
                           line_items: parsedData.line_items || parsedData.items || [],
                         };
-                        setParsedInvoiceData(extractedData);
-                        setShowUploadDialog(false);
-                        setShowCreateDialog(true);
-                        toast({
-                          title: 'Data extracted',
-                          description: 'Invoice data auto-filled. Review and save.',
-                        });
+
+                        // Auto-create draft invoice from parsed data
+                        try {
+                          const lineItems = extractedData.line_items || [];
+                          const totalAmount = extractedData.total_amount || 0;
+
+                          const invoiceData = {
+                            invoice_type: 'purchase' as const,
+                            invoice_number: extractedData.invoice_number || `SCAN-${Date.now()}`,
+                            invoice_date: extractedData.invoice_date || new Date().toISOString().split('T')[0],
+                            due_date: extractedData.due_date || null,
+                            subtotal: totalAmount,
+                            total_amount: totalAmount,
+                            amount_due: totalAmount,
+                            amount_paid: 0,
+                            status: 'draft',
+                            import_source: 'ai_scan',
+                            notes: extractedData.vendor_name
+                              ? `Vendor: ${extractedData.vendor_name}${extractedData.notes ? '\n' + extractedData.notes : ''}`
+                              : extractedData.notes || null,
+                          };
+
+                          const { data: inserted, error: insertError } = await supabase
+                            .from('invoices')
+                            .insert([invoiceData])
+                            .select()
+                            .single();
+
+                          if (insertError) throw insertError;
+
+                          // Insert line items if available
+                          const validItems = lineItems.filter((item: any) => item.description);
+                          if (validItems.length > 0 && inserted) {
+                            const items = validItems.map((item: any, index: number) => ({
+                              invoice_id: inserted.id,
+                              line_number: index + 1,
+                              description: item.description,
+                              quantity: item.quantity || 1,
+                              unit_price: item.unit_price || item.amount || item.total || 0,
+                              line_total: item.amount || item.total || ((item.quantity || 1) * (item.unit_price || 0)),
+                            }));
+
+                            await supabase.from('invoice_items').insert(items);
+                          }
+
+                          // Link document to invoice
+                          await supabase
+                            .from('accounting_documents')
+                            .update({
+                              related_entity_type: 'invoice',
+                              related_entity_id: inserted.id,
+                            })
+                            .eq('id', documentId);
+
+                          queryClient.invalidateQueries({ queryKey: ['invoices'] });
+                          setShowUploadDialog(false);
+                          toast({
+                            title: 'Draft invoice created',
+                            description: `Invoice ${invoiceData.invoice_number} created from scan. Review and approve.`,
+                          });
+                        } catch (error) {
+                          logger.error('Failed to auto-create invoice:', error);
+                          // Fall back to manual form
+                          setParsedInvoiceData(extractedData);
+                          setShowUploadDialog(false);
+                          setShowCreateDialog(true);
+                          toast({
+                            title: 'Data extracted',
+                            description: 'Auto-create failed. Review and save manually.',
+                            variant: 'destructive',
+                          });
+                        }
                       } else {
                         setShowUploadDialog(false);
                         setShowCreateDialog(true);
