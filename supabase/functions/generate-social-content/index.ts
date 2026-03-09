@@ -29,10 +29,10 @@ Deno.serve(async (req) => {
       throw new Error('Article not found');
     }
 
-    // Generate social media content using OpenAI
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
+    // Generate social media content using Claude
+    const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
+    if (!claudeApiKey) {
+      throw new Error('CLAUDE_API_KEY not configured');
     }
 
     const prompt = `Based on this article, create engaging social media posts:
@@ -50,19 +50,18 @@ Return ONLY valid JSON in this exact format:
   "longForm": "your facebook post here"
 }`;
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'x-api-key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.',
         messages: [
-          { 
-            role: 'system', 
-            content: 'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.' 
-          },
           { role: 'user', content: prompt }
         ],
       }),
@@ -70,12 +69,12 @@ Return ONLY valid JSON in this exact format:
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('OpenAI API error:', errorText);
+      console.error('Claude API error:', errorText);
       throw new Error('Failed to generate social content');
     }
 
     const aiData = await aiResponse.json();
-    const rawContent = aiData.choices?.[0]?.message?.content ?? '';
+    const rawContent = aiData.content?.[0]?.text ?? '';
 
     // Robust JSON extraction: handle code fences and extra text
     let generatedContent = (rawContent as string).trim();

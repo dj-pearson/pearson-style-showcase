@@ -170,17 +170,25 @@ Generate ONLY the response text, no additional formatting or metadata.`;
           }
 
         } else if (config.provider === "openai" || config.provider === "lovable") {
-          // Note: "lovable" provider is deprecated, using OpenAI endpoint instead
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          // Deprecated: redirect openai/lovable configs to Claude
+          console.warn(`Provider "${config.provider}" is deprecated, falling back to Claude`);
+          const claudeKey = Deno.env.get('CLAUDE_API_KEY');
+          if (!claudeKey) {
+            console.error('CLAUDE_API_KEY not configured for fallback');
+            continue;
+          }
+          const response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              "x-api-key": claudeKey,
+              "anthropic-version": "2023-06-01"
             },
             body: JSON.stringify({
-              model: config.provider === "lovable" ? "gpt-4o-mini" : config.model_name,
+              model: "claude-sonnet-4-6",
+              max_tokens: 1024,
+              system: "You are a helpful customer support agent.",
               messages: [
-                { role: "system", content: "You are a helpful customer support agent." },
                 { role: "user", content: systemPrompt }
               ]
             })
@@ -188,7 +196,7 @@ Generate ONLY the response text, no additional formatting or metadata.`;
 
           if (response.ok) {
             const result = await response.json();
-            generatedResponse = result.choices?.[0]?.message?.content;
+            generatedResponse = result.content?.[0]?.text;
             if (generatedResponse) {
               usedConfig = config;
               break;

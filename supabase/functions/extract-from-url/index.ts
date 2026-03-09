@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -22,10 +22,10 @@ serve(async (req) => {
       );
     }
 
-    if (!openaiApiKey) {
-      console.error('OpenAI API key not found');
+    if (!claudeApiKey) {
+      console.error('Claude API key not found');
       return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
+        JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -166,28 +166,29 @@ ${pageContent}
 Return ONLY the JSON object, no other text.`;
     }
 
-    // Call OpenAI API
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call Claude API
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'x-api-key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: extractionPrompt }
         ],
         temperature: 0.3,
-        max_tokens: 2000,
       }),
     });
 
     if (!aiResponse.ok) {
-      console.error('AI API error:', aiResponse.status);
+      console.error('Claude API error:', aiResponse.status);
       const errorText = await aiResponse.text();
-      console.error('AI API error details:', errorText);
+      console.error('Claude API error details:', errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to extract content from URL' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -195,7 +196,7 @@ Return ONLY the JSON object, no other text.`;
     }
 
     const aiData = await aiResponse.json();
-    const extractedContent = aiData.choices[0].message.content;
+    const extractedContent = aiData.content[0].text;
 
     console.log('Raw AI response:', extractedContent);
 

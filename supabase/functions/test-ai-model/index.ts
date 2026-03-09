@@ -86,51 +86,37 @@ serve(async (req) => {
         console.error("Claude test failed:", errorDetails);
       }
 
-    } else if (config.provider === "lovable") {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: config.model_name,
-          messages: [
-            { role: "user", content: "Say 'test successful' if you can read this." }
-          ]
-        })
-      });
+    } else if (config.provider === "openai" || config.provider === "lovable") {
+      // Deprecated providers: redirect to Claude for testing
+      console.warn(`Provider "${config.provider}" is deprecated, testing with Claude instead`);
+      const claudeKey = Deno.env.get('CLAUDE_API_KEY');
+      if (!claudeKey) {
+        success = false;
+        errorDetails = 'CLAUDE_API_KEY not configured for deprecated provider fallback';
+      } else {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": claudeKey,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 100,
+            messages: [
+              { role: "user", content: "Say 'test successful' if you can read this." }
+            ]
+          })
+        });
 
-      testResult = await response.json();
-      success = response.ok && testResult.choices?.[0]?.message?.content;
-      
-      if (!success) {
-        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
-        console.error("Lovable test failed:", errorDetails);
-      }
+        testResult = await response.json();
+        success = response.ok && testResult.content?.[0]?.text;
 
-    } else if (config.provider === "openai") {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: config.model_name,
-          messages: [
-            { role: "user", content: "Say 'test successful' if you can read this." }
-          ],
-          max_completion_tokens: 100
-        })
-      });
-
-      testResult = await response.json();
-      success = response.ok && testResult.choices?.[0]?.message?.content;
-      
-      if (!success) {
-        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
-        console.error("OpenAI test failed:", errorDetails);
+        if (!success) {
+          errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
+          console.error("Claude fallback test failed:", errorDetails);
+        }
       }
     }
 

@@ -17,6 +17,8 @@ serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  let documentId: string | null = null;
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -29,7 +31,8 @@ serve(async (req) => {
     }
 
     const requestData: ProcessDocumentRequest = await req.json();
-    const { documentId, documentType, relatedEntityType, relatedEntityId } = requestData;
+    documentId = requestData.documentId;
+    const { documentType, relatedEntityType, relatedEntityId } = requestData;
 
     console.log('Processing document:', documentId, 'Type:', documentType);
 
@@ -300,16 +303,23 @@ Return ONLY valid JSON.`
     console.error('Error in process-accounting-document function:', error);
 
     // Try to update document status to failed
-    try {
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+    if (documentId) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
 
-      // Re-parse isn't possible since body was already consumed, so we skip the status update
-      // if documentId isn't available from the original parse
-    } catch (e) {
-      console.error('Failed to update error status:', e);
+        await supabaseClient
+          .from('accounting_documents')
+          .update({
+            ocr_status: 'failed',
+            ai_status: 'failed',
+          })
+          .eq('id', documentId);
+      } catch (e) {
+        console.error('Failed to update error status:', e);
+      }
     }
 
     return new Response(
