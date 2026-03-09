@@ -22,6 +22,8 @@ export default async (req: Request): Promise<Response> => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  let documentId: string | null = null;
+
   try {
     const supabaseClient = createSupabaseClient();
 
@@ -30,7 +32,8 @@ export default async (req: Request): Promise<Response> => {
     console.log(`[Document] Found ${aiConfigs.length} lightweight AI configs`);
 
     const requestData: ProcessDocumentRequest = await req.json();
-    const { documentId, documentType, relatedEntityType, relatedEntityId } = requestData;
+    documentId = requestData.documentId;
+    const { documentType, relatedEntityType, relatedEntityId } = requestData;
 
     console.log('[Document] Processing document:', documentId, 'Type:', documentType);
 
@@ -308,17 +311,19 @@ Return ONLY valid JSON.`
     console.error('[Document] Error in process-accounting-document function:', error);
 
     // Try to update document status to failed
+    // Note: documentId is captured from the parsed request body above
     try {
-      const requestData = await req.clone().json();
-      const supabaseClient = createSupabaseClient();
+      if (documentId) {
+        const supabaseClient = createSupabaseClient();
 
-      await supabaseClient
-        .from('accounting_documents')
-        .update({
-          ocr_status: 'failed',
-          ai_status: 'failed',
-        })
-        .eq('id', requestData.documentId);
+        await supabaseClient
+          .from('accounting_documents')
+          .update({
+            ocr_status: 'failed',
+            ai_status: 'failed',
+          })
+          .eq('id', documentId);
+      }
     } catch (e) {
       console.error('[Document] Failed to update error status:', e);
     }
