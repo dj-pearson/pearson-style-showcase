@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 // Functions: functions.danpearson.net
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
 
 // Validate environment variables - fail fast if not configured
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -14,19 +15,6 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     'Missing required Supabase environment variables. ' +
     'Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.'
   );
-}
-
-// Track consecutive CORS/network failures to prevent infinite retry loops
-let consecutiveNetworkFailures = 0;
-const MAX_NETWORK_FAILURES = 3;
-let _apiReachable: boolean | null = null;
-
-/**
- * Check if the Supabase API is currently reachable.
- * Returns cached result after initial determination.
- */
-export function isApiReachable(): boolean | null {
-  return _apiReachable;
 }
 
 /**
@@ -41,47 +29,74 @@ export function clearStaleAuthTokens(): void {
         localStorage.removeItem(key);
       }
     });
-    consecutiveNetworkFailures = 0;
   } catch {
     // Ignore localStorage errors
   }
 }
 
+// Track consecutive failures for fail-fast behavior
+let consecutiveProxyFailures = 0;
+const MAX_PROXY_FAILURES = 5;
+let _apiReachable: boolean | null = null;
+
+export function isApiReachable(): boolean | null {
+  return _apiReachable;
+}
+
 /**
- * Custom fetch wrapper that detects CORS/network errors and prevents
- * infinite retry loops from Supabase's autoRefreshToken.
+ * Custom fetch that routes Supabase Auth requests through the auth-proxy
+ * edge function at functions.danpearson.net, bypassing CORS issues with
+ * the GoTrue service at api.danpearson.net.
+ *
+ * Non-auth requests (REST, storage, realtime) go directly to api.danpearson.net.
  */
-const resilientFetch: typeof fetch = async (input, init) => {
-  // If we've already determined the API is unreachable, fail fast
+const proxyAuthFetch: typeof fetch = async (input, init) => {
+  // Fail fast if proxy is unreachable
   if (_apiReachable === false) {
     throw new TypeError(
-      'Supabase API is unreachable (CORS or network error). ' +
-      'Check that api.danpearson.net has CORS configured for your origin.'
+      'Authentication service is unreachable. Please try again later.'
     );
   }
 
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+
+  // Check if this is an auth request to api.danpearson.net
+  const supabaseHost = new URL(SUPABASE_URL).origin;
+  const isAuthRequest = url.startsWith(`${supabaseHost}/auth/`);
+
+  if (isAuthRequest) {
+    // Rewrite: https://api.danpearson.net/auth/v1/token?...
+    //      ->: https://functions.danpearson.net/auth-proxy/auth/v1/token?...
+    const authPath = url.substring(supabaseHost.length); // e.g., /auth/v1/token?grant_type=password
+    const proxyUrl = `${FUNCTIONS_URL}/auth-proxy${authPath}`;
+
+    try {
+      const response = await fetch(proxyUrl, init);
+      // Success - reset failure tracking
+      consecutiveProxyFailures = 0;
+      _apiReachable = true;
+      return response;
+    } catch (err) {
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        consecutiveProxyFailures++;
+        if (consecutiveProxyFailures >= MAX_PROXY_FAILURES) {
+          _apiReachable = false;
+          clearStaleAuthTokens();
+          console.error(
+            '[Supabase] Auth proxy unreachable after multiple attempts. ' +
+            'Cleared stale tokens to prevent retry loop.'
+          );
+        }
+      }
+      throw err;
+    }
+  }
+
+  // Non-auth requests go directly to api.danpearson.net
   try {
     const response = await fetch(input, init);
-    // Successful response - reset failure count
-    consecutiveNetworkFailures = 0;
-    _apiReachable = true;
     return response;
   } catch (err) {
-    // TypeError: Failed to fetch = CORS or network error
-    if (err instanceof TypeError && err.message === 'Failed to fetch') {
-      consecutiveNetworkFailures++;
-
-      if (consecutiveNetworkFailures >= MAX_NETWORK_FAILURES) {
-        _apiReachable = false;
-        // Clear stale tokens to stop the autoRefreshToken retry loop
-        clearStaleAuthTokens();
-        console.error(
-          `[Supabase] API unreachable after ${MAX_NETWORK_FAILURES} attempts. ` +
-          'This is likely a CORS configuration issue on api.danpearson.net. ' +
-          'Cleared stale tokens to prevent retry loop.'
-        );
-      }
-    }
     throw err;
   }
 };
@@ -101,6 +116,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     flowType: 'pkce',
   },
   global: {
-    fetch: resilientFetch,
+    fetch: proxyAuthFetch,
   },
 });
