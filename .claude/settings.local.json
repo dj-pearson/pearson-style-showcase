@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase -type f \\\\\\( -name \"*.env\" -o -name \".env*\" \\\\\\) 2>/dev/null | head -20)",
+      "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase -maxdepth 3 -type f \\\\\\( -name \"Dockerfile\" -o -name \".dockerignore\" -o -name \"*.nginx\" -o -name \"*.caddy\" \\\\\\) 2>/dev/null | grep -v node_modules)",
+      "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase -maxdepth 3 -name \"*.md\" -type f 2>/dev/null | grep -iE \"\\(api|server|cors|gateway|proxy|deploy\\)\" | head -20)",
+      "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase -maxdepth 2 -type f -name \"*.toml\" 2>/dev/null | grep -v node_modules)",
+      "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase -maxdepth 1 -type f -name \"*.md\" 2>/dev/null | head -20)",
+      "Bash(cd \"C:\\\\Users\\\\dpearson\\\\Documents\\\\DanPearson\\\\pearson-style-showcase\" && npm run build 2>&1 | tail -30)"
+    ]
+  }
+}

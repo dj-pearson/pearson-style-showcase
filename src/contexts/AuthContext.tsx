@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Session, User, Provider } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isApiReachable, clearStaleAuthTokens } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { logger } from '@/lib/logger';
 // oauth-state.ts is still used by AuthCallback for legacy PKCE flows
@@ -496,22 +496,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Only check if we're still initializing (INITIAL_SESSION didn't fire yet)
       if (authStatusRef.current === 'initializing' && !isProcessingRef.current) {
         logger.debug('Checking for existing session immediately');
-        const { data: { session: existingSession }, error } = await supabase.auth.getSession();
 
-        if (!mounted) return;
+        try {
+          const { data: { session: existingSession }, error } = await supabase.auth.getSession();
 
-        if (error) {
-          logger.error('Error getting session:', error);
+          if (!mounted) return;
+
+          if (error) {
+            logger.error('Error getting session:', error);
+            // Check if this is a CORS/network error
+            if (error.message?.includes('Failed to fetch') || isApiReachable() === false) {
+              logger.error('API unreachable (likely CORS issue). Clearing stale tokens.');
+              clearStaleAuthTokens();
+              setError('Unable to connect to authentication server. Please contact the administrator.');
+            }
+            setAuthStatus('unauthenticated');
+            return;
+          }
+
+          if (existingSession && !isProcessingRef.current) {
+            logger.debug('Found existing session via immediate check');
+            await processSession(existingSession, 'immediate getSession check');
+          } else if (!existingSession && authStatusRef.current === 'initializing') {
+            logger.debug('No existing session found');
+            setAuthStatus('unauthenticated');
+          }
+        } catch (err) {
+          if (!mounted) return;
+          // Catch CORS/network TypeError that may not be wrapped by Supabase
+          logger.error('Network error during session check:', err);
+          clearStaleAuthTokens();
           setAuthStatus('unauthenticated');
-          return;
-        }
-
-        if (existingSession && !isProcessingRef.current) {
-          logger.debug('Found existing session via immediate check');
-          await processSession(existingSession, 'immediate getSession check');
-        } else if (!existingSession && authStatusRef.current === 'initializing') {
-          logger.debug('No existing session found');
-          setAuthStatus('unauthenticated');
+          setError('Unable to connect to authentication server.');
         }
       }
     };
@@ -586,7 +602,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logger.error('Sign in error:', err);
       isProcessingRef.current = false;
       setAuthStatus('unauthenticated');
-      const errorMsg = 'Network error. Please try again.';
+      // Detect CORS/network errors
+      const isCorsError = (err instanceof TypeError && err.message?.includes('Failed to fetch')) ||
+                          isApiReachable() === false;
+      const errorMsg = isCorsError
+        ? 'Unable to connect to authentication server. This is a CORS configuration issue on the API server.'
+        : 'Network error. Please try again.';
       setError(errorMsg);
       return { success: false, error: errorMsg };
     }

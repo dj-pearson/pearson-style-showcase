@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Shield, Lock, Mail, ArrowLeft, Loader2, Fingerprint } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isApiReachable } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { MFAEnrollment } from '@/components/auth/MFAEnrollment';
 import { MFAVerification } from '@/components/auth/MFAVerification';
@@ -100,7 +100,7 @@ const AdminLogin = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInWithProvider, isAdminVerified, authStatus, verifyAdminAccess } = useAuth();
+  const { signInWithProvider, isAdminVerified, authStatus, error: authError, verifyAdminAccess } = useAuth();
 
   // Track if we've already started MFA check to prevent duplicate calls
   const mfaCheckInProgressRef = useRef(false);
@@ -257,7 +257,19 @@ const AdminLogin = () => {
       setIsLoading(false);
     } catch (err) {
       logger.error('Login error:', err);
-      setError('Network error. Please try again.');
+      // Detect CORS/network errors and show a specific message
+      if (
+        (err instanceof TypeError && err.message?.includes('Failed to fetch')) ||
+        isApiReachable() === false
+      ) {
+        setError(
+          'Unable to connect to the authentication server. ' +
+          'This is likely a CORS configuration issue on api.danpearson.net. ' +
+          'Please contact the administrator.'
+        );
+      } else {
+        setError('Network error. Please try again.');
+      }
       setIsLoading(false);
     }
   };
@@ -628,9 +640,9 @@ const AdminLogin = () => {
 
             {/* Email/Password Form */}
             <form onSubmit={handleLogin} className="space-y-4">
-              {error && (
+              {(error || authError) && (
                 <Alert variant="destructive" className="border-destructive/30 bg-destructive/10">
-                  <AlertDescription className="text-sm">{error}</AlertDescription>
+                  <AlertDescription className="text-sm">{error || authError}</AlertDescription>
                 </Alert>
               )}
 

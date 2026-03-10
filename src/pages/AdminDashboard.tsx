@@ -30,7 +30,8 @@ import {
   Calculator,
   Loader2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Server
 } from 'lucide-react';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from '@/components/admin/KeyboardShortcutsHelp';
@@ -70,6 +71,7 @@ const ProfileSettingsManager = lazy(() => import('@/components/admin/ProfileSett
 const AccountingDashboard = lazy(() => import('@/components/admin/AccountingDashboard').then(m => ({ default: m.AccountingDashboard })));
 const AIModelConfigManager = lazy(() => import('@/components/admin/AIModelConfigManager').then(m => ({ default: m.AIModelConfigManager })));
 const SecureVaultDashboard = lazy(() => import('@/components/admin/vault/SecureVaultDashboard').then(m => ({ default: m.SecureVaultDashboard })));
+const ServerHealthDashboard = lazy(() => import('@/components/admin/ServerHealthDashboard').then(m => ({ default: m.ServerHealthDashboard })));
 
 // Loading fallback for lazy-loaded modules
 const ModuleLoader = () => (
@@ -107,6 +109,7 @@ const AdminDashboard = () => {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'command-center', label: 'Command Center', icon: Activity },
+    { id: 'server-health', label: 'Server Health', icon: Server },
     { id: 'support', label: 'Support Tickets', icon: MessageSquare },
     { id: 'vault', label: 'Secure Vault', icon: Shield },
     { id: 'ai-config', label: 'AI Configuration', icon: Activity },
@@ -337,6 +340,12 @@ const AdminDashboard = () => {
           return (
             <SectionErrorBoundary sectionName="Command Center">
               <CommandCenterDashboard />
+            </SectionErrorBoundary>
+          );
+        case 'server-health':
+          return (
+            <SectionErrorBoundary sectionName="Server Health">
+              <ServerHealthDashboard />
             </SectionErrorBoundary>
           );
         case 'support':
