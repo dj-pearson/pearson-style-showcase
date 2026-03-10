@@ -71,9 +71,14 @@ export default async (req: Request): Promise<Response> => {
 
     console.log('[Document] File downloaded, size:', fileData.size);
 
-    // Convert file to base64 for vision API
+    // Convert file to base64 for vision API (chunk to avoid call stack overflow from spread operator)
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    let binaryString = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binaryString += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binaryString);
     const dataUrl = `data:${document.file_type};base64,${base64}`;
 
     console.log('[Document] Sending to vision AI for OCR...');
