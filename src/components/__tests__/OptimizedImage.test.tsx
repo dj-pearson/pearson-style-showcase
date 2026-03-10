@@ -16,10 +16,10 @@ describe('OptimizedImage Component', () => {
     expect(document.body).toBeTruthy();
   });
 
-  it('should render with priority flag', () => {
+  it('should render with priority flag', async () => {
     render(<OptimizedImage src="/test.jpg" alt="Priority image" priority={true} />);
 
-    waitFor(() => {
+    await waitFor(() => {
       const img = screen.getByAltText('Priority image') as HTMLElement;
       expect(img.getAttribute('loading')).toBe('eager');
     });
@@ -34,7 +34,7 @@ describe('OptimizedImage Component', () => {
     expect(wrapper?.className).toContain('custom-class');
   });
 
-  it('should render with width and height', () => {
+  it('should render with width and height', async () => {
     render(
       <OptimizedImage
         src="/test.jpg"
@@ -45,7 +45,7 @@ describe('OptimizedImage Component', () => {
       />
     );
 
-    waitFor(() => {
+    await waitFor(() => {
       const img = screen.getByAltText('Sized image') as HTMLElement;
       expect(img.getAttribute('width')).toBe('800');
       expect(img.getAttribute('height')).toBe('600');

@@ -67,7 +67,6 @@ const SitemapXML = () => {
           { path: '/connect', priority: '0.7', changefreq: 'monthly' as const },
           { path: '/faq', priority: '0.8', changefreq: 'weekly' as const },
           { path: '/topics', priority: '0.8', changefreq: 'weekly' as const },
-          { path: '/search', priority: '0.5', changefreq: 'monthly' as const },
         ];
 
         staticPages.forEach(page => {

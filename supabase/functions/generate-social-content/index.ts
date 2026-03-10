@@ -1,6 +1,20 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
+import { validateUuid } from "../_shared/validation.ts";
+
+// Initialize rate limiter cleanup
+initRateLimiter();
+
+// 20 generations per hour per IP
+const SOCIAL_GEN_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 20,
+  burstAllowance: 3,
+  keyPrefix: 'social-gen',
+};
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -11,7 +25,23 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    // Rate limit check
+    const clientIp = getClientIdentifier(req);
+    const rateLimitResult = checkRateLimit(clientIp, SOCIAL_GEN_RATE_LIMIT);
+    if (!rateLimitResult.allowed) {
+      return createRateLimitResponse(rateLimitResult, corsHeaders);
+    }
+
     const { articleId } = await req.json();
+
+    // Validate articleId
+    const articleIdResult = validateUuid(articleId);
+    if (!articleIdResult.valid) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid articleId: must be a valid UUID' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -50,7 +80,7 @@ Return ONLY valid JSON in this exact format:
   "longForm": "your facebook post here"
 }`;
 
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiResponse = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': claudeApiKey,
@@ -65,7 +95,7 @@ Return ONLY valid JSON in this exact format:
           { role: 'user', content: prompt }
         ],
       }),
-    });
+    }, { timeoutMs: 30_000, maxRetries: 2, label: 'claude-social' });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -140,12 +170,11 @@ Return ONLY valid JSON in this exact format:
 
   } catch (error) {
     console.error('Error generating social content:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+    return structuredErrorResponse(
+      error.message || 'Internal server error',
+      'SOCIAL_CONTENT_GENERATION_FAILED',
+      500,
+      corsHeaders
     );
   }
 });

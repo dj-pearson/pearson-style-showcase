@@ -1,6 +1,44 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
+import { validateUrl, validateEnum } from "../_shared/validation.ts";
+
+// Initialize rate limiter cleanup
+initRateLimiter();
+
+// 30 requests per hour per IP
+const EXTRACT_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 30,
+  burstAllowance: 5,
+  keyPrefix: 'extract-url',
+};
+
+// Private IP ranges to block (SSRF prevention)
+const PRIVATE_IP_PATTERNS = [
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+  /^127\./,
+  /^0\./,
+  /^169\.254\./,
+  /^::1$/,
+  /^fc00:/,
+  /^fe80:/,
+  /^localhost$/i,
+];
+
+function isPrivateUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    const hostname = parsed.hostname;
+    return PRIVATE_IP_PATTERNS.some(pattern => pattern.test(hostname));
+  } catch {
+    return true; // If we can't parse it, block it
+  }
+}
 
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
@@ -13,11 +51,38 @@ serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { url, type } = await req.json();
+    // Rate limit check
+    const clientIp = getClientIdentifier(req);
+    const rateLimitResult = checkRateLimit(clientIp, EXTRACT_RATE_LIMIT);
+    if (!rateLimitResult.allowed) {
+      return createRateLimitResponse(rateLimitResult, corsHeaders);
+    }
 
-    if (!url || !type) {
+    const body = await req.json();
+    const { url, type } = body;
+
+    // Validate URL format
+    const urlResult = validateUrl(url);
+    if (!urlResult.valid) {
       return new Response(
-        JSON.stringify({ error: 'URL and type are required' }),
+        JSON.stringify({ error: 'Invalid URL: ' + urlResult.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SSRF prevention: block private IPs
+    if (isPrivateUrl(urlResult.sanitized as string)) {
+      return new Response(
+        JSON.stringify({ error: 'URLs pointing to private/internal addresses are not allowed' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate type enum
+    const typeResult = validateEnum(type, ['project', 'ai-tool'], { required: true });
+    if (!typeResult.valid) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid type: must be "project" or "ai-tool"' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -38,11 +103,11 @@ serve(async (req) => {
     let detectedLinks = { github: '', demo: '' };
     
     try {
-      const pageResponse = await fetch(url, {
+      const pageResponse = await fetchWithTimeout(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; ContentExtractor/1.0)',
         },
-      });
+      }, { timeoutMs: 30_000, maxRetries: 2, label: 'url-fetch' });
       
       if (!pageResponse.ok) {
         throw new Error(`Failed to fetch URL: ${pageResponse.status}`);
@@ -167,7 +232,7 @@ Return ONLY the JSON object, no other text.`;
     }
 
     // Call Claude API
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiResponse = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': claudeApiKey,
@@ -183,7 +248,7 @@ Return ONLY the JSON object, no other text.`;
         ],
         temperature: 0.3,
       }),
-    });
+    }, { timeoutMs: 45_000, maxRetries: 2, label: 'claude-extract' });
 
     if (!aiResponse.ok) {
       console.error('Claude API error:', aiResponse.status);
@@ -236,9 +301,11 @@ Return ONLY the JSON object, no other text.`;
 
   } catch (error) {
     console.error('URL Extraction Error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred', details: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    return structuredErrorResponse(
+      error.message || 'An unexpected error occurred',
+      'URL_EXTRACTION_FAILED',
+      500,
+      corsHeaders
     );
   }
 });

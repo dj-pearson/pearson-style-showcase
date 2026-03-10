@@ -114,3 +114,46 @@
 #### Remaining Stories (46 remaining in PRD)
 - US-001 through US-023 (CI/CD, testing, monitoring, accessibility)
 - US-025, US-029 through US-050 (security hardening, performance, UX improvements)
+
+### Iteration 2 - Critical Platform Improvements
+**Date**: 2026-03-10
+**Branch**: claude/critical-platform-improvements-dfymo
+**Stories Completed**: 4
+
+#### US-009: Add standardized error handling to AI-related edge functions [PASSED]
+- Created `supabase/functions/_shared/fetch-with-timeout.ts` utility with configurable timeout, retry logic (exponential backoff), and structured error responses
+- Updated `generate-ai-article` to use fetchWithTimeout with 60s timeout for Claude API, 30s for news scraping
+- Updated `generate-ai-tasks` to use fetchWithTimeout with 30s timeout for Gemini and Claude API calls
+- Updated `extract-from-url` to use fetchWithTimeout with 30s URL fetch and 45s Claude API timeout
+- Updated `generate-social-content` to use fetchWithTimeout with 30s timeout
+- Updated `process-accounting-document` with structured error responses
+- All functions return structured JSON errors: `{ error: string, code: string, status: number }`
+
+#### US-010: Add input validation and rate limiting to edge functions missing them [PASSED]
+- Added rate limiting to `track-affiliate-click` (100 clicks/hr/IP) with UUID validation for articleId and text validation for ASIN
+- Added rate limiting to `generate-ai-tasks` (10 generations/hr/IP) with text length validation (max 5000 chars)
+- Added rate limiting to `generate-social-content` (20 generations/hr/IP) with UUID validation for articleId
+- Added rate limiting to `extract-from-url` (30 requests/hr/IP) with URL format validation, type enum validation, and SSRF prevention blocking private IP ranges
+- Added rate limiting to `generate-ai-article` (5 generations/hr/IP)
+- All functions use shared `rate-limiter.ts` and `validation.ts` modules
+
+#### US-040: Add noindex meta tags to admin routes and canonical URLs to public pages [PASSED]
+- Added SEO component with `noIndex={true}` to `AdminLogin.tsx`
+- Added SEO component with `noIndex={true}` to `AdminDashboard.tsx`
+- Removed `/search` from sitemap generation (already has noIndex meta tag)
+- Verified all public pages already have proper canonical URLs via SEO component
+- Verified NotFound.tsx is NOT in sitemap (correct)
+
+#### US-048: Fix broken OptimizedImage test and add missing await keywords [PASSED]
+- Fixed missing `await` on `waitFor()` call in "should render with priority flag" test (line 22)
+- Fixed missing `await` on `waitFor()` call in "should render with width and height" test (line 48)
+- Both test functions updated from sync to async
+
+#### Build Verification
+- `npm run build` passes with no errors (19.95s build time)
+- No TypeScript errors introduced
+
+#### Remaining Stories (42 remaining in PRD)
+- US-001 through US-008 (CI/CD, testing infrastructure)
+- US-011 through US-023 (edge function tests, monitoring, accessibility)
+- US-025, US-029 through US-039, US-041 through US-047, US-049, US-050

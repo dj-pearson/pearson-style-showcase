@@ -1,6 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
+import { validateText } from "../_shared/validation.ts";
+
+// Initialize rate limiter cleanup
+initRateLimiter();
+
+// 10 generations per hour per IP
+const TASK_GEN_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 10,
+  burstAllowance: 2,
+  keyPrefix: 'task-gen',
+};
 
 interface TaskData {
   title: string;
@@ -25,11 +39,20 @@ serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    // Rate limit check
+    const clientIp = getClientIdentifier(req);
+    const rateLimitResult = checkRateLimit(clientIp, TASK_GEN_RATE_LIMIT);
+    if (!rateLimitResult.allowed) {
+      return createRateLimitResponse(rateLimitResult, corsHeaders);
+    }
+
     const { text, project_id, project_name } = await req.json();
 
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    // Validate text input with max length of 5000 chars
+    const textResult = validateText(text, { required: true, minLength: 1, maxLength: 5000 });
+    if (!textResult.valid) {
       return new Response(
-        JSON.stringify({ error: 'Text input is required' }),
+        JSON.stringify({ error: textResult.error }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -128,7 +151,7 @@ ${text}`;
         }
 
         if (config.provider === "gemini-paid" || config.provider === "gemini-free") {
-          const response = await fetch(
+          const response = await fetchWithTimeout(
             `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
             {
               method: "POST",
@@ -144,7 +167,8 @@ ${text}`;
                   ...(config.configuration || {})
                 }
               })
-            }
+            },
+            { timeoutMs: 30_000, maxRetries: 2, label: 'gemini-tasks' }
           );
 
           if (response.ok) {
@@ -160,7 +184,7 @@ ${text}`;
           }
 
         } else if (config.provider === "claude") {
-          const response = await fetch("https://api.anthropic.com/v1/messages", {
+          const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -174,7 +198,7 @@ ${text}`;
                 { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
               ]
             })
-          });
+          }, { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks' });
 
           if (response.ok) {
             const result = await response.json();
@@ -196,7 +220,7 @@ ${text}`;
             console.error('CLAUDE_API_KEY not configured for fallback');
             continue;
           }
-          const response = await fetch("https://api.anthropic.com/v1/messages", {
+          const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -211,7 +235,7 @@ ${text}`;
                 { role: "user", content: userPrompt }
               ]
             })
-          });
+          }, { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks-fallback' });
 
           if (response.ok) {
             const result = await response.json();
@@ -289,9 +313,11 @@ ${text}`;
 
   } catch (error) {
     console.error("Generate tasks error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    return structuredErrorResponse(
+      error.message || 'Internal server error',
+      'TASK_GENERATION_FAILED',
+      500,
+      corsHeaders
     );
   }
 });

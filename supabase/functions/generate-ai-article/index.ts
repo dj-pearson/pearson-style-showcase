@@ -1,6 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
+
+// Initialize rate limiter cleanup
+initRateLimiter();
+
+// 5 article generations per hour per IP (expensive operation)
+const ARTICLE_GEN_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 5,
+  burstAllowance: 1,
+  keyPrefix: 'article-gen',
+};
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -11,6 +24,13 @@ serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    // Rate limit check
+    const clientIp = getClientIdentifier(req);
+    const rateLimitResult = checkRateLimit(clientIp, ARTICLE_GEN_RATE_LIMIT);
+    if (!rateLimitResult.allowed) {
+      return createRateLimitResponse(rateLimitResult, corsHeaders);
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -24,7 +44,11 @@ serve(async (req) => {
     console.log('Fetching articles from AI news website...');
     
     // Fetch the main page to get article links
-    const newsResponse = await fetch('https://www.artificialintelligence-news.com/');
+    const newsResponse = await fetchWithTimeout(
+      'https://www.artificialintelligence-news.com/',
+      {},
+      { timeoutMs: 30_000, maxRetries: 2, label: 'news-index' }
+    );
     const newsHtml = await newsResponse.text();
     
     // Extract article URLs (looking for article links in the HTML)
@@ -47,7 +71,11 @@ serve(async (req) => {
     console.log('Selected article:', randomUrl);
 
     // Fetch the selected article
-    const articleResponse = await fetch(randomUrl);
+    const articleResponse = await fetchWithTimeout(
+      randomUrl,
+      {},
+      { timeoutMs: 30_000, maxRetries: 2, label: 'news-article' }
+    );
     const articleHtml = await articleResponse.text();
 
     // Extract title and content (basic extraction)
@@ -63,7 +91,7 @@ serve(async (req) => {
     console.log('Generating new article with AI...');
 
     // Generate a completely new article with AI using Claude
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiResponse = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': CLAUDE_API_KEY,
@@ -113,7 +141,7 @@ Make sure the content is:
         ],
         temperature: 0.7,
       }),
-    });
+    }, { timeoutMs: 60_000, maxRetries: 2, label: 'claude-article-gen' });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -207,15 +235,11 @@ Make sure the content is:
     );
   } catch (error) {
     console.error('Error in generate-ai-article function:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+    return structuredErrorResponse(
+      error.message || 'Internal server error',
+      'ARTICLE_GENERATION_FAILED',
+      500,
+      corsHeaders
     );
   }
 });

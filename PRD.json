@@ -156,8 +156,8 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created fetch-with-timeout.ts shared utility with configurable timeout, retry with exponential backoff, and structured error responses. Updated generate-ai-article (60s), generate-ai-tasks (30s), extract-from-url (45s), generate-social-content (30s), and process-accounting-document to use it."
     },
     {
       "id": "US-010",
@@ -174,8 +174,8 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added rate limiting to track-affiliate-click (100/hr/IP), generate-ai-tasks (10/hr/IP), generate-social-content (20/hr/IP), extract-from-url (30/hr/IP), generate-ai-article (5/hr/IP). Added input validation (UUID, text length, URL format). Added SSRF prevention to extract-from-url blocking private IPs."
     },
     {
       "id": "US-011",
@@ -692,8 +692,8 @@
         "Typecheck passes"
       ],
       "priority": 40,
-      "passes": false,
-      "notes": "MEDIUM: Admin pages indexable by search engines. Public pages lack canonical URLs, risking duplicate content."
+      "passes": true,
+      "notes": "Added SEO component with noIndex=true to AdminLogin.tsx and AdminDashboard.tsx. Removed /search page from sitemap (already has noIndex). Canonical URLs already properly configured on all public pages."
     },
     {
       "id": "US-041",
@@ -824,8 +824,8 @@
         "Typecheck passes"
       ],
       "priority": 48,
-      "passes": false,
-      "notes": "HIGH: The only component test in the codebase is broken with missing awaits. Sets a bad example for future tests."
+      "passes": true,
+      "notes": "Fixed missing await keywords on waitFor() calls in OptimizedImage.test.tsx (lines 22 and 48). Tests now properly async."
     },
     {
       "id": "US-049",
