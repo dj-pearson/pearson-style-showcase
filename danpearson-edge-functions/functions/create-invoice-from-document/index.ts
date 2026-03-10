@@ -1,6 +1,7 @@
 /**
  * Create Invoice From Document
- * Uses service role to bypass RLS when creating invoices from approved documents.
+ * Creates a paid purchase invoice + payment record from an AI-parsed document.
+ * Receipts are marked as paid immediately since they represent completed purchases.
  * Verifies user is in admin whitelist before proceeding.
  */
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
@@ -21,9 +22,13 @@ interface CreateInvoiceRequest {
     total_amount?: number;
     totalAmount?: number;
     amount?: number;
+    subtotal?: number;
+    tax_amount?: number;
     vendor_name?: string;
     vendorName?: string;
     merchant_name?: string;
+    payment_method?: string;
+    currency?: string;
     notes?: string;
     line_items?: Array<{
       description?: string;
@@ -42,6 +47,8 @@ interface CreateInvoiceRequest {
       total?: number;
     }>;
   };
+  /** Document type from the upload (receipt, invoice, etc.) */
+  documentType?: string;
 }
 
 export default async (req: Request): Promise<Response> => {
@@ -95,7 +102,7 @@ export default async (req: Request): Promise<Response> => {
     }
 
     const body: CreateInvoiceRequest = await req.json();
-    const { documentId, parsedData } = body;
+    const { documentId, parsedData, documentType } = body;
 
     if (!documentId || !parsedData) {
       return new Response(
@@ -104,38 +111,57 @@ export default async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("[create-invoice-from-document] Processing document:", documentId);
+    console.log("[create-invoice-from-document] Processing document:", documentId, "type:", documentType);
+
+    // Look up the actual document type from the database if not provided
+    let resolvedDocType = documentType;
+    if (!resolvedDocType) {
+      const { data: docRecord } = await supabaseAdmin
+        .from("accounting_documents")
+        .select("document_type")
+        .eq("id", documentId)
+        .single();
+      resolvedDocType = docRecord?.document_type || undefined;
+      console.log("[create-invoice-from-document] Resolved document type from DB:", resolvedDocType);
+    }
 
     const lineItems = parsedData.line_items || parsedData.items || [];
     const totalAmount =
       parseFloat(String(parsedData.total_amount ?? parsedData.totalAmount ?? parsedData.amount ?? 0)) || 0;
     const vendorName = parsedData.vendor_name || parsedData.vendorName || parsedData.merchant_name || null;
+    const invoiceDate =
+      parsedData.invoice_date ||
+      parsedData.invoiceDate ||
+      parsedData.transaction_date ||
+      parsedData.date ||
+      new Date().toISOString().split("T")[0];
+    const invoiceNumber =
+      parsedData.invoice_number ||
+      parsedData.invoiceNumber ||
+      parsedData.receipt_number ||
+      `SCAN-${Date.now()}`;
+
+    // Receipts represent completed purchases — mark as paid and create a payment
+    const isReceipt = resolvedDocType === 'receipt' || !!parsedData.receipt_number || !!parsedData.merchant_name;
 
     const invoiceData = {
       invoice_type: "purchase" as const,
-      invoice_number:
-        parsedData.invoice_number ||
-        parsedData.invoiceNumber ||
-        parsedData.receipt_number ||
-        `SCAN-${Date.now()}`,
-      invoice_date:
-        parsedData.invoice_date ||
-        parsedData.invoiceDate ||
-        parsedData.transaction_date ||
-        parsedData.date ||
-        new Date().toISOString().split("T")[0],
+      invoice_number: invoiceNumber,
+      invoice_date: invoiceDate,
       due_date: parsedData.due_date || parsedData.dueDate || null,
-      subtotal: totalAmount,
+      subtotal: parsedData.subtotal ?? totalAmount,
+      tax_amount: parsedData.tax_amount ?? 0,
       total_amount: totalAmount,
-      amount_due: totalAmount,
-      amount_paid: 0,
-      status: "draft",
+      amount_paid: isReceipt ? totalAmount : 0,
+      amount_due: isReceipt ? 0 : totalAmount,
+      status: isReceipt ? "paid" : "draft",
       import_source: "ai_scan",
       notes: vendorName
         ? `Vendor: ${vendorName}${parsedData.notes ? "\n" + parsedData.notes : ""}`
         : parsedData.notes || null,
     };
 
+    // 1. Create the purchase invoice
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from("invoices")
       .insert([invoiceData])
@@ -150,9 +176,9 @@ export default async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("[create-invoice-from-document] Invoice created:", inserted.id);
+    console.log("[create-invoice-from-document] Invoice created:", inserted.id, "status:", invoiceData.status);
 
-    // Insert line items if available
+    // 2. Insert line items if available
     const validItems = lineItems.filter((item: any) => item?.description);
     if (validItems.length > 0 && inserted) {
       const items = validItems.map((item: any, index: number) => ({
@@ -175,19 +201,64 @@ export default async (req: Request): Promise<Response> => {
       }
     }
 
-    // Link document to the created invoice
+    // 3. For receipts, also create a payment record so it shows in the Payments tab
+    let paymentRecord = null;
+    if (isReceipt && totalAmount > 0) {
+      const paymentData = {
+        payment_type: "made" as const,
+        payment_number: `PAY-${invoiceNumber}`,
+        payment_date: invoiceDate,
+        amount: totalAmount,
+        payment_method: parsedData.payment_method || "Other",
+        reference_number: `RCPT-${invoiceNumber}`,
+        notes: `Payment for ${vendorName || 'receipt'} — ${invoiceNumber}`,
+        status: "completed",
+      };
+
+      const { data: payment, error: paymentError } = await supabaseAdmin
+        .from("payments")
+        .insert([paymentData])
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error("[create-invoice-from-document] Payment creation error:", paymentError);
+      } else {
+        paymentRecord = payment;
+        console.log("[create-invoice-from-document] Payment created:", payment.id);
+
+        // Create payment allocation linking payment to invoice
+        const { error: allocError } = await supabaseAdmin
+          .from("payment_allocations")
+          .insert([{
+            payment_id: payment.id,
+            invoice_id: inserted.id,
+            amount: totalAmount,
+          }]);
+
+        if (allocError) {
+          console.error("[create-invoice-from-document] Allocation error:", allocError);
+        } else {
+          console.log("[create-invoice-from-document] Payment allocated to invoice");
+        }
+      }
+    }
+
+    // 4. Link document to the created invoice
     await supabaseAdmin
       .from("accounting_documents")
       .update({ related_entity_type: "invoice", related_entity_id: inserted.id })
       .eq("id", documentId);
 
-    console.log("[create-invoice-from-document] Document linked to invoice");
+    console.log("[create-invoice-from-document] Complete — invoice + payment created");
 
     return new Response(
       JSON.stringify({
         success: true,
         invoice: inserted,
         invoice_number: invoiceData.invoice_number,
+        payment: paymentRecord,
+        is_receipt: isReceipt,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
