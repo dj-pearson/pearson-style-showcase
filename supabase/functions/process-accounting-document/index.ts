@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { callAIWithVision } from "../_shared/ai-helper.ts";
@@ -67,18 +68,10 @@ serve(async (req) => {
 
     console.log('[Document] File downloaded, size:', fileData.size);
 
-    // Convert file to base64
+    // Convert file to base64 using Deno std library (avoids call stack overflow from spread operator)
     const arrayBuffer = await fileData.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-
-    // Build binary string in chunks to avoid stack overflow, then encode as base64 once
-    let binaryString = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binaryString += String.fromCharCode(...chunk);
-    }
-    const base64 = btoa(binaryString);
+    const base64 = base64Encode(uint8Array);
 
     // Determine media type
     const fileType = document.file_type || 'application/pdf';
