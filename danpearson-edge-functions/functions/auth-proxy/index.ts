@@ -17,27 +17,26 @@
 
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
-// The internal Supabase URL (Kong gateway)
+// The Supabase URL (Kong gateway)
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "https://api.danpearson.net";
 
-// Headers that should be forwarded from the client request
-const FORWARD_REQUEST_HEADERS = [
-  "authorization",
-  "apikey",
-  "content-type",
-  "x-client-info",
-  "x-requested-with",
-  "accept",
-  "accept-language",
-];
-
-// Headers from GoTrue response to forward back to client
-const FORWARD_RESPONSE_HEADERS = [
-  "content-type",
-  "x-auth-token",
-  "x-request-id",
-  "retry-after",
-];
+// Headers to skip when forwarding (hop-by-hop or browser-only headers)
+const SKIP_REQUEST_HEADERS = new Set([
+  "host",
+  "origin",
+  "referer",
+  "sec-fetch-dest",
+  "sec-fetch-mode",
+  "sec-fetch-site",
+  "sec-ch-ua",
+  "sec-ch-ua-mobile",
+  "sec-ch-ua-platform",
+  "connection",
+  "keep-alive",
+  "transfer-encoding",
+  "upgrade",
+  "te",
+]);
 
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
@@ -59,14 +58,17 @@ export default async (req: Request): Promise<Response> => {
 
     console.log(`[auth-proxy] ${req.method} ${authPath}${url.search} -> ${targetUrl}`);
 
-    // Build headers to forward
+    // Forward ALL request headers except hop-by-hop/browser-only ones
     const forwardHeaders = new Headers();
-    for (const headerName of FORWARD_REQUEST_HEADERS) {
-      const value = req.headers.get(headerName);
-      if (value) {
-        forwardHeaders.set(headerName, value);
+    for (const [key, value] of req.headers.entries()) {
+      if (!SKIP_REQUEST_HEADERS.has(key.toLowerCase())) {
+        forwardHeaders.set(key, value);
       }
     }
+
+    // Log forwarded headers for debugging
+    const headerKeys = [...forwardHeaders.keys()];
+    console.log(`[auth-proxy] Forwarding headers: ${headerKeys.join(", ")}`);
 
     // Read request body if present
     let body: string | null = null;
@@ -85,27 +87,31 @@ export default async (req: Request): Promise<Response> => {
       body: body,
     });
 
-    console.log(`[auth-proxy] Response: ${proxyResponse.status}`);
-
     // Read the response body
     const responseBody = await proxyResponse.text();
 
-    // Build response headers with CORS
-    const responseHeaders: Record<string, string> = {
-      ...corsHeaders,
-    };
+    console.log(`[auth-proxy] Response: ${proxyResponse.status} ${proxyResponse.statusText}`);
 
-    // Forward relevant response headers
-    for (const headerName of FORWARD_RESPONSE_HEADERS) {
-      const value = proxyResponse.headers.get(headerName);
-      if (value) {
-        responseHeaders[headerName] = value;
-      }
+    // Log response body on error for debugging
+    if (proxyResponse.status >= 400) {
+      console.error(`[auth-proxy] Error response body: ${responseBody.substring(0, 500)}`);
     }
 
-    // Ensure content-type is set
-    if (!responseHeaders["content-type"]) {
-      responseHeaders["content-type"] = "application/json";
+    // Build response headers: start with CORS, then forward response headers
+    const responseHeaders = new Headers(corsHeaders);
+
+    // Forward all response headers except hop-by-hop
+    const skipResponseHeaders = new Set([
+      "connection", "keep-alive", "transfer-encoding",
+      "access-control-allow-origin", "access-control-allow-methods",
+      "access-control-allow-headers", "access-control-allow-credentials",
+      "access-control-max-age",
+    ]);
+
+    for (const [key, value] of proxyResponse.headers.entries()) {
+      if (!skipResponseHeaders.has(key.toLowerCase())) {
+        responseHeaders.set(key, value);
+      }
     }
 
     return new Response(responseBody, {
