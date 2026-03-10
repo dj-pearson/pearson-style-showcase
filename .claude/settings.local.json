@@ -7,7 +7,12 @@
       "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase -maxdepth 2 -type f -name \"*.toml\" 2>/dev/null | grep -v node_modules)",
       "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase -maxdepth 1 -type f -name \"*.md\" 2>/dev/null | head -20)",
       "Bash(cd \"C:\\\\Users\\\\dpearson\\\\Documents\\\\DanPearson\\\\pearson-style-showcase\" && npm run build 2>&1 | tail -30)",
-      "Bash(cd \"C:\\\\Users\\\\dpearson\\\\Documents\\\\DanPearson\\\\pearson-style-showcase\" && npm run build 2>&1 | tail -10)"
+      "Bash(cd \"C:\\\\Users\\\\dpearson\\\\Documents\\\\DanPearson\\\\pearson-style-showcase\" && npm run build 2>&1 | tail -10)",
+      "Bash(find /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase/supabase/functions -type f -name \"*accounting*\" -o -name \"*document*\" -o -name \"*tax*\" 2>/dev/null | head -20)",
+      "Bash(grep \"\\\\\"Row\\\\\": {\" -A 15 /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase/src/integrations/supabase/types.ts | grep -E \"^\\\\s{6}[a-z_]+:\" | cut -d: -f1 | sed 's/^\\\\s*//' | sort | uniq)",
+      "Bash(grep -o \"^\\\\s*[a-z_]*: {$\" /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase/src/integrations/supabase/types.ts | sed 's/[^a-z_]//g' | sort | uniq | grep -E \"account|invoice|journal|payment|transaction|expense|platform|contact|category|currency|budget|recurring|document\")",
+      "Bash(wc -l /c/Users/dpearson/Documents/DanPearson/pearson-style-showcase/src/components/admin/accounting/*.tsx)",
+      "Bash(npm run:*)"
     ]
   }
 }

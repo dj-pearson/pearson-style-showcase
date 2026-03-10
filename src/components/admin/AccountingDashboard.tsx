@@ -27,7 +27,7 @@ import PlatformsManager from './accounting/PlatformsManager';
 import RecurringTransactionsManager from './accounting/RecurringTransactionsManager';
 import ExpenseCategoriesManager from './accounting/ExpenseCategoriesManager';
 import FinancialOverview from './accounting/FinancialOverview';
-import { TaxReports } from './accounting/TaxReports';
+import { TaxCenter } from './accounting/TaxCenter';
 import { AIBillingTracker } from './accounting/AIBillingTracker';
 import { DataExporter } from './accounting/DataExporter';
 
@@ -245,7 +245,7 @@ export const AccountingDashboard = () => {
         </TabsContent>
 
         <TabsContent value="tax">
-          <TaxReports />
+          <TaxCenter />
         </TabsContent>
       </Tabs>
     </div>
