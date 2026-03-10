@@ -23,7 +23,7 @@ const FUNCTIONS_DIR = '/app/functions';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with, x-supabase-api-version',
   'Access-Control-Max-Age': '86400', // 24 hours
   'Access-Control-Allow-Credentials': 'true',
 };
@@ -99,7 +99,7 @@ function handleOptions(req: Request): Response {
     headers: {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-requested-with, x-supabase-api-version',
       'Access-Control-Max-Age': '86400',
       'Access-Control-Allow-Credentials': 'true',
       'Vary': 'Origin',
@@ -211,7 +211,7 @@ async function handleRequest(req: Request): Promise<Response> {
       // Ensure CORS headers are present
       headers.set('Access-Control-Allow-Origin', origin);
       headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, x-client-info, x-requested-with');
+      headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, x-client-info, x-requested-with, x-supabase-api-version');
       headers.set('Access-Control-Max-Age', '86400');
       headers.set('Access-Control-Allow-Credentials', 'true');
       headers.set('Vary', 'Origin');
