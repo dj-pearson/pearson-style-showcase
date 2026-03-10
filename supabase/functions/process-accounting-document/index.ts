@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { callAIWithVision } from "../_shared/ai-helper.ts";
+import { structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
 
 interface ProcessDocumentRequest {
   documentId: string;
@@ -292,15 +293,11 @@ Return ONLY valid JSON.`
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+    return structuredErrorResponse(
+      error.message || 'Internal server error',
+      'DOCUMENT_PROCESSING_FAILED',
+      500,
+      corsHeaders
     );
   }
 });

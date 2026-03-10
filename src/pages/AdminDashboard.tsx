@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { logger } from "@/lib/logger";
+import SEO from '@/components/SEO';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -495,6 +496,12 @@ const AdminDashboard = () => {
   };
 
   return (
+    <>
+    <SEO
+      title="Admin Dashboard | Dan Pearson"
+      description="Admin dashboard"
+      noIndex={true}
+    />
     <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full bg-background">
         {/* Sidebar Navigation */}
@@ -641,6 +648,7 @@ const AdminDashboard = () => {
         shortcuts={shortcuts}
       />
     </SidebarProvider>
+    </>
   );
 };
 

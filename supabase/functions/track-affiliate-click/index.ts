@@ -1,6 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
+import { validateUuid, validateText } from "../_shared/validation.ts";
+
+// Initialize rate limiter cleanup
+initRateLimiter();
+
+// 100 clicks per hour per IP
+const CLICK_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxRequests: 100,
+  burstAllowance: 10,
+  keyPrefix: 'affiliate-click',
+};
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -11,15 +24,33 @@ serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    // Rate limit check
+    const clientIp = getClientIdentifier(req);
+    const rateLimitResult = checkRateLimit(clientIp, CLICK_RATE_LIMIT);
+    if (!rateLimitResult.allowed) {
+      return createRateLimitResponse(rateLimitResult, corsHeaders);
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { articleId, asin } = await req.json();
+    const body = await req.json();
+    const { articleId, asin } = body;
 
-    if (!articleId || !asin) {
+    // Validate inputs
+    const articleIdResult = validateUuid(articleId);
+    if (!articleIdResult.valid) {
       return new Response(
-        JSON.stringify({ error: 'articleId and asin are required' }),
+        JSON.stringify({ error: 'Invalid articleId: must be a valid UUID' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const asinResult = validateText(asin, { required: true, minLength: 1, maxLength: 20 });
+    if (!asinResult.valid) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid asin: ' + asinResult.error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -27,10 +58,10 @@ serve(async (req) => {
     // Get user agent and referrer from headers
     const userAgent = req.headers.get('user-agent') || '';
     const referrer = req.headers.get('referer') || '';
-    
+
     // Get IP (from Cloudflare or X-Forwarded-For)
-    const ipAddress = req.headers.get('cf-connecting-ip') || 
-                      req.headers.get('x-forwarded-for')?.split(',')[0] || 
+    const ipAddress = req.headers.get('cf-connecting-ip') ||
+                      req.headers.get('x-forwarded-for')?.split(',')[0] ||
                       '';
 
     // Generate a simple session ID (could be improved with cookies)
@@ -40,8 +71,8 @@ serve(async (req) => {
     const { error: clickError } = await supabase
       .from('amazon_affiliate_clicks')
       .insert({
-        article_id: articleId,
-        asin: asin,
+        article_id: articleIdResult.sanitized,
+        asin: asinResult.sanitized,
         user_agent: userAgent,
         referrer: referrer,
         ip_address: ipAddress,
@@ -58,8 +89,8 @@ serve(async (req) => {
     const { data: existingStat } = await supabase
       .from('amazon_affiliate_stats')
       .select('*')
-      .eq('article_id', articleId)
-      .eq('asin', asin)
+      .eq('article_id', articleIdResult.sanitized)
+      .eq('asin', asinResult.sanitized)
       .eq('date', today)
       .single();
 
@@ -72,8 +103,8 @@ serve(async (req) => {
       await supabase
         .from('amazon_affiliate_stats')
         .insert({
-          article_id: articleId,
-          asin: asin,
+          article_id: articleIdResult.sanitized,
+          asin: asinResult.sanitized,
           date: today,
           clicks: 1,
         });
@@ -81,7 +112,10 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, ...rateLimitResult.headers, 'Content-Type': 'application/json' },
+      }
     );
   } catch (error) {
     console.error('Error in track-affiliate-click:', error);

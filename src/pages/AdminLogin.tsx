@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { MFAEnrollment } from '@/components/auth/MFAEnrollment';
 import { MFAVerification } from '@/components/auth/MFAVerification';
+import SEO from '@/components/SEO';
 
 // Google icon with brand colors
 const GoogleIcon = () => (
@@ -517,6 +518,12 @@ const AdminLogin = () => {
 
   // Main login view
   return (
+    <>
+    <SEO
+      title="Admin Login | Dan Pearson"
+      description="Admin login portal"
+      noIndex={true}
+    />
     <div className="min-h-[100dvh] flex items-center justify-center bg-background relative overflow-hidden px-4 py-8">
       <AnimatedGrid />
 
@@ -767,6 +774,7 @@ const AdminLogin = () => {
         }
       `}</style>
     </div>
+    </>
   );
 };
 
