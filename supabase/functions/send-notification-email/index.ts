@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
 
 interface NotificationRequest {
   type: 'new_ticket' | 'new_response' | 'agent_reply';
@@ -398,16 +399,6 @@ This is an automated notification from Pearson Media Support System
     );
 
   } catch (error: any) {
-    console.error('Error sending notification:', error);
-    return new Response(
-      JSON.stringify({
-        error: error.message || 'Failed to send notification',
-        details: error.toString()
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
 });

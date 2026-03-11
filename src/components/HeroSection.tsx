@@ -99,8 +99,8 @@ const HeroSection = () => {
     }, "-=0.4");
 
     // Floating animation for the name (Applied to Wrappers to avoid conflict with Parallax)
-    gsap.to([nameWrapperRef.current, surnameWrapperRef.current], {
-      y: "-=15", // Increased float range slightly
+    const floatingTween = gsap.to([nameWrapperRef.current, surnameWrapperRef.current], {
+      y: "-=15",
       duration: 2.5,
       repeat: -1,
       yoyo: true,
@@ -118,7 +118,6 @@ const HeroSection = () => {
       if (!containerRef.current) return;
       const { innerWidth, innerHeight } = window;
 
-      // Calculate position from center
       const xPos = (lastMouseX / innerWidth - 0.5) * 30;
       const yPos = (lastMouseY / innerHeight - 0.5) * 30;
 
@@ -147,19 +146,16 @@ const HeroSection = () => {
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
 
-      // Throttle using requestAnimationFrame - only update once per frame
       if (rafId === null) {
         rafId = requestAnimationFrame(updateParallax);
       }
     };
 
     const handleMouseLeave = () => {
-      // Cancel any pending animation frame
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
       }
-      // Reset to center when mouse leaves
       gsap.to([nameRef.current, surnameRef.current], {
         x: 0,
         y: 0,
@@ -171,9 +167,13 @@ const HeroSection = () => {
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave); // Detect leaving the window
+    document.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
+      // Kill all GSAP animations to prevent memory leaks
+      tl.kill();
+      floatingTween.kill();
+      gsap.killTweensOf([nameRef.current, surnameRef.current, nameWrapperRef.current, surnameWrapperRef.current]);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }

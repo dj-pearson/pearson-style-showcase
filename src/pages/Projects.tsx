@@ -42,22 +42,38 @@ const Projects = () => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}_sort`, sortBy);
   }, [sortBy]);
 
-  const { data: projects, isLoading, error } = useQuery({
-    queryKey: ['projects'],
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 9;
+
+  const { data: projectsData, isLoading, error } = useQuery({
+    queryKey: ['projects', currentPage],
     queryFn: async () => {
-      // Only select fields needed for project list view to reduce payload size
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { count, error: countError } = await supabase
+        .from('projects')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) throw countError;
+
       const { data, error } = await supabase
         .from('projects')
         .select('id, title, description, image_url, live_link, github_link, tags, featured, sort_order, created_at, status, updated_at')
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
-      return (data || []) as Project[];
+      return { projects: (data || []) as Project[], totalCount: count || 0 };
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
+
+  const projects = projectsData?.projects;
+  const totalCount = projectsData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Get unique tags for filtering - memoized
   const allTags = useMemo(() => {
@@ -226,7 +242,8 @@ const Projects = () => {
 
             {/* Results Count */}
             <div className="mt-4 text-base text-gray-400 font-medium">
-              Showing {sortedProjects.length} of {projects?.length || 0} projects
+              Showing {sortedProjects.length} of {totalCount} projects
+              {totalPages > 1 && ` (page ${currentPage} of ${totalPages})`}
             </div>
           </div>
 
@@ -272,6 +289,42 @@ const Projects = () => {
             ) : (
               <div className="text-center mobile-section">
                 <p className="text-base text-gray-400">No projects found.</p>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1 || isLoading}
+                  className="border-gray-600"
+                >
+                  Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <Button
+                    key={page}
+                    variant={page === currentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    disabled={isLoading}
+                    className={page === currentPage ? "bg-cyan-600" : "border-gray-600"}
+                  >
+                    {page}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages || isLoading}
+                  className="border-gray-600"
+                >
+                  Next
+                </Button>
               </div>
             )}
           </div>

@@ -17,6 +17,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
 
 const COOLIFY_API_TOKEN = Deno.env.get("COOLIFY_API_TOKEN") ?? "";
 const COOLIFY_BASE_URL = Deno.env.get("COOLIFY_BASE_URL") ?? "";
@@ -138,10 +139,12 @@ serve(async (req: Request) => {
 
     if (!coolifyResponse.ok) {
       const errorText = await coolifyResponse.text();
-      return new Response(
-        JSON.stringify({ error: `Coolify API error: ${coolifyResponse.status}`, details: errorText }),
-        { status: coolifyResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error('Coolify API error:', coolifyResponse.status, errorText);
+      const code = coolifyResponse.status === 401 ? 'UNAUTHORIZED' as const
+        : coolifyResponse.status === 403 ? 'FORBIDDEN' as const
+        : coolifyResponse.status === 404 ? 'NOT_FOUND' as const
+        : 'SERVICE_UNAVAILABLE' as const;
+      return normalizedErrorResponse(code, new Error(errorText), corsHeaders);
     }
 
     const data = await coolifyResponse.json();
@@ -150,9 +153,6 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
 });

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
 
 interface SendEmailRequest {
   ticket_id: string;
@@ -329,16 +330,6 @@ serve(async (req: Request) => {
     );
 
   } catch (error: any) {
-    console.error('Error in send-ticket-email function:', error);
-    return new Response(
-      JSON.stringify({
-        error: error.message || 'Failed to send email',
-        details: error.toString()
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
 });

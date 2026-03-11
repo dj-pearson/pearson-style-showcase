@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
+import { normalizedErrorResponse } from "../_shared/error-normalizer.ts";
 import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
 import { validateUrl, validateEnum } from "../_shared/validation.ts";
 
@@ -144,11 +145,7 @@ serve(async (req) => {
         .trim()
         .substring(0, 10000); // Increased limit for better context
     } catch (fetchError) {
-      console.error('Error fetching URL:', fetchError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch URL content', details: fetchError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return normalizedErrorResponse('INTERNAL_ERROR', fetchError, corsHeaders, 'Failed to fetch URL content. Please verify the URL is accessible.');
     }
 
     // Prepare system prompt based on type

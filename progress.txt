@@ -157,3 +157,60 @@
 - US-001 through US-008 (CI/CD, testing infrastructure)
 - US-011 through US-023 (edge function tests, monitoring, accessibility)
 - US-025, US-029 through US-039, US-041 through US-047, US-049, US-050
+
+### Iteration 3 - Critical Platform Improvements
+**Date**: 2026-03-11
+**Branch**: claude/critical-platform-improvements-RvXAJ
+**Stories Completed**: 4
+
+#### US-032: Fix Three.js memory leaks and optimize particle system performance [PASSED]
+- Pre-allocated Float32Array buffers, Color, and Vector3 objects in useMemo instead of creating new ones every frame (was 240-480 allocations/sec at 60fps)
+- Updated NetworkSystem to write into existing BufferAttribute arrays in-place via `.set()` + `.needsUpdate = true` instead of replacing attributes each frame
+- Used `geometry.setDrawRange()` for dynamic line count instead of reallocating line geometry
+- Replaced `particle.position.distanceTo(new THREE.Vector3(0,0,0))` with `particle.position.length()` to avoid per-frame Vector3 allocation
+- Added proper `dispose()` calls for geometries and materials in useEffect cleanup for both BackgroundStars and NetworkSystem
+- Fixed WebGL context event listener leak: `onCreated` return value was never called by R3F; moved cleanup to useEffect with ref tracking
+- Fixed GSAP memory leaks in HeroSection: added `tl.kill()`, `floatingTween.kill()`, and `gsap.killTweensOf()` to cleanup function
+- Infinite `repeat: -1` floating animation now properly killed on unmount and dependency change
+
+#### US-031: Fix secure cache encryption key derivation weakness [PASSED]
+- Replaced weak single SHA-256 hash with PBKDF2 key derivation (100,000 iterations)
+- Key derivation now uses `crypto.subtle.deriveKey()` with PBKDF2 algorithm
+- Salt passed as proper byte array to PBKDF2 instead of string concatenation
+- userId imported as raw key material via `crypto.subtle.importKey()` for PBKDF2
+- Maintains existing AES-256-GCM encryption, IV generation, and sessionStorage salt storage
+- Backward-incompatible: existing cached data will be re-encrypted on next write (graceful fallback already existed)
+
+#### US-033: Add pagination to list page database queries [PASSED]
+- News.tsx: Added `.range()` pagination with page size 12, total count query, page navigation UI with ellipsis for large page counts
+- Projects.tsx: Added `.range()` pagination with page size 9, total count query, page navigation UI
+- Query keys now include page number for proper cache invalidation (e.g., `['articles', currentPage]`)
+- AuthorArchive.tsx: Added `.limit(50)` to prevent unbounded fetches
+- CategoryArchive.tsx: Added `.limit(50)` to prevent unbounded fetches
+- TagArchive.tsx: Added `.limit(200)` to cap client-side tag filtering (tags require post-fetch filtering due to Supabase array query limitations)
+- Pagination controls show Previous/Next buttons and page numbers
+
+#### US-050: Normalize API error messages to prevent information leakage [PASSED]
+- Created `supabase/functions/_shared/error-normalizer.ts` with `normalizedErrorResponse()` and `classifyError()` utilities
+- Defined standard error codes: BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, RATE_LIMITED, VALIDATION_ERROR, INTERNAL_ERROR, SERVICE_UNAVAILABLE, TIMEOUT
+- Each code maps to a generic user-facing message and HTTP status code
+- `classifyError()` auto-classifies errors based on message content
+- Updated 8 edge functions to use normalized errors:
+  - `amazon-article-pipeline`: Removed `error.stack` exposure (was CRITICAL)
+  - `ai-content-generator`: Removed `error.message` in details field
+  - `coolify-proxy`: Removed raw API error text and `error.message`
+  - `oauth-proxy`: Removed `(error as Error).message`
+  - `receive-email`: Removed `error.toString()` exposure
+  - `send-notification-email`: Removed `error.toString()` exposure
+  - `send-ticket-email`: Removed `error.toString()` exposure
+  - `extract-from-url`: Removed `fetchError.message` exposure
+- All real errors now logged server-side via `console.error` before returning generic response
+
+#### Build Verification
+- `npm run build` passes with no errors (23.13s build time)
+- No TypeScript errors introduced
+
+#### Remaining Stories (38 remaining in PRD)
+- US-001 through US-008 (CI/CD, testing infrastructure)
+- US-011 through US-023 (edge function tests, monitoring, accessibility)
+- US-025, US-029, US-030, US-034 through US-039, US-041 through US-047, US-049

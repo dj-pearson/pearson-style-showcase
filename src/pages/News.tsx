@@ -48,21 +48,39 @@ const News = () => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}_sort`, sortBy);
   }, [sortBy]);
 
-  const { data: articles, isLoading, error } = useQuery({
-    queryKey: ['articles'],
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
+
+  const { data: articlesData, isLoading, error } = useQuery({
+    queryKey: ['articles', currentPage],
     queryFn: async () => {
-      // Only select fields needed for article list view to reduce payload size
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      // Get total count for pagination
+      const { count, error: countError } = await supabase
+        .from('articles')
+        .select('*', { count: 'exact', head: true })
+        .eq('published', true);
+
+      if (countError) throw countError;
+
       const { data, error } = await supabase
         .from('articles')
         .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
         .eq('published', true)
         .order('featured', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
-      return data as Article[];
+      return { articles: data as Article[], totalCount: count || 0 };
     },
   });
+
+  const articles = articlesData?.articles;
+  const totalCount = articlesData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Get unique categories for filtering - memoized to prevent recalculation
   const allCategories = useMemo(() => {
@@ -254,7 +272,8 @@ const News = () => {
 
             {/* Results Count */}
             <div className="mt-4 text-base text-gray-400 font-medium">
-              Showing {sortedArticles.length} of {articles?.length || 0} articles
+              Showing {sortedArticles.length} of {totalCount} articles
+              {totalPages > 1 && ` (page ${currentPage} of ${totalPages})`}
             </div>
           </div>
 
@@ -300,6 +319,53 @@ const News = () => {
             ) : (
               <div className="text-center py-12 px-4">
                 <p className="text-base text-gray-400">No articles found.</p>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1 || isLoading}
+                  className="border-gray-600"
+                >
+                  Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                  .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                    if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push('...');
+                    acc.push(page);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    typeof item === 'string' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-500">...</span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={item === currentPage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(item)}
+                        disabled={isLoading}
+                        className={item === currentPage ? "bg-cyan-600" : "border-gray-600"}
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages || isLoading}
+                  className="border-gray-600"
+                >
+                  Next
+                </Button>
               </div>
             )}
           </div>
