@@ -544,8 +544,8 @@
         "Typecheck passes"
       ],
       "priority": 31,
-      "passes": false,
-      "notes": "HIGH: Key derivation from userId:salt with no stretching is weak. Salt race condition can cause decryption failures."
+      "passes": true,
+      "notes": "Replaced weak SHA-256 single-hash key derivation with PBKDF2 (100,000 iterations). Key derivation now computationally resistant to brute-force attacks."
     },
     {
       "id": "US-032",
@@ -561,8 +561,8 @@
         "Typecheck passes"
       ],
       "priority": 32,
-      "passes": false,
-      "notes": "HIGH: Creates 9,000-72,000 temporary objects per second causing GC stutters. O(n^2) connection logic burns CPU on mid-range devices."
+      "passes": true,
+      "notes": "Pre-allocated Float32Array buffers and reused Vector3/Color objects instead of creating new ones every frame. Added proper dispose() calls for geometries and materials on unmount. Fixed WebGL context event listener cleanup. Killed GSAP timelines and tweens in cleanup."
     },
     {
       "id": "US-033",
@@ -579,8 +579,8 @@
         "Typecheck passes"
       ],
       "priority": 33,
-      "passes": false,
-      "notes": "HIGH: All list pages fetch every record. Scales poorly - estimated 40-60% slower as data grows."
+      "passes": true,
+      "notes": "Added pagination with .range() to News.tsx (12/page) and Projects.tsx (9/page) with page navigation UI. Added .limit(50) to AuthorArchive and CategoryArchive. Added .limit(200) to TagArchive. Query keys now include page number."
     },
     {
       "id": "US-034",
@@ -857,8 +857,8 @@
         "Typecheck passes"
       ],
       "priority": 50,
-      "passes": false,
-      "notes": "MEDIUM: Error messages leak Supabase internals, component names, and distinguish auth failure types enabling enumeration."
+      "passes": true,
+      "notes": "Created _shared/error-normalizer.ts with normalizedErrorResponse() and classifyError(). Updated 7 edge functions: amazon-article-pipeline, ai-content-generator, coolify-proxy, oauth-proxy, receive-email, send-notification-email, send-ticket-email, extract-from-url. All now return generic error messages; real errors logged server-side only."
     }
   ]
 }

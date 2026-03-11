@@ -22,13 +22,14 @@ const TagArchive = () => {
     queryFn: async () => {
       if (!tag) throw new Error('No tag provided');
 
-      // Fetch all published articles and filter by tag
+      // Fetch published articles with a reasonable limit and filter by tag
       const { data, error } = await supabase
         .from('articles')
         .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
         .eq('published', true)
         .order('featured', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
 
       if (error) throw error;
 

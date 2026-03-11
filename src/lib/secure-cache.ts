@@ -55,24 +55,36 @@ export function clearCacheSalt(): void {
   }
 }
 
+// PBKDF2 iteration count - high enough for brute-force resistance
+const PBKDF2_ITERATIONS = 100_000;
+
 /**
- * Derive an encryption key from user ID and salt
+ * Derive an encryption key from user ID and salt using PBKDF2.
+ * PBKDF2 provides computational resistance against brute-force attacks,
+ * unlike a single SHA-256 hash which can be rapidly computed.
  */
 async function deriveKey(userId: string): Promise<CryptoKey> {
   const salt = getOrCreateSalt();
-  const keyMaterial = `${userId}:${salt}`;
-
-  // Import the key material
   const encoder = new TextEncoder();
-  const keyData = encoder.encode(keyMaterial);
 
-  // Use SHA-256 to create a fixed-length key
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
-
-  // Import as AES key
-  return crypto.subtle.importKey(
+  // Import userId as raw key material for PBKDF2
+  const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    hashBuffer,
+    encoder.encode(userId),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+
+  // Derive AES key using PBKDF2 with the random salt
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(salt),
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
     { name: ALGORITHM, length: KEY_LENGTH },
     false,
     ['encrypt', 'decrypt']

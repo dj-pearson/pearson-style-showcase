@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
 
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
@@ -201,13 +202,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('AI Content Generation Error:', error);
-    return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred', details: error.message }), 
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
 });

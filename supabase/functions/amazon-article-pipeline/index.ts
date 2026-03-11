@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -891,17 +892,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Pipeline error:', error);
-
-    return new Response(
-      JSON.stringify({
-        error: error.message,
-        details: error.stack
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
 });

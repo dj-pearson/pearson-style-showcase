@@ -28,7 +28,8 @@ const CategoryArchive = () => {
         .eq('published', true)
         .eq('category', category)
         .order('featured', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
       return data as Article[];
