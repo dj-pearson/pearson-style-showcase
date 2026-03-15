@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,13 +42,16 @@ const NewsletterManager = () => {
     },
   });
 
-  const filteredSubscribers = subscribers?.filter(subscriber =>
-    subscriber.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredSubscribers = useMemo(() =>
+    subscribers?.filter(subscriber =>
+      subscriber.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [], [subscribers, searchTerm]);
 
-  const activeSubscribers = subscribers?.filter(s => s.active) || [];
-  const totalSubscribers = subscribers?.length || 0;
-  const welcomeEmailsSent = subscribers?.filter(s => s.welcome_email_sent).length || 0;
+  const { activeSubscribers, totalSubscribers, welcomeEmailsSent } = useMemo(() => ({
+    activeSubscribers: subscribers?.filter(s => s.active) || [],
+    totalSubscribers: subscribers?.length || 0,
+    welcomeEmailsSent: subscribers?.filter(s => s.welcome_email_sent).length || 0,
+  }), [subscribers]);
 
   const exportSubscribers = () => {
     if (!subscribers || subscribers.length === 0) {

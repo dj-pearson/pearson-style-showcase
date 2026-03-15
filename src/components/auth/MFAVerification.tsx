@@ -76,8 +76,8 @@ export const MFAVerification = ({ factorId, onVerificationSuccess, onCancel }: M
       </CardHeader>
       <CardContent className="space-y-6">
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" role="alert" aria-live="polite">
+            <AlertDescription id="mfa-error">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -86,6 +86,7 @@ export const MFAVerification = ({ factorId, onVerificationSuccess, onCancel }: M
           <Input
             id="verifyCode"
             type="text"
+            inputMode="numeric"
             placeholder="000000"
             value={verifyCode}
             onChange={(e) => {
@@ -100,6 +101,8 @@ export const MFAVerification = ({ factorId, onVerificationSuccess, onCancel }: M
             }}
             maxLength={6}
             pattern="[0-9]{6}"
+            aria-required="true"
+            aria-describedby={error ? "mfa-error" : undefined}
             className="text-center text-2xl tracking-widest"
             disabled={isLoading}
             autoFocus
