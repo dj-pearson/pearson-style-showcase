@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, X, Loader2, RefreshCw } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Search, Filter, X, Loader2, RefreshCw, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
@@ -49,6 +50,7 @@ const News = () => {
   }, [sortBy]);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const PAGE_SIZE = 12;
 
   const { data: articlesData, isLoading, error } = useQuery({
@@ -206,12 +208,70 @@ const News = () => {
                 />
               </div>
 
-              {/* Filters row */}
-              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                {/* Category Filter */}
-                <div className="flex-1 sm:flex-initial">
+              {/* Mobile: Collapsible filters toggle */}
+              <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen} className="sm:hidden">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="mobile-button w-full border-gray-600 hover:border-cyan-500 justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Filter className="h-5 w-5" />
+                      Filters & Sort
+                      {(selectedCategory !== 'all' || sortBy !== 'newest') && (
+                        <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-xs ml-1">
+                          Active
+                        </Badge>
+                      )}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3 space-y-3">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger className="mobile-input w-full bg-gray-700/50 border-gray-600">
+                      <Filter className="h-5 w-5 mr-2" />
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent className="mobile-modal">
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {allCategories.map(category => (
+                        <SelectItem key={category} value={category} className="touch-target">{category}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="mobile-input w-full bg-gray-700/50 border-gray-600">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent className="mobile-modal">
+                      <SelectItem value="newest" className="touch-target">Newest</SelectItem>
+                      <SelectItem value="oldest" className="touch-target">Oldest</SelectItem>
+                      <SelectItem value="most-viewed" className="touch-target">Most Viewed</SelectItem>
+                      <SelectItem value="title" className="touch-target">Title A-Z</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {(searchTerm || selectedCategory !== 'all' || sortBy !== 'newest') && (
+                    <Button
+                      variant="outline"
+                      onClick={clearFilters}
+                      className="mobile-button w-full border-gray-600 hover:border-cyan-500 active:border-cyan-500"
+                    >
+                      <X className="h-5 w-5 mr-2" />
+                      Clear All
+                    </Button>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Desktop: Always-visible filters row */}
+              <div className="hidden sm:flex sm:flex-row gap-3 w-full">
+                {/* Category Filter */}
+                <div className="flex-initial">
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="mobile-input w-[200px] bg-gray-700/50 border-gray-600">
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by category" />
                     </SelectTrigger>
@@ -225,9 +285,9 @@ const News = () => {
                 </div>
 
                 {/* Sort */}
-                <div className="flex-1 sm:flex-initial">
+                <div className="flex-initial">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger className="mobile-input w-[160px] bg-gray-700/50 border-gray-600">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
@@ -324,13 +384,12 @@ const News = () => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-8">
+              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage <= 1 || isLoading}
-                  className="border-gray-600"
+                  className="border-gray-600 min-h-[44px] min-w-[44px]"
                 >
                   Previous
                 </Button>
@@ -348,10 +407,9 @@ const News = () => {
                       <Button
                         key={item}
                         variant={item === currentPage ? "default" : "outline"}
-                        size="sm"
                         onClick={() => setCurrentPage(item)}
                         disabled={isLoading}
-                        className={item === currentPage ? "bg-cyan-600" : "border-gray-600"}
+                        className={`min-h-[44px] min-w-[44px] ${item === currentPage ? "bg-cyan-600" : "border-gray-600"}`}
                       >
                         {item}
                       </Button>
@@ -359,10 +417,9 @@ const News = () => {
                   )}
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages || isLoading}
-                  className="border-gray-600"
+                  className="border-gray-600 min-h-[44px] min-w-[44px]"
                 >
                   Next
                 </Button>

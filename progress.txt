@@ -214,3 +214,49 @@
 - US-001 through US-008 (CI/CD, testing infrastructure)
 - US-011 through US-023 (edge function tests, monitoring, accessibility)
 - US-025, US-029, US-030, US-034 through US-039, US-041 through US-047, US-049
+
+### Iteration 4 - Critical Platform Improvements
+**Date**: 2026-03-15
+**Branch**: claude/critical-platform-improvements-DZ28V
+**Stories Completed**: 4
+
+#### US-017: Audit and tighten security headers and CSP policy [PASSED]
+- Removed `'unsafe-eval'` from `script-src` in both `index.html` and `public/_headers` (was overly permissive, not required by app)
+- Removed `cdn.jsdelivr.net` and `cdn.gpteng.co` from `script-src` in `_headers` (unvetted third-party CDNs not used by app)
+- Synced CSP between `index.html` meta tag and `public/_headers` to eliminate policy mismatch
+- Added `object-src 'none'`, `frame-ancestors 'none'`, `media-src 'self' https: data:`, and `block-all-mixed-content` to `index.html` meta tag CSP
+- Both CSP policies now consistent and tightened
+
+#### US-035: Improve form accessibility with labels, ARIA attributes, and iOS zoom prevention [PASSED]
+- Fixed iOS auto-zoom: removed `md:text-sm` from `Input` component base classes (was dropping to 14px on tablets, triggering Safari zoom)
+- Fixed iOS auto-zoom: changed `Textarea` component from `text-sm` (14px) to `text-base` (16px) — the minimum to prevent Safari zoom
+- Removed redundant `style={{ fontSize: '16px' }}` workaround from `ContactForm.tsx` (no longer needed with base fix)
+- Added `inputMode="numeric"` to MFA verification inputs in `MFAVerification.tsx` and `MFAEnrollment.tsx` for proper mobile keyboard
+- Added `aria-required="true"` to MFA code inputs
+- Added `aria-describedby` linking MFA inputs to their error messages
+- Added `role="alert"` and `aria-live="polite"` to MFA error `Alert` components for screen reader announcements
+- Added `id` attributes to error `AlertDescription` elements for `aria-describedby` association
+
+#### US-034: Add React.memo and memoization to frequently re-rendered list components [PASSED]
+- Wrapped `ArticleCard` with `React.memo` and custom `areEqual` comparing `id`, `updated_at`, and `view_count` — prevents re-renders of 12 cards when filters/sort change on News page
+- Wrapped `ProjectCard` with `React.memo` and custom `areEqual` comparing `id` and `updated_at` — prevents re-renders of 9 cards when filters change on Projects page
+- Added `displayName` to both memoized components for React DevTools clarity
+- Added `useMemo` to `NewsletterManager` for `filteredSubscribers` (was recalculating on every render), `activeSubscribers`, `totalSubscribers`, and `welcomeEmailsSent` stats (3 redundant `.filter()` passes consolidated into single memoized computation)
+
+#### US-037: Optimize mobile UX for News page filters and admin dashboard header [PASSED]
+- Implemented collapsible filter panel on mobile using `Collapsible` component from shadcn/ui
+- Search input remains always visible; Category filter, Sort, and Clear All collapse behind "Filters & Sort" toggle button
+- Toggle button shows "Active" badge when filters are applied, providing at-a-glance filter status
+- Chevron icon rotates to indicate open/closed state
+- Desktop layout unchanged — filters remain inline as before (hidden sm:flex)
+- Upgraded pagination buttons from `size="sm"` to `min-h-[44px] min-w-[44px]` for 44px touch target compliance
+- Added `flex-wrap` to pagination container to prevent horizontal overflow on small screens
+
+#### Build Verification
+- `npm run build` passes with no errors (17.89s build time)
+- No TypeScript errors introduced
+
+#### Remaining Stories (34 remaining in PRD)
+- US-001 through US-008 (CI/CD, testing infrastructure)
+- US-011 through US-023 (edge function tests, monitoring, accessibility)
+- US-025, US-029, US-030, US-036, US-038, US-039, US-041 through US-047, US-049

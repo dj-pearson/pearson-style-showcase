@@ -1,3 +1,4 @@
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ interface ProjectCardProps {
   project: Project;
 }
 
-export const ProjectCard = ({ project }: ProjectCardProps) => {
+export const ProjectCard = React.memo(({ project }: ProjectCardProps) => {
   return (
     <Card className="group h-full bg-gray-800/50 border-gray-700 hover:border-cyan-500/50 transition-all duration-300">
       <CardHeader>
@@ -72,4 +73,9 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
       </CardContent>
     </Card>
   );
-};
+}, (prevProps, nextProps) => {
+  return prevProps.project.id === nextProps.project.id &&
+    prevProps.project.updated_at === nextProps.project.updated_at;
+});
+
+ProjectCard.displayName = "ProjectCard";

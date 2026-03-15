@@ -230,8 +230,7 @@ const ContactForm = () => {
                   <FormControl>
                     <Textarea
                       placeholder="Tell me about your project or question..."
-                      className="min-h-[140px] sm:min-h-[160px] resize-none text-base"
-                      style={{ fontSize: '16px' }}
+                      className="min-h-[140px] sm:min-h-[160px] resize-none"
                       {...field}
                       disabled={isSubmitting}
                     />

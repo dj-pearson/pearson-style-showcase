@@ -1,3 +1,4 @@
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, Eye } from "lucide-react";
@@ -11,7 +12,7 @@ interface ArticleCardProps {
   article: Article;
 }
 
-export const ArticleCard = ({ article }: ArticleCardProps) => {
+export const ArticleCard = React.memo(({ article }: ArticleCardProps) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -110,4 +111,10 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
       </CardContent>
     </Card>
   );
-};
+}, (prevProps, nextProps) => {
+  return prevProps.article.id === nextProps.article.id &&
+    prevProps.article.updated_at === nextProps.article.updated_at &&
+    prevProps.article.view_count === nextProps.article.view_count;
+});
+
+ArticleCard.displayName = "ArticleCard";
