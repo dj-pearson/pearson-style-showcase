@@ -363,7 +363,7 @@
       "severity": "LOW",
       "priority": 24,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In production-logger.ts (line 52), phone number regex only matches North American formats. International phone numbers (UK, Japan, etc.) are not masked, causing PII leakage.",
       "affected_files": [
         "src/lib/production-logger.ts"
@@ -378,7 +378,7 @@
       "severity": "MEDIUM",
       "priority": 25,
       "category": "Denial of Service",
-      "status": "pending",
+      "status": "PASSED",
       "description": "coolify-proxy edge function has no validation on response sizes from Coolify API. Large responses could cause memory exhaustion.",
       "affected_files": [
         "supabase/functions/coolify-proxy/index.ts"
@@ -393,7 +393,7 @@
       "severity": "LOW",
       "priority": 26,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Search.tsx (line 84) and GlobalSearch.tsx (line 120) use console.error directly instead of the logger utility, potentially exposing error details in production.",
       "affected_files": [
         "src/pages/Search.tsx",
@@ -409,7 +409,7 @@
       "severity": "MEDIUM",
       "priority": 27,
       "category": "Spam Prevention",
-      "status": "pending",
+      "status": "PASSED",
       "description": "newsletter-signup edge function (line 20) only blocks 4 disposable email domains. Thousands of disposable email services exist and can be used for abuse.",
       "affected_files": [
         "supabase/functions/newsletter-signup/index.ts"

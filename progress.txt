@@ -516,3 +516,43 @@
 - SEC-025 (MEDIUM): Response size limits for coolify-proxy
 - SEC-026 (LOW): Replace console.error with logger in Search.tsx
 - SEC-027 (MEDIUM): Expand disposable email domain list
+
+### Iteration 10 - Security Audit & Hardening (FINAL)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 4
+
+#### SEC-024: Fix production-logger phone number regex for international formats [PASSED]
+- Expanded phone regex to match international country codes (+1, +44, +81, +91, etc.)
+- New pattern supports 1-3 digit country codes with optional + prefix
+- Handles various separators (hyphens, dots, spaces) and optional parenthesized area codes
+- Covers UK (+44), Japan (+81), India (+91), Australia (+61), and other international formats
+- Maintains backward compatibility with existing North American format matching
+
+#### SEC-025: Add response size limits to coolify-proxy edge function [PASSED]
+- Added `safeReadJson()` function that reads response body with 5MB size limit
+- Checks `Content-Length` header first for fast rejection of oversized responses
+- Streams body with per-chunk size accumulator; cancels read and throws on limit exceeded
+- Added 15-second fetch timeout via AbortController to prevent hanging connections
+- Replaced all `response.json()` calls with `safeReadJson(response)` (5 call sites)
+
+#### SEC-026: Replace console.error with logger in Search.tsx [PASSED]
+- Already fixed in SEC-002 iteration (console.error replaced with logger.error)
+- Verified no console.error calls remain in Search.tsx or GlobalSearch.tsx
+
+#### SEC-027: Expand disposable email domain list in newsletter-signup [PASSED]
+- Expanded from 4 domains to 60+ domains covering major disposable email providers
+- Includes: mailinator, yopmail, sharklasers, guerrillamail variants, trashmail variants,
+  dispostable, mailnesia, maildrop, discard.email, fakeinbox, temp-mail.org/io,
+  mohmal, getnada, emailondeck, burnermail, and many more
+- Organized by provider family for maintainability
+
+#### Build Verification
+- `npm run build` passes with no errors (13.17s build time)
+- No TypeScript errors introduced
+
+#### SECURITY AUDIT COMPLETE
+- All 28 security stories (SEC-001 through SEC-028) now marked PASSED
+- 4 CRITICAL, 10 HIGH, 10 MEDIUM, 4 LOW severity findings remediated
+- Categories covered: Input Validation, Injection, Information Leakage, SSRF, CORS,
+  Rate Limiting, Authentication, DoS, Race Conditions, Data Protection, Spam Prevention, Reliability

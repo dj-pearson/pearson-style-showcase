@@ -48,8 +48,8 @@ const PII_PATTERNS = {
   // Email addresses
   email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi,
 
-  // Phone numbers (various formats)
-  phone: /\b(?:\+?1[-.\s]?)?(?:\(?[0-9]{3}\)?[-.\s]?)?[0-9]{3}[-.\s]?[0-9]{4}\b/g,
+  // Phone numbers (international formats: +1, +44, +81, etc. and local formats)
+  phone: /(?:\+[1-9]\d{0,2}[-.\s]?)?(?:\(?[0-9]{1,4}\)?[-.\s]?)?[0-9]{2,4}[-.\s]?[0-9]{3,4}[-.\s]?[0-9]{0,4}\b/g,
 
   // SSN
   ssn: /\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g,

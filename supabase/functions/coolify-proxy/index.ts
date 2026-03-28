@@ -21,15 +21,61 @@ import { normalizedErrorResponse, classifyError } from "../_shared/error-normali
 
 const COOLIFY_API_TOKEN = Deno.env.get("COOLIFY_API_TOKEN") ?? "";
 const COOLIFY_BASE_URL = Deno.env.get("COOLIFY_BASE_URL") ?? "";
+const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB limit
+const FETCH_TIMEOUT_MS = 15_000; // 15 second timeout
 
 async function coolifyFetch(path: string): Promise<Response> {
   const url = `${COOLIFY_BASE_URL}/api/v1${path}`;
-  return fetch(url, {
-    headers: {
-      "Authorization": `Bearer ${COOLIFY_API_TOKEN}`,
-      "Accept": "application/json",
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${COOLIFY_API_TOKEN}`,
+        "Accept": "application/json",
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Safely read response body with size limit to prevent memory exhaustion.
+ */
+async function safeReadJson(response: Response): Promise<unknown> {
+  // Check Content-Length header first (fast path)
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+    throw new Error(`Response too large: ${contentLength} bytes exceeds ${MAX_RESPONSE_SIZE} byte limit`);
+  }
+
+  // Read body with size tracking
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return response.json();
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalSize = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    totalSize += value.byteLength;
+    if (totalSize > MAX_RESPONSE_SIZE) {
+      reader.cancel();
+      throw new Error(`Response too large: exceeded ${MAX_RESPONSE_SIZE} byte limit`);
+    }
+    chunks.push(value);
+  }
+
+  const decoder = new TextDecoder();
+  const text = chunks.map(c => decoder.decode(c, { stream: true })).join('') + decoder.decode();
+  return JSON.parse(text);
 }
 
 async function verifyAdmin(req: Request): Promise<boolean> {
@@ -124,10 +170,10 @@ serve(async (req: Request) => {
         ]);
 
         const [servers, applications, databases, services] = await Promise.all([
-          serversRes.ok ? serversRes.json() : [],
-          appsRes.ok ? appsRes.json() : [],
-          dbsRes.ok ? dbsRes.json() : [],
-          servicesRes.ok ? servicesRes.json() : [],
+          serversRes.ok ? safeReadJson(serversRes) : [],
+          appsRes.ok ? safeReadJson(appsRes) : [],
+          dbsRes.ok ? safeReadJson(dbsRes) : [],
+          servicesRes.ok ? safeReadJson(servicesRes) : [],
         ]);
 
         return new Response(
@@ -147,7 +193,7 @@ serve(async (req: Request) => {
       return normalizedErrorResponse(code, new Error(errorText), corsHeaders);
     }
 
-    const data = await coolifyResponse.json();
+    const data = await safeReadJson(coolifyResponse);
     return new Response(
       JSON.stringify(data),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
