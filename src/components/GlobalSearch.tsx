@@ -87,6 +87,13 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
     saveToRecent(searchQuery);
 
     try {
+      // Skip search for very short queries (prevents expensive single-char DB queries)
+      if (searchQuery.trim().length < 2) {
+        setResults([]);
+        setIsLoading(false);
+        return;
+      }
+
       // Sanitize query for use in PostgREST filter expressions
       const sanitized = sanitizeSearchQuery(searchQuery);
       if (!sanitized) {

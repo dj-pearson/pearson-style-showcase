@@ -13,6 +13,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { useToast } from '@/hooks/use-toast';
+import { validateUrlParam } from '@/lib/security';
 import AuthorByline from '../components/article/AuthorByline';
 import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
@@ -23,8 +24,9 @@ import OptimizedImage from '../components/OptimizedImage';
 type Article = Tables<"articles">;
 
 const Article = () => {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug: rawSlug } = useParams<{ slug: string }>();
   const { toast } = useToast();
+  const slug = rawSlug ? validateUrlParam(rawSlug) : null;
 
   const { data: article, isLoading, error } = useQuery({
     queryKey: ['article', slug],

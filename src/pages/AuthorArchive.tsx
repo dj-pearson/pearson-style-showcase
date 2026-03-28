@@ -13,11 +13,13 @@ import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { SEO_CONFIG, getCanonicalUrl, getArchiveMetadata } from '@/lib/seo';
+import { validateUrlParam } from '@/lib/security';
 
 type Article = Tables<"articles">;
 
 const AuthorArchive = () => {
-  const { author } = useParams<{ author: string }>();
+  const { author: rawAuthor } = useParams<{ author: string }>();
+  const author = rawAuthor ? validateUrlParam(rawAuthor) : null;
 
   const { data: articles, isLoading, error } = useQuery({
     queryKey: ['articles', 'author', author],

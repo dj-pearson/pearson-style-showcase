@@ -128,6 +128,45 @@ export function validateSlug(slug: string): string | null {
 }
 
 /**
+ * Validate a URL parameter (slug, category, tag, author, etc.)
+ * More permissive than validateSlug - allows uppercase and spaces (converted from hyphens).
+ * Rejects path traversal, extremely long values, and special characters.
+ * @param param - The URL parameter to validate
+ * @param maxLength - Maximum allowed length (default 200)
+ * @returns Sanitized parameter or null if invalid
+ */
+export function validateUrlParam(
+  param: string,
+  maxLength: number = 200
+): string | null {
+  if (!param || typeof param !== 'string') {
+    return null;
+  }
+
+  const trimmed = param.trim();
+
+  // Reject empty, too long, or containing path traversal patterns
+  if (
+    trimmed.length === 0 ||
+    trimmed.length > maxLength ||
+    trimmed.includes('..') ||
+    trimmed.includes('/') ||
+    trimmed.includes('\\') ||
+    trimmed.includes('\0')
+  ) {
+    return null;
+  }
+
+  // Only allow alphanumeric, hyphens, underscores, and spaces
+  // This covers slugs, categories, tags, and author names
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/**
  * Sanitize a string for use in PostgREST filter expressions.
  * Escapes characters that have special meaning in PostgREST syntax
  * (commas, periods, curly braces, parentheses, backslashes) and

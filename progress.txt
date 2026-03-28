@@ -304,3 +304,57 @@
 - SEC-004, SEC-005 (CRITICAL: SSRF in slack-test, API key exposure in test-ai-model)
 - SEC-006 through SEC-016 (HIGH: CORS, URL params, OAuth state, rate limiting, etc.)
 - SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, etc.)
+
+### Iteration 6 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 5
+
+#### SEC-004: Add SSRF protection to slack-test edge function [PASSED]
+- Added `isValidSlackWebhookUrl()` validation that enforces HTTPS, `hooks.slack.com` hostname, and `/services/` path prefix
+- Blocks all non-Slack URLs including private IPs, internal services, and third-party targets
+- Added 10-second request timeout via AbortController to prevent slow-response attacks
+- Replaced raw error.message exposure with generic error messages in client responses
+- Raw Slack error response text no longer leaked to clients
+
+#### SEC-005: Fix API key exposure in test-ai-model error messages [PASSED]
+- Removed `errorDetails` field from client-facing JSON response (was exposing full API response bodies)
+- Removed `details: testResult` from response (was returning raw provider API responses including error details)
+- Error messages now only contain generic status codes (e.g., "Provider returned status 401")
+- API key secret name no longer included in client error messages (was: `API key ${config.api_key_secret_name} not found`)
+- All raw API responses logged server-side only via `console.error`
+- Missing API key error now returns user-friendly message without revealing secret name
+
+#### SEC-006: Restrict CORS on secure-vault edge function [PASSED]
+- Replaced hardcoded `Access-Control-Allow-Origin: '*'` with shared `_shared/cors.ts` module
+- CORS now validates origin against whitelist (danpearson.net, localhost:8080, localhost:5173, localhost:3000)
+- Requests from unknown origins default to production domain (no wildcard fallback)
+- Added proper origin-aware preflight handling via `handleCors()` utility
+- Also fixed error.message leak in catch block (now returns generic "Internal server error")
+
+#### SEC-007: Add URL parameter validation to route pages [PASSED]
+- Added `validateUrlParam()` function to `src/lib/security.ts`
+- Validates length (max 200 chars), blocks path traversal (`..`, `/`, `\`), null bytes, and special characters
+- Allows alphanumeric, hyphens, underscores, and spaces (covers slugs, categories, tags, author names)
+- Applied validation in 5 route pages:
+  - Article.tsx: validates `slug` parameter
+  - CategoryArchive.tsx: validates `category` parameter
+  - TagArchive.tsx: validates `tag` parameter
+  - TopicHub.tsx: validates `topic` parameter
+  - AuthorArchive.tsx: validates `author` parameter
+- Invalid parameters result in redirect to parent page or 404
+
+#### SEC-008: Add search query bounds checking and sanitization [PASSED]
+- Added minimum query length check (2 characters) in both Search.tsx and GlobalSearch.tsx
+- Single-character queries no longer trigger database searches (prevents expensive wildcard queries)
+- URL parameter `q` now trimmed and truncated to 200 chars on read from URL params
+- Combined with SEC-002's `sanitizeSearchQuery()` for complete input validation pipeline
+
+#### Build Verification
+- `npm run build` passes with no errors (15.92s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (20 remaining in prd.json)
+- SEC-009 (HIGH: OAuth state signing)
+- SEC-010 through SEC-016 (HIGH: rate limiting, Base64 DoS, redirect validation, CSS injection, email validation, admin-auth persistence, email sanitization)
+- SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, session rotation, etc.)

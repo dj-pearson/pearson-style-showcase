@@ -56,7 +56,7 @@
       "severity": "CRITICAL",
       "priority": 4,
       "category": "SSRF",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The slack-test edge function (supabase/functions/slack-test/index.ts line 13, 53) accepts a webhookUrl parameter from user input and sends a POST request directly without any URL validation. An attacker can redirect requests to internal services, local network IPs, or use it to target third-party services.",
       "affected_files": [
         "supabase/functions/slack-test/index.ts"
@@ -71,7 +71,7 @@
       "severity": "CRITICAL",
       "priority": 5,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The test-ai-model edge function logs partial API credentials and exposes full error details including API responses in error messages returned to clients.",
       "affected_files": [
         "supabase/functions/test-ai-model/index.ts"
@@ -86,7 +86,7 @@
       "severity": "HIGH",
       "priority": 6,
       "category": "CORS Misconfiguration",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The secure-vault edge function (supabase/functions/secure-vault/index.ts lines 3-6) uses Access-Control-Allow-Origin: '*', allowing any origin to access cryptographic vault operations. This enables potential CSRF attacks against the vault.",
       "affected_files": [
         "supabase/functions/secure-vault/index.ts"
@@ -101,7 +101,7 @@
       "severity": "HIGH",
       "priority": 7,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "URL parameters from useParams() are used directly in database queries without validation in Article.tsx (line 26), CategoryArchive.tsx (line 18), TagArchive.tsx (line 18), TopicHub.tsx (line 60), and AuthorArchive.tsx (line 20). While Supabase uses parameterized queries preventing SQL injection, extremely long slugs or special characters could cause issues.",
       "affected_files": [
         "src/pages/Article.tsx",
@@ -120,7 +120,7 @@
       "severity": "HIGH",
       "priority": 8,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Search query from URL parameter (Search.tsx line 29) has no length limits or sanitization. Extremely long strings could cause expensive database queries (DoS). The query is also rendered directly in the UI (line 221) without escaping (React handles this, but the query should still be bounded).",
       "affected_files": [
         "src/pages/Search.tsx",
