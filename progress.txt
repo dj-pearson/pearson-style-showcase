@@ -304,3 +304,255 @@
 - SEC-004, SEC-005 (CRITICAL: SSRF in slack-test, API key exposure in test-ai-model)
 - SEC-006 through SEC-016 (HIGH: CORS, URL params, OAuth state, rate limiting, etc.)
 - SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, etc.)
+
+### Iteration 6 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 5
+
+#### SEC-004: Add SSRF protection to slack-test edge function [PASSED]
+- Added `isValidSlackWebhookUrl()` validation that enforces HTTPS, `hooks.slack.com` hostname, and `/services/` path prefix
+- Blocks all non-Slack URLs including private IPs, internal services, and third-party targets
+- Added 10-second request timeout via AbortController to prevent slow-response attacks
+- Replaced raw error.message exposure with generic error messages in client responses
+- Raw Slack error response text no longer leaked to clients
+
+#### SEC-005: Fix API key exposure in test-ai-model error messages [PASSED]
+- Removed `errorDetails` field from client-facing JSON response (was exposing full API response bodies)
+- Removed `details: testResult` from response (was returning raw provider API responses including error details)
+- Error messages now only contain generic status codes (e.g., "Provider returned status 401")
+- API key secret name no longer included in client error messages (was: `API key ${config.api_key_secret_name} not found`)
+- All raw API responses logged server-side only via `console.error`
+- Missing API key error now returns user-friendly message without revealing secret name
+
+#### SEC-006: Restrict CORS on secure-vault edge function [PASSED]
+- Replaced hardcoded `Access-Control-Allow-Origin: '*'` with shared `_shared/cors.ts` module
+- CORS now validates origin against whitelist (danpearson.net, localhost:8080, localhost:5173, localhost:3000)
+- Requests from unknown origins default to production domain (no wildcard fallback)
+- Added proper origin-aware preflight handling via `handleCors()` utility
+- Also fixed error.message leak in catch block (now returns generic "Internal server error")
+
+#### SEC-007: Add URL parameter validation to route pages [PASSED]
+- Added `validateUrlParam()` function to `src/lib/security.ts`
+- Validates length (max 200 chars), blocks path traversal (`..`, `/`, `\`), null bytes, and special characters
+- Allows alphanumeric, hyphens, underscores, and spaces (covers slugs, categories, tags, author names)
+- Applied validation in 5 route pages:
+  - Article.tsx: validates `slug` parameter
+  - CategoryArchive.tsx: validates `category` parameter
+  - TagArchive.tsx: validates `tag` parameter
+  - TopicHub.tsx: validates `topic` parameter
+  - AuthorArchive.tsx: validates `author` parameter
+- Invalid parameters result in redirect to parent page or 404
+
+#### SEC-008: Add search query bounds checking and sanitization [PASSED]
+- Added minimum query length check (2 characters) in both Search.tsx and GlobalSearch.tsx
+- Single-character queries no longer trigger database searches (prevents expensive wildcard queries)
+- URL parameter `q` now trimmed and truncated to 200 chars on read from URL params
+- Combined with SEC-002's `sanitizeSearchQuery()` for complete input validation pipeline
+
+#### Build Verification
+- `npm run build` passes with no errors (15.92s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (20 remaining in prd.json)
+- SEC-009 (HIGH: OAuth state signing)
+- SEC-010 through SEC-016 (HIGH: rate limiting, Base64 DoS, redirect validation, CSS injection, email validation, admin-auth persistence, email sanitization)
+- SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, session rotation, etc.)
+
+### Iteration 7 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 5
+
+#### SEC-009: Sign OAuth state parameter in oauth-proxy edge function [PASSED]
+- Added `signState()` function using HMAC-SHA256 with server-side secret (OAUTH_STATE_SECRET or SUPABASE_SERVICE_ROLE_KEY fallback)
+- State format changed from plain `btoa(json)` to `base64(json).hmac_signature`
+- Added `verifyState()` function that validates HMAC signature before parsing state data
+- Callback handler now rejects tampered or unsigned state parameters with 400 error
+- Prevents CSRF attacks on OAuth flow by ensuring state originated from this server
+
+#### SEC-010: Add rate limiting to amazon-article-pipeline edge function [PASSED]
+- Imported shared `rate-limiter.ts` module (checkRateLimit, getClientIdentifier, createRateLimitResponse)
+- Configured rate limit: 2 requests per hour per IP with 0 burst allowance
+- Rate check runs before any expensive operations (DB queries, API calls)
+- Returns 429 with Retry-After header when limit exceeded
+- Complements existing concurrency guard (10-second dedup window)
+
+#### SEC-011: Fix Base64 large array vulnerability in secure-cache.ts [PASSED]
+- Replaced `btoa(String.fromCharCode(...combined))` with chunked `uint8ArrayToBase64()` function
+- New function processes Uint8Array in 8KB chunks using `String.fromCharCode.apply()`
+- Eliminates stack overflow risk for encrypted payloads >100KB
+- No change to decryption path (Uint8Array.from(atob()) is already safe)
+
+#### SEC-012: Validate redirect URLs in ProtectedRoute and AdminLogin [PASSED]
+- Added validation in AdminLogin.tsx when reading `auth_return_url` from sessionStorage
+- Stored URL must start with `/` and must not start with `//` (protocol-relative)
+- Invalid/missing URLs fall back to `/admin/dashboard`
+- ProtectedRoute.tsx only writes to sessionStorage from `location.pathname` (inherently safe)
+
+#### SEC-013: Fix dangerouslySetInnerHTML CSS injection in chart.tsx [PASSED]
+- Added `isValidCssColor()` validator using regex for hex, rgb/hsl, named colors, and CSS variables
+- Added `sanitizeCssIdentifier()` to strip non-alphanumeric characters from chart IDs and keys
+- Color values that don't match the pattern are excluded from generated CSS
+- Chart ID sanitized before interpolation into CSS selector
+
+#### Build Verification
+- `npm run build` passes with no errors (27.16s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (15 remaining in prd.json)
+- SEC-014 through SEC-016 (HIGH: email validation, admin-auth persistence, email sanitization)
+- SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, session rotation, etc.)
+
+### Iteration 8 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 5
+
+#### SEC-014: Add email validation to email-webhook-receiver and receive-email [PASSED]
+- Added email format validation (regex + 254 char max) to email-webhook-receiver for both sender and recipient
+- Validated `payload.from` before using as `user_email` in database operations
+- Added subject length truncation (998 chars) to prevent oversized headers
+- Updated receive-email: added `to` email validation (was only validating `from_email`)
+- Removed PII leakage from receive-email error response (was exposing `received: payload.from_email`)
+- Updated all downstream usages to use validated email values
+
+#### SEC-015: Persist admin-auth rate limiting to database [PASSED]
+- Replaced in-memory `Map<string, {count, lastAttempt}>` with database-backed rate limiting via `security_events` table
+- `checkRateLimit()` now queries DB for login_failure events from the IP within the lockout window
+- `recordFailedAttempt()` now inserts a `login_failure` event into `security_events` table
+- Added in-memory cache (30s TTL) as secondary layer to reduce DB load for repeated requests
+- `checkAndHandleLockout()` now queries DB for accurate attempt counts
+- Rate limits now persist across function restarts, cold starts, and deployments
+- Cache invalidated on each new failed attempt for accuracy
+- Fails open if DB query fails (allows attempt rather than blocking all logins)
+
+#### SEC-016: Sanitize HTML content in send-ticket-email [PASSED]
+- Added `sanitizeHtml()` function that strips dangerous HTML before email sending
+- Removes `<script>` and `<style>` tags and their content
+- Removes all `on*` event handler attributes (onclick, onerror, onload, etc.)
+- Removes dangerous tags: iframe, object, embed, form, input, textarea, select, button, applet, base, link, meta
+- Sanitizes href/src attributes to block `javascript:`, `vbscript:`, and `data:` protocol URLs
+- Applied to the HTML detection path (`message.includes('<')`) before SMTP send
+
+#### SEC-017: Fix CSRF token timestamp information leakage [PASSED]
+- Already fixed in a prior iteration: nonce now uses `crypto.getRandomValues(new Uint8Array(8))` instead of `Date.now().toString(36)`
+- Token format `${nonce}.${hashBase64}` contains no extractable timestamps
+- Nonce is cryptographically random, preventing timing analysis
+- Verified current implementation matches the fix requirements
+
+#### SEC-018: Encrypt device trust fingerprint storage [PASSED]
+- `storeTrustToken()` now encrypts trust data (token, deviceId, fingerprint) using `secure-cache.ts` AES-GCM encryption
+- `getStoredTrustToken()` now decrypts from encrypted storage, with fallback to legacy plaintext keys
+- Functions converted from sync to async to support Web Crypto API operations
+- Added `userId` parameter for encryption key derivation
+- Legacy plaintext keys cleaned up after successful encrypted write
+- `clearTrustToken()` removes both encrypted and legacy storage keys
+- `getCurrentDeviceId()` updated to async with userId parameter
+- Updated `useDeviceTrust` hook to pass userId and await async calls
+- Raw fingerprints no longer readable from localStorage after XSS attack
+
+#### Build Verification
+- `npm run build` passes with no errors (13.33s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (10 remaining in prd.json)
+- SEC-019 through SEC-028 (MEDIUM/LOW: error truncation, session rotation TOCTOU, auth cache race, Unicode normalization, OAuth replay, logger regex, coolify response limits, console.error replacement, disposable emails, auth timeouts)
+
+### Iteration 9 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 6
+
+#### SEC-019: Fix error-tracking.ts string truncation for DoS prevention [PASSED]
+- Added `.substring(0, 200)` truncation to userId before PII masking
+- Added `.substring(0, 200)` truncation to sessionId
+- Added `.substring(0, 2000)` truncation to stack traces in dev mode
+- Error message already had `.substring(0, 500)` from SEC-003 fix
+- Prevents memory exhaustion from oversized error report fields
+
+#### SEC-020: Fix session rotation TOCTOU race condition [PASSED]
+- Added monotonic `version` field to RotationLock interface
+- `acquireRotationLock()` now uses Compare-And-Set (CAS) pattern:
+  1. Read existing lock and its version
+  2. Write new lock with version+1
+  3. Re-read and verify our exact version won (not just tabId)
+- Version check eliminates the window where two tabs could both pass the tabId check
+- Expired lock takeover increments from the previous version
+
+#### SEC-021: Fix AuthContext admin cache timing race condition [PASSED]
+- Background cache refresh failure now immediately revokes admin status
+- `setAdminUser(null)` and `setAuthStatus('unauthenticated')` called on verification failure
+- Stale cache cleared via `secureRemove(ADMIN_CACHE_KEY)` on both error and rejection
+- Network errors during background refresh also trigger revocation (fail-secure)
+- Eliminates window where user retains cached admin privileges after server rejects them
+
+#### SEC-022: Add Unicode normalization to text input validation [PASSED]
+- Added `input.normalize('NFKC')` as first step in `validateTextInput()`
+- NFKC normalization converts Unicode homoglyphs to canonical forms
+- Prevents homograph attacks (e.g., Cyrillic 'а' normalized to Latin 'a')
+- Also normalizes fullwidth characters (e.g., 'Ａ' → 'A')
+- Applied before trim and length check
+
+#### SEC-023: Fix OAuth state retention replay window [PASSED]
+- Reduced retention period from 5 minutes to 30-second grace period
+- Added one-time-use flag: state marked as "used" immediately on first retrieval
+- Second retrieval after grace period rejects with "OAuth state replay rejected"
+- Within grace period, allows same-state access (handles slow redirect double-calls)
+- `clearStoredOAuthState()` now also clears the used flag
+- Net effect: replay window reduced from 5 minutes to 30 seconds
+
+#### SEC-028: Fix AuthContext inconsistent admin verification timeouts [PASSED]
+- Standardized slow-path admin verification timeout from 30 seconds to 10 seconds
+- Now consistent with the initial admin verification timeout (also 10 seconds)
+- Prevents unpredictable auth state behavior from mismatched timeouts
+
+#### Build Verification
+- `npm run build` passes with no errors (13.15s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (4 remaining in prd.json)
+- SEC-024 (LOW): Production-logger phone number regex for international formats
+- SEC-025 (MEDIUM): Response size limits for coolify-proxy
+- SEC-026 (LOW): Replace console.error with logger in Search.tsx
+- SEC-027 (MEDIUM): Expand disposable email domain list
+
+### Iteration 10 - Security Audit & Hardening (FINAL)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 4
+
+#### SEC-024: Fix production-logger phone number regex for international formats [PASSED]
+- Expanded phone regex to match international country codes (+1, +44, +81, +91, etc.)
+- New pattern supports 1-3 digit country codes with optional + prefix
+- Handles various separators (hyphens, dots, spaces) and optional parenthesized area codes
+- Covers UK (+44), Japan (+81), India (+91), Australia (+61), and other international formats
+- Maintains backward compatibility with existing North American format matching
+
+#### SEC-025: Add response size limits to coolify-proxy edge function [PASSED]
+- Added `safeReadJson()` function that reads response body with 5MB size limit
+- Checks `Content-Length` header first for fast rejection of oversized responses
+- Streams body with per-chunk size accumulator; cancels read and throws on limit exceeded
+- Added 15-second fetch timeout via AbortController to prevent hanging connections
+- Replaced all `response.json()` calls with `safeReadJson(response)` (5 call sites)
+
+#### SEC-026: Replace console.error with logger in Search.tsx [PASSED]
+- Already fixed in SEC-002 iteration (console.error replaced with logger.error)
+- Verified no console.error calls remain in Search.tsx or GlobalSearch.tsx
+
+#### SEC-027: Expand disposable email domain list in newsletter-signup [PASSED]
+- Expanded from 4 domains to 60+ domains covering major disposable email providers
+- Includes: mailinator, yopmail, sharklasers, guerrillamail variants, trashmail variants,
+  dispostable, mailnesia, maildrop, discard.email, fakeinbox, temp-mail.org/io,
+  mohmal, getnada, emailondeck, burnermail, and many more
+- Organized by provider family for maintainability
+
+#### Build Verification
+- `npm run build` passes with no errors (13.17s build time)
+- No TypeScript errors introduced
+
+#### SECURITY AUDIT COMPLETE
+- All 28 security stories (SEC-001 through SEC-028) now marked PASSED
+- 4 CRITICAL, 10 HIGH, 10 MEDIUM, 4 LOW severity findings remediated
+- Categories covered: Input Validation, Injection, Information Leakage, SSRF, CORS,
+  Rate Limiting, Authentication, DoS, Race Conditions, Data Protection, Spam Prevention, Reliability

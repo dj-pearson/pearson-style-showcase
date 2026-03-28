@@ -42,8 +42,12 @@ export function validateTextInput(
     return null;
   }
 
+  // Normalize Unicode to NFKC form to prevent homograph attacks
+  // (e.g., Cyrillic 'а' → Latin 'a', fullwidth 'Ａ' → 'A')
+  const normalized = input.normalize('NFKC');
+
   // Trim whitespace
-  const trimmed = input.trim();
+  const trimmed = normalized.trim();
 
   // Check length
   if (trimmed.length === 0 || trimmed.length > maxLength) {
@@ -121,6 +125,45 @@ export function validateSlug(slug: string): string | null {
   const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
   if (!slugRegex.test(trimmed) || trimmed.length > 200) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Validate a URL parameter (slug, category, tag, author, etc.)
+ * More permissive than validateSlug - allows uppercase and spaces (converted from hyphens).
+ * Rejects path traversal, extremely long values, and special characters.
+ * @param param - The URL parameter to validate
+ * @param maxLength - Maximum allowed length (default 200)
+ * @returns Sanitized parameter or null if invalid
+ */
+export function validateUrlParam(
+  param: string,
+  maxLength: number = 200
+): string | null {
+  if (!param || typeof param !== 'string') {
+    return null;
+  }
+
+  const trimmed = param.trim();
+
+  // Reject empty, too long, or containing path traversal patterns
+  if (
+    trimmed.length === 0 ||
+    trimmed.length > maxLength ||
+    trimmed.includes('..') ||
+    trimmed.includes('/') ||
+    trimmed.includes('\\') ||
+    trimmed.includes('\0')
+  ) {
+    return null;
+  }
+
+  // Only allow alphanumeric, hyphens, underscores, and spaces
+  // This covers slugs, categories, tags, and author names
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/.test(trimmed)) {
     return null;
   }
 

@@ -26,83 +26,63 @@ serve(async (req) => {
       .single();
 
     if (configError || !config) {
-      throw new Error("Configuration not found");
+      return new Response(
+        JSON.stringify({ success: false, message: "Configuration not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const apiKey = Deno.env.get(config.api_key_secret_name);
     if (!apiKey) {
-      throw new Error(`API key ${config.api_key_secret_name} not found in environment`);
+      console.error(`API key secret not found: ${config.api_key_secret_name}`);
+      return new Response(
+        JSON.stringify({ success: false, message: "API key is not configured. Please check your environment settings." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    let testResult: any;
     let success = false;
-    let errorDetails = "";
+    let errorMessage = "";
 
     // Test based on provider
     if (config.provider === "gemini-paid" || config.provider === "gemini-free") {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: "Say 'test successful' if you can read this." }]
-            }]
-          })
-        }
-      );
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: "Say 'test successful' if you can read this." }]
+              }]
+            })
+          }
+        );
 
-      testResult = await response.json();
-      success = response.ok && testResult.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (!success) {
-        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
-        console.error("Gemini test failed:", errorDetails);
+        const testResult = await response.json();
+        success = response.ok && !!testResult.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!success) {
+          errorMessage = `Provider returned status ${response.status}`;
+          console.error("Gemini test failed:", JSON.stringify(testResult));
+        }
+      } catch (err) {
+        errorMessage = "Failed to connect to Gemini API";
+        console.error("Gemini test error:", err);
       }
 
     } else if (config.provider === "claude") {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
-        },
-        body: JSON.stringify({
-          model: config.model_name,
-          max_tokens: 100,
-          messages: [
-            { role: "user", content: "Say 'test successful' if you can read this." }
-          ]
-        })
-      });
-
-      testResult = await response.json();
-      success = response.ok && testResult.content?.[0]?.text;
-      
-      if (!success) {
-        errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
-        console.error("Claude test failed:", errorDetails);
-      }
-
-    } else if (config.provider === "openai" || config.provider === "lovable") {
-      // Deprecated providers: redirect to Claude for testing
-      console.warn(`Provider "${config.provider}" is deprecated, testing with Claude instead`);
-      const claudeKey = Deno.env.get('CLAUDE_API_KEY');
-      if (!claudeKey) {
-        success = false;
-        errorDetails = 'CLAUDE_API_KEY not configured for deprecated provider fallback';
-      } else {
+      try {
         const response = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": claudeKey,
+            "x-api-key": apiKey,
             "anthropic-version": "2023-06-01"
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-6",
+            model: config.model_name,
             max_tokens: 100,
             messages: [
               { role: "user", content: "Say 'test successful' if you can read this." }
@@ -110,30 +90,73 @@ serve(async (req) => {
           })
         });
 
-        testResult = await response.json();
-        success = response.ok && testResult.content?.[0]?.text;
+        const testResult = await response.json();
+        success = response.ok && !!testResult.content?.[0]?.text;
 
         if (!success) {
-          errorDetails = `Status: ${response.status}, Response: ${JSON.stringify(testResult)}`;
-          console.error("Claude fallback test failed:", errorDetails);
+          errorMessage = `Provider returned status ${response.status}`;
+          console.error("Claude test failed:", JSON.stringify(testResult));
+        }
+      } catch (err) {
+        errorMessage = "Failed to connect to Claude API";
+        console.error("Claude test error:", err);
+      }
+
+    } else if (config.provider === "openai" || config.provider === "lovable") {
+      // Deprecated providers: redirect to Claude for testing
+      console.warn(`Provider "${config.provider}" is deprecated, testing with Claude instead`);
+      const claudeKey = Deno.env.get('CLAUDE_API_KEY');
+      if (!claudeKey) {
+        errorMessage = "Fallback API key is not configured";
+        console.error("CLAUDE_API_KEY not configured for deprecated provider fallback");
+      } else {
+        try {
+          const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": claudeKey,
+              "anthropic-version": "2023-06-01"
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-6",
+              max_tokens: 100,
+              messages: [
+                { role: "user", content: "Say 'test successful' if you can read this." }
+              ]
+            })
+          });
+
+          const testResult = await response.json();
+          success = response.ok && !!testResult.content?.[0]?.text;
+
+          if (!success) {
+            errorMessage = `Provider returned status ${response.status}`;
+            console.error("Claude fallback test failed:", JSON.stringify(testResult));
+          }
+        } catch (err) {
+          errorMessage = "Failed to connect to Claude API";
+          console.error("Claude fallback test error:", err);
         }
       }
+    } else {
+      errorMessage = "Unsupported provider";
     }
 
     // Update config with test results
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       last_tested_at: new Date().toISOString(),
       last_test_status: success ? "success" : "failed"
     };
-    
-    // Store error details in configuration if failed
-    if (!success && errorDetails) {
+
+    // Store generic error status in configuration if failed (no sensitive details)
+    if (!success && errorMessage) {
       updateData.configuration = {
         ...config.configuration,
-        last_error: errorDetails
+        last_error: errorMessage
       };
     }
-    
+
     await supabaseClient
       .from("ai_model_configs")
       .update(updateData)
@@ -142,9 +165,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success,
-        message: success ? "Model test successful" : `Model test failed: ${errorDetails}`,
-        details: testResult,
-        errorDetails: errorDetails || undefined
+        message: success ? "Model test successful" : `Model test failed: ${errorMessage}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -152,7 +173,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Test error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ success: false, message: "An unexpected error occurred while testing the model." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

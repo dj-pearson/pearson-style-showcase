@@ -89,38 +89,64 @@ async function ensureAdminRole(userId: string, email: string): Promise<boolean> 
   return true;
 }
 
-// Rate limiting map
-const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+// Rate limiting constants
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const attempts = loginAttempts.get(ip);
-  
-  if (attempts) {
-    if (now - attempts.lastAttempt < LOCKOUT_TIME && attempts.count >= MAX_ATTEMPTS) {
-      return false;
-    }
-    if (now - attempts.lastAttempt > LOCKOUT_TIME) {
-      loginAttempts.delete(ip);
-    }
+// In-memory cache to reduce DB calls (secondary layer, DB is source of truth)
+const rateLimitCache = new Map<string, { count: number; lastCheck: number }>();
+const CACHE_TTL = 30_000; // 30 seconds
+
+async function checkRateLimit(ip: string): Promise<boolean> {
+  // Check in-memory cache first to reduce DB load
+  const cached = rateLimitCache.get(ip);
+  if (cached && Date.now() - cached.lastCheck < CACHE_TTL && cached.count >= MAX_ATTEMPTS) {
+    return false;
   }
-  
-  return true;
+
+  try {
+    const since = new Date(Date.now() - LOCKOUT_TIME).toISOString();
+    const { count, error } = await supabase
+      .from('security_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_type', 'login_failure')
+      .eq('ip_address', ip)
+      .gte('created_at', since);
+
+    if (error) {
+      console.error('Rate limit check failed:', error);
+      // Fail open if DB check fails (allow the attempt)
+      return true;
+    }
+
+    const attemptCount = count ?? 0;
+    rateLimitCache.set(ip, { count: attemptCount, lastCheck: Date.now() });
+    return attemptCount < MAX_ATTEMPTS;
+  } catch (err) {
+    console.error('Rate limit check error:', err);
+    return true; // Fail open
+  }
 }
 
-function recordFailedAttempt(ip: string): void {
-  const now = Date.now();
-  const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: now };
-  
-  attempts.count++;
-  attempts.lastAttempt = now;
-  loginAttempts.set(ip, attempts);
+async function recordFailedAttempt(ip: string, email?: string): Promise<void> {
+  try {
+    await supabase.from('security_events').insert({
+      event_type: 'login_failure',
+      email: email || 'unknown',
+      ip_address: ip,
+      metadata: { timestamp_utc: new Date().toISOString() },
+      created_at: new Date().toISOString(),
+    });
+    // Invalidate cache for this IP
+    rateLimitCache.delete(ip);
+  } catch (err) {
+    console.error('Failed to record login attempt:', err);
+  }
 }
 
 function clearFailedAttempts(ip: string): void {
-  loginAttempts.delete(ip);
+  // Clear the in-memory cache; DB records are kept for audit trail
+  rateLimitCache.delete(ip);
 }
 
 /**
@@ -419,15 +445,27 @@ function parseUserAgent(userAgent: string): {
 /**
  * Check if an account should be locked and send notification if so
  */
-function checkAndHandleLockout(ip: string, email: string, userAgent: string): boolean {
-  const attempts = loginAttempts.get(ip);
+async function checkAndHandleLockout(ip: string, email: string, userAgent: string): Promise<boolean> {
+  try {
+    const since = new Date(Date.now() - LOCKOUT_TIME).toISOString();
+    const { count, error } = await supabase
+      .from('security_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_type', 'login_failure')
+      .eq('ip_address', ip)
+      .gte('created_at', since);
 
-  if (attempts && attempts.count >= MAX_ATTEMPTS) {
-    // Account is being locked - send notification
-    sendLockoutNotification(email, ip, userAgent, attempts.count).catch(err => {
-      console.error('Async lockout notification failed:', err);
-    });
-    return true;
+    if (error) return false;
+
+    const attemptCount = count ?? 0;
+    if (attemptCount >= MAX_ATTEMPTS) {
+      sendLockoutNotification(email, ip, userAgent, attemptCount).catch(err => {
+        console.error('Async lockout notification failed:', err);
+      });
+      return true;
+    }
+  } catch (err) {
+    console.error('Lockout check failed:', err);
   }
 
   return false;
@@ -477,7 +515,7 @@ serve(async (req) => {
       console.log("Login attempt received");
 
       // Check rate limiting
-      if (!checkRateLimit(clientIP)) {
+      if (!(await checkRateLimit(clientIP))) {
         // SECURITY: Don't log IP addresses
         console.log("Rate limit exceeded");
 
@@ -512,7 +550,7 @@ serve(async (req) => {
       if (!isWhitelisted) {
         // SECURITY: Don't log sensitive email addresses
         console.log("Email not in admin whitelist");
-        recordFailedAttempt(clientIP);
+        await recordFailedAttempt(clientIP, email);
 
         // Log failed attempt
         logLoginAttempt(email, clientIP, userAgent, false, 'not_whitelisted').catch(err => {
@@ -520,7 +558,7 @@ serve(async (req) => {
         });
 
         // Check if this attempt triggered a lockout
-        checkAndHandleLockout(clientIP, email, userAgent);
+        await checkAndHandleLockout(clientIP, email, userAgent);
 
         return new Response(
           JSON.stringify({ error: "Access denied. Not authorized for admin access." }),
@@ -545,7 +583,7 @@ serve(async (req) => {
 
       if (authError || !authData.user) {
         console.log("Authentication failed:", authError?.message);
-        recordFailedAttempt(clientIP);
+        await recordFailedAttempt(clientIP, email);
 
         // Log failed attempt
         logLoginAttempt(email, clientIP, userAgent, false, 'invalid_credentials').catch(err => {
@@ -553,7 +591,7 @@ serve(async (req) => {
         });
 
         // Check if this attempt triggered a lockout
-        checkAndHandleLockout(clientIP, email, userAgent);
+        await checkAndHandleLockout(clientIP, email, userAgent);
 
         return new Response(
           JSON.stringify({ error: "Invalid credentials" }),

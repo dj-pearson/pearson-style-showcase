@@ -92,6 +92,20 @@ async function deriveKey(userId: string): Promise<CryptoKey> {
 }
 
 /**
+ * Convert a Uint8Array to a base64 string using chunked processing.
+ * Avoids stack overflow from spread operator on large arrays.
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  const CHUNK_SIZE = 8192;
+  let result = '';
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    result += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  }
+  return btoa(result);
+}
+
+/**
  * Encrypt data for storage
  */
 async function encryptData(data: string, key: CryptoKey): Promise<string> {
@@ -113,8 +127,8 @@ async function encryptData(data: string, key: CryptoKey): Promise<string> {
   combined.set(iv);
   combined.set(new Uint8Array(encryptedBuffer), iv.length);
 
-  // Convert to base64 for storage
-  return btoa(String.fromCharCode(...combined));
+  // Convert to base64 for storage (chunked to avoid stack overflow)
+  return uint8ArrayToBase64(combined);
 }
 
 /**

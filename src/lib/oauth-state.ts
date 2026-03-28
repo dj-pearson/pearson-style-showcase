@@ -20,8 +20,10 @@ const OAUTH_STATE_EXPIRY_KEY = 'oauth_state_expiry';
 
 // State expiry time (30 minutes for OAuth flows - reduced from general CSRF 4-hour window)
 const STATE_EXPIRY_MS = 30 * 60 * 1000;
-// Retention period after verification to handle slow redirects
-const STATE_RETENTION_MS = 5 * 60 * 1000;
+// Grace period after verification for slow redirects (reduced from 5 min)
+const STATE_GRACE_MS = 30 * 1000; // 30 seconds
+// Key to track used states
+const OAUTH_STATE_USED_KEY = 'oauth_state_used';
 
 interface OAuthStateMeta {
   provider: string;
@@ -100,17 +102,29 @@ export async function storeOAuthState(state: string, provider: string, redirectT
 
 /**
  * Retrieve stored OAuth state and metadata.
- * Uses a configurable retention period instead of immediate clearing
- * to handle slow redirects without introducing replay risk.
+ * Implements one-time-use: state is marked as "used" immediately on first retrieval,
+ * with a 30-second grace period for slow redirects before full cleanup.
  */
 function retrieveOAuthStateAndMeta(): { state: string | null; meta: OAuthStateMeta | null } {
   try {
+    // Check if state was already used (replay prevention)
+    const usedAt = sessionStorage.getItem(OAUTH_STATE_USED_KEY);
+    if (usedAt) {
+      const usedTimestamp = parseInt(usedAt, 10);
+      if (Date.now() - usedTimestamp > STATE_GRACE_MS) {
+        // Grace period expired - reject replay
+        logger.warn('OAuth state replay rejected (already used)');
+        clearStoredOAuthState();
+        return { state: null, meta: null };
+      }
+      // Within grace period - allow (handles slow redirect double-calls)
+    }
+
     const state = sessionStorage.getItem(OAUTH_STATE_KEY);
     const metaStr = sessionStorage.getItem(OAUTH_STATE_META_KEY);
     const expiryStr = sessionStorage.getItem(OAUTH_STATE_EXPIRY_KEY);
 
     if (!state || !metaStr || !expiryStr) {
-      // Clean up any partial data
       clearStoredOAuthState();
       return { state: null, meta: null };
     }
@@ -124,10 +138,15 @@ function retrieveOAuthStateAndMeta(): { state: string | null; meta: OAuthStateMe
 
     const meta: OAuthStateMeta = JSON.parse(metaStr);
 
-    // Schedule cleanup after retention period (prevents replay but handles slow redirects)
+    // Mark state as used immediately (one-time-use)
+    if (!usedAt) {
+      sessionStorage.setItem(OAUTH_STATE_USED_KEY, Date.now().toString());
+    }
+
+    // Schedule full cleanup after grace period
     setTimeout(() => {
       clearStoredOAuthState();
-    }, STATE_RETENTION_MS);
+    }, STATE_GRACE_MS);
 
     return { state, meta };
   } catch (error) {
@@ -144,6 +163,7 @@ function clearStoredOAuthState(): void {
   sessionStorage.removeItem(OAUTH_STATE_KEY);
   sessionStorage.removeItem(OAUTH_STATE_META_KEY);
   sessionStorage.removeItem(OAUTH_STATE_EXPIRY_KEY);
+  sessionStorage.removeItem(OAUTH_STATE_USED_KEY);
 }
 
 /**

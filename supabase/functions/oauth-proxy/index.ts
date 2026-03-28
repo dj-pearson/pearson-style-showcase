@@ -28,6 +28,62 @@ const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID') || '';
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET') || '';
 const APPLE_CLIENT_ID = Deno.env.get('APPLE_CLIENT_ID') || '';
 const APPLE_CLIENT_SECRET = Deno.env.get('APPLE_CLIENT_SECRET') || '';
+const OAUTH_STATE_SECRET = Deno.env.get('OAUTH_STATE_SECRET') || SUPABASE_SERVICE_ROLE_KEY;
+
+/**
+ * Sign the OAuth state with HMAC-SHA256 to prevent tampering.
+ * Format: base64(json).signature
+ */
+async function signState(stateData: Record<string, unknown>): Promise<string> {
+  const encoder = new TextEncoder();
+  const payload = btoa(JSON.stringify(stateData));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(OAUTH_STATE_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${payload}.${sigB64}`;
+}
+
+/**
+ * Verify and decode HMAC-signed OAuth state.
+ * Returns parsed state data or null if signature is invalid.
+ */
+async function verifyState(state: string): Promise<Record<string, unknown> | null> {
+  const dotIndex = state.lastIndexOf('.');
+  if (dotIndex === -1) return null;
+
+  const payload = state.substring(0, dotIndex);
+  const sigB64 = state.substring(dotIndex + 1);
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(OAUTH_STATE_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+
+  // Restore base64 padding for verification
+  const normalizedSig = sigB64.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalizedSig + '='.repeat((4 - normalizedSig.length % 4) % 4);
+  const sigBytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+
+  const valid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(payload));
+  if (!valid) return null;
+
+  try {
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
 
 // Export handler for edge-functions-server
 export default async function handler(req: Request): Promise<Response> {
@@ -45,11 +101,11 @@ export default async function handler(req: Request): Promise<Response> {
     if (action === 'authorize') {
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
-      const stateData = btoa(JSON.stringify({
+      const stateData = await signState({
         verifier: codeVerifier,
         redirectTo: redirectTo,
         provider: provider,
-      }));
+      });
 
       let authUrl: URL;
 
@@ -104,17 +160,17 @@ export default async function handler(req: Request): Promise<Response> {
         });
       }
 
-      let stateData;
-      try {
-        stateData = JSON.parse(atob(state));
-      } catch {
-        return new Response(JSON.stringify({ error: 'Invalid state' }), {
+      const stateData = await verifyState(state);
+      if (!stateData) {
+        return new Response(JSON.stringify({ error: 'Invalid or tampered state parameter' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      const { verifier, redirectTo: finalRedirect, provider: stateProvider } = stateData;
+      const verifier = stateData.verifier as string;
+      const finalRedirect = stateData.redirectTo as string;
+      const stateProvider = stateData.provider as string;
       let tokenData;
 
       // Exchange code for tokens

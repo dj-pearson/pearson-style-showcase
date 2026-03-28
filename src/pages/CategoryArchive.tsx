@@ -11,11 +11,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import { validateUrlParam } from '@/lib/security';
 
 type Article = Tables<"articles">;
 
 const CategoryArchive = () => {
-  const { category } = useParams<{ category: string }>();
+  const { category: rawCategory } = useParams<{ category: string }>();
+  const category = rawCategory ? validateUrlParam(rawCategory) : null;
 
   const { data: articles, isLoading, error } = useQuery({
     queryKey: ['articles', 'category', category],

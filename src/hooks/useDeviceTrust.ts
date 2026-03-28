@@ -128,7 +128,7 @@ export function useDeviceTrust(): UseDeviceTrustReturn {
       return false;
     }
 
-    const deviceId = getCurrentDeviceId();
+    const deviceId = await getCurrentDeviceId(user.id);
     if (!deviceId) {
       setError('No trusted device found');
       return false;

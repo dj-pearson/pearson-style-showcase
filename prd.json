@@ -56,7 +56,7 @@
       "severity": "CRITICAL",
       "priority": 4,
       "category": "SSRF",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The slack-test edge function (supabase/functions/slack-test/index.ts line 13, 53) accepts a webhookUrl parameter from user input and sends a POST request directly without any URL validation. An attacker can redirect requests to internal services, local network IPs, or use it to target third-party services.",
       "affected_files": [
         "supabase/functions/slack-test/index.ts"
@@ -71,7 +71,7 @@
       "severity": "CRITICAL",
       "priority": 5,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The test-ai-model edge function logs partial API credentials and exposes full error details including API responses in error messages returned to clients.",
       "affected_files": [
         "supabase/functions/test-ai-model/index.ts"
@@ -86,7 +86,7 @@
       "severity": "HIGH",
       "priority": 6,
       "category": "CORS Misconfiguration",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The secure-vault edge function (supabase/functions/secure-vault/index.ts lines 3-6) uses Access-Control-Allow-Origin: '*', allowing any origin to access cryptographic vault operations. This enables potential CSRF attacks against the vault.",
       "affected_files": [
         "supabase/functions/secure-vault/index.ts"
@@ -101,7 +101,7 @@
       "severity": "HIGH",
       "priority": 7,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "URL parameters from useParams() are used directly in database queries without validation in Article.tsx (line 26), CategoryArchive.tsx (line 18), TagArchive.tsx (line 18), TopicHub.tsx (line 60), and AuthorArchive.tsx (line 20). While Supabase uses parameterized queries preventing SQL injection, extremely long slugs or special characters could cause issues.",
       "affected_files": [
         "src/pages/Article.tsx",
@@ -120,7 +120,7 @@
       "severity": "HIGH",
       "priority": 8,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Search query from URL parameter (Search.tsx line 29) has no length limits or sanitization. Extremely long strings could cause expensive database queries (DoS). The query is also rendered directly in the UI (line 221) without escaping (React handles this, but the query should still be bounded).",
       "affected_files": [
         "src/pages/Search.tsx",
@@ -136,7 +136,7 @@
       "severity": "HIGH",
       "priority": 9,
       "category": "Authentication",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The oauth-proxy edge function (lines 48-52, 109) encodes the OAuth state parameter with btoa(JSON.stringify()) but does not cryptographically sign it. An attacker can forge/tamper with the state parameter, enabling CSRF attacks on the OAuth flow.",
       "affected_files": [
         "supabase/functions/oauth-proxy/index.ts"
@@ -151,7 +151,7 @@
       "severity": "HIGH",
       "priority": 10,
       "category": "Rate Limiting",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The amazon-article-pipeline edge function has no rate limiting, allowing unlimited expensive AI API calls. This is a resource exhaustion risk (Claude API costs money) and DoS vector.",
       "affected_files": [
         "supabase/functions/amazon-article-pipeline/index.ts"
@@ -166,7 +166,7 @@
       "severity": "HIGH",
       "priority": 11,
       "category": "Denial of Service",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In secure-cache.ts line 117, String.fromCharCode(...combined) uses the spread operator on a Uint8Array. For large encrypted payloads (>100KB), this can exceed the JavaScript call stack depth limit, causing application crashes.",
       "affected_files": [
         "src/lib/secure-cache.ts"
@@ -181,7 +181,7 @@
       "severity": "MEDIUM",
       "priority": 12,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In ProtectedRoute.tsx (lines 72, 91) and AdminLogin.tsx (lines 126-127), auth_return_url from sessionStorage is used for navigation without validation. While sessionStorage is same-origin, the stored URL should still be validated as a relative path.",
       "affected_files": [
         "src/components/auth/ProtectedRoute.tsx",
@@ -197,7 +197,7 @@
       "severity": "HIGH",
       "priority": 13,
       "category": "Injection",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In chart.tsx (lines 79-96), dynamic color values and chart IDs are interpolated into CSS via dangerouslySetInnerHTML without escaping. If color values come from untrusted sources, an attacker could inject CSS expressions.",
       "affected_files": [
         "src/components/ui/chart.tsx"
@@ -212,7 +212,7 @@
       "severity": "HIGH",
       "priority": 14,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Email extraction from 'From' field in email-webhook-receiver (lines 104-130) and receive-email (lines 97-109) lacks proper validation. The extracted email is used in downstream operations without format verification.",
       "affected_files": [
         "supabase/functions/email-webhook-receiver/index.ts",
@@ -228,7 +228,7 @@
       "severity": "MEDIUM",
       "priority": 15,
       "category": "Rate Limiting",
-      "status": "pending",
+      "status": "PASSED",
       "description": "admin-auth edge function (lines 92-120) stores rate limiting data in an in-memory Map. Rate limits reset when the function restarts, allowing attackers to bypass lockout by triggering a restart.",
       "affected_files": [
         "supabase/functions/admin-auth/index.ts"
@@ -243,7 +243,7 @@
       "severity": "HIGH",
       "priority": 16,
       "category": "Injection",
-      "status": "pending",
+      "status": "PASSED",
       "description": "send-ticket-email (line 144-154) accepts arbitrary email content including HTML and sends it without sanitization. The check `message.includes('<')` determines if content is HTML, but no sanitization is applied.",
       "affected_files": [
         "supabase/functions/send-ticket-email/index.ts"
@@ -258,7 +258,7 @@
       "severity": "MEDIUM",
       "priority": 17,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In csrf.ts (line 53), the token format includes a nonce containing the timestamp, allowing attackers to extract timing information about token generation.",
       "affected_files": [
         "src/lib/csrf.ts"
@@ -273,7 +273,7 @@
       "severity": "MEDIUM",
       "priority": 18,
       "category": "Data Protection",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Device fingerprints are stored in unencrypted localStorage (device-trust.ts lines 226-234). After an XSS attack, an attacker can read the fingerprint and replicate it to bypass device trust.",
       "affected_files": [
         "src/lib/device-trust.ts"
@@ -288,7 +288,7 @@
       "severity": "MEDIUM",
       "priority": 19,
       "category": "Denial of Service",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In error-tracking.ts (lines 276, 287, 295), error messages and other strings are masked but not truncated. A 1MB error message creates a 1MB masked string, potentially causing memory exhaustion.",
       "affected_files": [
         "src/lib/error-tracking.ts"
@@ -303,7 +303,7 @@
       "severity": "MEDIUM",
       "priority": 20,
       "category": "Race Condition",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In session-rotation.ts (lines 73-115), the lock acquisition has a Time-of-Check-to-Time-of-Use race condition. Between reading the lock and writing the new lock, another tab could claim it.",
       "affected_files": [
         "src/lib/session-rotation.ts"
@@ -318,7 +318,7 @@
       "severity": "MEDIUM",
       "priority": 21,
       "category": "Race Condition",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In AuthContext.tsx (lines 337-362), if admin verification fails during background cache refresh, the user briefly retains cached admin status before revocation. This creates a window of elevated access.",
       "affected_files": [
         "src/contexts/AuthContext.tsx"
@@ -333,7 +333,7 @@
       "severity": "LOW",
       "priority": 22,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In security.ts (lines 37-56), validateTextInput does not normalize Unicode. Homograph attacks using visually similar characters (e.g., Cyrillic 'a' vs Latin 'a') can bypass validation.",
       "affected_files": [
         "src/lib/security.ts"
@@ -348,7 +348,7 @@
       "severity": "LOW",
       "priority": 23,
       "category": "Authentication",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In oauth-state.ts (line 24), STATE_RETENTION_MS = 5 minutes creates a replay window. After state is verified, the 5-minute retention period allows the same state to be reused.",
       "affected_files": [
         "src/lib/oauth-state.ts"
@@ -363,7 +363,7 @@
       "severity": "LOW",
       "priority": 24,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In production-logger.ts (line 52), phone number regex only matches North American formats. International phone numbers (UK, Japan, etc.) are not masked, causing PII leakage.",
       "affected_files": [
         "src/lib/production-logger.ts"
@@ -378,7 +378,7 @@
       "severity": "MEDIUM",
       "priority": 25,
       "category": "Denial of Service",
-      "status": "pending",
+      "status": "PASSED",
       "description": "coolify-proxy edge function has no validation on response sizes from Coolify API. Large responses could cause memory exhaustion.",
       "affected_files": [
         "supabase/functions/coolify-proxy/index.ts"
@@ -393,7 +393,7 @@
       "severity": "LOW",
       "priority": 26,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Search.tsx (line 84) and GlobalSearch.tsx (line 120) use console.error directly instead of the logger utility, potentially exposing error details in production.",
       "affected_files": [
         "src/pages/Search.tsx",
@@ -409,7 +409,7 @@
       "severity": "MEDIUM",
       "priority": 27,
       "category": "Spam Prevention",
-      "status": "pending",
+      "status": "PASSED",
       "description": "newsletter-signup edge function (line 20) only blocks 4 disposable email domains. Thousands of disposable email services exist and can be used for abuse.",
       "affected_files": [
         "supabase/functions/newsletter-signup/index.ts"
@@ -424,7 +424,7 @@
       "severity": "MEDIUM",
       "priority": 28,
       "category": "Reliability",
-      "status": "pending",
+      "status": "PASSED",
       "description": "AuthContext.tsx has inconsistent timeouts for admin verification - 10 seconds in one place (line 222-223) and 30 seconds in another (line 369-372). This causes unpredictable auth state behavior.",
       "affected_files": [
         "src/contexts/AuthContext.tsx"

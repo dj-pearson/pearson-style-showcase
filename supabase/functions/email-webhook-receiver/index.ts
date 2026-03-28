@@ -100,6 +100,32 @@ serve(async (req: Request) => {
     }
     console.log('Received email webhook:', { from: payload.from, to: payload.to, subject: payload.subject });
 
+    // Validate email format for the 'from' field
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const senderEmail = payload.from?.trim();
+    if (!senderEmail || !emailRegex.test(senderEmail) || senderEmail.length > 254) {
+      console.error('Invalid sender email format');
+      return new Response(JSON.stringify({ error: 'Invalid sender email format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate 'to' email
+    const recipientEmail = payload.to?.trim();
+    if (!recipientEmail || !emailRegex.test(recipientEmail) || recipientEmail.length > 254) {
+      console.error('Invalid recipient email format');
+      return new Response(JSON.stringify({ error: 'Invalid recipient email format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate subject length to prevent abuse
+    if (payload.subject && payload.subject.length > 998) {
+      payload.subject = payload.subject.substring(0, 998);
+    }
+
     // Find the appropriate mailbox based on the 'to' address
     const { data: mailbox } = await supabase
       .from('email_mailboxes')
@@ -161,8 +187,8 @@ serve(async (req: Request) => {
         .insert({
           subject: payload.subject,
           message: payload.body_text || payload.body_html || '',
-          user_email: payload.from,
-          user_name: payload.from.split('@')[0],
+          user_email: senderEmail,
+          user_name: senderEmail.split('@')[0],
           category,
           status: 'open',
           priority: 2,
@@ -189,8 +215,8 @@ serve(async (req: Request) => {
             ticket_number: ticket.ticket_number,
             ticket_id: ticket.id,
             ticket_subject: payload.subject,
-            from_email: payload.from,
-            from_name: payload.from.split('@')[0],
+            from_email: senderEmail,
+            from_name: senderEmail.split('@')[0],
             message_preview: payload.body_text || payload.body_html || ''
           }
         });
@@ -243,8 +269,8 @@ serve(async (req: Request) => {
       .insert({
         ticket_id: ticketId,
         mailbox_id: targetMailbox.id,
-        from_email: payload.from,
-        to_email: payload.to,
+        from_email: senderEmail,
+        to_email: recipientEmail,
         cc_emails: payload.cc || [],
         subject: payload.subject,
         message_id: payload.message_id,

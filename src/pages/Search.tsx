@@ -32,11 +32,11 @@ const Search = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Update query from URL parameter
+  // Update query from URL parameter (with length bounds)
   useEffect(() => {
     const urlQuery = searchParams.get('q');
     if (urlQuery) {
-      setQuery(urlQuery);
+      setQuery(urlQuery.trim().substring(0, 200));
     }
   }, [searchParams]);
 
@@ -51,6 +51,13 @@ const Search = () => {
       setIsLoading(true);
 
       try {
+        // Skip search for very short queries (prevents expensive single-char DB queries)
+        if (query.trim().length < 2) {
+          setResults([]);
+          setIsLoading(false);
+          return;
+        }
+
         // Sanitize query for use in PostgREST filter expressions
         const sanitized = sanitizeSearchQuery(query);
         if (!sanitized) {

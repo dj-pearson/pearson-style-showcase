@@ -7,6 +7,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from './logger';
+import { secureSet, secureGet, isSecureCacheAvailable } from './secure-cache';
 
 // Constants
 const TRUST_TOKEN_KEY = 'device_trust_token';
@@ -220,24 +221,48 @@ export async function generateTrustToken(): Promise<string> {
   return `trust_${timestamp}_${hashArray.map(b => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
+// Unified key for encrypted trust data
+const ENCRYPTED_TRUST_KEY = 'device_trust_encrypted';
+
 /**
- * Store trust token in local storage
+ * Store trust token encrypted in localStorage.
+ * Uses secure-cache AES-GCM encryption when available, with plaintext fallback.
  */
-export function storeTrustToken(token: string, deviceId: string, fingerprint: string): void {
+export async function storeTrustToken(token: string, deviceId: string, fingerprint: string, userId?: string): Promise<void> {
   try {
-    localStorage.setItem(TRUST_TOKEN_KEY, token);
-    localStorage.setItem(DEVICE_ID_KEY, deviceId);
-    localStorage.setItem(FINGERPRINT_KEY, fingerprint);
+    const trustData = { token, deviceId, fingerprint };
+
+    if (userId && isSecureCacheAvailable()) {
+      await secureSet(ENCRYPTED_TRUST_KEY, trustData, userId);
+      // Clean up any legacy plaintext keys
+      localStorage.removeItem(TRUST_TOKEN_KEY);
+      localStorage.removeItem(DEVICE_ID_KEY);
+      localStorage.removeItem(FINGERPRINT_KEY);
+    } else {
+      // Fallback to plain storage if crypto not available or no userId
+      localStorage.setItem(TRUST_TOKEN_KEY, token);
+      localStorage.setItem(DEVICE_ID_KEY, deviceId);
+      localStorage.setItem(FINGERPRINT_KEY, fingerprint);
+    }
   } catch (error) {
     logger.warn('Failed to store trust token:', error);
   }
 }
 
 /**
- * Get stored trust token
+ * Get stored trust token, decrypting if encrypted.
  */
-export function getStoredTrustToken(): { token: string; deviceId: string; fingerprint: string } | null {
+export async function getStoredTrustToken(userId?: string): Promise<{ token: string; deviceId: string; fingerprint: string } | null> {
   try {
+    // Try encrypted storage first
+    if (userId && isSecureCacheAvailable()) {
+      const encrypted = await secureGet<{ token: string; deviceId: string; fingerprint: string }>(
+        ENCRYPTED_TRUST_KEY, userId
+      );
+      if (encrypted) return encrypted;
+    }
+
+    // Fallback: read from legacy plaintext keys
     const token = localStorage.getItem(TRUST_TOKEN_KEY);
     const deviceId = localStorage.getItem(DEVICE_ID_KEY);
     const fingerprint = localStorage.getItem(FINGERPRINT_KEY);
@@ -252,10 +277,11 @@ export function getStoredTrustToken(): { token: string; deviceId: string; finger
 }
 
 /**
- * Clear stored trust token
+ * Clear stored trust token (both encrypted and legacy)
  */
 export function clearTrustToken(): void {
   try {
+    localStorage.removeItem(ENCRYPTED_TRUST_KEY);
     localStorage.removeItem(TRUST_TOKEN_KEY);
     localStorage.removeItem(DEVICE_ID_KEY);
     localStorage.removeItem(FINGERPRINT_KEY);
@@ -277,7 +303,7 @@ export async function isDeviceTrusted(userId: string): Promise<{
   deviceName?: string;
 }> {
   try {
-    const stored = getStoredTrustToken();
+    const stored = await getStoredTrustToken(userId);
     if (!stored) {
       return { trusted: false };
     }
@@ -358,8 +384,8 @@ export async function trustDevice(
 
     const deviceId = data as string;
 
-    // Store token locally
-    storeTrustToken(trustToken, deviceId, deviceInfo.fingerprint);
+    // Store token locally (encrypted)
+    await storeTrustToken(trustToken, deviceId, deviceInfo.fingerprint, userId);
 
     logger.log('Device trusted successfully:', deviceId);
     return { success: true, deviceId };
@@ -388,7 +414,7 @@ export async function revokeDeviceTrust(
     }
 
     // If revoking current device, clear local token
-    const stored = getStoredTrustToken();
+    const stored = await getStoredTrustToken(userId);
     if (stored && stored.deviceId === deviceId) {
       clearTrustToken();
     }
@@ -459,8 +485,8 @@ export async function getTrustedDevices(userId: string): Promise<{
 /**
  * Get current device ID if it's trusted
  */
-export function getCurrentDeviceId(): string | null {
-  const stored = getStoredTrustToken();
+export async function getCurrentDeviceId(userId?: string): Promise<string | null> {
+  const stored = await getStoredTrustToken(userId);
   return stored?.deviceId || null;
 }
 

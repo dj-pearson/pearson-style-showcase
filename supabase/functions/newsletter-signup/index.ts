@@ -16,8 +16,29 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_MAX = 5; // 5 requests
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
 
-// Disposable email domains to block
-const DISPOSABLE_DOMAINS = ['tempmail.com', 'guerrillamail.com', '10minutemail.com', 'throwaway.email'];
+// Disposable email domains to block (top 50+ most common services)
+const DISPOSABLE_DOMAINS = [
+  // Original list
+  'tempmail.com', 'guerrillamail.com', '10minutemail.com', 'throwaway.email',
+  // Major disposable email providers
+  'mailinator.com', 'yopmail.com', 'sharklasers.com', 'guerrillamail.info',
+  'grr.la', 'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.de',
+  'trashmail.com', 'trashmail.me', 'trashmail.net', 'trashmail.org',
+  'dispostable.com', 'mailnesia.com', 'maildrop.cc', 'discard.email',
+  'fakeinbox.com', 'mailcatch.com', 'tempail.com', 'temp-mail.org',
+  'temp-mail.io', 'mohmal.com', 'getnada.com', 'emailondeck.com',
+  'mintemail.com', 'harakirimail.com', 'jetable.org', 'throwam.com',
+  'mytemp.email', 'tempinbox.com', 'tempr.email', 'tmail.ws',
+  'tmpmail.org', 'tmpmail.net', 'mailtemp.info', 'burnermail.io',
+  'inboxkitten.com', 'crazymailing.com', 'mailnator.com',
+  'spamgourmet.com', 'spamcowboy.com', 'mytrashmail.com',
+  'yopmail.fr', 'yopmail.net', 'cool.fr.nf', 'jetable.fr.nf',
+  'nospam.ze.tc', 'nomail.xl.cx', 'mega.zik.dj', 'speed.1s.fr',
+  'courriel.fr.nf', 'moncourrier.fr.nf', 'monemail.fr.nf',
+  'guerrillamailblock.com', 'pokemail.net', 'spam4.me',
+  'grr.la', 'mailexpire.com', 'safetymail.info', 'filzmail.com',
+  'mailforspam.com', 'tempomail.fr', 'getairmail.com',
+];
 
 function validateEmail(email: string): { valid: boolean; error?: string } {
   // Trim and lowercase

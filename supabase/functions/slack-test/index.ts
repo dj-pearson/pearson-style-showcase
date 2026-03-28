@@ -1,6 +1,29 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
+/**
+ * Validate that a webhook URL is a legitimate Slack webhook.
+ * Blocks SSRF by only allowing https://hooks.slack.com/* URLs.
+ */
+function isValidSlackWebhookUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+
+    // Must be HTTPS
+    if (parsed.protocol !== 'https:') return false;
+
+    // Must be hooks.slack.com
+    if (parsed.hostname !== 'hooks.slack.com') return false;
+
+    // Path must start with /services/
+    if (!parsed.pathname.startsWith('/services/')) return false;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req: Request) => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -15,6 +38,14 @@ serve(async (req: Request) => {
     if (!webhookUrl) {
       return new Response(
         JSON.stringify({ error: 'Webhook URL is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SSRF protection: only allow Slack webhook URLs
+    if (!isValidSlackWebhookUrl(webhookUrl)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook URL. Only https://hooks.slack.com/services/* URLs are accepted.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -50,32 +81,40 @@ serve(async (req: Request) => {
       ],
     };
 
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
-    if (response.ok) {
-      return new Response(
-        JSON.stringify({ success: true, message: 'Test message sent to Slack!' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      const errorText = await response.text();
-      return new Response(
-        JSON.stringify({ error: `Slack returned: ${response.status} - ${errorText}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Test message sent to Slack!' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        return new Response(
+          JSON.stringify({ error: `Slack returned an error (status ${response.status}). Please verify your webhook URL.` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   } catch (error: any) {
     console.error('Slack test error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to send test message' }),
+      JSON.stringify({ error: 'Failed to send test message. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
-

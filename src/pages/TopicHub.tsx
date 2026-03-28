@@ -14,6 +14,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { SEO_CONFIG, getCanonicalUrl, getArchiveMetadata, generateSlug } from '@/lib/seo';
+import { validateUrlParam } from '@/lib/security';
 
 type Article = Tables<"articles">;
 
@@ -57,7 +58,8 @@ const TOPIC_HUBS: Record<string, {
 };
 
 const TopicHub = () => {
-  const { topic } = useParams<{ topic: string }>();
+  const { topic: rawTopic } = useParams<{ topic: string }>();
+  const topic = rawTopic ? validateUrlParam(rawTopic) : null;
 
   // Get topic configuration
   const topicConfig = topic ? TOPIC_HUBS[topic] : null;
