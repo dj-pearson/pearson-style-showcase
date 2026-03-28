@@ -24,6 +24,27 @@ const ERROR_DEDUP_WINDOW = 5 * 60 * 1000; // 5 minutes
 // Check if we're in production
 const isProduction = import.meta.env.PROD === true;
 
+/**
+ * Strip PII from URLs before including in error reports.
+ * Preserves the pathname for debugging but redacts query parameter values
+ * and hash fragments (which may contain OAuth tokens).
+ */
+function sanitizeUrlForTracking(url: string): string {
+  try {
+    const parsed = new URL(url);
+    // Redact query parameter values but keep keys for debugging
+    const sanitizedParams = new URLSearchParams();
+    parsed.searchParams.forEach((_value, key) => {
+      sanitizedParams.set(key, '[REDACTED]');
+    });
+    const queryStr = sanitizedParams.toString();
+    return parsed.origin + parsed.pathname + (queryStr ? '?' + queryStr : '');
+  } catch {
+    // If URL parsing fails, return just the pathname portion
+    return window.location.pathname;
+  }
+}
+
 // Error tracking state
 interface ErrorEntry {
   fingerprint: string;
@@ -273,11 +294,11 @@ function createErrorReport(
     id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     timestamp: new Date().toISOString(),
     severity,
-    message: maskPII(error.message),
+    message: maskPII(error.message.substring(0, 500)),
     stack: isProduction ? undefined : error.stack,
     fingerprint,
     context: {
-      url: window.location.href,
+      url: sanitizeUrlForTracking(window.location.href),
       userAgent: navigator.userAgent,
       viewport: {
         width: window.innerWidth,

@@ -1,0 +1,437 @@
+{
+  "project": "pearson-style-showcase",
+  "audit_type": "Security Audit & Hardening",
+  "audit_date": "2026-03-28",
+  "branch": "claude/security-audit-fixes-aM0K3",
+  "stories": [
+    {
+      "id": "SEC-001",
+      "title": "Fix open redirect vulnerability in AuthCallback.tsx",
+      "severity": "CRITICAL",
+      "priority": 1,
+      "category": "Input Validation",
+      "status": "PASSED",
+      "description": "The redirect_to query parameter in AuthCallback.tsx (line 62) is accepted without validation and stored in sessionStorage. Later (line 180), navigate() uses this value directly. An attacker can craft a URL like /auth/callback?redirect_to=https://attacker.com to redirect users after authentication, enabling phishing attacks.",
+      "affected_files": [
+        "src/components/auth/AuthCallback.tsx"
+      ],
+      "lines": [62, 68, 174, 180],
+      "fix_description": "Validate that redirect_to is a relative path starting with '/' and does not contain '//' to prevent protocol-relative URLs. Default to /admin/dashboard for invalid values.",
+      "test_criteria": "redirect_to values like 'https://evil.com', '//evil.com', 'javascript:alert(1)' must all be rejected and default to /admin/dashboard."
+    },
+    {
+      "id": "SEC-002",
+      "title": "Fix PostgREST filter injection in Search.tsx and GlobalSearch.tsx",
+      "severity": "CRITICAL",
+      "priority": 2,
+      "category": "Injection",
+      "status": "PASSED",
+      "description": "User search input is directly interpolated into Supabase .or() filter strings without escaping. In Search.tsx (lines 57, 65, 72) and GlobalSearch.tsx (lines 93, 101, 108), queries like `.or(`title.ilike.%${query}%,tags.cs.{${query}}`)` allow an attacker to inject PostgREST filter syntax. The tags.cs.{} pattern is especially dangerous - input like `},title.eq.admin` could manipulate the query.",
+      "affected_files": [
+        "src/pages/Search.tsx",
+        "src/components/GlobalSearch.tsx"
+      ],
+      "lines": [57, 65, 72, 93, 101, 108],
+      "fix_description": "Sanitize search query by escaping special PostgREST characters (commas, periods, curly braces, parentheses, percent signs) before interpolation. Add length bounds (max 200 chars) and trim the query.",
+      "test_criteria": "Search queries containing ',', '.', '{', '}', '(', ')' must be escaped or stripped before use in filter strings. Query length must be capped at 200 characters."
+    },
+    {
+      "id": "SEC-003",
+      "title": "Fix URL PII leakage in error-tracking.ts",
+      "severity": "HIGH",
+      "priority": 3,
+      "category": "Information Leakage",
+      "status": "PASSED",
+      "description": "In error-tracking.ts line 280, window.location.href is included in error reports without sanitization. URLs may contain PII in query parameters (search terms, email addresses, OAuth tokens in callbacks). This data is sent to external error tracking services.",
+      "affected_files": [
+        "src/lib/error-tracking.ts"
+      ],
+      "lines": [280],
+      "fix_description": "Strip query parameter values from the URL before including in error reports. Keep parameter names for debugging but replace values with '[REDACTED]'. Also strip hash fragments which may contain OAuth tokens.",
+      "test_criteria": "Error reports must not contain query parameter values or hash fragments. URL path should be preserved for debugging."
+    },
+    {
+      "id": "SEC-004",
+      "title": "Add SSRF protection to slack-test edge function",
+      "severity": "CRITICAL",
+      "priority": 4,
+      "category": "SSRF",
+      "status": "pending",
+      "description": "The slack-test edge function (supabase/functions/slack-test/index.ts line 13, 53) accepts a webhookUrl parameter from user input and sends a POST request directly without any URL validation. An attacker can redirect requests to internal services, local network IPs, or use it to target third-party services.",
+      "affected_files": [
+        "supabase/functions/slack-test/index.ts"
+      ],
+      "lines": [13, 53],
+      "fix_description": "Validate the webhookUrl against a whitelist of allowed Slack webhook domains (hooks.slack.com). Block private IP ranges. Add request timeout.",
+      "test_criteria": "Only URLs matching https://hooks.slack.com/* should be accepted. Private IPs and non-Slack domains must be rejected."
+    },
+    {
+      "id": "SEC-005",
+      "title": "Fix API key exposure in test-ai-model error messages",
+      "severity": "CRITICAL",
+      "priority": 5,
+      "category": "Information Leakage",
+      "status": "pending",
+      "description": "The test-ai-model edge function logs partial API credentials and exposes full error details including API responses in error messages returned to clients.",
+      "affected_files": [
+        "supabase/functions/test-ai-model/index.ts"
+      ],
+      "lines": [32, 45, 85, 118],
+      "fix_description": "Remove all credential logging. Return generic error messages to clients. Log detailed errors server-side only.",
+      "test_criteria": "No API keys, credentials, or detailed API responses should be returned in client-facing error messages."
+    },
+    {
+      "id": "SEC-006",
+      "title": "Restrict CORS on secure-vault edge function",
+      "severity": "HIGH",
+      "priority": 6,
+      "category": "CORS Misconfiguration",
+      "status": "pending",
+      "description": "The secure-vault edge function (supabase/functions/secure-vault/index.ts lines 3-6) uses Access-Control-Allow-Origin: '*', allowing any origin to access cryptographic vault operations. This enables potential CSRF attacks against the vault.",
+      "affected_files": [
+        "supabase/functions/secure-vault/index.ts"
+      ],
+      "lines": [3, 4, 5, 6],
+      "fix_description": "Restrict CORS to the production domain (https://danpearson.net) and development origins. Validate the Origin header.",
+      "test_criteria": "Only requests from whitelisted origins should receive CORS headers. Requests from unknown origins must be rejected."
+    },
+    {
+      "id": "SEC-007",
+      "title": "Add URL parameter validation to route pages",
+      "severity": "HIGH",
+      "priority": 7,
+      "category": "Input Validation",
+      "status": "pending",
+      "description": "URL parameters from useParams() are used directly in database queries without validation in Article.tsx (line 26), CategoryArchive.tsx (line 18), TagArchive.tsx (line 18), TopicHub.tsx (line 60), and AuthorArchive.tsx (line 20). While Supabase uses parameterized queries preventing SQL injection, extremely long slugs or special characters could cause issues.",
+      "affected_files": [
+        "src/pages/Article.tsx",
+        "src/pages/CategoryArchive.tsx",
+        "src/pages/TagArchive.tsx",
+        "src/pages/TopicHub.tsx",
+        "src/pages/AuthorArchive.tsx"
+      ],
+      "lines": [26, 18, 18, 60, 20],
+      "fix_description": "Use validateSlug() from security.ts to validate URL parameters before database queries. Return 404 for invalid slugs.",
+      "test_criteria": "Slugs with special characters, extremely long values, or path traversal patterns must be rejected."
+    },
+    {
+      "id": "SEC-008",
+      "title": "Add search query bounds checking and sanitization",
+      "severity": "HIGH",
+      "priority": 8,
+      "category": "Input Validation",
+      "status": "pending",
+      "description": "Search query from URL parameter (Search.tsx line 29) has no length limits or sanitization. Extremely long strings could cause expensive database queries (DoS). The query is also rendered directly in the UI (line 221) without escaping (React handles this, but the query should still be bounded).",
+      "affected_files": [
+        "src/pages/Search.tsx",
+        "src/components/GlobalSearch.tsx"
+      ],
+      "lines": [29, 221],
+      "fix_description": "Cap search query length at 200 characters. Trim whitespace. Skip search for queries shorter than 2 characters.",
+      "test_criteria": "Queries over 200 characters must be truncated. Empty or single-character queries must not trigger database searches."
+    },
+    {
+      "id": "SEC-009",
+      "title": "Sign OAuth state parameter in oauth-proxy edge function",
+      "severity": "HIGH",
+      "priority": 9,
+      "category": "Authentication",
+      "status": "pending",
+      "description": "The oauth-proxy edge function (lines 48-52, 109) encodes the OAuth state parameter with btoa(JSON.stringify()) but does not cryptographically sign it. An attacker can forge/tamper with the state parameter, enabling CSRF attacks on the OAuth flow.",
+      "affected_files": [
+        "supabase/functions/oauth-proxy/index.ts"
+      ],
+      "lines": [48, 52, 109],
+      "fix_description": "Add HMAC-SHA256 signature to the state parameter using a server-side secret. Validate the signature on callback.",
+      "test_criteria": "Tampered state parameters must be rejected. Only states signed with the correct server secret should be accepted."
+    },
+    {
+      "id": "SEC-010",
+      "title": "Add rate limiting to amazon-article-pipeline edge function",
+      "severity": "HIGH",
+      "priority": 10,
+      "category": "Rate Limiting",
+      "status": "pending",
+      "description": "The amazon-article-pipeline edge function has no rate limiting, allowing unlimited expensive AI API calls. This is a resource exhaustion risk (Claude API costs money) and DoS vector.",
+      "affected_files": [
+        "supabase/functions/amazon-article-pipeline/index.ts"
+      ],
+      "lines": [],
+      "fix_description": "Add rate limiting using shared rate-limiter.ts module. Limit to 2 requests per hour per IP.",
+      "test_criteria": "More than 2 requests per hour from the same IP must be rejected with a 429 status code."
+    },
+    {
+      "id": "SEC-011",
+      "title": "Fix Base64 large array vulnerability in secure-cache.ts",
+      "severity": "HIGH",
+      "priority": 11,
+      "category": "Denial of Service",
+      "status": "pending",
+      "description": "In secure-cache.ts line 117, String.fromCharCode(...combined) uses the spread operator on a Uint8Array. For large encrypted payloads (>100KB), this can exceed the JavaScript call stack depth limit, causing application crashes.",
+      "affected_files": [
+        "src/lib/secure-cache.ts"
+      ],
+      "lines": [117],
+      "fix_description": "Replace spread-based Base64 encoding with a chunked approach that processes the array in segments to avoid stack overflow.",
+      "test_criteria": "Encrypting payloads larger than 100KB must not throw a stack overflow error."
+    },
+    {
+      "id": "SEC-012",
+      "title": "Validate redirect URLs in ProtectedRoute and AdminLogin",
+      "severity": "MEDIUM",
+      "priority": 12,
+      "category": "Input Validation",
+      "status": "pending",
+      "description": "In ProtectedRoute.tsx (lines 72, 91) and AdminLogin.tsx (lines 126-127), auth_return_url from sessionStorage is used for navigation without validation. While sessionStorage is same-origin, the stored URL should still be validated as a relative path.",
+      "affected_files": [
+        "src/components/auth/ProtectedRoute.tsx",
+        "src/pages/AdminLogin.tsx"
+      ],
+      "lines": [72, 91, 126, 127],
+      "fix_description": "Add validation that stored URL starts with '/' and does not contain '//' before using for navigation.",
+      "test_criteria": "Only relative paths starting with '/' should be accepted. Absolute URLs and protocol-relative URLs must fall back to /admin/dashboard."
+    },
+    {
+      "id": "SEC-013",
+      "title": "Fix dangerouslySetInnerHTML CSS injection in chart.tsx",
+      "severity": "HIGH",
+      "priority": 13,
+      "category": "Injection",
+      "status": "pending",
+      "description": "In chart.tsx (lines 79-96), dynamic color values and chart IDs are interpolated into CSS via dangerouslySetInnerHTML without escaping. If color values come from untrusted sources, an attacker could inject CSS expressions.",
+      "affected_files": [
+        "src/components/ui/chart.tsx"
+      ],
+      "lines": [79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96],
+      "fix_description": "Validate color values against a CSS color regex pattern. Escape the chart ID. Consider using inline styles instead of dangerouslySetInnerHTML.",
+      "test_criteria": "Only valid CSS color values (hex, rgb, hsl, named colors) should be accepted. Invalid characters must be stripped."
+    },
+    {
+      "id": "SEC-014",
+      "title": "Add email validation to email-webhook-receiver and receive-email",
+      "severity": "HIGH",
+      "priority": 14,
+      "category": "Input Validation",
+      "status": "pending",
+      "description": "Email extraction from 'From' field in email-webhook-receiver (lines 104-130) and receive-email (lines 97-109) lacks proper validation. The extracted email is used in downstream operations without format verification.",
+      "affected_files": [
+        "supabase/functions/email-webhook-receiver/index.ts",
+        "supabase/functions/receive-email/index.ts"
+      ],
+      "lines": [104, 130, 97, 109],
+      "fix_description": "Validate extracted emails with a strict regex pattern before use in database operations.",
+      "test_criteria": "Malformed email addresses must be rejected. Only RFC-compliant emails should be accepted."
+    },
+    {
+      "id": "SEC-015",
+      "title": "Persist admin-auth rate limiting to database",
+      "severity": "MEDIUM",
+      "priority": 15,
+      "category": "Rate Limiting",
+      "status": "pending",
+      "description": "admin-auth edge function (lines 92-120) stores rate limiting data in an in-memory Map. Rate limits reset when the function restarts, allowing attackers to bypass lockout by triggering a restart.",
+      "affected_files": [
+        "supabase/functions/admin-auth/index.ts"
+      ],
+      "lines": [92, 120],
+      "fix_description": "Move rate limit tracking to Supabase database for persistence across function restarts.",
+      "test_criteria": "Rate limits must persist across function restarts. Lockout state must not be lost on restart."
+    },
+    {
+      "id": "SEC-016",
+      "title": "Sanitize HTML content in send-ticket-email",
+      "severity": "HIGH",
+      "priority": 16,
+      "category": "Injection",
+      "status": "pending",
+      "description": "send-ticket-email (line 144-154) accepts arbitrary email content including HTML and sends it without sanitization. The check `message.includes('<')` determines if content is HTML, but no sanitization is applied.",
+      "affected_files": [
+        "supabase/functions/send-ticket-email/index.ts"
+      ],
+      "lines": [144, 154],
+      "fix_description": "Sanitize HTML email content to prevent email injection. Strip or escape dangerous HTML elements and attributes.",
+      "test_criteria": "Script tags, event handlers, and dangerous HTML must be stripped from email content."
+    },
+    {
+      "id": "SEC-017",
+      "title": "Fix CSRF token timestamp information leakage",
+      "severity": "MEDIUM",
+      "priority": 17,
+      "category": "Information Leakage",
+      "status": "pending",
+      "description": "In csrf.ts (line 53), the token format includes a nonce containing the timestamp, allowing attackers to extract timing information about token generation.",
+      "affected_files": [
+        "src/lib/csrf.ts"
+      ],
+      "lines": [53],
+      "fix_description": "Hash the entire token including timestamp so timing information is not leaked in the token format.",
+      "test_criteria": "CSRF tokens must not contain extractable timestamps or predictable patterns."
+    },
+    {
+      "id": "SEC-018",
+      "title": "Encrypt device trust fingerprint storage",
+      "severity": "MEDIUM",
+      "priority": 18,
+      "category": "Data Protection",
+      "status": "pending",
+      "description": "Device fingerprints are stored in unencrypted localStorage (device-trust.ts lines 226-234). After an XSS attack, an attacker can read the fingerprint and replicate it to bypass device trust.",
+      "affected_files": [
+        "src/lib/device-trust.ts"
+      ],
+      "lines": [226, 234],
+      "fix_description": "Encrypt fingerprint data using secure-cache.ts functions before storing in localStorage.",
+      "test_criteria": "Device trust data in localStorage must be encrypted. Raw fingerprints must not be readable."
+    },
+    {
+      "id": "SEC-019",
+      "title": "Fix error-tracking.ts string truncation for DoS prevention",
+      "severity": "MEDIUM",
+      "priority": 19,
+      "category": "Denial of Service",
+      "status": "pending",
+      "description": "In error-tracking.ts (lines 276, 287, 295), error messages and other strings are masked but not truncated. A 1MB error message creates a 1MB masked string, potentially causing memory exhaustion.",
+      "affected_files": [
+        "src/lib/error-tracking.ts"
+      ],
+      "lines": [276, 287, 295],
+      "fix_description": "Add string truncation (max 500 chars for messages, 200 for user IDs) before masking.",
+      "test_criteria": "Error messages longer than 500 characters must be truncated before inclusion in reports."
+    },
+    {
+      "id": "SEC-020",
+      "title": "Fix session rotation TOCTOU race condition",
+      "severity": "MEDIUM",
+      "priority": 20,
+      "category": "Race Condition",
+      "status": "pending",
+      "description": "In session-rotation.ts (lines 73-115), the lock acquisition has a Time-of-Check-to-Time-of-Use race condition. Between reading the lock and writing the new lock, another tab could claim it.",
+      "affected_files": [
+        "src/lib/session-rotation.ts"
+      ],
+      "lines": [73, 106, 112, 115],
+      "fix_description": "Implement a version number or timestamp-based Compare-And-Set pattern for the lock to eliminate the TOCTOU window.",
+      "test_criteria": "Concurrent lock acquisition attempts from multiple tabs must result in exactly one winner."
+    },
+    {
+      "id": "SEC-021",
+      "title": "Fix AuthContext admin cache timing race condition",
+      "severity": "MEDIUM",
+      "priority": 21,
+      "category": "Race Condition",
+      "status": "pending",
+      "description": "In AuthContext.tsx (lines 337-362), if admin verification fails during background cache refresh, the user briefly retains cached admin status before revocation. This creates a window of elevated access.",
+      "affected_files": [
+        "src/contexts/AuthContext.tsx"
+      ],
+      "lines": [337, 362],
+      "fix_description": "Add a 'stale' flag to cached admin data. Mark cache as stale during refresh and restrict elevated operations until refresh completes.",
+      "test_criteria": "Admin operations must be blocked while cache refresh is in progress."
+    },
+    {
+      "id": "SEC-022",
+      "title": "Add Unicode normalization to text input validation",
+      "severity": "LOW",
+      "priority": 22,
+      "category": "Input Validation",
+      "status": "pending",
+      "description": "In security.ts (lines 37-56), validateTextInput does not normalize Unicode. Homograph attacks using visually similar characters (e.g., Cyrillic 'a' vs Latin 'a') can bypass validation.",
+      "affected_files": [
+        "src/lib/security.ts"
+      ],
+      "lines": [37, 56],
+      "fix_description": "Add Unicode normalization (NFKC) to text input validation before processing.",
+      "test_criteria": "Unicode homoglyphs must be normalized to their canonical forms."
+    },
+    {
+      "id": "SEC-023",
+      "title": "Fix OAuth state retention replay window",
+      "severity": "LOW",
+      "priority": 23,
+      "category": "Authentication",
+      "status": "pending",
+      "description": "In oauth-state.ts (line 24), STATE_RETENTION_MS = 5 minutes creates a replay window. After state is verified, the 5-minute retention period allows the same state to be reused.",
+      "affected_files": [
+        "src/lib/oauth-state.ts"
+      ],
+      "lines": [24, 127, 130],
+      "fix_description": "Replace retention period with a one-time-use flag. Mark state as 'used' immediately on verification but allow 30-second grace for slow redirects.",
+      "test_criteria": "OAuth state must not be reusable after verification. Second use within retention period must be rejected."
+    },
+    {
+      "id": "SEC-024",
+      "title": "Fix production-logger phone number regex for international formats",
+      "severity": "LOW",
+      "priority": 24,
+      "category": "Information Leakage",
+      "status": "pending",
+      "description": "In production-logger.ts (line 52), phone number regex only matches North American formats. International phone numbers (UK, Japan, etc.) are not masked, causing PII leakage.",
+      "affected_files": [
+        "src/lib/production-logger.ts"
+      ],
+      "lines": [52],
+      "fix_description": "Expand phone regex to cover international formats with country codes.",
+      "test_criteria": "Phone numbers with international country codes (+44, +81, etc.) must be masked."
+    },
+    {
+      "id": "SEC-025",
+      "title": "Add response size limits to coolify-proxy edge function",
+      "severity": "MEDIUM",
+      "priority": 25,
+      "category": "Denial of Service",
+      "status": "pending",
+      "description": "coolify-proxy edge function has no validation on response sizes from Coolify API. Large responses could cause memory exhaustion.",
+      "affected_files": [
+        "supabase/functions/coolify-proxy/index.ts"
+      ],
+      "lines": [],
+      "fix_description": "Add response size checking before parsing. Reject responses larger than 5MB.",
+      "test_criteria": "API responses larger than 5MB must be rejected with an appropriate error."
+    },
+    {
+      "id": "SEC-026",
+      "title": "Replace console.error with logger in Search.tsx",
+      "severity": "LOW",
+      "priority": 26,
+      "category": "Information Leakage",
+      "status": "pending",
+      "description": "Search.tsx (line 84) and GlobalSearch.tsx (line 120) use console.error directly instead of the logger utility, potentially exposing error details in production.",
+      "affected_files": [
+        "src/pages/Search.tsx",
+        "src/components/GlobalSearch.tsx"
+      ],
+      "lines": [84, 120],
+      "fix_description": "Replace console.error with logger.error from @/lib/logger.",
+      "test_criteria": "No console.error calls should exist in search components. Logger utility must be used instead."
+    },
+    {
+      "id": "SEC-027",
+      "title": "Expand disposable email domain list in newsletter-signup",
+      "severity": "MEDIUM",
+      "priority": 27,
+      "category": "Spam Prevention",
+      "status": "pending",
+      "description": "newsletter-signup edge function (line 20) only blocks 4 disposable email domains. Thousands of disposable email services exist and can be used for abuse.",
+      "affected_files": [
+        "supabase/functions/newsletter-signup/index.ts"
+      ],
+      "lines": [20],
+      "fix_description": "Expand the disposable email domain list to cover at least the top 50 most common services, or use a third-party API.",
+      "test_criteria": "Common disposable email domains (mailinator, guerrillamail, yopmail, etc.) must be blocked."
+    },
+    {
+      "id": "SEC-028",
+      "title": "Fix AuthContext inconsistent admin verification timeouts",
+      "severity": "MEDIUM",
+      "priority": 28,
+      "category": "Reliability",
+      "status": "pending",
+      "description": "AuthContext.tsx has inconsistent timeouts for admin verification - 10 seconds in one place (line 222-223) and 30 seconds in another (line 369-372). This causes unpredictable auth state behavior.",
+      "affected_files": [
+        "src/contexts/AuthContext.tsx"
+      ],
+      "lines": [222, 223, 369, 372],
+      "fix_description": "Standardize admin verification timeout to 10 seconds across all call sites.",
+      "test_criteria": "All admin verification calls must use the same timeout value."
+    }
+  ]
+}

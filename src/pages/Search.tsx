@@ -5,6 +5,8 @@ import Footer from '../components/Footer';
 import SEO from '../components/SEO';
 import { Search as SearchIcon, TrendingUp, FileText, Folder, Wrench, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeSearchQuery } from '@/lib/security';
+import { logger } from '@/lib/logger';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +28,7 @@ interface SearchResult {
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const [query, setQuery] = useState((searchParams.get('q') || '').trim().substring(0, 200));
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,12 +51,20 @@ const Search = () => {
       setIsLoading(true);
 
       try {
+        // Sanitize query for use in PostgREST filter expressions
+        const sanitized = sanitizeSearchQuery(query);
+        if (!sanitized) {
+          setResults([]);
+          setIsLoading(false);
+          return;
+        }
+
         // Search articles with full-text search
         const { data: articles } = await supabase
           .from('articles')
           .select('id, title, excerpt, slug, category, tags, image_url')
           .eq('published', true)
-          .or(`title.ilike.%${query}%,excerpt.ilike.%${query}%,tags.cs.{${query}}`)
+          .or(`title.ilike.%${sanitized}%,excerpt.ilike.%${sanitized}%`)
           .limit(10);
 
         // Search projects
@@ -62,14 +72,14 @@ const Search = () => {
           .from('projects')
           .select('id, title, description, slug, image_url')
           .eq('published', true)
-          .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+          .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
           .limit(5);
 
         // Search AI tools
         const { data: aiTools } = await supabase
           .from('ai_tools')
           .select('id, title, description, category, link, image_url')
-          .or(`title.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%`)
+          .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`)
           .limit(5);
 
         // Combine and format results
@@ -81,7 +91,7 @@ const Search = () => {
 
         setResults(combined);
       } catch (error) {
-        console.error('Search error:', error);
+        logger.error('Search error:', error);
         setResults([]);
       } finally {
         setIsLoading(false);

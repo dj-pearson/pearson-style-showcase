@@ -260,3 +260,47 @@
 - US-001 through US-008 (CI/CD, testing infrastructure)
 - US-011 through US-023 (edge function tests, monitoring, accessibility)
 - US-025, US-029, US-030, US-036, US-038, US-039, US-041 through US-047, US-049
+
+### Iteration 5 - Security Audit & Hardening
+**Date**: 2026-03-28
+**Branch**: claude/security-audit-fixes-aM0K3
+**Stories Completed**: 3
+
+#### Comprehensive Security Audit
+- Full codebase security audit performed across frontend, edge functions, and security utility libraries
+- 28 security findings documented in prd.json (SEC-001 through SEC-028)
+- Findings span: 4 CRITICAL, 10 HIGH, 10 MEDIUM, 4 LOW severity
+- Categories: Input Validation, Injection, Information Leakage, SSRF, CORS, Rate Limiting, Authentication, DoS, Race Conditions, Data Protection
+
+#### SEC-001: Fix open redirect vulnerability in AuthCallback.tsx [PASSED]
+- Added `isValidRedirectUrl()` validation function that ensures redirect URLs are relative paths
+- Blocks absolute URLs (`https://evil.com`), protocol-relative URLs (`//evil.com`), and scheme injection (`javascript:`)
+- Validates `redirect_to` query parameter at intake (line 72) before storing in sessionStorage
+- Re-validates stored URL when reading from sessionStorage before navigation (line 184)
+- Invalid values default to `/admin/dashboard`
+
+#### SEC-002: Fix PostgREST filter injection in Search.tsx and GlobalSearch.tsx [PASSED]
+- Added `sanitizeSearchQuery()` utility to `src/lib/security.ts` that escapes PostgREST special characters
+- Escapes: backslashes, commas, periods, parentheses, curly braces (filter syntax characters)
+- Enforces 200-character maximum length on search queries
+- Updated Search.tsx: sanitizes query before all 3 Supabase `.or()` filter calls
+- Updated GlobalSearch.tsx: sanitizes query before all 3 Supabase `.or()` filter calls
+- Removed unsafe `tags.cs.{${query}}` containment pattern (curly brace injection vector)
+- Replaced `console.error` with `logger.error` in both search components
+- Added initial query length bounds on URL parameter read
+
+#### SEC-003: Fix URL PII leakage in error-tracking.ts [PASSED]
+- Added `sanitizeUrlForTracking()` function that strips PII from URLs before error reports
+- Query parameter values replaced with `[REDACTED]` (keys preserved for debugging)
+- Hash fragments stripped entirely (may contain OAuth tokens)
+- Falls back to pathname-only if URL parsing fails
+- Added error message truncation (500 char max) to prevent DoS via oversized error strings
+
+#### Build Verification
+- `npm run build` passes with no errors
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (25 remaining in prd.json)
+- SEC-004, SEC-005 (CRITICAL: SSRF in slack-test, API key exposure in test-ai-model)
+- SEC-006 through SEC-016 (HIGH: CORS, URL params, OAuth state, rate limiting, etc.)
+- SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, etc.)
