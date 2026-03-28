@@ -403,3 +403,58 @@
 #### Remaining Security Stories (15 remaining in prd.json)
 - SEC-014 through SEC-016 (HIGH: email validation, admin-auth persistence, email sanitization)
 - SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, session rotation, etc.)
+
+### Iteration 8 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 5
+
+#### SEC-014: Add email validation to email-webhook-receiver and receive-email [PASSED]
+- Added email format validation (regex + 254 char max) to email-webhook-receiver for both sender and recipient
+- Validated `payload.from` before using as `user_email` in database operations
+- Added subject length truncation (998 chars) to prevent oversized headers
+- Updated receive-email: added `to` email validation (was only validating `from_email`)
+- Removed PII leakage from receive-email error response (was exposing `received: payload.from_email`)
+- Updated all downstream usages to use validated email values
+
+#### SEC-015: Persist admin-auth rate limiting to database [PASSED]
+- Replaced in-memory `Map<string, {count, lastAttempt}>` with database-backed rate limiting via `security_events` table
+- `checkRateLimit()` now queries DB for login_failure events from the IP within the lockout window
+- `recordFailedAttempt()` now inserts a `login_failure` event into `security_events` table
+- Added in-memory cache (30s TTL) as secondary layer to reduce DB load for repeated requests
+- `checkAndHandleLockout()` now queries DB for accurate attempt counts
+- Rate limits now persist across function restarts, cold starts, and deployments
+- Cache invalidated on each new failed attempt for accuracy
+- Fails open if DB query fails (allows attempt rather than blocking all logins)
+
+#### SEC-016: Sanitize HTML content in send-ticket-email [PASSED]
+- Added `sanitizeHtml()` function that strips dangerous HTML before email sending
+- Removes `<script>` and `<style>` tags and their content
+- Removes all `on*` event handler attributes (onclick, onerror, onload, etc.)
+- Removes dangerous tags: iframe, object, embed, form, input, textarea, select, button, applet, base, link, meta
+- Sanitizes href/src attributes to block `javascript:`, `vbscript:`, and `data:` protocol URLs
+- Applied to the HTML detection path (`message.includes('<')`) before SMTP send
+
+#### SEC-017: Fix CSRF token timestamp information leakage [PASSED]
+- Already fixed in a prior iteration: nonce now uses `crypto.getRandomValues(new Uint8Array(8))` instead of `Date.now().toString(36)`
+- Token format `${nonce}.${hashBase64}` contains no extractable timestamps
+- Nonce is cryptographically random, preventing timing analysis
+- Verified current implementation matches the fix requirements
+
+#### SEC-018: Encrypt device trust fingerprint storage [PASSED]
+- `storeTrustToken()` now encrypts trust data (token, deviceId, fingerprint) using `secure-cache.ts` AES-GCM encryption
+- `getStoredTrustToken()` now decrypts from encrypted storage, with fallback to legacy plaintext keys
+- Functions converted from sync to async to support Web Crypto API operations
+- Added `userId` parameter for encryption key derivation
+- Legacy plaintext keys cleaned up after successful encrypted write
+- `clearTrustToken()` removes both encrypted and legacy storage keys
+- `getCurrentDeviceId()` updated to async with userId parameter
+- Updated `useDeviceTrust` hook to pass userId and await async calls
+- Raw fingerprints no longer readable from localStorage after XSS attack
+
+#### Build Verification
+- `npm run build` passes with no errors (13.33s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (10 remaining in prd.json)
+- SEC-019 through SEC-028 (MEDIUM/LOW: error truncation, session rotation TOCTOU, auth cache race, Unicode normalization, OAuth replay, logger regex, coolify response limits, console.error replacement, disposable emails, auth timeouts)

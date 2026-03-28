@@ -203,6 +203,10 @@ serve(async (req: Request) => {
       subject: payload.subject
     });
 
+    // Validate and trim email fields
+    payload.to = payload.to?.trim() || '';
+    payload.from_email = payload.from_email?.trim() || '';
+
     // Validate required fields
     if (!payload.to || !payload.from_email || !payload.subject || !payload.body) {
       return new Response(
@@ -220,19 +224,33 @@ serve(async (req: Request) => {
       return emailRegex.test(email);
     };
 
-    if (!isValidEmail(payload.from_email)) {
-      console.error('Invalid from_email format:', payload.from_email);
+    if (!isValidEmail(payload.from_email) || payload.from_email.length > 254) {
+      console.error('Invalid from_email format');
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Invalid from_email format. Must be a valid email address.',
-          received: payload.from_email,
-          hint: 'Make sure your Make.com scenario extracts the email address from the From field (e.g., from "Name <email@domain.com>" extract "email@domain.com")'
         }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
+    }
+
+    if (!isValidEmail(payload.to) || payload.to.length > 254) {
+      console.error('Invalid to email format');
+      return new Response(
+        JSON.stringify({ error: 'Invalid recipient email format.' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Validate subject length to prevent abuse
+    if (payload.subject && payload.subject.length > 998) {
+      payload.subject = payload.subject.substring(0, 998);
     }
 
     // Extract domain from "to" email for grouping

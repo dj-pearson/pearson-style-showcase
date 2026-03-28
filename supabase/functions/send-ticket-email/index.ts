@@ -108,6 +108,68 @@ function textToHtml(text: string): string {
     .replace(/  /g, '&nbsp;&nbsp;');
 }
 
+// Allowed HTML tags for email content sanitization
+const ALLOWED_TAGS = new Set([
+  'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code',
+  'div', 'span', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'hr', 'img',
+]);
+
+// Allowed attributes per tag
+const ALLOWED_ATTRS: Record<string, Set<string>> = {
+  'a': new Set(['href', 'title']),
+  'img': new Set(['src', 'alt', 'width', 'height']),
+  'td': new Set(['colspan', 'rowspan']),
+  'th': new Set(['colspan', 'rowspan']),
+  'div': new Set(['style']),
+  'span': new Set(['style']),
+  'p': new Set(['style']),
+};
+
+// Dangerous protocols to block in href/src attributes
+const DANGEROUS_PROTOCOL_RE = /^\s*(javascript|vbscript|data):/i;
+
+/**
+ * Sanitize HTML content by removing dangerous tags and attributes.
+ * This is a basic sanitizer suitable for email content.
+ */
+function sanitizeHtml(html: string): string {
+  // Remove script tags and their content
+  let sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+  // Remove style tags and their content
+  sanitized = sanitized.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
+  // Remove event handler attributes (onclick, onerror, onload, etc.)
+  sanitized = sanitized.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+
+  // Remove dangerous tags (iframe, object, embed, form, input, etc.)
+  const dangerousTags = ['iframe', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button', 'applet', 'base', 'link', 'meta'];
+  for (const tag of dangerousTags) {
+    // Remove self-closing and opening/closing variants
+    const openClose = new RegExp(`<${tag}\\b[^<]*(?:(?!<\\/${tag}>)<[^<]*)*<\\/${tag}>`, 'gi');
+    const selfClose = new RegExp(`<${tag}\\b[^>]*\\/?>`, 'gi');
+    sanitized = sanitized.replace(openClose, '');
+    sanitized = sanitized.replace(selfClose, '');
+  }
+
+  // Sanitize href and src attributes to block javascript: and data: protocols
+  sanitized = sanitized.replace(/(href|src)\s*=\s*"([^"]*)"/gi, (match, attr, value) => {
+    if (DANGEROUS_PROTOCOL_RE.test(value)) {
+      return `${attr}="#"`;
+    }
+    return match;
+  });
+  sanitized = sanitized.replace(/(href|src)\s*=\s*'([^']*)'/gi, (match, attr, value) => {
+    if (DANGEROUS_PROTOCOL_RE.test(value)) {
+      return `${attr}='#'`;
+    }
+    return match;
+  });
+
+  return sanitized;
+}
+
 serve(async (req: Request) => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -201,8 +263,8 @@ serve(async (req: Request) => {
 
     console.log(`Sending email for ticket ${ticket.ticket_number} from ${mailbox.email_address} to ${to_email}`);
 
-    // Convert message to HTML if needed
-    const bodyHtml = message.includes('<') ? message : textToHtml(message);
+    // Convert message to HTML if needed, with sanitization
+    const bodyHtml = message.includes('<') ? sanitizeHtml(message) : textToHtml(message);
 
     // Send email via SMTP
     const { messageId } = await sendEmailViaSMTP(

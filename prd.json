@@ -212,7 +212,7 @@
       "severity": "HIGH",
       "priority": 14,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Email extraction from 'From' field in email-webhook-receiver (lines 104-130) and receive-email (lines 97-109) lacks proper validation. The extracted email is used in downstream operations without format verification.",
       "affected_files": [
         "supabase/functions/email-webhook-receiver/index.ts",
@@ -228,7 +228,7 @@
       "severity": "MEDIUM",
       "priority": 15,
       "category": "Rate Limiting",
-      "status": "pending",
+      "status": "PASSED",
       "description": "admin-auth edge function (lines 92-120) stores rate limiting data in an in-memory Map. Rate limits reset when the function restarts, allowing attackers to bypass lockout by triggering a restart.",
       "affected_files": [
         "supabase/functions/admin-auth/index.ts"
@@ -243,7 +243,7 @@
       "severity": "HIGH",
       "priority": 16,
       "category": "Injection",
-      "status": "pending",
+      "status": "PASSED",
       "description": "send-ticket-email (line 144-154) accepts arbitrary email content including HTML and sends it without sanitization. The check `message.includes('<')` determines if content is HTML, but no sanitization is applied.",
       "affected_files": [
         "supabase/functions/send-ticket-email/index.ts"
@@ -258,7 +258,7 @@
       "severity": "MEDIUM",
       "priority": 17,
       "category": "Information Leakage",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In csrf.ts (line 53), the token format includes a nonce containing the timestamp, allowing attackers to extract timing information about token generation.",
       "affected_files": [
         "src/lib/csrf.ts"
@@ -273,7 +273,7 @@
       "severity": "MEDIUM",
       "priority": 18,
       "category": "Data Protection",
-      "status": "pending",
+      "status": "PASSED",
       "description": "Device fingerprints are stored in unencrypted localStorage (device-trust.ts lines 226-234). After an XSS attack, an attacker can read the fingerprint and replicate it to bypass device trust.",
       "affected_files": [
         "src/lib/device-trust.ts"
