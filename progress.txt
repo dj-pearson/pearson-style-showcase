@@ -358,3 +358,48 @@
 - SEC-009 (HIGH: OAuth state signing)
 - SEC-010 through SEC-016 (HIGH: rate limiting, Base64 DoS, redirect validation, CSS injection, email validation, admin-auth persistence, email sanitization)
 - SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, session rotation, etc.)
+
+### Iteration 7 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 5
+
+#### SEC-009: Sign OAuth state parameter in oauth-proxy edge function [PASSED]
+- Added `signState()` function using HMAC-SHA256 with server-side secret (OAUTH_STATE_SECRET or SUPABASE_SERVICE_ROLE_KEY fallback)
+- State format changed from plain `btoa(json)` to `base64(json).hmac_signature`
+- Added `verifyState()` function that validates HMAC signature before parsing state data
+- Callback handler now rejects tampered or unsigned state parameters with 400 error
+- Prevents CSRF attacks on OAuth flow by ensuring state originated from this server
+
+#### SEC-010: Add rate limiting to amazon-article-pipeline edge function [PASSED]
+- Imported shared `rate-limiter.ts` module (checkRateLimit, getClientIdentifier, createRateLimitResponse)
+- Configured rate limit: 2 requests per hour per IP with 0 burst allowance
+- Rate check runs before any expensive operations (DB queries, API calls)
+- Returns 429 with Retry-After header when limit exceeded
+- Complements existing concurrency guard (10-second dedup window)
+
+#### SEC-011: Fix Base64 large array vulnerability in secure-cache.ts [PASSED]
+- Replaced `btoa(String.fromCharCode(...combined))` with chunked `uint8ArrayToBase64()` function
+- New function processes Uint8Array in 8KB chunks using `String.fromCharCode.apply()`
+- Eliminates stack overflow risk for encrypted payloads >100KB
+- No change to decryption path (Uint8Array.from(atob()) is already safe)
+
+#### SEC-012: Validate redirect URLs in ProtectedRoute and AdminLogin [PASSED]
+- Added validation in AdminLogin.tsx when reading `auth_return_url` from sessionStorage
+- Stored URL must start with `/` and must not start with `//` (protocol-relative)
+- Invalid/missing URLs fall back to `/admin/dashboard`
+- ProtectedRoute.tsx only writes to sessionStorage from `location.pathname` (inherently safe)
+
+#### SEC-013: Fix dangerouslySetInnerHTML CSS injection in chart.tsx [PASSED]
+- Added `isValidCssColor()` validator using regex for hex, rgb/hsl, named colors, and CSS variables
+- Added `sanitizeCssIdentifier()` to strip non-alphanumeric characters from chart IDs and keys
+- Color values that don't match the pattern are excluded from generated CSS
+- Chart ID sanitized before interpolation into CSS selector
+
+#### Build Verification
+- `npm run build` passes with no errors (27.16s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (15 remaining in prd.json)
+- SEC-014 through SEC-016 (HIGH: email validation, admin-auth persistence, email sanitization)
+- SEC-017 through SEC-028 (MEDIUM/LOW: CSRF tokens, device trust, Unicode, session rotation, etc.)

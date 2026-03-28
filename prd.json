@@ -136,7 +136,7 @@
       "severity": "HIGH",
       "priority": 9,
       "category": "Authentication",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The oauth-proxy edge function (lines 48-52, 109) encodes the OAuth state parameter with btoa(JSON.stringify()) but does not cryptographically sign it. An attacker can forge/tamper with the state parameter, enabling CSRF attacks on the OAuth flow.",
       "affected_files": [
         "supabase/functions/oauth-proxy/index.ts"
@@ -151,7 +151,7 @@
       "severity": "HIGH",
       "priority": 10,
       "category": "Rate Limiting",
-      "status": "pending",
+      "status": "PASSED",
       "description": "The amazon-article-pipeline edge function has no rate limiting, allowing unlimited expensive AI API calls. This is a resource exhaustion risk (Claude API costs money) and DoS vector.",
       "affected_files": [
         "supabase/functions/amazon-article-pipeline/index.ts"
@@ -166,7 +166,7 @@
       "severity": "HIGH",
       "priority": 11,
       "category": "Denial of Service",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In secure-cache.ts line 117, String.fromCharCode(...combined) uses the spread operator on a Uint8Array. For large encrypted payloads (>100KB), this can exceed the JavaScript call stack depth limit, causing application crashes.",
       "affected_files": [
         "src/lib/secure-cache.ts"
@@ -181,7 +181,7 @@
       "severity": "MEDIUM",
       "priority": 12,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In ProtectedRoute.tsx (lines 72, 91) and AdminLogin.tsx (lines 126-127), auth_return_url from sessionStorage is used for navigation without validation. While sessionStorage is same-origin, the stored URL should still be validated as a relative path.",
       "affected_files": [
         "src/components/auth/ProtectedRoute.tsx",
@@ -197,7 +197,7 @@
       "severity": "HIGH",
       "priority": 13,
       "category": "Injection",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In chart.tsx (lines 79-96), dynamic color values and chart IDs are interpolated into CSS via dangerouslySetInnerHTML without escaping. If color values come from untrusted sources, an attacker could inject CSS expressions.",
       "affected_files": [
         "src/components/ui/chart.tsx"

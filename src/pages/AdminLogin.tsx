@@ -123,8 +123,12 @@ const AdminLogin = () => {
   useEffect(() => {
     if (isAdminVerified) {
       logger.debug('User admin verified, redirecting to dashboard');
-      const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+      const storedUrl = sessionStorage.getItem('auth_return_url');
       sessionStorage.removeItem('auth_return_url');
+      // Validate stored URL: must be a relative path, no protocol-relative or absolute URLs
+      const returnUrl = (storedUrl && storedUrl.startsWith('/') && !storedUrl.startsWith('//'))
+        ? storedUrl
+        : '/admin/dashboard';
 
       if (awaitingVerificationRef.current) {
         awaitingVerificationRef.current = false;
