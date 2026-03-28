@@ -458,3 +458,61 @@
 
 #### Remaining Security Stories (10 remaining in prd.json)
 - SEC-019 through SEC-028 (MEDIUM/LOW: error truncation, session rotation TOCTOU, auth cache race, Unicode normalization, OAuth replay, logger regex, coolify response limits, console.error replacement, disposable emails, auth timeouts)
+
+### Iteration 9 - Security Audit & Hardening (continued)
+**Date**: 2026-03-28
+**Branch**: claude/security-prd-items-icE4Y
+**Stories Completed**: 6
+
+#### SEC-019: Fix error-tracking.ts string truncation for DoS prevention [PASSED]
+- Added `.substring(0, 200)` truncation to userId before PII masking
+- Added `.substring(0, 200)` truncation to sessionId
+- Added `.substring(0, 2000)` truncation to stack traces in dev mode
+- Error message already had `.substring(0, 500)` from SEC-003 fix
+- Prevents memory exhaustion from oversized error report fields
+
+#### SEC-020: Fix session rotation TOCTOU race condition [PASSED]
+- Added monotonic `version` field to RotationLock interface
+- `acquireRotationLock()` now uses Compare-And-Set (CAS) pattern:
+  1. Read existing lock and its version
+  2. Write new lock with version+1
+  3. Re-read and verify our exact version won (not just tabId)
+- Version check eliminates the window where two tabs could both pass the tabId check
+- Expired lock takeover increments from the previous version
+
+#### SEC-021: Fix AuthContext admin cache timing race condition [PASSED]
+- Background cache refresh failure now immediately revokes admin status
+- `setAdminUser(null)` and `setAuthStatus('unauthenticated')` called on verification failure
+- Stale cache cleared via `secureRemove(ADMIN_CACHE_KEY)` on both error and rejection
+- Network errors during background refresh also trigger revocation (fail-secure)
+- Eliminates window where user retains cached admin privileges after server rejects them
+
+#### SEC-022: Add Unicode normalization to text input validation [PASSED]
+- Added `input.normalize('NFKC')` as first step in `validateTextInput()`
+- NFKC normalization converts Unicode homoglyphs to canonical forms
+- Prevents homograph attacks (e.g., Cyrillic 'а' normalized to Latin 'a')
+- Also normalizes fullwidth characters (e.g., 'Ａ' → 'A')
+- Applied before trim and length check
+
+#### SEC-023: Fix OAuth state retention replay window [PASSED]
+- Reduced retention period from 5 minutes to 30-second grace period
+- Added one-time-use flag: state marked as "used" immediately on first retrieval
+- Second retrieval after grace period rejects with "OAuth state replay rejected"
+- Within grace period, allows same-state access (handles slow redirect double-calls)
+- `clearStoredOAuthState()` now also clears the used flag
+- Net effect: replay window reduced from 5 minutes to 30 seconds
+
+#### SEC-028: Fix AuthContext inconsistent admin verification timeouts [PASSED]
+- Standardized slow-path admin verification timeout from 30 seconds to 10 seconds
+- Now consistent with the initial admin verification timeout (also 10 seconds)
+- Prevents unpredictable auth state behavior from mismatched timeouts
+
+#### Build Verification
+- `npm run build` passes with no errors (13.15s build time)
+- No TypeScript errors introduced
+
+#### Remaining Security Stories (4 remaining in prd.json)
+- SEC-024 (LOW): Production-logger phone number regex for international formats
+- SEC-025 (MEDIUM): Response size limits for coolify-proxy
+- SEC-026 (LOW): Replace console.error with logger in Search.tsx
+- SEC-027 (MEDIUM): Expand disposable email domain list

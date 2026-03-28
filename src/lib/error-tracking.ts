@@ -295,7 +295,7 @@ function createErrorReport(
     timestamp: new Date().toISOString(),
     severity,
     message: maskPII(error.message.substring(0, 500)),
-    stack: isProduction ? undefined : error.stack,
+    stack: isProduction ? undefined : error.stack?.substring(0, 2000),
     fingerprint,
     context: {
       url: sanitizeUrlForTracking(window.location.href),
@@ -305,8 +305,8 @@ function createErrorReport(
         height: window.innerHeight,
       },
       component: options?.component,
-      userId: currentUserId ? maskPII(currentUserId) : undefined,
-      sessionId: sessionId || undefined,
+      userId: currentUserId ? maskPII(currentUserId.substring(0, 200)) : undefined,
+      sessionId: sessionId?.substring(0, 200) || undefined,
       buildVersion: import.meta.env.VITE_BUILD_VERSION || undefined,
     },
     tags: {

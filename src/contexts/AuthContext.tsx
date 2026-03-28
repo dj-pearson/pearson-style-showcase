@@ -355,9 +355,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   await setCachedAdminData(newSession.user.id, freshAdminData);
                   // Update state if still mounted and session matches
                   setAdminUser(freshAdminData);
+                } else {
+                  // Background verification failed - revoke admin access immediately
+                  logger.warn('Background admin verification failed, revoking cached admin status');
+                  setAdminUser(null);
+                  setAuthStatus('unauthenticated');
+                  // Clear stale cache
+                  secureRemove(ADMIN_CACHE_KEY);
                 }
               })
-              .catch(() => { /* Ignore background refresh errors */ });
+              .catch(() => {
+                // Network error during background refresh - revoke to be safe
+                logger.warn('Background admin refresh network error, revoking cached admin status');
+                setAdminUser(null);
+                setAuthStatus('unauthenticated');
+                secureRemove(ADMIN_CACHE_KEY);
+              });
           }
         }
         return;
@@ -366,9 +379,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // SLOW PATH: No cache, need to verify with edge function
       setAuthStatus('verifying_admin');
 
-      // Verify admin access with timeout (30 seconds for OAuth flows)
+      // Verify admin access with timeout (10 seconds, consistent with other verification)
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Admin verification timeout')), 30000);
+        setTimeout(() => reject(new Error('Admin verification timeout')), 10000);
       });
 
       const adminCheckPromise = invokeEdgeFunction('admin-auth', {

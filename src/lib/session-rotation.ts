@@ -49,6 +49,7 @@ interface RotationState {
 interface RotationLock {
   tabId: string;
   timestamp: number;
+  version: number; // Monotonic version for CAS
 }
 
 // Unique ID for this browser tab
@@ -67,47 +68,53 @@ let rotationTimer: ReturnType<typeof setInterval> | null = null;
 let storageListener: ((event: StorageEvent) => void) | null = null;
 
 /**
- * Acquire a distributed lock using localStorage with timestamp-based expiry.
+ * Acquire a distributed lock using localStorage with Compare-And-Set (CAS).
+ * Uses a monotonic version number to eliminate the TOCTOU window:
+ * 1. Read the current lock and its version
+ * 2. Write a new lock with version+1
+ * 3. Re-read and verify our version won (atomic CAS check)
  * Returns true if lock was acquired, false if another tab holds it.
  */
 function acquireRotationLock(): boolean {
   try {
-    const existingLock = localStorage.getItem(ROTATION_LOCK_KEY);
+    const existingLockStr = localStorage.getItem(ROTATION_LOCK_KEY);
+    let nextVersion = 1;
 
-    if (existingLock) {
-      const lock: RotationLock = JSON.parse(existingLock);
+    if (existingLockStr) {
+      const lock: RotationLock = JSON.parse(existingLockStr);
 
       // Check if lock is expired (hung rotation)
       if (Date.now() - lock.timestamp < LOCK_TIMEOUT_MS) {
-        // Lock is still valid and held by another tab (or this tab)
         if (lock.tabId === TAB_ID) {
-          // We already hold the lock
-          return true;
+          return true; // We already hold the lock
         }
         logger.debug('Rotation lock held by another tab', { lockTabId: lock.tabId });
         return false;
       }
 
-      // Lock expired - safe to take over
+      // Lock expired - take over with incremented version
       logger.warn('Rotation lock expired, taking over from stale lock', {
         staleTabId: lock.tabId,
         lockAge: Date.now() - lock.timestamp,
       });
+      nextVersion = (lock.version || 0) + 1;
     }
 
-    // Acquire the lock
+    // Write our lock with the next version (CAS write)
     const newLock: RotationLock = {
       tabId: TAB_ID,
       timestamp: Date.now(),
+      version: nextVersion,
     };
     localStorage.setItem(ROTATION_LOCK_KEY, JSON.stringify(newLock));
 
-    // Double-check to handle race condition (read-after-write verification)
-    const verifyLock = localStorage.getItem(ROTATION_LOCK_KEY);
-    if (verifyLock) {
-      const verified: RotationLock = JSON.parse(verifyLock);
-      if (verified.tabId !== TAB_ID) {
-        // Another tab won the race
+    // CAS verification: re-read and check version matches what we wrote
+    // If another tab wrote between our read and write, their version will differ
+    const verifyStr = localStorage.getItem(ROTATION_LOCK_KEY);
+    if (verifyStr) {
+      const verified: RotationLock = JSON.parse(verifyStr);
+      if (verified.tabId !== TAB_ID || verified.version !== nextVersion) {
+        // Another tab won the race - their write overwrote ours
         return false;
       }
     }

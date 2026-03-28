@@ -288,7 +288,7 @@
       "severity": "MEDIUM",
       "priority": 19,
       "category": "Denial of Service",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In error-tracking.ts (lines 276, 287, 295), error messages and other strings are masked but not truncated. A 1MB error message creates a 1MB masked string, potentially causing memory exhaustion.",
       "affected_files": [
         "src/lib/error-tracking.ts"
@@ -303,7 +303,7 @@
       "severity": "MEDIUM",
       "priority": 20,
       "category": "Race Condition",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In session-rotation.ts (lines 73-115), the lock acquisition has a Time-of-Check-to-Time-of-Use race condition. Between reading the lock and writing the new lock, another tab could claim it.",
       "affected_files": [
         "src/lib/session-rotation.ts"
@@ -318,7 +318,7 @@
       "severity": "MEDIUM",
       "priority": 21,
       "category": "Race Condition",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In AuthContext.tsx (lines 337-362), if admin verification fails during background cache refresh, the user briefly retains cached admin status before revocation. This creates a window of elevated access.",
       "affected_files": [
         "src/contexts/AuthContext.tsx"
@@ -333,7 +333,7 @@
       "severity": "LOW",
       "priority": 22,
       "category": "Input Validation",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In security.ts (lines 37-56), validateTextInput does not normalize Unicode. Homograph attacks using visually similar characters (e.g., Cyrillic 'a' vs Latin 'a') can bypass validation.",
       "affected_files": [
         "src/lib/security.ts"
@@ -348,7 +348,7 @@
       "severity": "LOW",
       "priority": 23,
       "category": "Authentication",
-      "status": "pending",
+      "status": "PASSED",
       "description": "In oauth-state.ts (line 24), STATE_RETENTION_MS = 5 minutes creates a replay window. After state is verified, the 5-minute retention period allows the same state to be reused.",
       "affected_files": [
         "src/lib/oauth-state.ts"
@@ -424,7 +424,7 @@
       "severity": "MEDIUM",
       "priority": 28,
       "category": "Reliability",
-      "status": "pending",
+      "status": "PASSED",
       "description": "AuthContext.tsx has inconsistent timeouts for admin verification - 10 seconds in one place (line 222-223) and 30 seconds in another (line 369-372). This causes unpredictable auth state behavior.",
       "affected_files": [
         "src/contexts/AuthContext.tsx"

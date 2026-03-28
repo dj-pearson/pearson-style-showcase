@@ -42,8 +42,12 @@ export function validateTextInput(
     return null;
   }
 
+  // Normalize Unicode to NFKC form to prevent homograph attacks
+  // (e.g., Cyrillic 'а' → Latin 'a', fullwidth 'Ａ' → 'A')
+  const normalized = input.normalize('NFKC');
+
   // Trim whitespace
-  const trimmed = input.trim();
+  const trimmed = normalized.trim();
 
   // Check length
   if (trimmed.length === 0 || trimmed.length > maxLength) {
