@@ -4,6 +4,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { verifyOAuthState } from '@/lib/oauth-state';
+
+/**
+ * Validate that a redirect URL is a safe relative path.
+ * Blocks absolute URLs, protocol-relative URLs, and javascript: schemes.
+ */
+function isValidRedirectUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  // Must start with a single slash (not //) and not contain protocol schemes
+  return trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.includes(':');
+}
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -59,12 +70,13 @@ const AuthCallback = () => {
         // Flow 1: OAuth Proxy - magic link token from oauth-proxy edge function
         const token = searchParams.get('token');
         const type = searchParams.get('type');
-        const redirectTo = searchParams.get('redirect_to') || '/admin/dashboard';
+        const rawRedirectTo = searchParams.get('redirect_to') || '/admin/dashboard';
+        const redirectTo = isValidRedirectUrl(rawRedirectTo) ? rawRedirectTo : '/admin/dashboard';
 
         if (token && type) {
           logger.debug('Processing OAuth proxy magic link token');
 
-          // Store redirect destination
+          // Store validated redirect destination
           sessionStorage.setItem('auth_return_url', redirectTo);
 
           const { data, error: verifyError } = await supabase.auth.verifyOtp({
@@ -169,10 +181,11 @@ const AuthCallback = () => {
         setStatus('success');
         setHasRedirected(true);
 
-        // Get return URL or default to dashboard
+        // Get return URL or default to dashboard (re-validate on read)
         {
-          const returnUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
+          const storedUrl = sessionStorage.getItem('auth_return_url') || '/admin/dashboard';
           sessionStorage.removeItem('auth_return_url');
+          const returnUrl = isValidRedirectUrl(storedUrl) ? storedUrl : '/admin/dashboard';
 
           logger.info('OAuth callback: Admin verified, redirecting to:', returnUrl);
 

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeSearchQuery } from '@/lib/security';
+import { logger } from '@/lib/logger';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -85,12 +87,20 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
     saveToRecent(searchQuery);
 
     try {
+      // Sanitize query for use in PostgREST filter expressions
+      const sanitized = sanitizeSearchQuery(searchQuery);
+      if (!sanitized) {
+        setResults([]);
+        setIsLoading(false);
+        return;
+      }
+
       // Search articles with full-text search
       const { data: articles } = await supabase
         .from('articles')
         .select('id, title, excerpt, slug, category, tags, image_url')
         .eq('published', true)
-        .or(`title.ilike.%${searchQuery}%,excerpt.ilike.%${searchQuery}%,tags.cs.{${searchQuery}}`)
+        .or(`title.ilike.%${sanitized}%,excerpt.ilike.%${sanitized}%`)
         .limit(5);
 
       // Search projects
@@ -98,14 +108,14 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
         .from('projects')
         .select('id, title, description, slug, image_url')
         .eq('published', true)
-        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+        .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
         .limit(3);
 
       // Search AI tools
       const { data: aiTools } = await supabase
         .from('ai_tools')
         .select('id, title, description, category, link, image_url')
-        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`)
+        .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`)
         .limit(3);
 
       // Combine and format results
@@ -117,7 +127,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
 
       setResults(combined);
     } catch (error) {
-      console.error('Search error:', error);
+      logger.error('Search error:', error);
       setResults([]);
     } finally {
       setIsLoading(false);

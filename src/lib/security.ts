@@ -128,6 +128,48 @@ export function validateSlug(slug: string): string | null {
 }
 
 /**
+ * Sanitize a string for use in PostgREST filter expressions.
+ * Escapes characters that have special meaning in PostgREST syntax
+ * (commas, periods, curly braces, parentheses, backslashes) and
+ * enforces a maximum length.
+ * @param input - The raw user input
+ * @param maxLength - Maximum allowed length (default 200)
+ * @returns Sanitized string safe for PostgREST filters, or null if empty
+ */
+export function sanitizeSearchQuery(
+  input: string,
+  maxLength: number = 200
+): string | null {
+  if (!input || typeof input !== 'string') {
+    return null;
+  }
+
+  let sanitized = input.trim();
+
+  if (sanitized.length === 0) {
+    return null;
+  }
+
+  // Enforce length limit
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength);
+  }
+
+  // Escape PostgREST special characters:
+  // backslash (must be first), comma, period, parentheses, curly braces, percent, asterisk
+  sanitized = sanitized
+    .replace(/\\/g, '\\\\')
+    .replace(/,/g, '\\,')
+    .replace(/\./g, '\\.')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}');
+
+  return sanitized;
+}
+
+/**
  * Sanitize array of strings
  * @param arr - Array of strings to sanitize
  * @param maxLength - Maximum length per string
