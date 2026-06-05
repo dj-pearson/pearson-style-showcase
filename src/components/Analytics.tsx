@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { logger } from "@/lib/logger";
 import { useLocation } from 'react-router-dom';
+import { shouldSuppressForOddTraffic } from '@/lib/traffic-detection';
 
 // Tracking ID is loaded via index.html script tags - no need for Supabase query
 const TRACKING_ID = 'G-8R95ZXMV6L';
@@ -24,6 +25,9 @@ export const useAnalytics = () => {
   useEffect(() => {
     // Use requestIdleCallback to defer analytics to idle time
     const trackPageView = () => {
+      // Keep odd/flagged traffic (e.g. bot floods from unexpected countries)
+      // out of Google Analytics so the metrics reflect real visitors.
+      if (shouldSuppressForOddTraffic()) return;
       if (typeof window !== 'undefined' && window.gtag) {
         window.gtag('config', TRACKING_ID, {
           page_path: location.pathname,
@@ -48,6 +52,7 @@ export const useAnalytics = () => {
 
   // Track custom events
   const trackEvent = (action: string, category: string, label?: string, value?: number) => {
+    if (shouldSuppressForOddTraffic()) return;
     if (typeof window !== 'undefined' && window.gtag) {
       window.gtag('event', action, {
         event_category: category,

@@ -13,6 +13,7 @@ import { Code, Zap, Globe, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAnalytics } from '../components/Analytics';
+import { shouldSuppressForOddTraffic } from '@/lib/traffic-detection';
 
 // Lazy load below-the-fold components to improve FID
 const CaseStudies = lazy(() => import('../components/CaseStudies'));
@@ -49,8 +50,13 @@ const Index = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
 
-  // Check if heavy animations should be disabled
-  const disableHeavyAnimations = useMemo(() => shouldDisableHeavyAnimations(), []);
+  // Check if heavy animations should be disabled. Flagged "odd traffic"
+  // (e.g. bot floods from unexpected countries) is soft-handled by skipping the
+  // expensive 3D orb / WebGL context entirely.
+  const disableHeavyAnimations = useMemo(
+    () => shouldDisableHeavyAnimations() || shouldSuppressForOddTraffic(),
+    []
+  );
 
   useEffect(() => {
     // Skip 3D orb entirely if user prefers reduced motion
