@@ -31,7 +31,8 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  Server
+  Server,
+  Globe
 } from 'lucide-react';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from '@/components/admin/KeyboardShortcutsHelp';
@@ -72,6 +73,7 @@ const AccountingDashboard = lazy(() => import('@/components/admin/AccountingDash
 const AIModelConfigManager = lazy(() => import('@/components/admin/AIModelConfigManager').then(m => ({ default: m.AIModelConfigManager })));
 const SecureVaultDashboard = lazy(() => import('@/components/admin/vault/SecureVaultDashboard').then(m => ({ default: m.SecureVaultDashboard })));
 const ServerHealthDashboard = lazy(() => import('@/components/admin/ServerHealthDashboard').then(m => ({ default: m.ServerHealthDashboard })));
+const OddTrafficMonitor = lazy(() => import('@/components/admin/OddTrafficMonitor'));
 
 // Loading fallback for lazy-loaded modules
 const ModuleLoader = () => (
@@ -110,6 +112,7 @@ const AdminDashboard = () => {
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'command-center', label: 'Command Center', icon: Activity },
     { id: 'server-health', label: 'Server Health', icon: Server },
+    { id: 'traffic-watch', label: 'Traffic Watch', icon: Globe },
     { id: 'support', label: 'Support Tickets', icon: MessageSquare },
     { id: 'vault', label: 'Secure Vault', icon: Shield },
     { id: 'ai-config', label: 'AI Configuration', icon: Activity },
@@ -346,6 +349,12 @@ const AdminDashboard = () => {
           return (
             <SectionErrorBoundary sectionName="Server Health">
               <ServerHealthDashboard />
+            </SectionErrorBoundary>
+          );
+        case 'traffic-watch':
+          return (
+            <SectionErrorBoundary sectionName="Traffic Watch">
+              <OddTrafficMonitor />
             </SectionErrorBoundary>
           );
         case 'support':
