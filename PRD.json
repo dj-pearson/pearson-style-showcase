@@ -859,6 +859,296 @@
       "priority": 50,
       "passes": true,
       "notes": "Created _shared/error-normalizer.ts with normalizedErrorResponse() and classifyError(). Updated 7 edge functions: amazon-article-pipeline, ai-content-generator, coolify-proxy, oauth-proxy, receive-email, send-notification-email, send-ticket-email, extract-from-url. All now return generic error messages; real errors logged server-side only."
+    },
+    {
+      "id": "US-051",
+      "title": "[CRITICAL] Fix broken test runner (Vitest fork pool under current Node)",
+      "description": "As a developer, I need the test suite to actually run so that we regain automated quality feedback (US-001 CI depends on this).",
+      "acceptanceCriteria": [
+        "Diagnose the 'Timeout starting forks runner' failure that occurs when running 'npm test' / 'npx vitest run' (reproduced under Node v26 with Vitest 4's default forks pool)",
+        "Confirm tests execute successfully with the threads pool ('npx vitest run --pool=threads' currently works)",
+        "Set pool: 'threads' (or appropriate poolOptions) in vitest.config.ts so 'npm test' runs by default, OR pin the project to a supported Node LTS (see US-053) if that resolves the forks pool",
+        "Run 'npm test -- --run' and confirm the runner starts and executes all test files with zero infrastructure errors",
+        "Document the chosen fix in a comment in vitest.config.ts",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "CRITICAL: 'npm test' fails entirely with 'Timeout starting forks runner' (8 errors, no tests collected). Threads pool works. Blocks all test-related stories (US-001 through US-012, US-048)."
+    },
+    {
+      "id": "US-052",
+      "title": "[CRITICAL] Resolve npm audit vulnerabilities (22 findings incl. critical/high)",
+      "description": "As a security engineer, I need dependency vulnerabilities patched so that known CVEs (ws memory disclosure/DoS, yaml stack overflow, etc.) are not shipped.",
+      "acceptanceCriteria": [
+        "Run 'npm audit' and record the full list (currently 22 vulnerabilities: 2 critical, 11 high, 7 moderate, 2 low)",
+        "Run 'npm audit fix' to clear non-breaking advisories (ws, yaml, and transitive dev-tooling deps)",
+        "For remaining criticals/highs, evaluate 'npm audit fix --force' impact or targeted version bumps and apply where safe",
+        "Verify 'npm run build' and 'npm test -- --run' still pass after updates",
+        "Document any advisories intentionally left unresolved (with justification) in the notes",
+        "Re-run 'npm audit' and confirm 0 critical and 0 high remain (or documented exceptions)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "CRITICAL: npm audit reports 22 vulns (2 critical, 11 high). Notable: ws (uninitialized memory disclosure + DoS), yaml (stack overflow)."
+    },
+    {
+      "id": "US-053",
+      "title": "[CRITICAL] Standardize on a supported Node LTS across all configs",
+      "description": "As a developer, I need one supported Node version pinned everywhere so that local, CI, and Cloudflare builds are consistent and off end-of-life Node 18.",
+      "acceptanceCriteria": [
+        "Select a supported LTS (Node 20 or 22) compatible with Vite 6 / Vitest 4",
+        "Update .nvmrc to the chosen version",
+        "Add an 'engines' field to package.json specifying the Node range (e.g. '>=20 <23')",
+        "Update README.md references from 'Node 18' to the chosen version and remove EOL guidance",
+        "Update .github/workflows CI (when created in US-001) and Cloudflare Pages build settings to use the chosen version",
+        "Verify 'npm install', 'npm run build', and 'npm test -- --run' all succeed on the chosen version",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "CRITICAL: Docs/.nvmrc say Node 18 (EOL Apr 2025) while Vite 6/Vitest 4 expect Node 20+. No engines field enforces anything; local env is Node 26 (too new)."
+    },
+    {
+      "id": "US-054",
+      "title": "[CRITICAL] Fix unusable build:pages script",
+      "description": "As a developer, I need the production build command to work so that Cloudflare Pages deploys don't fail on missing build tooling.",
+      "acceptanceCriteria": [
+        "Fix package.json 'build:pages' script: 'npm ci --only=production && vite build' fails because vite and all build tooling live in devDependencies and are stripped by --only=production",
+        "Change to install dev dependencies before building (e.g. 'npm install && vite build' or 'npm ci && vite build'), consistent with README's ROLLUP_BINARY_NOT_FOUND guidance",
+        "Verify the corrected script produces a working dist/ from a clean node_modules",
+        "Confirm the Cloudflare Pages build command matches the corrected script",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "CRITICAL: build:pages uses 'npm ci --only=production' which excludes devDependencies (vite, plugin-react, typescript, rollup, tailwind), so 'vite build' has no binary."
+    },
+    {
+      "id": "US-055",
+      "title": "[HIGH] Fix broken project results on the public Search page",
+      "description": "As a visitor, I need project search to return results so that the site's global search works across all content types.",
+      "acceptanceCriteria": [
+        "Fix src/pages/Search.tsx projects query (lines ~78-81): it filters '.eq('published', true)' and selects a 'slug' column, but the projects table has neither (it uses a 'status' column and has no slug)",
+        "Change the filter to the correct column (e.g. .eq('status','active')) matching Projects.tsx which selects 'status'",
+        "Remove the non-existent 'slug' from the select and fix the result navigation ('/projects#${slug}') to use a valid identifier/anchor",
+        "Surface query errors: the code destructures only { data }, silently hiding failures — check and handle 'error'",
+        "Verify searching a known project term returns it and navigates correctly",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "HIGH (live bug): Search.tsx queries projects with published/slug columns that don't exist; error is swallowed so project search silently returns nothing."
+    },
+    {
+      "id": "US-056",
+      "title": "[HIGH] Deploy advertised static assets (sitemap.xml, rss.xml, SW icon)",
+      "description": "As an SEO/operator, I need advertised URLs to actually resolve so that crawlers and the service worker don't hit 404s.",
+      "acceptanceCriteria": [
+        "sitemap.xml exists only at repo root, not in public/, so it is absent from dist/ while robots.txt and _redirects advertise /sitemap.xml — ensure the sitemap is generated into/served from public/ (or via the existing SitemapXML route) and resolves 200 in production",
+        "index.html advertises an RSS alternate at /rss.xml, but no such file is deployed — either generate/serve rss.xml (RSSFeed route) at that path or remove the <link rel=alternate> reference",
+        "public/sw.js push handler references '/icon-192.png' which does not exist (only android-chrome-192x192.png) — fix the icon/badge path",
+        "Remove or fix the unreferenced public/site.webmanifest (empty name/short_name) that duplicates public/manifest.json",
+        "Verify each advertised URL (/sitemap.xml, /rss.xml) returns 200 from a production build/preview",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "HIGH: /sitemap.xml and /rss.xml are advertised (robots.txt, index.html) but 404 in dist/. sw.js references a missing icon; site.webmanifest is empty and unreferenced."
+    },
+    {
+      "id": "US-057",
+      "title": "[HIGH] Route error/warn logs through the production-aware logger",
+      "description": "As an operator, I need security-critical errors and warnings to be logged in production so that we are not blind to auth/session failures in prod.",
+      "acceptanceCriteria": [
+        "src/lib/logger.ts currently gates EVERY level (including error and warn) behind import.meta.env.DEV, so nothing logs in production",
+        "Route error and warn severities through the production-aware logger (src/lib/production-logger.ts) so they are emitted in prod (respecting VITE_LOG_LEVEL)",
+        "Ensure the auth/security subsystem's critical signals are visible in prod: failed server-side sign-out ('session may still be valid'), background admin-revocation, session-rotation failures, OAuth state failures, and logSecurityEvent insert fallbacks",
+        "Keep debug/info dev-only to avoid noisy/PII-leaking prod logs",
+        "Verify a production build emits error/warn to the console/transport while debug stays silent",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "HIGH: logger.ts suppresses all levels in prod. Auth subsystem uses this dev-only logger, so revocation/logout/rotation failures produce zero prod output. Complements US-014 (remote transport)."
+    },
+    {
+      "id": "US-058",
+      "title": "[HIGH] Reconcile CSP divergence and COEP breakage",
+      "description": "As a security engineer, I need one authoritative CSP and safe cross-origin headers so that policies are consistent and don't silently break analytics/fonts.",
+      "acceptanceCriteria": [
+        "index.html meta CSP and public/_headers CSP diverge (e.g. index.html has frame-src 'none'; _headers omits it) — consolidate to a single source of truth (prefer _headers for Cloudflare Pages) and remove or align the duplicate",
+        "Evaluate 'Cross-Origin-Embedder-Policy: require-corp' in public/_headers: it can block cross-origin subresources (Google Analytics, Google Fonts, Cloudflare Insights) that don't return CORP headers — remove it or add required CORP handling",
+        "Verify Google Analytics, Google Fonts, and Cloudflare Insights still load with the reconciled headers in a production preview",
+        "Confirm connect-src still covers api.danpearson.net (https+wss) and functions.danpearson.net",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "HIGH: CSP defined in two diverging places; _headers adds COEP require-corp which likely breaks GA/fonts/CF Insights that lack CORP headers. Builds on US-017 (which synced CSP earlier)."
+    },
+    {
+      "id": "US-059",
+      "title": "[HIGH] Verify/fix verify_jwt for public edge functions",
+      "description": "As an operator, I need public edge functions reachable so that OAuth, health checks, and affiliate tracking don't 401 in production.",
+      "acceptanceCriteria": [
+        "supabase/config.toml only sets verify_jwt overrides for 15 of 28 functions; unlisted functions default to verify_jwt=true",
+        "Confirm whether the self-hosted (Coolify) deployment honors config.toml or manages verify_jwt separately",
+        "Ensure the following public/unauthenticated functions do NOT require a JWT: oauth-proxy, health-check, track-affiliate-click (and review slack-test, test-api-setup for appropriate gating)",
+        "Add explicit [functions.X] verify_jwt=false blocks (or the deploy-equivalent) for the public ones",
+        "Verify the OAuth callback flow, health probes, and an affiliate click all succeed unauthenticated against the deployed environment",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "HIGH: oauth-proxy, health-check, track-affiliate-click are public but lack verify_jwt=false overrides; on a standard Supabase deploy they would 401. Verify against Coolify deploy behavior."
+    },
+    {
+      "id": "US-060",
+      "title": "[HIGH] Implement a real scheduler for maintenance automation",
+      "description": "As an operator, I need scheduled maintenance tasks to actually fire so that link checks, cleanup, and sitemap regeneration run automatically.",
+      "acceptanceCriteria": [
+        "maintenance-runner is only a manual dispatcher; calculate_next_run() is a documented stub ('use pg_cron or external scheduler') and there is no pg_cron extension or cron entry in config.toml",
+        "Choose and implement a real scheduler: pg_cron, a Cloudflare Cron Trigger, or an external cron that invokes maintenance-runner on schedule",
+        "Wire the schedule to read maintenance_tasks.schedule_cron and invoke the corresponding task actions",
+        "Add monitoring/logging so failed scheduled runs are recorded (maintenance_results) and surfaced",
+        "Verify at least one scheduled task fires end-to-end without manual invocation",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "HIGH: Scheduled maintenance never fires automatically — no pg_cron, no cron config, calculate_next_run() is a stub. Any reliance on automated cleanup/link-check/sitemap is currently inert."
+    },
+    {
+      "id": "US-061",
+      "title": "[MEDIUM] Fix TypeScript errors so tsc --noEmit passes",
+      "description": "As a developer, I need type-checking to pass so that real type bugs are caught (vite build uses esbuild and skips type-checking, hiding ~40 errors).",
+      "acceptanceCriteria": [
+        "Add a 'typecheck' script to package.json ('tsc --noEmit -p tsconfig.app.json')",
+        "Fix the DOMPurify.Config namespace errors in src/lib/security.ts (dompurify v3 type change)",
+        "Fix BreadcrumbItem type mismatches in CategoryArchive.tsx and TagArchive.tsx (name/url vs label/path)",
+        "Fix article typing in RSSFeed.tsx and SitemapXML.tsx (missing/implicit-any fields, unused vars)",
+        "Fix MarkdownRenderer.tsx Element.style / querySelector typing, dialog.tsx EventTarget typing, visually-hidden.tsx map prop, analytics.ts dataLayer/gtag redeclarations, and remaining TS6133 unused-declaration errors",
+        "Run the typecheck script and confirm zero errors",
+        "Wire typecheck into CI (US-001)"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "MEDIUM: 'tsc --noEmit -p tsconfig.app.json' fails with ~40 errors across security.ts, archives, RSSFeed/SitemapXML, MarkdownRenderer, dialog/visually-hidden, analytics, and many unused-var errors. Build ships anyway (esbuild)."
+    },
+    {
+      "id": "US-062",
+      "title": "[MEDIUM] Clear ESLint errors and fix the stale CSRF test",
+      "description": "As a developer, I need lint and existing tests to be green so that the codebase has a clean baseline.",
+      "acceptanceCriteria": [
+        "Run 'npm run lint' and fix the 9 current errors: no-useless-catch in src/integrations/supabase/client.ts, prefer-const and no-case-declarations in tools/automated-testing/",
+        "Run 'npm run lint -- --fix' for auto-fixable issues and manually resolve the rest",
+        "Fix the stale test in src/lib/__tests__/csrf.test.ts (~line 132): it expects the token's first segment to be a base36 timestamp, but the token format was hardened to 'nonce.hash' (US-028) — update the assertion to the current format",
+        "Consider enabling linting for the currently-ignored supabase/ edge-function dirs (coordinate with US-042)",
+        "Confirm 'npm run lint' reports 0 errors and 'npm test -- --run' passes the csrf test",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "MEDIUM: 9 ESLint errors (client.ts, tools/). csrf.test.ts asserts an outdated timestamp token format hardened in US-028. Edge-function dirs are unlinted."
+    },
+    {
+      "id": "US-063",
+      "title": "[MEDIUM] Fix proxyAuthFetch unreachable-latch self-DoS",
+      "description": "As a user, I need auth requests to recover after transient network failures so that a temporary outage doesn't lock me out for the whole session.",
+      "acceptanceCriteria": [
+        "In src/integrations/supabase/client.ts, once MAX_PROXY_FAILURES (5) is hit, _apiReachable is set false and proxyAuthFetch throws immediately for all subsequent auth requests, so it can never attempt a fetch to reset the flag (requires full page reload)",
+        "Replace the permanent latch with a time-based cooldown / half-open retry (e.g. after N seconds allow a probe request that can restore _apiReachable=true on success)",
+        "Ensure stale-token clearing still occurs on sustained failure but does not permanently block recovery within the session",
+        "Add a unit test verifying the circuit reopens after the cooldown on a successful probe",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "MEDIUM: client.ts latches _apiReachable=false after 5 failures and then refuses all auth fetches, so it cannot self-recover without a page reload."
+    },
+    {
+      "id": "US-064",
+      "title": "[MEDIUM] Surface swallowed Supabase query errors",
+      "description": "As a user/operator, I need failed queries to be reported so that exports aren't silently empty and health cards aren't falsely green.",
+      "acceptanceCriteria": [
+        "Fix the five export functions in src/components/admin/accounting/DataExporter.tsx (~lines 334, 357, 378, 398, 424) that destructure only { data } and 'return (data || [])' — check 'error' and surface it so a failed query does not produce a silent empty CSV",
+        "Fix src/services/contacts/import-export.ts (~line 388) which drops the query error",
+        "Fix src/components/admin/command-center/SystemHealthCard.tsx (~lines 67, 77) so a non-throwing query error is not treated as 'zero metrics' (which can make an unhealthy system read as healthy)",
+        "Audit remaining '{ data }'-only destructures for the same pattern and add error handling",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "MEDIUM: DataExporter (5 spots), contacts import-export, and SystemHealthCard ignore query errors — silent empty exports and false-healthy status."
+    },
+    {
+      "id": "US-065",
+      "title": "[MEDIUM] Lock down wildcard CORS in oauth-proxy and shared helpers",
+      "description": "As a security engineer, I need edge-function CORS restricted to the allow-list so that no function emits Access-Control-Allow-Origin: *.",
+      "acceptanceCriteria": [
+        "supabase/functions/oauth-proxy/index.ts (~line 17) hardcodes 'Access-Control-Allow-Origin': '*' — replace with the shared allow-list from _shared/cors.ts",
+        "supabase/functions/_shared/validation.ts (~line 61) createCorsHeaders() falls back to '*' when ALLOWED_ORIGIN is unset — default to the production allow-list instead",
+        "supabase/functions/_shared/rate-limiter.ts (~line 316) falls back to origin || '*' — align with the shared allow-list",
+        "Migrate functions that reimplement CORS (admin-auth, newsletter-signup, optimize-image) to import the shared _shared/cors.ts helper for consistency",
+        "Review oauth-proxy's OAUTH_STATE_SECRET → SUPABASE_SERVICE_ROLE_KEY fallback and require a dedicated secret",
+        "Verify OAuth and other flows still work from allowed origins and are rejected from others",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "MEDIUM: oauth-proxy uses ACAO '*'; _shared validation.ts and rate-limiter.ts fall back to '*'. Several functions duplicate CORS logic instead of using the locked-down shared helper. Relates to US-041."
+    },
+    {
+      "id": "US-066",
+      "title": "[LOW] Remove dead code, duplicate components, and duplicate migrations",
+      "description": "As a developer, I need dead/duplicated code removed so that the codebase is easier to reason about and maintain.",
+      "acceptanceCriteria": [
+        "Remove the orphaned src/components/RelatedArticles.tsx (the app uses src/components/article/RelatedArticles.tsx)",
+        "Remove unused OAuth-state generators (generateOAuthState, storeOAuthState, createOAuthState) and the deprecated retrieveOAuthState in src/lib/oauth-state.ts, plus unused csrf fetch helpers if US-049 does not adopt them",
+        "Remove the unreachable 'manager' role from authorization.ts ROLE_HIERARCHY (AppRole only supports admin/editor/viewer) or add it to AppRole if intended",
+        "Remove dead errorElement props in App.tsx (declarative Routes, not a data router) or migrate to createBrowserRouter if per-route error UI is desired",
+        "Consolidate duplicate CREATE TABLE migrations (admin_whitelist, support_tickets, secure_vault_items each defined twice) and evaluate removing the legacy ai-content-generator edge function (superseded by _shared/ai-helper; logs raw request bodies)",
+        "Remove the stale '/.supabase.co/' cache rule in public/sw.js",
+        "Verify build and tests still pass after removals",
+        "Typecheck passes"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": "LOW: Orphan RelatedArticles.tsx, dead oauth-state generators + deprecated fn, unused 'manager' role, ineffective errorElement props, duplicate migrations, legacy ai-content-generator, stale sw.js cache rule."
+    },
+    {
+      "id": "US-067",
+      "title": "[LOW] Update outdated dependencies and fix dependency placement",
+      "description": "As a developer, I need dependencies current and correctly categorized so that we get fixes and don't ship type-only packages to production.",
+      "acceptanceCriteria": [
+        "Batch-update outdated packages (e.g. @supabase/supabase-js 2.51→latest, @tanstack/react-query, ~30 @radix-ui packages) after verifying no breaking changes; run build + tests after each batch",
+        "Evaluate the React-Three major upgrades (@react-three/fiber 8→9, @react-three/drei 9→10) separately due to breaking changes",
+        "Normalize edge-function dependency pinning (Deno std 0.168.0/0.190.0 and supabase-js @2/2.7.1/2.39.0/2.39.3/2.51.0 are all in use) to consistent versions",
+        "Move type-only packages from dependencies to devDependencies: @types/qrcode, @types/three, @types/react-syntax-highlighter",
+        "Verify 'npm run build' and 'npm test -- --run' pass after changes",
+        "Typecheck passes"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": "LOW: Significant dep drift (supabase-js, react-query, radix, react-three). Edge functions pin 5 supabase-js + 2 Deno std versions. @types/* packages sit in dependencies."
+    },
+    {
+      "id": "US-068",
+      "title": "[LOW] Document env vars and fix stale README/tooling docs",
+      "description": "As a developer, I need accurate setup docs and a complete .env.example so that onboarding and configuration are correct.",
+      "acceptanceCriteria": [
+        "Add the undocumented VITE_ vars to .env.example (commented, with placeholders): VITE_SENTRY_DSN, VITE_ERROR_TRACKING_ENDPOINT, VITE_ERROR_SAMPLE_RATE, VITE_LOG_LEVEL, VITE_BUILD_VERSION, VITE_ERROR_TRACKING_DEV",
+        "Fix README.md claims that contradict code: it states 'no environment variables required' / 'hardcoded public keys', but src/integrations/supabase/client.ts throws if VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY are unset",
+        "Fix tools/automated-testing/README.md which assumes the Vite dev port is 5173, whereas vite.config.ts sets port 8080",
+        "Deduplicate the two robots.txt files (root vs public/) — keep only the deployed public/ copy",
+        "Verify a fresh clone can be configured and run using only the updated docs",
+        "Typecheck passes"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": "LOW: 6 VITE_ vars used in code but absent from .env.example; README overstates 'no env vars required'; automated-testing README uses wrong dev port; duplicate robots.txt."
     }
   ]
 }
