@@ -70,7 +70,6 @@ export const ImportIntegrationsManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCSVUpload, setShowCSVUpload] = useState<string | null>(null);
-  const [showDocUpload, setShowDocUpload] = useState(false);
 
   // Fetch import sources with TanStack Query
   const { data: sources = [], isLoading } = useQuery({

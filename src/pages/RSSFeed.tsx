@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { logger } from "@/lib/logger";
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
-
-type Article = Tables<"articles">;
 
 const BASE_URL = 'https://danpearson.net';
 
@@ -67,11 +64,10 @@ const RSSFeed = () => {
     <category>Technology</category>
     <category>Artificial Intelligence</category>
     <category>Business Development</category>
-${(articles || []).map((article: Article) => {
+${(articles || []).map((article) => {
   const articleUrl = `${BASE_URL}/news/${article.slug}`;
   const pubDate = article.created_at ? new Date(article.created_at).toUTCString() : currentDate;
   const description = escapeXml(stripHtml(article.excerpt || ''));
-  const content = escapeXml(stripHtml(article.content || ''));
 
   return `    <item>
       <title>${escapeXml(article.title)}</title>

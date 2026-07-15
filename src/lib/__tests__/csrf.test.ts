@@ -121,16 +121,18 @@ describe('CSRF Protection', () => {
   });
 
   describe('Token format', () => {
-    it('should have correct format: timestamp.hash', async () => {
+    it('should have correct format: nonce.hash', async () => {
       const token = await getCSRFToken();
       const parts = token.split('.');
 
       expect(parts).toHaveLength(2);
 
-      // First part should be base36 encoded timestamp
-      const timestamp = parseInt(parts[0], 36);
-      expect(timestamp).toBeLessThanOrEqual(Date.now());
-      expect(timestamp).toBeGreaterThan(Date.now() - 1000); // Within last second
+      // Token format was hardened (US-028) to `nonce.hash`, where the nonce is
+      // a crypto-random value (no longer a predictable base36 timestamp) and the
+      // second segment is a SHA-256 hash. Both segments are base64url strings.
+      const base64url = /^[A-Za-z0-9_-]+$/;
+      expect(parts[0]).toMatch(base64url);
+      expect(parts[1]).toMatch(base64url);
     });
 
     it('should generate unique tokens each time', async () => {

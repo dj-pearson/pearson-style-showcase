@@ -24,7 +24,7 @@ const SitemapXML = () => {
         const [articlesRes, projectsRes, aiToolsRes] = await Promise.all([
           supabase
             .from('articles')
-            .select('slug, updated_at, created_at, image_url, title, category, tags, featured')
+            .select('slug, updated_at, created_at, image_url, title, category, tags, featured, author')
             .eq('published', true)
             .order('updated_at', { ascending: false }),
           supabase

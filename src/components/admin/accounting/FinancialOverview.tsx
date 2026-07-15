@@ -11,7 +11,7 @@ import {
   Calendar,
   AlertCircle,
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
+import { format, endOfMonth, subMonths, parseISO } from 'date-fns';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface FinancialOverviewProps {
@@ -20,7 +20,6 @@ interface FinancialOverviewProps {
 
 const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => {
   const currentMonth = useMemo(() => new Date(), []);
-  const currentMonthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
   const currentMonthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
   const twelveMonthsAgo = useMemo(() => subMonths(currentMonth, 12), [currentMonth]);
 

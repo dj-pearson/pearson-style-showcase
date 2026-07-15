@@ -858,7 +858,7 @@ const InvoiceForm = ({
           <Label>Type</Label>
           <Select
             value={formData.invoice_type}
-            onValueChange={(value) => setFormData({ ...formData, invoice_type: value })}
+            onValueChange={(value) => setFormData({ ...formData, invoice_type: value as 'sales' | 'purchase' })}
           >
             <SelectTrigger>
               <SelectValue />

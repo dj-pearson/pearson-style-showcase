@@ -30,7 +30,7 @@ import {
 import { Plus, Trash2, Wallet, TrendingDown, Info } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfYear, endOfYear, startOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 export const OwnerDrawsTracker = () => {
@@ -44,17 +44,8 @@ export const OwnerDrawsTracker = () => {
   });
   const queryClient = useQueryClient();
 
-  const { dateFrom, dateTo } = useMemo(() => {
-    const year = parseInt(taxYear);
-    const yearDate = new Date(year, 0, 1);
-    return {
-      dateFrom: format(startOfYear(yearDate), 'yyyy-MM-dd'),
-      dateTo: format(endOfYear(yearDate), 'yyyy-MM-dd'),
-    };
-  }, [taxYear]);
-
   // Fetch owner draw payments
-  const { data: draws, isLoading } = useQuery({
+  const { data: draws } = useQuery({
     queryKey: ['owner_draws', taxYear],
     queryFn: async () => {
       const { data, error } = await supabase

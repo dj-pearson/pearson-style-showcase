@@ -5,19 +5,6 @@ import { ArrowRight, Clock, Eye } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-interface Article {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string;
-  category: string;
-  tags: string[];
-  image_url: string | null;
-  read_time: string | null;
-  view_count: number | null;
-  created_at: string;
-}
-
 interface RelatedArticlesProps {
   currentArticleId: string;
   currentTags?: string[];
@@ -53,7 +40,7 @@ const RelatedArticles = ({
         let score = 0;
 
         // Points for tag matches (highest priority)
-        const matchingTags = article.tags?.filter(tag => currentTags.includes(tag)) || [];
+        const matchingTags = article.tags?.filter((tag: string) => currentTags.includes(tag)) || [];
         score += matchingTags.length * 3;
 
         // Points for category match
@@ -180,7 +167,7 @@ const RelatedArticles = ({
 
                 {article.tags && article.tags.length > 0 && (
                   <div className="flex gap-1 flex-wrap mt-3">
-                    {article.tags.slice(0, 3).map((tag, idx) => (
+                    {article.tags.slice(0, 3).map((tag: string, idx: number) => (
                       <Badge
                         key={idx}
                         variant="outline"

@@ -1,4 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { invokeEdgeFunction } from '@/lib/edge-functions';

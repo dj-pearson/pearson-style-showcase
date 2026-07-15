@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,7 +40,6 @@ import {
   DollarSign,
   Calendar,
   Trash2,
-  Edit,
   Eye,
   AlertCircle,
 } from 'lucide-react';
@@ -49,7 +47,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { DocumentUpload } from './DocumentUpload';
 
 interface AIBillingEntry {
@@ -70,6 +68,7 @@ interface AIBillingEntry {
   notes?: string;
   document_id?: string;
   created_at: string;
+  platforms?: { name?: string; platform_type?: string; logo_url?: string } | null;
 }
 
 const AI_SERVICES = [
@@ -93,7 +92,6 @@ export const AIBillingTracker = () => {
   const [editingEntry, setEditingEntry] = useState<AIBillingEntry | null>(null);
   const [viewingEntry, setViewingEntry] = useState<AIBillingEntry | null>(null);
   const [filterService, setFilterService] = useState<string>('all');
-  const [dateRange, setDateRange] = useState('last-6-months');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

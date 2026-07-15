@@ -111,11 +111,10 @@ export function maskPII(value: string): string {
     return `${maskedLocal}@${domain}`;
   });
 
-  // Mask phone numbers (show last 4 digits)
-  masked = masked.replace(PII_PATTERNS.phone, (match) => {
-    const digits = match.replace(/\D/g, '');
-    return `***-***-${digits.slice(-4)}`;
-  });
+  // NOTE: The more specific numeric patterns (SSN, credit card, IPv4) MUST be
+  // masked BEFORE the greedy phone pattern. The phone regex otherwise matches
+  // SSN/IP/card digit runs first and only masks the last 4 digits, leaking the
+  // rest (e.g. an SSN would render as "***-***-6789").
 
   // Mask SSN completely
   masked = masked.replace(PII_PATTERNS.ssn, '***-**-****');
@@ -130,6 +129,12 @@ export function maskPII(value: string): string {
   masked = masked.replace(PII_PATTERNS.ipv4, (match) => {
     const firstOctet = match.split('.')[0];
     return `${firstOctet}.***.***.**`;
+  });
+
+  // Mask phone numbers (show last 4 digits) — runs last among numeric patterns
+  masked = masked.replace(PII_PATTERNS.phone, (match) => {
+    const digits = match.replace(/\D/g, '');
+    return `***-***-${digits.slice(-4)}`;
   });
 
   // Mask JWT tokens

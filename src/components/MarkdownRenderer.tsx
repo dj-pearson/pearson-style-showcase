@@ -365,8 +365,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           if (!validatedHref) {
             // Remove href if invalid (converts to plain text)
             link.removeAttribute('href');
-            link.style.cursor = 'default';
-            link.style.textDecoration = 'none';
+            // Anchor elements from an 'a' selector are HTMLElements at runtime
+            (link as HTMLElement).style.cursor = 'default';
+            (link as HTMLElement).style.textDecoration = 'none';
             return;
           }
           // Update with validated URL
