@@ -873,8 +873,8 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "CRITICAL: 'npm test' fails entirely with 'Timeout starting forks runner' (8 errors, no tests collected). Threads pool works. Blocks all test-related stories (US-001 through US-012, US-048)."
+      "passes": true,
+      "notes": "Set pool: 'threads' in vitest.config.ts (with an explanatory comment) so the runner starts reliably regardless of the forks-pool/Node incompatibility. Verified 'npx vitest run' executes all 8 test files (210 tests) with zero infrastructure errors. Note: the forks-pool 'Timeout starting forks runner' did not reproduce under the current local env (Node 26, Vitest 4.0.8), but the threads pool is set defensively to protect CI. Also fixed 3 pre-existing test failures that were blocking a green baseline: a real PII-leak bug in production-logger maskPII (greedy phone regex ran before the SSN/IPv4 masks, leaking the last 4 digits) and the stale csrf token-format test (see US-062)."
     },
     {
       "id": "US-052",
@@ -907,8 +907,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "CRITICAL: Docs/.nvmrc say Node 18 (EOL Apr 2025) while Vite 6/Vitest 4 expect Node 20+. No engines field enforces anything; local env is Node 26 (too new)."
+      "passes": true,
+      "notes": "Standardized on Node 22 LTS. Updated .nvmrc (18 -> 22), added engines field to package.json ('node': '>=20 <23'), updated README.md prerequisites (removed EOL Node 18 guidance), and updated tools/automated-testing/README.md example workflow to node-version 22. Build and full test suite pass. The .github/workflows CI Node version is wired up as part of US-001 (workflow not yet created). Local dev env remains Node 26; CI/Cloudflare should use 20 or 22 per .nvmrc/engines."
     },
     {
       "id": "US-054",
@@ -922,8 +922,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "CRITICAL: build:pages uses 'npm ci --only=production' which excludes devDependencies (vite, plugin-react, typescript, rollup, tailwind), so 'vite build' has no binary."
+      "passes": true,
+      "notes": "Changed build:pages from 'npm ci --only=production && vite build' to 'npm ci && vite build' so devDependencies (vite, plugin-react, typescript, rollup, tailwind) are installed before building. 'npm run build' (vite build) succeeds and produces a working dist/. No dependency changes were made, so the existing package-lock.json stays in sync with npm ci. Cloudflare Pages build command should be set to 'npm run build:pages' (or 'npm ci && npm run build')."
     },
     {
       "id": "US-055",
@@ -1050,8 +1050,8 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "MEDIUM: 9 ESLint errors (client.ts, tools/). csrf.test.ts asserts an outdated timestamp token format hardened in US-028. Edge-function dirs are unlinted."
+      "passes": true,
+      "notes": "Fixed all 9 ESLint errors: no-useless-catch in src/integrations/supabase/client.ts (replaced the pass-through try/catch with a direct 'return fetch(...)'), 6 prefer-const in tools/automated-testing (auto-fixed via eslint --fix), and 2 no-case-declarations in tools/automated-testing/testers/api-tester.ts (wrapped 'string'/'number' case bodies in blocks). Updated the stale csrf.test.ts 'Token format' test to assert the current 'nonce.hash' base64url format (was asserting the old base36-timestamp format replaced in US-028). 'npm run lint' now reports 0 errors (40 warnings remain, acceptable) and 'npx vitest run' passes the csrf test (210/210). Enabling linting for the ignored supabase/ edge-function dirs is left to US-042 as the AC suggests."
     },
     {
       "id": "US-063",

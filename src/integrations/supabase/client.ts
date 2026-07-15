@@ -93,12 +93,7 @@ const proxyAuthFetch: typeof fetch = async (input, init) => {
   }
 
   // Non-auth requests go directly to api.danpearson.net
-  try {
-    const response = await fetch(input, init);
-    return response;
-  } catch (err) {
-    throw err;
-  }
+  return fetch(input, init);
 };
 
 // Import the supabase client like this:

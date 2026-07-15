@@ -44,7 +44,7 @@ For detailed CI/CD documentation, see [`.github/README.md`](.github/README.md).
 
 ### Prerequisites
 
-- Node.js 18+ (required for Cloudflare Pages)
+- Node.js 20 or 22 LTS (see `.nvmrc`; Node 18 is end-of-life and Vite 6 / Vitest 4 require Node 20+)
 - npm or yarn
 - Supabase account (for backend services)
 

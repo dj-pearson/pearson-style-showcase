@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, type AppRole } from '@/contexts/AuthContext';
 import {
   ResourceType,
   AccessAction,
@@ -87,7 +87,8 @@ export function useResourceOwnership(
   // Check if user has role bypass
   const hasRoleBypass = useMemo(() => {
     if (!policy || !isAdminVerified) return false;
-    return policy.bypassRoles?.some(role => roles.includes(role)) || false;
+    // bypassRoles are declared as string[] but only ever contain valid AppRole values
+    return policy.bypassRoles?.some(role => roles.includes(role as AppRole)) || false;
   }, [policy, isAdminVerified, roles]);
 
   // Whether ownership filter should be applied

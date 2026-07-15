@@ -576,13 +576,14 @@ export function withErrorTracking<T extends (...args: unknown[]) => unknown>(
  */
 export function captureReactError(
   error: Error,
-  errorInfo: { componentStack?: string }
+  errorInfo: { componentStack?: string; section?: string }
 ): string | null {
   return captureException(error, {
     component: 'ErrorBoundary',
     tags: { type: 'react_error' },
     extra: {
       componentStack: errorInfo.componentStack,
+      section: errorInfo.section,
     },
   });
 }

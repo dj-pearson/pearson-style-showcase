@@ -62,7 +62,7 @@ export const QuarterlyTaxTracker = ({
   const queryClient = useQueryClient();
 
   // Fetch estimated tax payments for the selected year
-  const { data: payments, isLoading } = useQuery({
+  const { data: payments } = useQuery({
     queryKey: ['estimated_tax_payments', taxYear],
     queryFn: async () => {
       const { data, error } = await supabase

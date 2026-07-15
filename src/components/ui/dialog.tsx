@@ -53,7 +53,8 @@ const DialogContent = React.forwardRef<
       onOpenAutoFocus={(e) => {
         // Allow default behavior to focus first focusable element
         // or use a custom autofocus element with data-autofocus
-        const autofocusElement = e.currentTarget.querySelector('[data-autofocus]') as HTMLElement;
+        const currentTarget = e.currentTarget as HTMLElement | null;
+        const autofocusElement = currentTarget?.querySelector('[data-autofocus]') as HTMLElement | null;
         if (autofocusElement) {
           e.preventDefault();
           autofocusElement.focus();

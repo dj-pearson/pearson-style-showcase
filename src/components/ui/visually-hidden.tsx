@@ -4,7 +4,7 @@ interface VisuallyHiddenProps {
   /** Content to be hidden visually but available to screen readers */
   children: React.ReactNode;
   /** HTML element to render (defaults to span) */
-  as?: keyof JSX.IntrinsicElements;
+  as?: React.ElementType;
 }
 
 /**

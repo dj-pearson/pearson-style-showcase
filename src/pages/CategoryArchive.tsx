@@ -59,10 +59,15 @@ const CategoryArchive = () => {
   const categoryKeywords = `${categoryDisplay}, ${category} articles, ${category} insights, ${categoryTags.slice(0, 5).join(', ')}`;
 
   const breadcrumbItems = [
-    { name: 'Home', url: 'https://danpearson.net' },
-    { name: 'News', url: 'https://danpearson.net/news' },
-    { name: categoryDisplay, url: `https://danpearson.net/news/category/${category}` }
+    { label: 'Home', path: '/' },
+    { label: 'News', path: '/news' },
+    { label: categoryDisplay, path: `/news/category/${category}` }
   ];
+
+  const breadcrumbStructuredData = breadcrumbItems.map((item) => ({
+    name: item.label,
+    url: `https://danpearson.net${item.path === '/' ? '' : item.path}`,
+  }));
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-950 via-gray-900 to-black text-white">
@@ -74,7 +79,7 @@ const CategoryArchive = () => {
         type="website"
         structuredData={{
           type: 'breadcrumb',
-          data: { items: breadcrumbItems }
+          data: { items: breadcrumbStructuredData }
         }}
       />
 

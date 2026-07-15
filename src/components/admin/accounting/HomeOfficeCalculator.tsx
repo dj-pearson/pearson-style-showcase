@@ -10,7 +10,7 @@ import {
   TableCell,
   TableRow,
 } from '@/components/ui/table';
-import { Home, Calculator, Info, Download, CheckCircle2 } from 'lucide-react';
+import { Home, Info, Download, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const SIMPLIFIED_RATE = 5; // $5 per square foot

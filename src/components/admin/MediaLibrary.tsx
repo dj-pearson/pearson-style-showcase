@@ -5,7 +5,7 @@
  * Supports grid/list views, search, filtering, upload, and metadata editing.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -68,12 +67,9 @@ import {
   Download,
   Copy,
   Check,
-  X,
   Loader2,
   RefreshCw,
   Filter,
-  SortAsc,
-  SortDesc,
   Eye,
   Link,
 } from 'lucide-react';
@@ -87,7 +83,6 @@ import {
   getMediaType,
   formatBytes,
   type MediaAsset,
-  type MediaFolder,
   type MediaSearchOptions,
   type UploadMediaOptions,
 } from '@/services/media/library';
@@ -143,8 +138,8 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [selectedMimeType, setSelectedMimeType] = useState<string>('');
-  const [sortBy, setSortBy] = useState<SortField>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy] = useState<SortField>('created_at');
+  const [sortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set(initialSelection));
   const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<MediaAsset | null>(null);
