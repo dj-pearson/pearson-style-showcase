@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Analytics from "./components/Analytics";
+import TrafficGuard from "./components/TrafficGuard";
 import ScrollTracker from "./components/ScrollTracker";
 import RoutePrefetcher from "./components/RoutePrefetcher";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -69,6 +70,7 @@ const App = () => (
           <AuthProvider>
             <URLHandler>
             <RouteAnnouncer />
+            <TrafficGuard />
             <Analytics />
             <ScrollTracker />
             <RoutePrefetcher />
