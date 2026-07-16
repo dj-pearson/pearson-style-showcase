@@ -32,7 +32,16 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
+    <!--
+      crossorigin="anonymous" so the script is fetched without credentials and
+      is eligible for integrity checking. NOTE: a static Subresource Integrity
+      (integrity="sha384-...") hash is intentionally NOT set on gtag.js — Google
+      ships this file continuously without publishing stable hashes, and it
+      dynamically loads further scripts that SRI cannot cover, so a pinned hash
+      would break analytics on every Google update. Script provenance is instead
+      constrained via the CSP script-src allow-list (googletagmanager.com).
+    -->
+    <script async crossorigin="anonymous" src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
