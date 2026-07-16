@@ -659,8 +659,8 @@
         "Typecheck passes"
       ],
       "priority": 38,
-      "passes": false,
-      "notes": "MEDIUM: Hero section uses inline colors that don't respond to theme changes. No high contrast mode support anywhere."
+      "passes": true,
+      "notes": "Fixed dark-mode inconsistencies and added system high-contrast support. (1) src/components/HeroSection.tsx: replaced the inline color styles on the animated name/surname (#00d4ff, #ffffff) with Tailwind classes text-cyan-400 and text-white (kept the decorative textShadow inline), so the hero respects theme switching. (2) src/components/OptimizedImage.tsx: loading placeholder bg-muted/30 -> bg-muted/50 for better visibility in dark mode. (3) src/index.css: added a @media (prefers-contrast: more) block (WCAG AAA) that overrides --foreground/--muted-foreground/--border/--input/--ring for >=7:1 contrast in both light and .dark, bumps body text to medium weight (font-weight 500), and thickens 1px borders to 2px on bordered elements and form controls. (4) src/index.css: added an explicit html { scroll-behavior: auto !important } inside the existing @media (prefers-reduced-motion: reduce) block so smooth scrolling is disabled for reduced-motion users (previously only covered via the universal selector). (5) Hardcoded-color audit: replaced the theme-breaking hardcoded chart colors in src/components/AmazonPriceTracker.tsx (tooltip #1a1a1a bg / #333 border, #888 axes, #00b4d8 series/gradient) with theme-aware hsl(var(--popover|border|muted-foreground|primary)) so the price chart adapts to light/dark. Remaining hex values in the codebase are intentional exceptions - WebGL/Three.js orb colors, recharts data-series palettes, and brand SVG icons (Google/Apple) - which must stay literal and are not theme-driven. Verification: 'npm run typecheck' clean; 'npm run build' succeeds (CSS compiles); homepage + accessibility E2E (12 specs) pass on chromium (hero h1 renders, no serious/critical axe violations)."
     },
     {
       "id": "US-039",
