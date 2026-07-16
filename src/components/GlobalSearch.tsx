@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench, Loader2 } from 'lucide-react';
+import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { logger } from '@/lib/logger';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -61,10 +57,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
   const saveToRecent = (searchQuery: string) => {
     if (!searchQuery.trim()) return;
 
-    const updated = [
-      searchQuery,
-      ...recentSearches.filter(s => s !== searchQuery)
-    ].slice(0, 5); // Keep only 5 most recent
+    const updated = [searchQuery, ...recentSearches.filter((s) => s !== searchQuery)].slice(0, 5); // Keep only 5 most recent
 
     setRecentSearches(updated);
     localStorage.setItem('recentSearches', JSON.stringify(updated));
@@ -122,14 +115,16 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
       const { data: aiTools } = await supabase
         .from('ai_tools')
         .select('id, title, description, category, link, image_url')
-        .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`)
+        .or(
+          `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`
+        )
         .limit(3);
 
       // Combine and format results
       const combined: SearchResult[] = [
-        ...(articles?.map(a => ({ ...a, type: 'article' as const })) || []),
-        ...(projects?.map(p => ({ ...p, type: 'project' as const })) || []),
-        ...(aiTools?.map(t => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
+        ...(articles?.map((a) => ({ ...a, type: 'article' as const })) || []),
+        ...(projects?.map((p) => ({ ...p, type: 'project' as const })) || []),
+        ...(aiTools?.map((t) => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
       ];
 
       setResults(combined);
@@ -222,16 +217,20 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
 
         <ScrollArea className="h-[500px]">
           <div className="px-6 py-4">
-            {/* Loading state */}
+            {/* Loading state - skeleton cards that mirror the result rows */}
             {isLoading && (
-              <div
-                className="flex flex-col items-center justify-center py-8 gap-3"
-                role="status"
-                aria-label="Searching"
-                aria-busy="true"
-              >
-                <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
-                <span className="text-sm text-muted-foreground">Searching...</span>
+              <div className="space-y-3" role="status" aria-label="Searching" aria-busy="true">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-start gap-3 rounded-lg border p-3">
+                    <Skeleton className="h-10 w-10 rounded-md shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-1/3" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  </div>
+                ))}
+                <span className="sr-only">Searching…</span>
               </div>
             )}
 
@@ -243,12 +242,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
                     <Clock className="w-4 h-4" />
                     Recent Searches
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearRecent}
-                    className="text-xs"
-                  >
+                  <Button variant="ghost" size="sm" onClick={clearRecent} className="text-xs">
                     Clear
                   </Button>
                 </div>

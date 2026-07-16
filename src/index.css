@@ -1023,6 +1023,13 @@
     scroll-behavior: auto !important;
   }
 
+  /* Loading skeletons: swap the pulse/shimmer for a gentle opacity fade rather
+     than freezing them, so loading is still perceivable without motion. The
+     class selector outranks the universal reset above. */
+  .skeleton {
+    animation: skeleton-fade 2s ease-in-out infinite !important;
+  }
+
   /* Preserve essential transitions for usability */
   .transition-essential {
     transition-duration: 150ms !important;
@@ -1185,6 +1192,22 @@
 .a11y-reduced-motion .animate-bounce,
 .a11y-reduced-motion .animate-fade-in {
   animation: none !important;
+}
+
+/* Skeletons keep a gentle opacity fade even in the app's reduced-motion mode. */
+.a11y-reduced-motion .skeleton {
+  animation: skeleton-fade 2s ease-in-out infinite !important;
+}
+
+/* Gentle opacity fade used as the reduced-motion skeleton indicator. */
+@keyframes skeleton-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 /*

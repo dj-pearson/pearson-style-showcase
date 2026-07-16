@@ -759,8 +759,8 @@
         "Typecheck passes"
       ],
       "priority": 44,
-      "passes": false,
-      "notes": "LOW: Search shows no loading feedback. News page shows wrong skeleton count. Admin modules can load indefinitely."
+      "passes": true,
+      "notes": "Improved loading-skeleton accuracy and reduced-motion behavior. GlobalSearch.tsx: the search dropdown now shows three skeleton result cards (icon + title + two text lines) while isLoading, replacing the lone spinner so there is layout-matching visual feedback during a search (removed the now-unused Loader2 import, added Skeleton). News.tsx: ArticleListSkeleton count is now a filter/pagination-aware skeletonCount (expected rows on the current page bounded by any known total, defaulting to PAGE_SIZE) instead of a hardcoded 6. Added src/components/skeletons/SectionSkeleton.tsx (exported from the skeletons index): a generic skeleton configurable via rows, rowHeight, and an optional header block, with proper role=status/aria-busy. AdminDashboard.tsx ModuleLoader (the admin lazy-module Suspense fallback): after 10 seconds it shows 'This module is taking longer than expected' with a Retry button (reloads), so a stuck dynamic import no longer spins forever. Reduced-motion: added a `skeleton` marker class to the ui/skeleton primitive and a skeleton-fade keyframe; under both @media (prefers-reduced-motion: reduce) and the app's .a11y-reduced-motion mode, skeletons now use a gentle 2s opacity fade instead of being frozen by the global animation reset (the class selector outranks the universal reset), so loading stays perceivable without shimmer motion. Verification: 'npm run typecheck' clean; 'npm run lint' 0 errors; full unit suite 362 tests pass; 'npm run build' succeeds and the skeleton-fade keyframe is present in the built CSS."
     },
     {
       "id": "US-045",

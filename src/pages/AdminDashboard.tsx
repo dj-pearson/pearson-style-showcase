@@ -123,15 +123,40 @@ const ServerHealthDashboard = lazy(() =>
 );
 const OddTrafficMonitor = lazy(() => import('@/components/admin/OddTrafficMonitor'));
 
-// Loading fallback for lazy-loaded modules
-const ModuleLoader = () => (
-  <div className="flex items-center justify-center py-12">
-    <div className="flex flex-col items-center gap-3">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <span className="text-sm text-muted-foreground">Loading module...</span>
+// Loading fallback for lazy-loaded modules. After 10s of loading it surfaces a
+// "taking longer than expected" message with a retry button, since a stuck
+// dynamic import (e.g. a chunk load failure) otherwise spins forever.
+const ModuleLoader = () => {
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setTimedOut(true), 10000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (timedOut) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+          <span className="text-sm font-medium">This module is taking longer than expected</span>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="text-sm text-muted-foreground">Loading module...</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface DashboardStats {
   projects: number;

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { useState, useEffect, useMemo } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
@@ -7,7 +7,13 @@ import SEO from '../components/SEO';
 import { ArticleCard } from '../components/ArticleCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Search, Filter, X, Loader2, RefreshCw, ChevronDown } from 'lucide-react';
@@ -17,7 +23,7 @@ import { ArticleListSkeleton } from '@/components/skeletons';
 import { useToast } from '@/hooks/use-toast';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
-type Article = Tables<"articles">;
+type Article = Tables<'articles'>;
 
 const STORAGE_KEY_PREFIX = 'newsFilters';
 
@@ -53,7 +59,11 @@ const News = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const PAGE_SIZE = 12;
 
-  const { data: articlesData, isLoading, error } = useQuery({
+  const {
+    data: articlesData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['articles', currentPage],
     queryFn: async () => {
       const from = (currentPage - 1) * PAGE_SIZE;
@@ -69,7 +79,9 @@ const News = () => {
 
       const { data, error } = await supabase
         .from('articles')
-        .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
+        .select(
+          'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'
+        )
         .eq('published', true)
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false })
@@ -84,10 +96,20 @@ const News = () => {
   const totalCount = articlesData?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
+  // Number of skeleton cards to show while loading: the expected rows on the
+  // current page (bounded by any known total) rather than a fixed 6.
+  const skeletonCount = useMemo(() => {
+    if (totalCount > 0) {
+      const remaining = totalCount - (currentPage - 1) * PAGE_SIZE;
+      return Math.max(1, Math.min(PAGE_SIZE, remaining));
+    }
+    return PAGE_SIZE;
+  }, [totalCount, currentPage]);
+
   // Get unique categories for filtering - memoized to prevent recalculation
   const allCategories = useMemo(() => {
     if (!articles) return [];
-    return Array.from(new Set(articles.map(a => a.category))).sort();
+    return Array.from(new Set(articles.map((a) => a.category))).sort();
   }, [articles]);
 
   // Filter articles - memoized to prevent recalculation on every render
@@ -96,11 +118,11 @@ const News = () => {
 
     const searchLower = searchTerm.toLowerCase();
 
-    return articles.filter(article => {
+    return articles.filter((article) => {
       const matchesSearch =
         article.title?.toLowerCase().includes(searchLower) ||
         article.excerpt?.toLowerCase().includes(searchLower) ||
-        article.tags?.some(tag => tag?.toLowerCase().includes(searchLower));
+        article.tags?.some((tag) => tag?.toLowerCase().includes(searchLower));
       const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -143,7 +165,7 @@ const News = () => {
 
     try {
       const { data: result, error } = await invokeEdgeFunction('newsletter-signup', {
-        body: { email: email.trim() }
+        body: { email: email.trim() },
       });
 
       if (error) {
@@ -152,17 +174,18 @@ const News = () => {
       }
 
       toast({
-        title: "Successfully subscribed!",
-        description: result.message || "Thank you for subscribing. Check your inbox for a welcome email!",
+        title: 'Successfully subscribed!',
+        description:
+          result.message || 'Thank you for subscribing. Check your inbox for a welcome email!',
       });
 
       setEmail('');
     } catch (error) {
       logger.error('Newsletter signup failed:', error);
       toast({
-        title: "Subscription failed",
-        description: error instanceof Error ? error.message : "Please try again later.",
-        variant: "destructive",
+        title: 'Subscription failed',
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        variant: 'destructive',
       });
     } finally {
       setIsSubscribing(false);
@@ -187,7 +210,8 @@ const News = () => {
               News & Insights
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto px-2 leading-relaxed">
-              Stay updated with the latest trends in AI, NFTs, blockchain technology, and business strategy insights.
+              Stay updated with the latest trends in AI, NFTs, blockchain technology, and business
+              strategy insights.
             </p>
           </div>
 
@@ -196,8 +220,13 @@ const News = () => {
             <div className="flex flex-col gap-4">
               {/* Search */}
               <div className="relative w-full">
-                <label htmlFor="article-search" className="sr-only">Search articles</label>
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" aria-hidden="true" />
+                <label htmlFor="article-search" className="sr-only">
+                  Search articles
+                </label>
+                <Search
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none"
+                  aria-hidden="true"
+                />
                 <Input
                   id="article-search"
                   placeholder="Search articles, tags, or content..."
@@ -219,37 +248,58 @@ const News = () => {
                       <Filter className="h-5 w-5" />
                       Filters & Sort
                       {(selectedCategory !== 'all' || sortBy !== 'newest') && (
-                        <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-xs ml-1">
+                        <Badge
+                          variant="secondary"
+                          className="bg-cyan-500/20 text-cyan-400 text-xs ml-1"
+                        >
                           Active
                         </Badge>
                       )}
                     </span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
+                    />
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger aria-label="Filter articles by category" className="mobile-input w-full bg-gray-700/50 border-gray-600">
+                    <SelectTrigger
+                      aria-label="Filter articles by category"
+                      className="mobile-input w-full bg-gray-700/50 border-gray-600"
+                    >
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by category" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
                       <SelectItem value="all">All Categories</SelectItem>
-                      {allCategories.map(category => (
-                        <SelectItem key={category} value={category} className="touch-target">{category}</SelectItem>
+                      {allCategories.map((category) => (
+                        <SelectItem key={category} value={category} className="touch-target">
+                          {category}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
 
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger aria-label="Sort articles" className="mobile-input w-full bg-gray-700/50 border-gray-600">
+                    <SelectTrigger
+                      aria-label="Sort articles"
+                      className="mobile-input w-full bg-gray-700/50 border-gray-600"
+                    >
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
-                      <SelectItem value="newest" className="touch-target">Newest</SelectItem>
-                      <SelectItem value="oldest" className="touch-target">Oldest</SelectItem>
-                      <SelectItem value="most-viewed" className="touch-target">Most Viewed</SelectItem>
-                      <SelectItem value="title" className="touch-target">Title A-Z</SelectItem>
+                      <SelectItem value="newest" className="touch-target">
+                        Newest
+                      </SelectItem>
+                      <SelectItem value="oldest" className="touch-target">
+                        Oldest
+                      </SelectItem>
+                      <SelectItem value="most-viewed" className="touch-target">
+                        Most Viewed
+                      </SelectItem>
+                      <SelectItem value="title" className="touch-target">
+                        Title A-Z
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -271,14 +321,19 @@ const News = () => {
                 {/* Category Filter */}
                 <div className="flex-initial">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger aria-label="Filter articles by category" className="mobile-input w-[200px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger
+                      aria-label="Filter articles by category"
+                      className="mobile-input w-[200px] bg-gray-700/50 border-gray-600"
+                    >
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by category" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
                       <SelectItem value="all">All Categories</SelectItem>
-                      {allCategories.map(category => (
-                        <SelectItem key={category} value={category} className="touch-target">{category}</SelectItem>
+                      {allCategories.map((category) => (
+                        <SelectItem key={category} value={category} className="touch-target">
+                          {category}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -287,14 +342,25 @@ const News = () => {
                 {/* Sort */}
                 <div className="flex-initial">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger aria-label="Sort articles" className="mobile-input w-[160px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger
+                      aria-label="Sort articles"
+                      className="mobile-input w-[160px] bg-gray-700/50 border-gray-600"
+                    >
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
-                      <SelectItem value="newest" className="touch-target">Newest</SelectItem>
-                      <SelectItem value="oldest" className="touch-target">Oldest</SelectItem>
-                      <SelectItem value="most-viewed" className="touch-target">Most Viewed</SelectItem>
-                      <SelectItem value="title" className="touch-target">Title A-Z</SelectItem>
+                      <SelectItem value="newest" className="touch-target">
+                        Newest
+                      </SelectItem>
+                      <SelectItem value="oldest" className="touch-target">
+                        Oldest
+                      </SelectItem>
+                      <SelectItem value="most-viewed" className="touch-target">
+                        Most Viewed
+                      </SelectItem>
+                      <SelectItem value="title" className="touch-target">
+                        Title A-Z
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -318,12 +384,18 @@ const News = () => {
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700">
                 <span className="text-sm text-gray-400 font-medium">Active filters:</span>
                 {searchTerm && (
-                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
+                  <Badge
+                    variant="secondary"
+                    className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1"
+                  >
                     Search: "{searchTerm}"
                   </Badge>
                 )}
                 {selectedCategory !== 'all' && (
-                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
+                  <Badge
+                    variant="secondary"
+                    className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1"
+                  >
                     Category: {selectedCategory}
                   </Badge>
                 )}
@@ -340,11 +412,13 @@ const News = () => {
           {/* Articles Grid */}
           <div className="pb-12 sm:pb-16">
             {isLoading ? (
-              <ArticleListSkeleton count={6} />
+              <ArticleListSkeleton count={skeletonCount} />
             ) : error ? (
               <div className="text-center py-12 px-4">
                 <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
-                  <p className="text-base text-destructive mb-4">Error loading articles. Please check your connection and try again.</p>
+                  <p className="text-base text-destructive mb-4">
+                    Error loading articles. Please check your connection and try again.
+                  </p>
                   <Button
                     variant="outline"
                     onClick={() => queryClient.invalidateQueries({ queryKey: ['articles'] })}
@@ -365,7 +439,9 @@ const News = () => {
               ) : (
                 <div className="text-center py-12 px-4">
                   <div className="mobile-card bg-muted/30 max-w-md mx-auto">
-                    <p className="text-base text-gray-400 mb-4">No articles match your current filters.</p>
+                    <p className="text-base text-gray-400 mb-4">
+                      No articles match your current filters.
+                    </p>
                     <Button
                       variant="outline"
                       onClick={clearFilters}
@@ -387,14 +463,16 @@ const News = () => {
               <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage <= 1 || isLoading}
                   className="border-gray-600 min-h-[44px] min-w-[44px]"
                 >
                   Previous
                 </Button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                  .filter(
+                    (page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1
+                  )
                   .reduce<(number | string)[]>((acc, page, idx, arr) => {
                     if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push('...');
                     acc.push(page);
@@ -402,14 +480,16 @@ const News = () => {
                   }, [])
                   .map((item, idx) =>
                     typeof item === 'string' ? (
-                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-500">...</span>
+                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-500">
+                        ...
+                      </span>
                     ) : (
                       <Button
                         key={item}
-                        variant={item === currentPage ? "default" : "outline"}
+                        variant={item === currentPage ? 'default' : 'outline'}
                         onClick={() => setCurrentPage(item)}
                         disabled={isLoading}
-                        className={`min-h-[44px] min-w-[44px] ${item === currentPage ? "bg-cyan-600" : "border-gray-600"}`}
+                        className={`min-h-[44px] min-w-[44px] ${item === currentPage ? 'bg-cyan-600' : 'border-gray-600'}`}
                       >
                         {item}
                       </Button>
@@ -417,7 +497,7 @@ const News = () => {
                   )}
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages || isLoading}
                   className="border-gray-600 min-h-[44px] min-w-[44px]"
                 >
@@ -430,12 +510,17 @@ const News = () => {
           {/* Newsletter Signup */}
           <div className="text-center py-8 sm:py-12 md:py-16 border-t border-gray-800">
             <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-4 sm:p-6 md:p-8 max-w-2xl mx-auto">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 text-white leading-tight">Stay Connected</h2>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 text-white leading-tight">
+                Stay Connected
+              </h2>
               <p className="text-sm sm:text-base text-gray-400 mb-4 sm:mb-5 md:mb-6 leading-relaxed">
-                Subscribe to get the latest insights on AI, technology, and business strategy delivered to your inbox.
+                Subscribe to get the latest insights on AI, technology, and business strategy
+                delivered to your inbox.
               </p>
               <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
-                <label htmlFor="newsletter-email" className="sr-only">Email address for newsletter</label>
+                <label htmlFor="newsletter-email" className="sr-only">
+                  Email address for newsletter
+                </label>
                 <Input
                   id="newsletter-email"
                   type="email"
