@@ -11,12 +11,19 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
 } from 'recharts';
-import { DollarSign, TrendingUp, TrendingDown, ShoppingCart, MousePointerClick } from 'lucide-react';
+import {
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  ShoppingCart,
+  MousePointerClick,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { format, subDays } from 'date-fns';
+import type { CustomTooltipProps } from '@/types/recharts';
 
 interface RevenueData {
   date: string;
@@ -44,7 +51,7 @@ export const RevenueChart: React.FC = () => {
     totalOrders: 0,
     avgConversionRate: 0,
     trend: 'stable',
-    trendPercentage: 0
+    trendPercentage: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -75,12 +82,12 @@ export const RevenueChart: React.FC = () => {
       // Aggregate by date
       const dateMap = new Map<string, { revenue: number; clicks: number; orders: number }>();
 
-      stats?.forEach(stat => {
+      stats?.forEach((stat) => {
         const existing = dateMap.get(stat.date) || { revenue: 0, clicks: 0, orders: 0 };
         dateMap.set(stat.date, {
           revenue: existing.revenue + Number(stat.revenue),
           clicks: existing.clicks + stat.clicks,
-          orders: existing.orders + stat.orders
+          orders: existing.orders + stat.orders,
         });
       });
 
@@ -90,21 +97,23 @@ export const RevenueChart: React.FC = () => {
         revenue: data.revenue,
         clicks: data.clicks,
         orders: data.orders,
-        conversionRate: data.clicks > 0 ? (data.orders / data.clicks) * 100 : 0
+        conversionRate: data.clicks > 0 ? (data.orders / data.clicks) * 100 : 0,
       }));
 
       // Fill in missing dates with zero values
       const filledData: RevenueData[] = [];
       for (let i = 0; i < days; i++) {
         const date = format(subDays(new Date(), days - i - 1), 'yyyy-MM-dd');
-        const existing = chartData.find(d => d.date === date);
-        filledData.push(existing || {
-          date,
-          revenue: 0,
-          clicks: 0,
-          orders: 0,
-          conversionRate: 0
-        });
+        const existing = chartData.find((d) => d.date === date);
+        filledData.push(
+          existing || {
+            date,
+            revenue: 0,
+            clicks: 0,
+            orders: 0,
+            conversionRate: 0,
+          }
+        );
       }
 
       setRevenueData(filledData);
@@ -122,13 +131,11 @@ export const RevenueChart: React.FC = () => {
       const avgFirstHalf = firstHalfRevenue / midPoint;
       const avgSecondHalf = secondHalfRevenue / (filledData.length - midPoint);
 
-      const trendPercentage = avgFirstHalf > 0 ?
-        ((avgSecondHalf - avgFirstHalf) / avgFirstHalf) * 100 : 0;
+      const trendPercentage =
+        avgFirstHalf > 0 ? ((avgSecondHalf - avgFirstHalf) / avgFirstHalf) * 100 : 0;
 
       const trend: 'up' | 'down' | 'stable' =
-        trendPercentage > 5 ? 'up' :
-        trendPercentage < -5 ? 'down' :
-        'stable';
+        trendPercentage > 5 ? 'up' : trendPercentage < -5 ? 'down' : 'stable';
 
       setSummary({
         totalRevenue,
@@ -136,7 +143,7 @@ export const RevenueChart: React.FC = () => {
         totalOrders,
         avgConversionRate,
         trend,
-        trendPercentage
+        trendPercentage,
       });
 
       setIsLoading(false);
@@ -150,7 +157,7 @@ export const RevenueChart: React.FC = () => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 2,
     }).format(value);
   };
 
@@ -159,25 +166,17 @@ export const RevenueChart: React.FC = () => {
     return format(date, 'MMM dd');
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps<RevenueData>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
         <div className="bg-background border rounded-lg shadow-lg p-3">
           <p className="text-sm font-medium mb-2">{formatDate(data.date)}</p>
           <div className="space-y-1 text-xs">
-            <p className="text-green-500">
-              Revenue: {formatCurrency(data.revenue)}
-            </p>
-            <p className="text-blue-500">
-              Clicks: {data.clicks}
-            </p>
-            <p className="text-purple-500">
-              Orders: {data.orders}
-            </p>
-            <p className="text-orange-500">
-              Conv. Rate: {data.conversionRate.toFixed(2)}%
-            </p>
+            <p className="text-green-500">Revenue: {formatCurrency(data.revenue)}</p>
+            <p className="text-blue-500">Clicks: {data.clicks}</p>
+            <p className="text-purple-500">Orders: {data.orders}</p>
+            <p className="text-orange-500">Conv. Rate: {data.conversionRate.toFixed(2)}%</p>
           </div>
         </div>
       );
@@ -222,8 +221,11 @@ export const RevenueChart: React.FC = () => {
                 </div>
                 <p className="text-2xl font-bold">{formatCurrency(summary.totalRevenue)}</p>
                 {summary.trend !== 'stable' && (
-                  <p className={`text-xs mt-1 ${summary.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                    {summary.trend === 'up' ? '+' : ''}{summary.trendPercentage.toFixed(1)}% vs previous period
+                  <p
+                    className={`text-xs mt-1 ${summary.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}
+                  >
+                    {summary.trend === 'up' ? '+' : ''}
+                    {summary.trendPercentage.toFixed(1)}% vs previous period
                   </p>
                 )}
               </div>
@@ -258,8 +260,8 @@ export const RevenueChart: React.FC = () => {
                 <AreaChart data={revenueData}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -297,10 +299,7 @@ export const RevenueChart: React.FC = () => {
                     className="text-xs"
                     stroke="hsl(var(--muted-foreground))"
                   />
-                  <YAxis
-                    className="text-xs"
-                    stroke="hsl(var(--muted-foreground))"
-                  />
+                  <YAxis className="text-xs" stroke="hsl(var(--muted-foreground))" />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Line

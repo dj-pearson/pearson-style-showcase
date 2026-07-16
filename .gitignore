@@ -65,3 +65,14 @@ danpearson-edge-functions/.env.*
 edge-functions-template/
 MIGRATION_STATUS.md
 danpearson-edge-functions/env.example
+
+# Test coverage output
+coverage
+e2e-results/
+test-results/
+
+# Lighthouse CI output
+.lighthouseci/
+
+# Bundle analyzer output
+stats.html

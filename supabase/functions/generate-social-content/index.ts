@@ -1,9 +1,14 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
-import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
-import { validateUuid } from "../_shared/validation.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  createRateLimitResponse,
+  initRateLimiter,
+} from '../_shared/rate-limiter.ts';
+import { validateUuid } from '../_shared/validation.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -17,7 +22,7 @@ const SOCIAL_GEN_RATE_LIMIT = {
 };
 
 Deno.serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -37,10 +42,10 @@ Deno.serve(async (req) => {
     // Validate articleId
     const articleIdResult = validateUuid(articleId);
     if (!articleIdResult.valid) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid articleId: must be a valid UUID' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid articleId: must be a valid UUID' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseClient = createClient(
@@ -80,22 +85,25 @@ Return ONLY valid JSON in this exact format:
   "longForm": "your facebook post here"
 }`;
 
-    const aiResponse = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': claudeApiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
+    const aiResponse = await fetchWithTimeout(
+      'https://api.anthropic.com/v1/messages',
+      {
+        method: 'POST',
+        headers: {
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          system:
+            'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.',
+          messages: [{ role: 'user', content: prompt }],
+        }),
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.',
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-      }),
-    }, { timeoutMs: 30_000, maxRetries: 2, label: 'claude-social' });
+      { timeoutMs: 30_000, maxRetries: 2, label: 'claude-social' }
+    );
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -167,7 +175,6 @@ Return ONLY valid JSON in this exact format:
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error generating social content:', error);
     return structuredErrorResponse(

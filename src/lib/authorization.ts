@@ -42,11 +42,7 @@ export const ROLE_HIERARCHY: Record<string, RoleDefinition> = {
   viewer: {
     name: 'viewer',
     level: 1,
-    permissions: [
-      'articles.read',
-      'projects.read',
-      'analytics.view',
-    ],
+    permissions: ['articles.read', 'projects.read', 'analytics.view'],
   },
   editor: {
     name: 'editor',
@@ -66,30 +62,13 @@ export const ROLE_HIERARCHY: Record<string, RoleDefinition> = {
     ],
     inherits: ['viewer'],
   },
-  manager: {
-    name: 'manager',
-    level: 8,
-    permissions: [
-      'users.read',
-      'tasks.create',
-      'tasks.read',
-      'tasks.update',
-      'tasks.delete',
-      'tickets.read',
-      'tickets.update',
-      'tickets.assign',
-      'accounting.read',
-      'reports.view',
-    ],
-    inherits: ['editor'],
-  },
   admin: {
     name: 'admin',
     level: 10,
     permissions: [
       '*', // Wildcard - all permissions
     ],
-    inherits: ['manager'],
+    inherits: ['editor'],
   },
 };
 
@@ -143,10 +122,7 @@ export function parsePermission(permission: string): Permission {
  * Check if a permission matches a required permission
  * Supports wildcard matching
  */
-export function permissionMatches(
-  userPermission: string,
-  requiredPermission: string
-): boolean {
+export function permissionMatches(userPermission: string, requiredPermission: string): boolean {
   // Exact match
   if (userPermission === requiredPermission) return true;
 
@@ -163,7 +139,10 @@ export function permissionMatches(
   }
 
   // Resource match with scope upgrade (own -> all is upgrade, not allowed)
-  if (userParsed.resource === requiredParsed.resource && userParsed.action === requiredParsed.action) {
+  if (
+    userParsed.resource === requiredParsed.resource &&
+    userParsed.action === requiredParsed.action
+  ) {
     // If user has 'all' scope, they can do 'own' or 'assigned'
     if (userParsed.scope === 'all') return true;
 
@@ -191,7 +170,7 @@ export function getEffectivePermissions(roleName: string): string[] {
   if (role.inherits) {
     for (const inheritedRole of role.inherits) {
       const inheritedPerms = getEffectivePermissions(inheritedRole);
-      inheritedPerms.forEach(p => permissions.add(p));
+      inheritedPerms.forEach((p) => permissions.add(p));
     }
   }
 
@@ -221,10 +200,7 @@ export function rolesGrantPermission(
 /**
  * Check if user meets role level requirement
  */
-export function meetsRoleLevel(
-  userRoles: string[],
-  requiredLevel: number
-): boolean {
+export function meetsRoleLevel(userRoles: string[], requiredLevel: number): boolean {
   for (const roleName of userRoles) {
     const role = ROLE_HIERARCHY[roleName];
     if (role && role.level >= requiredLevel) {
@@ -415,7 +391,7 @@ export async function syncUserRoles(userId: string): Promise<string[]> {
       return [];
     }
 
-    return data?.map(r => r.role) || [];
+    return data?.map((r) => r.role) || [];
   } catch (error) {
     logger.error('Error syncing roles:', error);
     return [];

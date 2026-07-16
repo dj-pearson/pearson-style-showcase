@@ -243,3 +243,33 @@ verify_jwt = false
 
 [functions.extract-from-url]
 verify_jwt = true
+
+# --- Public / unauthenticated functions (US-059) ---
+# These are reachable without a Supabase JWT: the OAuth provider redirects to
+# oauth-proxy without a session, health-check answers monitoring probes, and
+# anonymous visitors hit track-affiliate-click. Without verify_jwt = false the
+# platform would 401 these before their handlers run.
+
+[functions.oauth-proxy]
+verify_jwt = false
+
+[functions.health-check]
+verify_jwt = false
+
+[functions.track-affiliate-click]
+verify_jwt = false
+
+# --- Diagnostic/admin functions kept authenticated (reviewed, US-059) ---
+# These trigger outbound side effects or probe server configuration and must
+# NOT be publicly callable. verify_jwt = true is the default, set explicitly
+# here to document the decision. coolify-health additionally checks the
+# Authorization header itself.
+
+[functions.slack-test]
+verify_jwt = true
+
+[functions.test-api-setup]
+verify_jwt = true
+
+[functions.coolify-health]
+verify_jwt = true

@@ -88,8 +88,8 @@ export const OptimizedImage = ({
 
     const widths = [640, 750, 828, 1080, 1200, 1920, 2048, 3840];
     const srcset = widths
-      .filter(w => w <= width * 2) // Only include sizes up to 2x original
-      .map(w => {
+      .filter((w) => w <= width * 2) // Only include sizes up to 2x original
+      .map((w) => {
         // For external URLs or if not using a CDN, just use original
         if (originalSrc.startsWith('http')) {
           return `${originalSrc} ${w}w`;
@@ -142,20 +142,14 @@ export const OptimizedImage = ({
       )}
 
       {/* Loading placeholder */}
-      {!isLoaded && !blurDataURL && (
-        <div className="absolute inset-0 bg-muted/30 animate-pulse" />
-      )}
+      {!isLoaded && !blurDataURL && <div className="absolute inset-0 bg-muted/50 animate-pulse" />}
 
       {/* Actual image - only render when in view or priority */}
       {isInView && (
         <picture>
           {/* WebP source if browser supports it */}
           {supportsWebP() && !src.endsWith('.webp') && (
-            <source
-              type="image/webp"
-              srcSet={srcSet || webpSrc}
-              sizes={sizes}
-            />
+            <source type="image/webp" srcSet={srcSet || webpSrc} sizes={sizes} />
           )}
 
           {/* Fallback image */}

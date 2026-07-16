@@ -9,14 +9,14 @@
  * - Store optimized versions in Supabase Storage
  */
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { ImageMagick, initialize, MagickFormat } from "https://deno.land/x/imagemagick_deno@0.0.25/mod.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://danpearson.net",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import {
+  ImageMagick,
+  initialize,
+  MagickFormat,
+} from 'https://deno.land/x/imagemagick_deno@0.0.25/mod.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 
 interface OptimizeRequest {
   /** Source file path in storage bucket */
@@ -78,36 +78,51 @@ async function initializeMagick() {
 // Get MIME type for format
 function getMimeType(format: string): string {
   switch (format) {
-    case 'webp': return 'image/webp';
-    case 'avif': return 'image/avif';
-    case 'png': return 'image/png';
-    default: return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'avif':
+      return 'image/avif';
+    case 'png':
+      return 'image/png';
+    default:
+      return 'image/jpeg';
   }
 }
 
 // Get MagickFormat for format string
 function getMagickFormat(format: string): MagickFormat {
   switch (format) {
-    case 'webp': return MagickFormat.Webp;
-    case 'avif': return MagickFormat.Avif;
-    case 'png': return MagickFormat.Png;
-    default: return MagickFormat.Jpeg;
+    case 'webp':
+      return MagickFormat.Webp;
+    case 'avif':
+      return MagickFormat.Avif;
+    case 'png':
+      return MagickFormat.Png;
+    default:
+      return MagickFormat.Jpeg;
   }
 }
 
 // Get file extension
 function getExtension(format: string): string {
   switch (format) {
-    case 'webp': return 'webp';
-    case 'avif': return 'avif';
-    case 'png': return 'png';
-    default: return 'jpg';
+    case 'webp':
+      return 'webp';
+    case 'avif':
+      return 'avif';
+    case 'png':
+      return 'png';
+    default:
+      return 'jpg';
   }
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  // CORS from the shared allow-list (per request; never a wildcard).
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
+
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -130,15 +145,15 @@ const handler = async (req: Request): Promise<Response> => {
     } = body;
 
     if (!sourcePath) {
-      return new Response(
-        JSON.stringify({ error: 'sourcePath is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'sourcePath is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Download the source image
@@ -148,10 +163,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (downloadError || !fileData) {
       console.error('Download error:', downloadError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to download source image' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Failed to download source image' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const sourceBuffer = new Uint8Array(await fileData.arrayBuffer());
@@ -231,9 +246,7 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         // Get public URL
-        const { data: urlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(optimizedPath);
+        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(optimizedPath);
 
         results.optimized = {
           width: newWidth,
@@ -282,9 +295,7 @@ const handler = async (req: Request): Promise<Response> => {
             }
 
             // Get public URL
-            const { data: urlData } = supabase.storage
-              .from(bucket)
-              .getPublicUrl(variantPath);
+            const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(variantPath);
 
             results.variants!.push({
               width: targetWidth,
@@ -313,11 +324,10 @@ const handler = async (req: Request): Promise<Response> => {
       variants: results.variants?.length || 0,
     });
 
-    return new Response(
-      JSON.stringify(results),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return new Response(JSON.stringify(results), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Optimization error:', error);
     return new Response(

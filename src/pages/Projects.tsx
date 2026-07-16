@@ -181,7 +181,7 @@ const Projects = () => {
                 {/* Tag Filter */}
                 <div className="flex-1 sm:flex-initial">
                   <Select value={selectedTag} onValueChange={setSelectedTag}>
-                    <SelectTrigger className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger aria-label="Filter projects by tag" className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600">
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by tag" />
                     </SelectTrigger>
@@ -197,7 +197,7 @@ const Projects = () => {
                 {/* Sort */}
                 <div className="flex-1 sm:flex-initial">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger aria-label="Sort projects" className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">

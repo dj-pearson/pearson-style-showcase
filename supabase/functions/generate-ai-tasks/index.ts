@@ -1,9 +1,14 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
-import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
-import { validateText } from "../_shared/validation.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  createRateLimitResponse,
+  initRateLimiter,
+} from '../_shared/rate-limiter.ts';
+import { validateText } from '../_shared/validation.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -31,7 +36,7 @@ interface GeneratedTasksResponse {
 }
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -51,39 +56,39 @@ serve(async (req) => {
     // Validate text input with max length of 5000 chars
     const textResult = validateText(text, { required: true, minLength: 1, maxLength: 5000 });
     if (!textResult.valid) {
-      return new Response(
-        JSON.stringify({ error: textResult.error }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: textResult.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // Get active AI model config for task_generation or general use case
     const { data: configs, error: configError } = await supabaseClient
-      .from("ai_model_configs")
-      .select("*")
-      .eq("is_active", true)
-      .order("priority", { ascending: false });
+      .from('ai_model_configs')
+      .select('*')
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
 
     if (configError || !configs) {
-      throw new Error("Failed to load AI model configurations");
+      throw new Error('Failed to load AI model configurations');
     }
 
     const activeConfigs = configs || [];
 
     // Prefer task_generation-specific configs, then 'all', then general configs
-    const taskConfigs = activeConfigs.filter((c: any) =>
-      c.use_case && c.use_case.includes("task_generation")
+    const taskConfigs = activeConfigs.filter(
+      (c: any) => c.use_case && c.use_case.includes('task_generation')
     );
-    const allUseConfigs = activeConfigs.filter((c: any) =>
-      c.use_case && c.use_case.includes("all")
+    const allUseConfigs = activeConfigs.filter(
+      (c: any) => c.use_case && c.use_case.includes('all')
     );
-    const generalConfigs = activeConfigs.filter((c: any) =>
-      !c.use_case || c.use_case.includes("general")
+    const generalConfigs = activeConfigs.filter(
+      (c: any) => !c.use_case || c.use_case.includes('general')
     );
 
     const orderedConfigs =
@@ -94,7 +99,7 @@ serve(async (req) => {
           : generalConfigs;
 
     if (orderedConfigs.length === 0) {
-      throw new Error("No active AI configuration found for task generation");
+      throw new Error('No active AI configuration found for task generation');
     }
 
     const systemPrompt = `You are a task extraction and organization specialist. Your job is to analyze text that users paste and extract actionable tasks from it.
@@ -150,23 +155,25 @@ ${text}`;
           continue;
         }
 
-        if (config.provider === "gemini-paid" || config.provider === "gemini-free") {
+        if (config.provider === 'gemini-paid' || config.provider === 'gemini-free') {
           const response = await fetchWithTimeout(
             `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
             {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                contents: [{
-                  parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
-                }],
+                contents: [
+                  {
+                    parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+                  },
+                ],
                 generationConfig: {
                   temperature: 0.3,
                   topP: 0.8,
                   maxOutputTokens: 4096,
-                  ...(config.configuration || {})
-                }
-              })
+                  ...(config.configuration || {}),
+                },
+              }),
             },
             { timeoutMs: 30_000, maxRetries: 2, label: 'gemini-tasks' }
           );
@@ -182,23 +189,24 @@ ${text}`;
             const errorText = await response.text();
             console.error(`Gemini API error: ${response.status} - ${errorText}`);
           }
-
-        } else if (config.provider === "claude") {
-          const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01"
+        } else if (config.provider === 'claude') {
+          const response = await fetchWithTimeout(
+            'https://api.anthropic.com/v1/messages',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: config.model_name,
+                max_tokens: 4096,
+                messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }],
+              }),
             },
-            body: JSON.stringify({
-              model: config.model_name,
-              max_tokens: 4096,
-              messages: [
-                { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
-              ]
-            })
-          }, { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks' });
+            { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks' }
+          );
 
           if (response.ok) {
             const result = await response.json();
@@ -211,8 +219,7 @@ ${text}`;
             const errorText = await response.text();
             console.error(`Claude API error: ${response.status} - ${errorText}`);
           }
-
-        } else if (config.provider === "openai" || config.provider === "lovable") {
+        } else if (config.provider === 'openai' || config.provider === 'lovable') {
           // Deprecated: redirect openai/lovable configs to Claude
           console.warn(`Provider "${config.provider}" is deprecated, falling back to Claude`);
           const claudeKey = Deno.env.get('CLAUDE_API_KEY');
@@ -220,22 +227,24 @@ ${text}`;
             console.error('CLAUDE_API_KEY not configured for fallback');
             continue;
           }
-          const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": claudeKey,
-              "anthropic-version": "2023-06-01"
+          const response = await fetchWithTimeout(
+            'https://api.anthropic.com/v1/messages',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': claudeKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-4-6',
+                max_tokens: 4096,
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userPrompt }],
+              }),
             },
-            body: JSON.stringify({
-              model: "claude-sonnet-4-6",
-              max_tokens: 4096,
-              system: systemPrompt,
-              messages: [
-                { role: "user", content: userPrompt }
-              ]
-            })
-          }, { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks-fallback' });
+            { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks-fallback' }
+          );
 
           if (response.ok) {
             const result = await response.json();
@@ -249,7 +258,6 @@ ${text}`;
             console.error(`Claude API fallback error: ${response.status} - ${errorText}`);
           }
         }
-
       } catch (error) {
         console.error(`Failed with ${config.provider}:`, error);
         continue;
@@ -257,17 +265,17 @@ ${text}`;
     }
 
     if (!generatedResponse) {
-      throw new Error("All AI models failed to generate tasks");
+      throw new Error('All AI models failed to generate tasks');
     }
 
     // Clean up the response - remove markdown code blocks if present
     let cleanedResponse = generatedResponse.trim();
-    if (cleanedResponse.startsWith("```json")) {
+    if (cleanedResponse.startsWith('```json')) {
       cleanedResponse = cleanedResponse.slice(7);
-    } else if (cleanedResponse.startsWith("```")) {
+    } else if (cleanedResponse.startsWith('```')) {
       cleanedResponse = cleanedResponse.slice(3);
     }
-    if (cleanedResponse.endsWith("```")) {
+    if (cleanedResponse.endsWith('```')) {
       cleanedResponse = cleanedResponse.slice(0, -3);
     }
     cleanedResponse = cleanedResponse.trim();
@@ -277,18 +285,18 @@ ${text}`;
     try {
       parsedTasks = JSON.parse(cleanedResponse);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", cleanedResponse);
-      throw new Error("Failed to parse AI response as JSON");
+      console.error('Failed to parse AI response:', cleanedResponse);
+      throw new Error('Failed to parse AI response as JSON');
     }
 
     // Validate the response structure
     if (!parsedTasks.tasks || !Array.isArray(parsedTasks.tasks)) {
-      throw new Error("Invalid response format: missing tasks array");
+      throw new Error('Invalid response format: missing tasks array');
     }
 
     // Validate and normalize each task
     const validatedTasks: TaskData[] = parsedTasks.tasks.map((task: any) => ({
-      title: task.title || "Untitled Task",
+      title: task.title || 'Untitled Task',
       description: task.description || null,
       category: task.category || null,
       priority: ['low', 'medium', 'high', 'urgent'].includes(task.priority)
@@ -298,7 +306,9 @@ ${text}`;
       dependencies: task.dependencies || null,
     }));
 
-    console.log(`Successfully generated ${validatedTasks.length} tasks using ${usedConfig.provider}`);
+    console.log(
+      `Successfully generated ${validatedTasks.length} tasks using ${usedConfig.provider}`
+    );
 
     return new Response(
       JSON.stringify({
@@ -308,11 +318,10 @@ ${text}`;
         model_used: `${usedConfig.provider} - ${usedConfig.model_name}`,
         config_id: usedConfig.id,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error("Generate tasks error:", error);
+    console.error('Generate tasks error:', error);
     return structuredErrorResponse(
       error.message || 'Internal server error',
       'TASK_GENERATION_FAILED',

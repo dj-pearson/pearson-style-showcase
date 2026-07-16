@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { RealtimePayload } from '@/types/supabase-realtime';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,7 @@ import {
   Lightbulb,
   Mail,
   Loader2,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
@@ -65,7 +66,11 @@ interface TicketDetailViewProps {
   onUpdate: () => void;
 }
 
-export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onClose, onUpdate }) => {
+export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
+  ticket,
+  onClose,
+  onUpdate,
+}) => {
   const [responses, setResponses] = useState<Response[]>([]);
   const [replyMessage, setReplyMessage] = useState('');
   const [emailSubject, setEmailSubject] = useState(`Re: ${ticket.subject}`);
@@ -84,19 +89,23 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
     // Sync local status with ticket prop when ticket changes
     setNewStatus(ticket.status);
     setNewCategory(ticket.category);
-    
+
     loadResponses();
     loadMailboxes();
     loadLatestEmailSubject();
 
     const subscription = supabase
       .channel(`ticket-${ticket.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'ticket_responses',
-        filter: `ticket_id=eq.${ticket.id}`
-      }, handleNewResponse)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'ticket_responses',
+          filter: `ticket_id=eq.${ticket.id}`,
+        },
+        handleNewResponse
+      )
       .subscribe();
 
     return () => {
@@ -119,7 +128,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       // Auto-select mailbox based on ticket's mailbox_id or first available
       if (data && data.length > 0) {
         if (ticket.mailbox_id) {
-          const ticketMailbox = data.find(m => m.id === ticket.mailbox_id);
+          const ticketMailbox = data.find((m) => m.id === ticket.mailbox_id);
           if (ticketMailbox) {
             setSelectedMailbox(ticketMailbox.id);
           } else {
@@ -145,7 +154,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
         .limit(1)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 = no rows returned
         throw error;
       }
 
@@ -166,7 +176,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
   const getSmtpWarning = (): string | null => {
     if (!selectedMailbox) return null;
-    const mailbox = mailboxes.find(m => m.id === selectedMailbox);
+    const mailbox = mailboxes.find((m) => m.id === selectedMailbox);
     if (!mailbox) return null;
 
     const hasMailboxConfig = mailbox.smtp_host && mailbox.smtp_username && mailbox.smtp_password;
@@ -199,8 +209,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
     }
   };
 
-  const handleNewResponse = (payload: any) => {
-    setResponses(prev => [...prev, payload.new]);
+  const handleNewResponse = (payload: RealtimePayload) => {
+    setResponses((prev) => [...prev, payload.new as unknown as Response]);
   };
 
   const sendReply = async () => {
@@ -210,14 +220,16 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       toast({
         title: 'No Mailbox Selected',
         description: 'Please select a mailbox to send email from.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
       return;
     }
 
     setIsSending(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (sendAsEmail && !isInternal) {
         // Send via email using Edge Function
@@ -229,7 +241,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
             subject: emailSubject,
             message: replyMessage,
             is_internal: false,
-          }
+          },
         });
 
         if (error) {
@@ -243,17 +255,15 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
         });
       } else {
         // Save as internal note or response without email
-        const { error } = await supabase
-          .from('ticket_responses')
-          .insert({
-            ticket_id: ticket.id,
-            author_id: user?.id,
-            author_email: user?.email || 'admin',
-            author_name: user?.email?.split('@')[0] || 'Admin',
-            author_type: 'agent',
-            message: replyMessage,
-            is_internal: isInternal,
-          });
+        const { error } = await supabase.from('ticket_responses').insert({
+          ticket_id: ticket.id,
+          author_id: user?.id,
+          author_email: user?.email || 'admin',
+          author_name: user?.email?.split('@')[0] || 'Admin',
+          author_type: 'agent',
+          message: replyMessage,
+          is_internal: isInternal,
+        });
 
         if (error) throw error;
 
@@ -278,7 +288,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       toast({
         title: 'Failed to Send',
         description: error.message || 'Could not send the reply. Please try again.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setIsSending(false);
@@ -288,10 +298,10 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
   const generateAIResponse = async () => {
     setIsGeneratingAI(true);
     setAiGeneratedResponse(null);
-    
+
     try {
       const { data, error } = await invokeEdgeFunction('generate-ticket-response', {
-        body: { ticket_id: ticket.id }
+        body: { ticket_id: ticket.id },
       });
 
       if (error) throw error;
@@ -309,7 +319,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       toast({
         title: 'Generation Failed',
         description: error.message || 'Could not generate AI response. Please try again.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setIsGeneratingAI(false);
@@ -318,10 +328,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
   const updateTicket = async (updates: Partial<Ticket>) => {
     try {
-      const { error } = await supabase
-        .from('support_tickets')
-        .update(updates)
-        .eq('id', ticket.id);
+      const { error } = await supabase.from('support_tickets').update(updates).eq('id', ticket.id);
 
       if (error) throw error;
 
@@ -335,7 +342,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
       toast({
         title: 'Update Failed',
         description: 'Could not update the ticket.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -366,7 +373,13 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <label className="text-xs text-muted-foreground">Status</label>
-              <Select value={newStatus} onValueChange={(v) => { setNewStatus(v); updateTicket({ status: v }); }}>
+              <Select
+                value={newStatus}
+                onValueChange={(v) => {
+                  setNewStatus(v);
+                  updateTicket({ status: v });
+                }}
+              >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
@@ -385,7 +398,13 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
             <div>
               <label className="text-xs text-muted-foreground">Category</label>
-              <Select value={newCategory} onValueChange={(v) => { setNewCategory(v); updateTicket({ category: v }); }}>
+              <Select
+                value={newCategory}
+                onValueChange={(v) => {
+                  setNewCategory(v);
+                  updateTicket({ category: v });
+                }}
+              >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
@@ -423,7 +442,9 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
             <div>
               <label className="text-xs text-muted-foreground">Created</label>
-              <p className="text-sm font-medium mt-1">{format(new Date(ticket.created_at), 'MMM d, yyyy')}</p>
+              <p className="text-sm font-medium mt-1">
+                {format(new Date(ticket.created_at), 'MMM d, yyyy')}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -459,23 +480,25 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
 
           {/* Responses */}
           {responses.map((response) => (
-            <Card 
-              key={response.id} 
+            <Card
+              key={response.id}
               className={
-                response.is_internal 
-                  ? 'border-yellow-500/50 bg-yellow-500/5' 
+                response.is_internal
+                  ? 'border-yellow-500/50 bg-yellow-500/5'
                   : response.author_type === 'agent' || response.author_type === 'admin'
-                  ? 'border-l-4 border-l-blue-500 bg-blue-500/5'
-                  : 'border-l-4 border-l-primary'
+                    ? 'border-l-4 border-l-blue-500 bg-blue-500/5'
+                    : 'border-l-4 border-l-primary'
               }
             >
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    response.author_type === 'agent' || response.author_type === 'admin' 
-                      ? 'bg-blue-500/10' 
-                      : 'bg-primary/10'
-                  }`}>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                      response.author_type === 'agent' || response.author_type === 'admin'
+                        ? 'bg-blue-500/10'
+                        : 'bg-primary/10'
+                    }`}
+                  >
                     {response.author_type === 'agent' || response.author_type === 'admin' ? (
                       <span className="text-xs font-bold text-blue-500">A</span>
                     ) : (
@@ -486,13 +509,18 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-medium text-sm">{response.author_name}</span>
                       <Badge variant="secondary" className="text-xs">
-                        {response.author_type === 'agent' || response.author_type === 'admin' ? 'Agent' : 'Customer'}
+                        {response.author_type === 'agent' || response.author_type === 'admin'
+                          ? 'Agent'
+                          : 'Customer'}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(response.created_at), 'MMM d, yyyy h:mm a')}
                       </span>
                       {response.is_internal && (
-                        <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-500 border-yellow-500">
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-yellow-500/10 text-yellow-500 border-yellow-500"
+                        >
                           Internal Note
                         </Badge>
                       )}
@@ -518,7 +546,10 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                           checked={sendAsEmail}
                           onCheckedChange={setSendAsEmail}
                         />
-                        <Label htmlFor="send-email" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                        <Label
+                          htmlFor="send-email"
+                          className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                        >
                           <Mail className="h-4 w-4" />
                           Send as Email
                         </Label>
@@ -530,7 +561,10 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                           onCheckedChange={setIsInternal}
                           disabled={sendAsEmail}
                         />
-                        <Label htmlFor="internal-note" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                        <Label
+                          htmlFor="internal-note"
+                          className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                        >
                           <AlertCircle className="h-4 w-4" />
                           Internal Note
                         </Label>
@@ -566,7 +600,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                   {sendAsEmail && mailboxes.length === 0 && (
                     <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                       <p className="text-xs text-red-800 dark:text-red-200">
-                        ⚠️ No mailboxes configured. Please add a mailbox in the Mailboxes tab to send emails.
+                        ⚠️ No mailboxes configured. Please add a mailbox in the Mailboxes tab to
+                        send emails.
                       </p>
                     </div>
                   )}
@@ -575,7 +610,9 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                 {/* Email Subject (only show when sending as email) */}
                 {sendAsEmail && !isInternal && (
                   <div>
-                    <Label htmlFor="email-subject" className="text-sm">Subject</Label>
+                    <Label htmlFor="email-subject" className="text-sm">
+                      Subject
+                    </Label>
                     <Input
                       id="email-subject"
                       value={emailSubject}
@@ -618,10 +655,10 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                   <Textarea
                     placeholder={
                       isInternal
-                        ? "Add an internal note (not sent to customer)..."
+                        ? 'Add an internal note (not sent to customer)...'
                         : sendAsEmail
-                          ? "Compose your email reply..."
-                          : "Type your response..."
+                          ? 'Compose your email reply...'
+                          : 'Type your response...'
                     }
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
@@ -655,9 +692,15 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({ ticket, onCl
                     ) : (
                       <>
                         {sendAsEmail && !isInternal ? (
-                          <><Mail className="h-4 w-4 mr-2" />Send Email</>
+                          <>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Email
+                          </>
                         ) : (
-                          <><Send className="h-4 w-4 mr-2" />Save {isInternal ? 'Note' : 'Reply'}</>
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Save {isInternal ? 'Note' : 'Reply'}
+                          </>
                         )}
                       </>
                     )}

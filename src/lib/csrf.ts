@@ -37,7 +37,10 @@ async function generateBoundToken(): Promise<string> {
   // Use crypto.getRandomValues for the nonce instead of predictable Date.now()
   const nonceBytes = new Uint8Array(8);
   crypto.getRandomValues(nonceBytes);
-  const nonce = btoa(String.fromCharCode(...nonceBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const nonce = btoa(String.fromCharCode(...nonceBytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
   const combined = `${nonce}.${randomPart}`;
 
   // Hash the combined value for additional security
@@ -79,6 +82,25 @@ export async function getCSRFToken(): Promise<string> {
 }
 
 /**
+ * Read the current CSRF token from storage synchronously, without generating a
+ * new one. Returns null when no valid (unexpired) token exists. Used by the
+ * Supabase client fetch to attach the token to state-changing requests without
+ * an async hop; call getCSRFToken()/ensureCsrfToken() first to provision one.
+ */
+export function getStoredCSRFTokenSync(): string | null {
+  try {
+    const token = sessionStorage.getItem(CSRF_TOKEN_KEY);
+    const expiryStr = sessionStorage.getItem(CSRF_TOKEN_EXPIRY_KEY);
+    if (token && expiryStr && Date.now() < parseInt(expiryStr, 10)) {
+      return token;
+    }
+  } catch {
+    /* sessionStorage unavailable */
+  }
+  return null;
+}
+
+/**
  * Refresh the CSRF token
  * Call this after significant state changes (login, logout, etc.)
  */
@@ -112,57 +134,6 @@ export async function getCSRFHeaders(): Promise<Record<string, string>> {
 export function requiresCSRFProtection(method: string): boolean {
   const protectedMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
   return protectedMethods.includes(method.toUpperCase());
-}
-
-/**
- * Enhanced fetch wrapper that automatically adds CSRF headers
- * for state-changing requests
- */
-export async function csrfFetch(
-  input: RequestInfo | URL,
-  init?: RequestInit
-): Promise<Response> {
-  const method = init?.method?.toUpperCase() || 'GET';
-
-  if (requiresCSRFProtection(method)) {
-    const csrfHeaders = await getCSRFHeaders();
-    const headers = new Headers(init?.headers);
-
-    // Add CSRF header
-    headers.set(CSRF_HEADER_NAME, csrfHeaders[CSRF_HEADER_NAME]);
-
-    return fetch(input, {
-      ...init,
-      headers,
-    });
-  }
-
-  return fetch(input, init);
-}
-
-/**
- * Create a fetch instance with automatic CSRF protection
- * Useful for creating API clients
- */
-export function createCSRFProtectedFetch(): typeof fetch {
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    return csrfFetch(input, init);
-  };
-}
-
-/**
- * Hook for React components to get CSRF token
- */
-export function useCSRFToken(): {
-  getToken: () => Promise<string>;
-  refreshToken: () => Promise<string>;
-  headers: () => Promise<Record<string, string>>;
-} {
-  return {
-    getToken: getCSRFToken,
-    refreshToken: refreshCSRFToken,
-    headers: getCSRFHeaders,
-  };
 }
 
 // Export header name for server-side validation

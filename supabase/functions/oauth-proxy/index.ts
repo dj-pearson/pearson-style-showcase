@@ -10,14 +10,12 @@
  * 5. Generates magic link and redirects to frontend /auth/callback
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-};
+// CORS headers are computed per-request from the shared allow-list (never a
+// wildcard). See the handler below.
 
 // Configuration from environment variables
 const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://danpearson.net';
@@ -28,7 +26,10 @@ const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID') || '';
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET') || '';
 const APPLE_CLIENT_ID = Deno.env.get('APPLE_CLIENT_ID') || '';
 const APPLE_CLIENT_SECRET = Deno.env.get('APPLE_CLIENT_SECRET') || '';
-const OAUTH_STATE_SECRET = Deno.env.get('OAUTH_STATE_SECRET') || SUPABASE_SERVICE_ROLE_KEY;
+// Require a dedicated OAuth state-signing secret. Previously this silently fell
+// back to SUPABASE_SERVICE_ROLE_KEY, reusing a high-privilege key as an HMAC
+// secret; the handler now fails loudly if OAUTH_STATE_SECRET is not configured.
+const OAUTH_STATE_SECRET = Deno.env.get('OAUTH_STATE_SECRET') || '';
 
 /**
  * Sign the OAuth state with HMAC-SHA256 to prevent tampering.
@@ -46,7 +47,9 @@ async function signState(stateData: Record<string, unknown>): Promise<string> {
   );
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
   const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
   return `${payload}.${sigB64}`;
 }
 
@@ -72,8 +75,8 @@ async function verifyState(state: string): Promise<Record<string, unknown> | nul
 
   // Restore base64 padding for verification
   const normalizedSig = sigB64.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = normalizedSig + '='.repeat((4 - normalizedSig.length % 4) % 4);
-  const sigBytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+  const padded = normalizedSig + '='.repeat((4 - (normalizedSig.length % 4)) % 4);
+  const sigBytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
 
   const valid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(payload));
   if (!valid) return null;
@@ -87,8 +90,20 @@ async function verifyState(state: string): Promise<Record<string, unknown> | nul
 
 // Export handler for edge-functions-server
 export default async function handler(req: Request): Promise<Response> {
+  // Resolve CORS from the shared allow-list for this request (never a wildcard).
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Fail loudly if the dedicated OAuth state secret is not configured, rather
+  // than mis-signing state (the old code reused the service-role key here).
+  if (!OAUTH_STATE_SECRET) {
+    return new Response(
+      JSON.stringify({ error: 'OAuth is not configured (missing OAUTH_STATE_SECRET)' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
@@ -137,7 +152,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       return new Response(null, {
         status: 302,
-        headers: { ...corsHeaders, 'Location': authUrl.toString() },
+        headers: { ...corsHeaders, Location: authUrl.toString() },
       });
     }
 
@@ -149,8 +164,11 @@ export default async function handler(req: Request): Promise<Response> {
       if (error) {
         const errorUrl = new URL(`${FRONTEND_URL}/auth/callback`);
         errorUrl.searchParams.set('error', error);
-        errorUrl.searchParams.set('error_description', url.searchParams.get('error_description') || '');
-        return new Response(null, { status: 302, headers: { 'Location': errorUrl.toString() } });
+        errorUrl.searchParams.set(
+          'error_description',
+          url.searchParams.get('error_description') || ''
+        );
+        return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
       }
 
       if (!code || !state) {
@@ -207,7 +225,7 @@ export default async function handler(req: Request): Promise<Response> {
         console.error('Token error:', tokenData);
         const errorUrl = new URL(`${FRONTEND_URL}/auth/callback`);
         errorUrl.searchParams.set('error', tokenData.error);
-        return new Response(null, { status: 302, headers: { 'Location': errorUrl.toString() } });
+        return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
       }
 
       // Decode ID token to get user info
@@ -220,7 +238,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       // Check if user exists
       const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email === payload.email);
+      const existingUser = existingUsers?.users?.find((u) => u.email === payload.email);
 
       if (!existingUser) {
         // Create new user
@@ -241,7 +259,7 @@ export default async function handler(req: Request): Promise<Response> {
           console.error('Create user error:', createError);
           const errorUrl = new URL(`${FRONTEND_URL}/auth/callback`);
           errorUrl.searchParams.set('error', 'create_user_failed');
-          return new Response(null, { status: 302, headers: { 'Location': errorUrl.toString() } });
+          return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
         }
       }
 
@@ -256,7 +274,7 @@ export default async function handler(req: Request): Promise<Response> {
         console.error('Generate link error:', linkError);
         const errorUrl = new URL(`${FRONTEND_URL}/auth/callback`);
         errorUrl.searchParams.set('error', 'generate_link_failed');
-        return new Response(null, { status: 302, headers: { 'Location': errorUrl.toString() } });
+        return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
       }
 
       // Extract token and redirect to frontend
@@ -270,17 +288,19 @@ export default async function handler(req: Request): Promise<Response> {
       successUrl.searchParams.set('redirect_to', finalRedirect);
       if (!existingUser) successUrl.searchParams.set('new_user', 'true');
 
-      return new Response(null, { status: 302, headers: { 'Location': successUrl.toString() } });
+      return new Response(null, { status: 302, headers: { Location: successUrl.toString() } });
     }
 
     // Default response
-    return new Response(JSON.stringify({
-      usage: 'Call with ?action=authorize&provider=google to start OAuth flow',
-      providers: ['google', 'apple'],
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify({
+        usage: 'Call with ?action=authorize&provider=google to start OAuth flow',
+        providers: ['google', 'apple'],
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
@@ -291,12 +311,16 @@ function generateCodeVerifier(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 async function generateCodeChallenge(verifier: string): Promise<string> {
   const data = new TextEncoder().encode(verifier);
   const digest = await crypto.subtle.digest('SHA-256', data);
   return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }

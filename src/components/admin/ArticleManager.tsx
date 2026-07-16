@@ -1,6 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { logger } from "@/lib/logger";
-import { validateTextInput, validateUrl, validateSlug, sanitizeStringArray, sanitizeHtml } from '@/lib/security';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
+import { secureMutation } from '@/lib/secure-supabase';
+import { logger } from '@/lib/logger';
+import {
+  validateTextInput,
+  validateUrl,
+  validateSlug,
+  sanitizeStringArray,
+  sanitizeHtml,
+} from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,8 +18,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { FileUpload } from './FileUpload';
 import ArticleEditor from '../ArticleEditor';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +51,7 @@ import {
   FileText,
   Search,
   Calendar,
-  Send
+  Send,
 } from 'lucide-react';
 
 interface Article {
@@ -81,8 +103,18 @@ export const ArticleManager: React.FC = () => {
     seo_description: '',
     seo_keywords: [],
     target_keyword: '',
-    tags: []
+    tags: [],
   });
+
+  // Snapshot of the form when the editor was opened, used to detect unsaved
+  // changes. Updated whenever a new/edit dialog is opened or a save completes.
+  const initialFormRef = useRef<string>('');
+  const isDirty = useMemo(
+    () => isDialogOpen && JSON.stringify(formData) !== initialFormRef.current,
+    [isDialogOpen, formData]
+  );
+  const { isBlocking, requestNavigation, confirmDiscard, cancelDiscard } =
+    useUnsavedChanges(isDirty);
 
   const loadArticles = useCallback(async () => {
     try {
@@ -96,9 +128,9 @@ export const ArticleManager: React.FC = () => {
     } catch (error) {
       logger.error('Error loading articles:', error);
       toast({
-        variant: "destructive",
-        title: "Error loading articles",
-        description: "Could not load articles. Please try again.",
+        variant: 'destructive',
+        title: 'Error loading articles',
+        description: 'Could not load articles. Please try again.',
       });
     } finally {
       setIsLoading(false);
@@ -113,7 +145,7 @@ export const ArticleManager: React.FC = () => {
         .order('name');
 
       if (error) throw error;
-      setCategories(data?.map(cat => cat.name) || []);
+      setCategories(data?.map((cat) => cat.name) || []);
     } catch (error) {
       logger.error('Error loading categories:', error);
     }
@@ -137,15 +169,13 @@ export const ArticleManager: React.FC = () => {
     },
     onMutate: async ({ id, published }) => {
       // Optimistically update the UI
-      setArticles(prev =>
-        prev.map(article =>
-          article.id === id ? { ...article, published } : article
-        )
+      setArticles((prev) =>
+        prev.map((article) => (article.id === id ? { ...article, published } : article))
       );
 
       toast({
-        title: published ? "Publishing article..." : "Unpublishing article...",
-        description: "Changes will be saved momentarily.",
+        title: published ? 'Publishing article...' : 'Unpublishing article...',
+        description: 'Changes will be saved momentarily.',
       });
 
       // Return context for rollback
@@ -158,26 +188,26 @@ export const ArticleManager: React.FC = () => {
       }
       logger.error('Error toggling published status:', error);
       toast({
-        variant: "destructive",
-        title: "Update failed",
-        description: "Could not update article status. Please try again.",
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Could not update article status. Please try again.',
       });
     },
     onSuccess: (data) => {
       toast({
-        title: data.published ? "Article published" : "Article unpublished",
-        description: "Status updated successfully.",
+        title: data.published ? 'Article published' : 'Article unpublished',
+        description: 'Status updated successfully.',
       });
 
       // Notify Google Indexing API when publish status changes
-      const article = articles.find(a => a.id === data.id);
+      const article = articles.find((a) => a.id === data.id);
       if (article?.slug) {
         if (data.published) {
-          notifyArticleUpdated(article.slug).catch(err =>
+          notifyArticleUpdated(article.slug).catch((err) =>
             logger.error('Google indexing notification failed:', err)
           );
         } else {
-          notifyArticleDeleted(article.slug).catch(err =>
+          notifyArticleDeleted(article.slug).catch((err) =>
             logger.error('Google indexing notification failed:', err)
           );
         }
@@ -198,10 +228,8 @@ export const ArticleManager: React.FC = () => {
     },
     onMutate: async ({ id, featured }) => {
       // Optimistically update the UI
-      setArticles(prev =>
-        prev.map(article =>
-          article.id === id ? { ...article, featured } : article
-        )
+      setArticles((prev) =>
+        prev.map((article) => (article.id === id ? { ...article, featured } : article))
       );
 
       // Return context for rollback
@@ -214,15 +242,15 @@ export const ArticleManager: React.FC = () => {
       }
       logger.error('Error toggling featured status:', error);
       toast({
-        variant: "destructive",
-        title: "Update failed",
-        description: "Could not update featured status. Please try again.",
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Could not update featured status. Please try again.',
       });
     },
     onSuccess: (data) => {
       toast({
-        title: data.featured ? "Article featured" : "Removed from featured",
-        description: "Status updated successfully.",
+        title: data.featured ? 'Article featured' : 'Removed from featured',
+        description: 'Status updated successfully.',
       });
     },
   });
@@ -230,10 +258,9 @@ export const ArticleManager: React.FC = () => {
   // Optimistic UI: Delete article
   const deleteArticleMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('articles')
-        .delete()
-        .eq('id', id);
+      // CSRF-protected: secureMutation provisions the token before the delete so
+      // the client fetch attaches x-csrf-token to the request.
+      const { error } = await secureMutation(() => supabase.from('articles').delete().eq('id', id));
 
       if (error) throw error;
       return id;
@@ -241,11 +268,11 @@ export const ArticleManager: React.FC = () => {
     onMutate: async (id) => {
       // Optimistically remove from UI
       const previousArticles = articles;
-      setArticles(prev => prev.filter(article => article.id !== id));
+      setArticles((prev) => prev.filter((article) => article.id !== id));
 
       toast({
-        title: "Deleting article...",
-        description: "The article will be removed momentarily.",
+        title: 'Deleting article...',
+        description: 'The article will be removed momentarily.',
       });
 
       // Return context for rollback
@@ -258,21 +285,21 @@ export const ArticleManager: React.FC = () => {
       }
       logger.error('Error deleting article:', error);
       toast({
-        variant: "destructive",
-        title: "Delete failed",
-        description: "Could not delete article. Please try again.",
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: 'Could not delete article. Please try again.',
       });
     },
     onSuccess: (_data, _id, context) => {
       toast({
-        title: "Article deleted",
-        description: "The article has been deleted successfully.",
+        title: 'Article deleted',
+        description: 'The article has been deleted successfully.',
       });
 
       // Notify Google Indexing API about deleted article
-      const deletedArticle = context?.previousArticles?.find(a => a.id === _id);
+      const deletedArticle = context?.previousArticles?.find((a) => a.id === _id);
       if (deletedArticle?.slug && deletedArticle?.published) {
-        notifyArticleDeleted(deletedArticle.slug).catch(err =>
+        notifyArticleDeleted(deletedArticle.slug).catch((err) =>
           logger.error('Google indexing notification failed:', err)
         );
       }
@@ -289,55 +316,59 @@ export const ArticleManager: React.FC = () => {
   };
 
   const handleInputChange = (field: keyof Article, value: string | boolean | string[] | null) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const updated = { ...prev, [field]: value };
-      
+
       // Auto-generate slug from title
       if (field === 'title' && typeof value === 'string' && value) {
         updated.slug = generateSlug(value);
       }
-      
+
       return updated;
     });
   };
 
   const handleTagsChange = (value: string, field: 'tags' | 'seo_keywords') => {
-    const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag);
-    setFormData(prev => ({ ...prev, [field]: tags }));
+    const tags = value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag);
+    setFormData((prev) => ({ ...prev, [field]: tags }));
   };
 
   const generateContent = async (type: 'full' | 'seo') => {
     if (!formData.title && type === 'full') {
       toast({
-        variant: "destructive",
-        title: "Title required",
-        description: "Please enter a title before generating content.",
+        variant: 'destructive',
+        title: 'Title required',
+        description: 'Please enter a title before generating content.',
       });
       return;
     }
 
     setIsGenerating(true);
-    
+
     try {
-      const prompt = type === 'full' 
-        ? `Write a comprehensive article about: ${formData.title}. ${formData.excerpt ? `Context: ${formData.excerpt}` : ''}`
-        : `Generate SEO metadata for an article titled: ${formData.title}. ${formData.content ? `Content preview: ${formData.content?.substring(0, 500)}...` : ''}`;
+      const prompt =
+        type === 'full'
+          ? `Write a comprehensive article about: ${formData.title}. ${formData.excerpt ? `Context: ${formData.excerpt}` : ''}`
+          : `Generate SEO metadata for an article titled: ${formData.title}. ${formData.content ? `Content preview: ${formData.content?.substring(0, 500)}...` : ''}`;
 
       const { data, error } = await invokeEdgeFunction('ai-content-generator', {
-        body: { 
-          type: type === 'full' ? 'article' : 'seo', 
+        body: {
+          type: type === 'full' ? 'article' : 'seo',
           prompt,
-          context: formData.category ? `Category: ${formData.category}` : undefined
-        }
+          context: formData.category ? `Category: ${formData.category}` : undefined,
+        },
       });
 
       if (error) throw error;
 
       if (data.success) {
         const generated = data.data;
-        
+
         if (type === 'full') {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             title: generated.title || prev.title,
             content: generated.content || prev.content,
@@ -346,29 +377,29 @@ export const ArticleManager: React.FC = () => {
             seo_title: generated.seoTitle || prev.seo_title,
             seo_description: generated.seoDescription || prev.seo_description,
             target_keyword: generated.targetKeyword || prev.target_keyword,
-            slug: generateSlug(generated.title || prev.title || '')
+            slug: generateSlug(generated.title || prev.title || ''),
           }));
         } else {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             seo_title: generated.seoTitle || prev.seo_title,
             seo_description: generated.seoDescription || prev.seo_description,
             target_keyword: generated.targetKeyword || prev.target_keyword,
-            seo_keywords: generated.seoKeywords || prev.seo_keywords
+            seo_keywords: generated.seoKeywords || prev.seo_keywords,
           }));
         }
 
         toast({
-          title: "Content generated successfully",
+          title: 'Content generated successfully',
           description: `AI has generated ${type === 'full' ? 'article content' : 'SEO metadata'} for you.`,
         });
       }
     } catch (error) {
       logger.error('Error generating content:', error);
       toast({
-        variant: "destructive",
-        title: "Generation failed",
-        description: "Could not generate content. Please try again.",
+        variant: 'destructive',
+        title: 'Generation failed',
+        description: 'Could not generate content. Please try again.',
       });
     } finally {
       setIsGenerating(false);
@@ -379,9 +410,9 @@ export const ArticleManager: React.FC = () => {
     try {
       if (!formData.title || !formData.slug || !formData.excerpt || !formData.category) {
         toast({
-          variant: "destructive",
-          title: "Missing required fields",
-          description: "Please fill in title, excerpt, and category.",
+          variant: 'destructive',
+          title: 'Missing required fields',
+          description: 'Please fill in title, excerpt, and category.',
         });
         return;
       }
@@ -395,38 +426,51 @@ export const ArticleManager: React.FC = () => {
 
       if (!sanitizedTitle || !sanitizedSlug || !sanitizedExcerpt || !sanitizedCategory) {
         toast({
-          variant: "destructive",
-          title: "Invalid input",
-          description: "Please check your input for invalid characters or excessive length.",
+          variant: 'destructive',
+          title: 'Invalid input',
+          description: 'Please check your input for invalid characters or excessive length.',
         });
         return;
       }
 
       // Sanitize optional text fields
-      const sanitizedSeoTitle = formData.seo_title ? validateTextInput(formData.seo_title, 255) : null;
-      const sanitizedSeoDescription = formData.seo_description ? validateTextInput(formData.seo_description, 500) : null;
-      const sanitizedTargetKeyword = formData.target_keyword ? validateTextInput(formData.target_keyword, 100) : null;
-      const sanitizedReadTime = formData.read_time ? validateTextInput(formData.read_time, 50) : null;
+      const sanitizedSeoTitle = formData.seo_title
+        ? validateTextInput(formData.seo_title, 255)
+        : null;
+      const sanitizedSeoDescription = formData.seo_description
+        ? validateTextInput(formData.seo_description, 500)
+        : null;
+      const sanitizedTargetKeyword = formData.target_keyword
+        ? validateTextInput(formData.target_keyword, 100)
+        : null;
+      const sanitizedReadTime = formData.read_time
+        ? validateTextInput(formData.read_time, 50)
+        : null;
 
       // Validate URL if provided
       const sanitizedImageUrl = formData.image_url ? validateUrl(formData.image_url) : null;
       if (formData.image_url && !sanitizedImageUrl) {
         toast({
-          variant: "destructive",
-          title: "Invalid URL",
-          description: "Please provide a valid image URL.",
+          variant: 'destructive',
+          title: 'Invalid URL',
+          description: 'Please provide a valid image URL.',
         });
         return;
       }
 
       // Sanitize arrays
       const sanitizedTags = formData.tags ? sanitizeStringArray(formData.tags, 50) : null;
-      const sanitizedSeoKeywords = formData.seo_keywords ? sanitizeStringArray(formData.seo_keywords, 100) : null;
+      const sanitizedSeoKeywords = formData.seo_keywords
+        ? sanitizeStringArray(formData.seo_keywords, 100)
+        : null;
 
       // Check if this is a Build Desk article and add the HTML if needed
       let content = formData.content || '';
-      const isBuildDeskArticle = formData.category === 'Build Desk' || sanitizedSlug === 'build-desk' || sanitizedSlug?.includes('build-desk');
-      
+      const isBuildDeskArticle =
+        formData.category === 'Build Desk' ||
+        sanitizedSlug === 'build-desk' ||
+        sanitizedSlug?.includes('build-desk');
+
       if (isBuildDeskArticle && content) {
         const buildDeskHtml = `
 
@@ -470,15 +514,44 @@ export const ArticleManager: React.FC = () => {
       }
 
       // Sanitize HTML content while preserving allowed tags
-      const sanitizedContent = content ? sanitizeHtml(content, {
-        ALLOWED_TAGS: [
-          'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-          'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
-          'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'button', 'style'
-        ],
-        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style', 'target', 'rel'],
-        ALLOW_DATA_ATTR: false,
-      }) : '';
+      const sanitizedContent = content
+        ? sanitizeHtml(content, {
+            ALLOWED_TAGS: [
+              'p',
+              'br',
+              'strong',
+              'em',
+              'u',
+              'h1',
+              'h2',
+              'h3',
+              'h4',
+              'h5',
+              'h6',
+              'a',
+              'ul',
+              'ol',
+              'li',
+              'blockquote',
+              'code',
+              'pre',
+              'img',
+              'div',
+              'span',
+              'table',
+              'thead',
+              'tbody',
+              'tr',
+              'th',
+              'td',
+              'hr',
+              'button',
+              'style',
+            ],
+            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style', 'target', 'rel'],
+            ALLOW_DATA_ATTR: false,
+          })
+        : '';
 
       const articleData = {
         title: sanitizedTitle,
@@ -496,7 +569,7 @@ export const ArticleManager: React.FC = () => {
         seo_keywords: sanitizedSeoKeywords,
         target_keyword: sanitizedTargetKeyword,
         tags: sanitizedTags,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       if (selectedArticle) {
@@ -512,21 +585,21 @@ export const ArticleManager: React.FC = () => {
         const wasPublished = !selectedArticle.published && articleData.published;
         if (wasPublished) {
           toast({
-            title: "Article updated and publishing",
-            description: "Sending article to webhook for social media distribution...",
+            title: 'Article updated and publishing',
+            description: 'Sending article to webhook for social media distribution...',
           });
           // Send to webhook in background
           sendToWebhook(selectedArticle.id);
         } else {
           toast({
-            title: "Article updated",
-            description: "Your article has been updated successfully.",
+            title: 'Article updated',
+            description: 'Your article has been updated successfully.',
           });
         }
 
         // Notify Google Indexing API for published articles
         if (articleData.published && articleData.slug) {
-          notifyArticleUpdated(articleData.slug).catch(err =>
+          notifyArticleUpdated(articleData.slug).catch((err) =>
             logger.error('Google indexing notification failed:', err)
           );
         }
@@ -543,22 +616,22 @@ export const ArticleManager: React.FC = () => {
         // If new article is published, send to webhook
         if (articleData.published && newArticle) {
           toast({
-            title: "Article created and publishing",
-            description: "Sending article to webhook for social media distribution...",
+            title: 'Article created and publishing',
+            description: 'Sending article to webhook for social media distribution...',
           });
           // Send to webhook in background
           sendToWebhook(newArticle.id);
 
           // Notify Google Indexing API
           if (articleData.slug) {
-            notifyArticleUpdated(articleData.slug).catch(err =>
+            notifyArticleUpdated(articleData.slug).catch((err) =>
               logger.error('Google indexing notification failed:', err)
             );
           }
         } else {
           toast({
-            title: "Article created",
-            description: "Your new article has been created successfully.",
+            title: 'Article created',
+            description: 'Your new article has been created successfully.',
           });
         }
       }
@@ -580,41 +653,41 @@ export const ArticleManager: React.FC = () => {
         seo_description: '',
         seo_keywords: [],
         target_keyword: '',
-        tags: []
+        tags: [],
       });
       loadArticles();
     } catch (error) {
       logger.error('Error saving article:', error);
       toast({
-        variant: "destructive",
-        title: "Save failed",
-        description: "Could not save article. Please try again.",
+        variant: 'destructive',
+        title: 'Save failed',
+        description: 'Could not save article. Please try again.',
       });
     }
   };
 
   const sendToWebhook = async (articleId: string) => {
-    setSendingWebhooks(prev => new Set(prev).add(articleId));
+    setSendingWebhooks((prev) => new Set(prev).add(articleId));
     try {
       const { error } = await invokeEdgeFunction('send-article-webhook', {
-        body: { articleId }
+        body: { articleId },
       });
 
       if (error) throw error;
 
       toast({
-        title: "Webhook sent",
-        description: "Article has been sent to Make.com webhook successfully.",
+        title: 'Webhook sent',
+        description: 'Article has been sent to Make.com webhook successfully.',
       });
     } catch (error) {
       logger.error('Error sending webhook:', error);
       toast({
-        variant: "destructive",
-        title: "Webhook failed",
-        description: "Could not send article to webhook. Please check webhook settings.",
+        variant: 'destructive',
+        title: 'Webhook failed',
+        description: 'Could not send article to webhook. Please check webhook settings.',
       });
     } finally {
-      setSendingWebhooks(prev => {
+      setSendingWebhooks((prev) => {
         const newSet = new Set(prev);
         newSet.delete(articleId);
         return newSet;
@@ -625,6 +698,7 @@ export const ArticleManager: React.FC = () => {
   const editArticle = (article: Article) => {
     setSelectedArticle(article);
     setFormData(article);
+    initialFormRef.current = JSON.stringify(article);
     setIsDialogOpen(true);
   };
 
@@ -633,15 +707,16 @@ export const ArticleManager: React.FC = () => {
     deleteArticleMutation.mutate(id);
   };
 
-  const filteredArticles = articles.filter(article =>
-    article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    article.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (article.author && article.author.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredArticles = articles.filter(
+    (article) =>
+      article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (article.author && article.author.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const openNewArticleDialog = () => {
     setSelectedArticle(null);
-    setFormData({
+    const blank: Partial<Article> = {
       title: '',
       slug: '',
       excerpt: '',
@@ -656,10 +731,15 @@ export const ArticleManager: React.FC = () => {
       seo_description: '',
       seo_keywords: [],
       target_keyword: '',
-      tags: []
-    });
+      tags: [],
+    };
+    setFormData(blank);
+    initialFormRef.current = JSON.stringify(blank);
     setIsDialogOpen(true);
   };
+
+  // Guarded close: prompt if there are unsaved changes.
+  const requestCloseDialog = () => requestNavigation(() => setIsDialogOpen(false));
 
   return (
     <div className="space-y-6">
@@ -668,7 +748,10 @@ export const ArticleManager: React.FC = () => {
           <h2 className="text-3xl font-bold">Article Management</h2>
           <p className="text-muted-foreground">Create and manage your blog articles</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => (open ? setIsDialogOpen(true) : requestCloseDialog())}
+        >
           <DialogTrigger asChild>
             <Button onClick={openNewArticleDialog}>
               <Plus className="h-4 w-4 mr-2" />
@@ -677,11 +760,11 @@ export const ArticleManager: React.FC = () => {
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {selectedArticle ? 'Edit Article' : 'Create New Article'}
-              </DialogTitle>
+              <DialogTitle>{selectedArticle ? 'Edit Article' : 'Create New Article'}</DialogTitle>
               <DialogDescription>
-                {selectedArticle ? 'Update your article content and settings.' : 'Create a new article with AI assistance.'}
+                {selectedArticle
+                  ? 'Update your article content and settings.'
+                  : 'Create a new article with AI assistance.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -821,7 +904,8 @@ export const ArticleManager: React.FC = () => {
                 <div>
                   <Label>Featured Image</Label>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Upload a featured image for your article. This will be used in article cards and for SEO.
+                    Upload a featured image for your article. This will be used in article cards and
+                    for SEO.
                   </p>
                   <FileUpload
                     onUpload={(url) => handleInputChange('image_url', url)}
@@ -894,11 +978,7 @@ export const ArticleManager: React.FC = () => {
             </Tabs>
 
             <div className="flex items-center justify-end space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={requestCloseDialog}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
@@ -943,7 +1023,9 @@ export const ArticleManager: React.FC = () => {
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No articles found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchTerm ? 'No articles match your search.' : 'Get started by creating your first article.'}
+                {searchTerm
+                  ? 'No articles match your search.'
+                  : 'Get started by creating your first article.'}
               </p>
               {!searchTerm && (
                 <Button onClick={openNewArticleDialog}>
@@ -968,9 +1050,9 @@ export const ArticleManager: React.FC = () => {
                         <Badge variant="outline">Draft</Badge>
                       )}
                     </div>
-                    
+
                     <p className="text-sm text-muted-foreground mb-3">{article.excerpt}</p>
-                    
+
                     <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                       <span className="flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />
@@ -1065,6 +1147,12 @@ export const ArticleManager: React.FC = () => {
           ))
         )}
       </div>
+
+      <UnsavedChangesDialog
+        open={isBlocking}
+        onDiscard={confirmDiscard}
+        onKeepEditing={cancelDiscard}
+      />
     </div>
   );
 };

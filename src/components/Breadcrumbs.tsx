@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
-import SEO from './SEO';
+import StructuredData from './SEO/StructuredData';
 
 interface BreadcrumbItem {
   label: string;
@@ -32,12 +32,15 @@ const Breadcrumbs = ({ items, className = '' }: BreadcrumbsProps) => {
 
   return (
     <>
-      {/* Structured data for SEO */}
-      <SEO
-        structuredData={{
-          type: 'breadcrumb',
-          data: { items: structuredDataItems },
-        }}
+      {/* Structured data for SEO.
+          NOTE: inject the breadcrumb JSON-LD directly via <StructuredData>
+          rather than through <SEO>. The SEO component's effect unconditionally
+          overwrites document.title and all meta tags with defaults when no
+          title/description props are supplied, which would clobber the host
+          page's real title (e.g. on article pages). */}
+      <StructuredData
+        type="breadcrumb"
+        data={{ items: structuredDataItems }}
       />
 
       {/* Visual breadcrumbs */}

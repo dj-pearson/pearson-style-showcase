@@ -1,8 +1,15 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
-import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  createRateLimitResponse,
+  initRateLimiter,
+} from '../_shared/rate-limiter.ts';
+// Pure parse/derive helpers (extracted for unit testing). US-012.
+import { assertApiKeyConfigured, parseAiArticleJson, slugify, calculateReadTime } from './parse.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -16,7 +23,7 @@ const ARTICLE_GEN_RATE_LIMIT = {
 };
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -37,12 +44,10 @@ serve(async (req) => {
     );
 
     const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY');
-    if (!CLAUDE_API_KEY) {
-      throw new Error('CLAUDE_API_KEY not configured');
-    }
+    assertApiKeyConfigured(CLAUDE_API_KEY);
 
     console.log('Fetching articles from AI news website...');
-    
+
     // Fetch the main page to get article links
     const newsResponse = await fetchWithTimeout(
       'https://www.artificialintelligence-news.com/',
@@ -50,16 +55,17 @@ serve(async (req) => {
       { timeoutMs: 30_000, maxRetries: 2, label: 'news-index' }
     );
     const newsHtml = await newsResponse.text();
-    
+
     // Extract article URLs (looking for article links in the HTML)
     const articleUrlPattern = /href="(https:\/\/www\.artificialintelligence-news\.com\/[^"]+)"/g;
     const matches = [...newsHtml.matchAll(articleUrlPattern)];
-    const articleUrls = [...new Set(matches.map(m => m[1]))].filter(url => 
-      !url.includes('/tag/') && 
-      !url.includes('/category/') && 
-      !url.includes('/author/') &&
-      !url.includes('/page/') &&
-      url !== 'https://www.artificialintelligence-news.com/'
+    const articleUrls = [...new Set(matches.map((m) => m[1]))].filter(
+      (url) =>
+        !url.includes('/tag/') &&
+        !url.includes('/category/') &&
+        !url.includes('/author/') &&
+        !url.includes('/page/') &&
+        url !== 'https://www.artificialintelligence-news.com/'
     );
 
     if (articleUrls.length === 0) {
@@ -81,27 +87,34 @@ serve(async (req) => {
     // Extract title and content (basic extraction)
     const titleMatch = articleHtml.match(/<h1[^>]*>([^<]+)<\/h1>/);
     const title = titleMatch ? titleMatch[1].trim() : 'AI News Article';
-    
+
     // Extract article content (simplified - gets text from article body)
     const contentMatch = articleHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/);
-    const rawContent = contentMatch ? contentMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    const rawContent = contentMatch
+      ? contentMatch[1]
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : '';
     const excerpt = rawContent.substring(0, 500);
 
     console.log('Original article title:', title);
     console.log('Generating new article with AI...');
 
     // Generate a completely new article with AI using Claude
-    const aiResponse = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        system: `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like.
+    const aiResponse = await fetchWithTimeout(
+      'https://api.anthropic.com/v1/messages',
+      {
+        method: 'POST',
+        headers: {
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4096,
+          system: `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like.
 
             Rules:
             - Write in a conversational, professional tone
@@ -112,10 +125,10 @@ serve(async (req) => {
             - Aim for 800-1200 words
             - Write for both technical and non-technical readers
             - Include actionable insights`,
-        messages: [
-          {
-            role: 'user',
-            content: `Based on this article about "${title}", write a completely new, SEO-optimized article with a fresh perspective.
+          messages: [
+            {
+              role: 'user',
+              content: `Based on this article about "${title}", write a completely new, SEO-optimized article with a fresh perspective.
 
 Source article context (use only as inspiration):
 ${excerpt}
@@ -136,12 +149,14 @@ Make sure the content is:
 - Well-researched with specific details
 - Human-sounding and engaging
 - SEO-optimized but natural
-- Properly structured with markdown headings`
-          }
-        ],
-        temperature: 0.7,
-      }),
-    }, { timeoutMs: 60_000, maxRetries: 2, label: 'claude-article-gen' });
+- Properly structured with markdown headings`,
+            },
+          ],
+          temperature: 0.7,
+        }),
+      },
+      { timeoutMs: 60_000, maxRetries: 2, label: 'claude-article-gen' }
+    );
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -151,30 +166,17 @@ Make sure the content is:
 
     const aiData = await aiResponse.json();
     const aiContent = aiData.content[0].text;
-    
+
     console.log('AI response received, parsing...');
 
     // Extract JSON from AI response (handle markdown code blocks)
-    let articleData;
-    try {
-      const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/) || aiContent.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiContent;
-      articleData = JSON.parse(jsonStr);
-    } catch (e) {
-      console.error('Failed to parse AI response:', e);
-      throw new Error('Failed to parse AI-generated content');
-    }
+    const articleData = parseAiArticleJson(aiContent);
 
     // Generate a URL-friendly slug
-    const slug = articleData.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 100);
+    const slug = slugify(articleData.title);
 
     // Calculate read time (assuming 200 words per minute)
-    const wordCount = articleData.content.split(/\s+/).length;
-    const readTime = `${Math.ceil(wordCount / 200)} min read`;
+    const readTime = calculateReadTime(articleData.content);
 
     console.log('Saving article to database...');
 
@@ -214,7 +216,7 @@ Make sure the content is:
     if (newArticle.published) {
       try {
         await supabaseClient.functions.invoke('send-article-webhook', {
-          body: { articleId: newArticle.id, isTest: false }
+          body: { articleId: newArticle.id, isTest: false },
         });
         console.log('Webhook invoked for article', newArticle.id);
       } catch (e) {

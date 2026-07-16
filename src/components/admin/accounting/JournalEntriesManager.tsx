@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,13 +97,29 @@ export const JournalEntriesManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Track unsaved changes: snapshot the form when the dialog opens and compare.
+  const initialFormRef = useRef<string>('');
+  const formSnapshot = useMemo(
+    () => JSON.stringify({ entryDate, referenceNumber, notes, lines }),
+    [entryDate, referenceNumber, notes, lines]
+  );
+  useEffect(() => {
+    if (isDialogOpen) initialFormRef.current = formSnapshot;
+    // Only snapshot on open transitions, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDialogOpen]);
+  const isDirty = isDialogOpen && formSnapshot !== initialFormRef.current;
+  const { isBlocking, requestNavigation, confirmDiscard, cancelDiscard } =
+    useUnsavedChanges(isDirty);
+
   // Fetch journal entries with lines
   const { data: entries, isLoading } = useQuery({
     queryKey: ['journal_entries'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('journal_entries')
-        .select(`
+        .select(
+          `
           *,
           journal_entry_lines (
             id,
@@ -116,7 +134,8 @@ export const JournalEntriesManager = () => {
               account_name
             )
           )
-        `)
+        `
+        )
         .order('entry_date', { ascending: false });
 
       if (error) {
@@ -181,7 +200,7 @@ export const JournalEntriesManager = () => {
       }
 
       // Validate at least 2 lines
-      const validLines = lines.filter(line => line.account_id && (line.debit || line.credit));
+      const validLines = lines.filter((line) => line.account_id && (line.debit || line.credit));
       if (validLines.length < 2) {
         throw new Error('Journal entry must have at least 2 lines');
       }
@@ -280,7 +299,7 @@ export const JournalEntriesManager = () => {
       if (deleteError) throw deleteError;
 
       // Insert new lines
-      const validLines = lines.filter(line => line.account_id && (line.debit || line.credit));
+      const validLines = lines.filter((line) => line.account_id && (line.debit || line.credit));
       const linesToInsert = validLines.map((line, index) => ({
         journal_entry_id: selectedEntry.id,
         account_id: line.account_id,
@@ -319,7 +338,7 @@ export const JournalEntriesManager = () => {
   // Post journal entry mutation
   const postMutation = useMutation({
     mutationFn: async (entryId: string) => {
-      const entry = entries?.find(e => e.id === entryId);
+      const entry = entries?.find((e) => e.id === entryId);
       if (!entry) throw new Error('Entry not found');
 
       if (entry.status === 'posted') {
@@ -328,10 +347,12 @@ export const JournalEntriesManager = () => {
 
       // Validate balance
       const totalDebits = (entry.journal_entry_lines || []).reduce(
-        (sum, line) => sum + (Number(line.debit) || 0), 0
+        (sum, line) => sum + (Number(line.debit) || 0),
+        0
       );
       const totalCredits = (entry.journal_entry_lines || []).reduce(
-        (sum, line) => sum + (Number(line.credit) || 0), 0
+        (sum, line) => sum + (Number(line.credit) || 0),
+        0
       );
 
       if (Math.abs(totalDebits - totalCredits) > 0.01) {
@@ -398,7 +419,7 @@ export const JournalEntriesManager = () => {
   // Delete journal entry mutation
   const deleteMutation = useMutation({
     mutationFn: async (entryId: string) => {
-      const entry = entries?.find(e => e.id === entryId);
+      const entry = entries?.find((e) => e.id === entryId);
       if (entry?.status === 'posted') {
         throw new Error('Cannot delete posted entries. Void them instead.');
       }
@@ -465,14 +486,16 @@ export const JournalEntriesManager = () => {
     setNotes(entry.notes || '');
 
     if (entry.journal_entry_lines && entry.journal_entry_lines.length > 0) {
-      setLines(entry.journal_entry_lines.map((line, index) => ({
-        id: line.id,
-        account_id: line.account_id,
-        description: line.description || '',
-        debit: line.debit,
-        credit: line.credit,
-        line_number: index + 1,
-      })));
+      setLines(
+        entry.journal_entry_lines.map((line, index) => ({
+          id: line.id,
+          account_id: line.account_id,
+          description: line.description || '',
+          debit: line.debit,
+          credit: line.credit,
+          line_number: index + 1,
+        }))
+      );
     }
 
     setIsDialogOpen(true);
@@ -543,7 +566,10 @@ export const JournalEntriesManager = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: any }> = {
+    const variants: Record<
+      string,
+      { variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: any }
+    > = {
       posted: { variant: 'default', icon: CheckCircle2 },
       draft: { variant: 'outline', icon: Edit },
       void: { variant: 'destructive', icon: X },
@@ -569,9 +595,7 @@ export const JournalEntriesManager = () => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Journal Entries</CardTitle>
-              <CardDescription>
-                Manual double-entry bookkeeping transactions
-              </CardDescription>
+              <CardDescription>Manual double-entry bookkeeping transactions</CardDescription>
             </div>
             <Button onClick={() => setIsDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -606,31 +630,19 @@ export const JournalEntriesManager = () => {
                 <TableBody>
                   {entries.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="font-medium">
-                        {entry.entry_number}
-                      </TableCell>
+                      <TableCell className="font-medium">{entry.entry_number}</TableCell>
                       <TableCell>{formatDate(entry.entry_date)}</TableCell>
                       <TableCell>{entry.reference_number || '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {entry.notes || '-'}
-                      </TableCell>
+                      <TableCell className="max-w-xs truncate">{entry.notes || '-'}</TableCell>
                       <TableCell>{getStatusBadge(entry.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleView(entry)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => handleView(entry)}>
                             View
                           </Button>
                           {entry.status === 'draft' && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(entry)}
-                              >
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(entry)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button
@@ -670,15 +682,23 @@ export const JournalEntriesManager = () => {
       </Card>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        setIsDialogOpen(open);
-        if (!open) resetForm();
-      }}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsDialogOpen(true);
+            return;
+          }
+          // Guard closing the editor when there are unsaved changes.
+          requestNavigation(() => {
+            setIsDialogOpen(false);
+            resetForm();
+          });
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedEntry ? 'Edit Journal Entry' : 'New Journal Entry'}
-            </DialogTitle>
+            <DialogTitle>{selectedEntry ? 'Edit Journal Entry' : 'New Journal Entry'}</DialogTitle>
             <DialogDescription>
               Create manual double-entry bookkeeping transactions. Debits must equal credits.
             </DialogDescription>
@@ -722,12 +742,7 @@ export const JournalEntriesManager = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Line Items</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddLine}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleAddLine}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Line
                 </Button>
@@ -777,7 +792,13 @@ export const JournalEntriesManager = () => {
                             step="0.01"
                             placeholder="0.00"
                             value={line.debit || ''}
-                            onChange={(e) => handleLineChange(index, 'debit', e.target.value ? parseFloat(e.target.value) : null)}
+                            onChange={(e) =>
+                              handleLineChange(
+                                index,
+                                'debit',
+                                e.target.value ? parseFloat(e.target.value) : null
+                              )
+                            }
                             className="text-right"
                           />
                         </TableCell>
@@ -787,7 +808,13 @@ export const JournalEntriesManager = () => {
                             step="0.01"
                             placeholder="0.00"
                             value={line.credit || ''}
-                            onChange={(e) => handleLineChange(index, 'credit', e.target.value ? parseFloat(e.target.value) : null)}
+                            onChange={(e) =>
+                              handleLineChange(
+                                index,
+                                'credit',
+                                e.target.value ? parseFloat(e.target.value) : null
+                              )
+                            }
                             className="text-right"
                           />
                         </TableCell>
@@ -827,7 +854,9 @@ export const JournalEntriesManager = () => {
                       <AlertCircle className="h-4 w-4 text-destructive" />
                     )}
                   </span>
-                  <span className={`font-mono ${balance.isBalanced ? 'text-green-600' : 'text-destructive'}`}>
+                  <span
+                    className={`font-mono ${balance.isBalanced ? 'text-green-600' : 'text-destructive'}`}
+                  >
                     {formatCurrency(Math.abs(balance.difference))}
                   </span>
                 </div>
@@ -852,7 +881,7 @@ export const JournalEntriesManager = () => {
               Cancel
             </Button>
             <Button
-              onClick={() => selectedEntry ? updateMutation.mutate() : createMutation.mutate()}
+              onClick={() => (selectedEntry ? updateMutation.mutate() : createMutation.mutate())}
               disabled={!balance.isBalanced || createMutation.isPending || updateMutation.isPending}
             >
               {selectedEntry ? 'Update' : 'Create'} Entry
@@ -866,9 +895,7 @@ export const JournalEntriesManager = () => {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Journal Entry Details</DialogTitle>
-            <DialogDescription>
-              Entry #{selectedEntry?.entry_number}
-            </DialogDescription>
+            <DialogDescription>Entry #{selectedEntry?.entry_number}</DialogDescription>
           </DialogHeader>
 
           {selectedEntry && (
@@ -878,10 +905,12 @@ export const JournalEntriesManager = () => {
                   <span className="font-medium">Date:</span> {formatDate(selectedEntry.entry_date)}
                 </div>
                 <div>
-                  <span className="font-medium">Reference:</span> {selectedEntry.reference_number || '-'}
+                  <span className="font-medium">Reference:</span>{' '}
+                  {selectedEntry.reference_number || '-'}
                 </div>
                 <div className="col-span-2">
-                  <span className="font-medium">Status:</span> {getStatusBadge(selectedEntry.status)}
+                  <span className="font-medium">Status:</span>{' '}
+                  {getStatusBadge(selectedEntry.status)}
                 </div>
                 {selectedEntry.notes && (
                   <div className="col-span-2">
@@ -920,14 +949,16 @@ export const JournalEntriesManager = () => {
                       <TableCell className="text-right font-mono">
                         {formatCurrency(
                           selectedEntry.journal_entry_lines?.reduce(
-                            (sum: number, line: any) => sum + (Number(line.debit) || 0), 0
+                            (sum: number, line: any) => sum + (Number(line.debit) || 0),
+                            0
                           ) || 0
                         )}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(
                           selectedEntry.journal_entry_lines?.reduce(
-                            (sum: number, line: any) => sum + (Number(line.credit) || 0), 0
+                            (sum: number, line: any) => sum + (Number(line.credit) || 0),
+                            0
                           ) || 0
                         )}
                       </TableCell>
@@ -950,14 +981,12 @@ export const JournalEntriesManager = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Journal Entry?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the journal entry
-              and all associated line items.
+              This action cannot be undone. This will permanently delete the journal entry and all
+              associated line items.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setEntryToDelete(null)}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setEntryToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => entryToDelete && deleteMutation.mutate(entryToDelete)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -967,6 +996,12 @@ export const JournalEntriesManager = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UnsavedChangesDialog
+        open={isBlocking}
+        onDiscard={confirmDiscard}
+        onKeepEditing={cancelDiscard}
+      />
     </div>
   );
 };

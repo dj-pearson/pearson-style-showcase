@@ -1,9 +1,9 @@
-import { expect, afterEach } from 'vitest';
+import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
-
-// Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
+// Registers the jest-dom matchers on Vitest's `expect` AND augments the
+// TypeScript types (toBeInTheDocument, toHaveValue, ...) globally for all tests.
+import '@testing-library/jest-dom/vitest';
+import { webcrypto } from 'node:crypto';
 
 // Cleanup after each test
 afterEach(() => {
@@ -21,6 +21,14 @@ global.IntersectionObserver = class IntersectionObserver {
   unobserve() {}
 } as any;
 
+// Mock ResizeObserver for components that observe element size (charts, panels)
+global.ResizeObserver = class ResizeObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+} as any;
+
 // Mock matchMedia for responsive components
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -35,3 +43,22 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => {},
   }),
 });
+
+// Ensure the Web Crypto API is available on window for modules that use it
+// (secure-cache AES-GCM, device-trust fingerprinting, csrf state, session
+// rotation). jsdom/Node usually expose globalThis.crypto; when a
+// subtle/getRandomValues implementation is missing we fall back to Node's
+// webcrypto so those code paths run under test.
+{
+  const nodeCrypto = (globalThis as any).crypto ?? webcrypto;
+  if (!window.crypto || !window.crypto.subtle || !window.crypto.getRandomValues) {
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      writable: true,
+      value: nodeCrypto,
+    });
+  }
+  if (typeof window.crypto.randomUUID !== 'function' && nodeCrypto?.randomUUID) {
+    (window.crypto as any).randomUUID = nodeCrypto.randomUUID.bind(nodeCrypto);
+  }
+}

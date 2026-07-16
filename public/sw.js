@@ -26,7 +26,6 @@ const ROUTE_STRATEGIES = {
   '/assets/index-': CACHE_STRATEGIES.NETWORK_FIRST, // Main JS bundle - always check network
   '/assets/': CACHE_STRATEGIES.STALE_WHILE_REVALIDATE, // Other assets - serve cached but revalidate
   '/api/': CACHE_STRATEGIES.NETWORK_FIRST, // API calls
-  '/.supabase.co/': CACHE_STRATEGIES.NETWORK_FIRST, // Supabase API
 };
 
 // Install event - cache critical assets

@@ -385,9 +385,12 @@ export async function importContactsFromCSV(
     // Get existing contacts for duplicate detection
     let existingContacts: Contact[] = [];
     if (options.updateExisting) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('contacts')
         .select('id, email, contact_name');
+      // Surface the error instead of silently proceeding with an empty set,
+      // which would defeat duplicate detection and create duplicate contacts.
+      if (error) throw error;
       existingContacts = (data as Contact[]) || [];
     }
 
