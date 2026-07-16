@@ -18,11 +18,8 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-002",
+      "passes": true,
+      "notes": "Created .github/workflows/ci.yml triggering on pull_request and push to main. Runs npm ci, npm run lint (fails on errors), npm run typecheck (tsc --noEmit -p tsconfig.app.json), npm test -- --run, and npm run build - each failing step fails the run. Uses actions/setup-node with cache:npm plus an explicit actions/cache@v4 step for node_modules keyed on package-lock.json hash. Added concurrency cancel-in-progress and a 20-min timeout. Node version pinned via .nvmrc (Node 22) rather than the AC's original 'Node 18', which is superseded by the completed US-053 (engines >=20 <23; Node 18 would violate engines). Verified all steps pass locally: lint 0 errors, typecheck 0 errors, 210 tests pass, build succeeds."
       "title": "Add bundle size monitoring to CI pipeline",
       "description": "As a developer, I need bundle size checks in CI so that we catch unintentional bundle bloat before it reaches production.",
       "acceptanceCriteria": [
