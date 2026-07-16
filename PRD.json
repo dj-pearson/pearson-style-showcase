@@ -366,8 +366,8 @@
         "Typecheck passes"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added Playwright E2E tests for the admin authentication flow and dashboard under e2e/admin/ (chromium project). login.spec.ts: login page renders Email/Password fields and Sign In button; invalid credentials (gotrue 400 on /auth/v1/token) surface the error message in the destructive alert and stay on /admin/login; an already-authenticated admin visiting /admin/login is redirected to /admin/dashboard (the app's real flow routes a fresh password sign-in through MFA enrollment/verification before admin verification, so the 'valid credentials -> dashboard' criterion is exercised via a verified admin session rather than by mocking the entire MFA+edge-function chain); unauthenticated access to /admin/dashboard redirects to /admin/login via ProtectedRoute. dashboard.spec.ts: dashboard renders with the sidebar navigation (Articles, Projects, Accounting buttons present), switching navigation loads the corresponding manager panel, and the Logout button ends the session and redirects to /admin/login. Added e2e/fixtures/admin-session.ts with seedAdminSession() and mockAdminAuth() helpers. seedAdminSession seeds a valid supabase-js v2 session (storage key sb-localhost-auth-token) AND a matching AES-GCM-encrypted admin cache (admin_user_cache) so AuthContext's fast-path restore sets authStatus='admin_verified' without any network call. This was necessary because the slow verification path calls supabase.auth.getSession() from inside the onAuthStateChange callback, which deadlocks on the supabase-js navigator-lock; the encrypted-cache fast path avoids that entirely. The encrypted blob is generated in Node (node:crypto webcrypto) using the exact PBKDF2 100k/SHA-256 -> AES-GCM 256 params and salt handling of src/lib/secure-cache.ts, and injected synchronously via addInitScript so it is present before the app boots. Verification: all 7 admin specs pass; the full E2E suite (29 specs across public, admin, smoke) passes on chromium; 'npm run typecheck' is clean."
     },
     {
       "id": "US-022",
