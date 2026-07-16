@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import SEO from '@/components/SEO';
 import { useNavigate } from 'react-router-dom';
@@ -172,23 +173,108 @@ const SIDEBAR_GROUPS_KEY = 'admin_sidebar_open_groups';
 // query only marks its own card(s) as errored.
 type StatKey = 'projects' | 'articles' | 'aiTools' | 'totalViews';
 
+// Auto-refresh interval for the dashboard stats.
+const STAT_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Compact relative-time label, e.g. "just now", "3m ago", "2h ago". */
+const formatAgo = (updatedAt: number, now: number): string => {
+  if (!updatedAt) return 'never';
+  const sec = Math.floor((now - updatedAt) / 1000);
+  if (sec < 10) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h ago`;
+};
+
 const AdminDashboard = () => {
   const { adminUser, signOut } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
-    projects: 0,
-    articles: 0,
-    aiTools: 0,
-    totalViews: 0,
+
+  // Each stat is an independent React Query so one failure only errors its own
+  // card, and all three auto-refresh every 5 minutes (refetchInterval).
+  const projectsQuery = useQuery({
+    queryKey: ['dashboard-stat', 'projects'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('projects')
+        .select('id', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+    refetchInterval: STAT_REFRESH_MS,
   });
-  const [isLoading, setIsLoading] = useState(true);
-  // Per-stat error flags so one failed query only errors its own card(s).
-  const [statErrors, setStatErrors] = useState<Record<StatKey, boolean>>({
-    projects: false,
-    articles: false,
-    aiTools: false,
-    totalViews: false,
+  const articlesQuery = useQuery({
+    queryKey: ['dashboard-stat', 'articles'],
+    queryFn: async () => {
+      const { data, count, error } = await supabase
+        .from('articles')
+        .select('view_count', { count: 'exact' });
+      if (error) throw error;
+      const rows = (data as { view_count: number | null }[] | null) || [];
+      return { count: count || 0, totalViews: rows.reduce((s, a) => s + (a.view_count || 0), 0) };
+    },
+    refetchInterval: STAT_REFRESH_MS,
   });
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const aiToolsQuery = useQuery({
+    queryKey: ['dashboard-stat', 'aiTools'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('ai_tools')
+        .select('id', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+    refetchInterval: STAT_REFRESH_MS,
+  });
+
+  // Ticking clock so "last updated X ago" labels stay current in real time.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const stats: DashboardStats = {
+    projects: projectsQuery.data ?? 0,
+    articles: articlesQuery.data?.count ?? 0,
+    aiTools: aiToolsQuery.data ?? 0,
+    totalViews: articlesQuery.data?.totalViews ?? 0,
+  };
+  // First-load spinner only while nothing has resolved yet.
+  const isLoading = projectsQuery.isLoading && articlesQuery.isLoading && aiToolsQuery.isLoading;
+  const isFetching =
+    projectsQuery.isFetching || articlesQuery.isFetching || aiToolsQuery.isFetching;
+  const statErrors: Record<StatKey, boolean> = {
+    projects: projectsQuery.isError,
+    articles: articlesQuery.isError,
+    aiTools: aiToolsQuery.isError,
+    totalViews: articlesQuery.isError,
+  };
+  const statUpdatedAt: Record<StatKey, number> = {
+    projects: projectsQuery.dataUpdatedAt,
+    articles: articlesQuery.dataUpdatedAt,
+    aiTools: aiToolsQuery.dataUpdatedAt,
+    totalViews: articlesQuery.dataUpdatedAt,
+  };
+  const statRefetch: Record<StatKey, () => void> = {
+    projects: () => projectsQuery.refetch(),
+    articles: () => articlesQuery.refetch(),
+    aiTools: () => aiToolsQuery.refetch(),
+    totalViews: () => articlesQuery.refetch(),
+  };
+  const lastUpdatedMs = Math.max(
+    projectsQuery.dataUpdatedAt,
+    articlesQuery.dataUpdatedAt,
+    aiToolsQuery.dataUpdatedAt
+  );
+  const lastRefreshed = lastUpdatedMs > 0 ? new Date(lastUpdatedMs) : null;
+  const handleRefresh = () => {
+    projectsQuery.refetch();
+    articlesQuery.refetch();
+    aiToolsQuery.refetch();
+  };
+
   const [activeView, setActiveView] = useState('overview');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const navigate = useNavigate();
@@ -346,70 +432,6 @@ const AdminDashboard = () => {
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(shortcuts, !isLoading);
 
-  useEffect(() => {
-    // Auth is now handled by AuthContext and ProtectedRoute
-    // Just load dashboard data
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    // Run the three stat queries independently so one failure doesn't wipe out
-    // the other cards. The articles query backs both the Articles and Views
-    // cards, so those two share its success/failure.
-    const [projectsRes, articlesRes, aiToolsRes] = await Promise.allSettled([
-      supabase.from('projects').select('id', { count: 'exact', head: true }),
-      supabase.from('articles').select('view_count', { count: 'exact' }),
-      supabase.from('ai_tools').select('id', { count: 'exact', head: true }),
-    ]);
-
-    const projectsOk = projectsRes.status === 'fulfilled' && !projectsRes.value.error;
-    const articlesOk = articlesRes.status === 'fulfilled' && !articlesRes.value.error;
-    const aiToolsOk = aiToolsRes.status === 'fulfilled' && !aiToolsRes.value.error;
-
-    const nextStats: DashboardStats = { ...stats };
-    if (projectsOk) {
-      nextStats.projects = projectsRes.value.count || 0;
-    }
-    if (articlesOk) {
-      const articleRows = articlesRes.value.data as { view_count: number | null }[] | null;
-      nextStats.articles = articlesRes.value.count || 0;
-      nextStats.totalViews = articleRows?.reduce((sum, a) => sum + (a.view_count || 0), 0) || 0;
-    }
-    if (aiToolsOk) {
-      nextStats.aiTools = aiToolsRes.value.count || 0;
-    }
-
-    setStats(nextStats);
-    setStatErrors({
-      projects: !projectsOk,
-      articles: !articlesOk,
-      aiTools: !aiToolsOk,
-      totalViews: !articlesOk,
-    });
-
-    if (!projectsOk || !articlesOk || !aiToolsOk) {
-      logger.error('Error loading one or more dashboard stats', {
-        projectsOk,
-        articlesOk,
-        aiToolsOk,
-      });
-      toast({
-        variant: 'destructive',
-        title: 'Some dashboard stats failed to load',
-        description: 'Only the affected cards show an error. Click a card’s retry to try again.',
-      });
-    } else {
-      setLastRefreshed(new Date());
-    }
-
-    setIsLoading(false);
-  };
-
-  const handleRefresh = () => {
-    setIsLoading(true);
-    loadDashboardData();
-  };
-
   const handleLogout = async () => {
     try {
       // Use AuthContext signOut method
@@ -426,14 +448,6 @@ const AdminDashboard = () => {
       navigate('/admin/login');
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   const renderContent = () => {
     // Overview doesn't need lazy loading as it's lightweight
@@ -798,6 +812,17 @@ const AdminDashboard = () => {
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={handleRefresh}
+                      disabled={isFetching}
+                      title="Refresh dashboard stats"
+                      aria-label="Refresh dashboard stats"
+                      className="min-h-[44px] min-w-[44px]"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setShowShortcuts(true)}
                       title="Keyboard Shortcuts (Press ?)"
                       aria-label="Show keyboard shortcuts"
@@ -861,47 +886,52 @@ const AdminDashboard = () => {
                       sub: string;
                       icon: typeof Database;
                     }[]
-                  ).map(({ key, label, value, sub, icon: Icon }) => (
-                    <Card key={label} className="p-0">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium truncate">
-                          {label}
-                        </CardTitle>
-                        <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                      </CardHeader>
-                      <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
-                        {isLoading ? (
-                          <>
-                            <div className="h-7 sm:h-8 w-12 bg-muted animate-pulse rounded mb-1" />
-                            <div className="h-3 w-10 bg-muted animate-pulse rounded" />
-                          </>
-                        ) : statErrors[key] ? (
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5 text-destructive">
-                              <AlertCircle className="h-4 w-4 shrink-0" />
-                              <span className="text-xs font-medium">Failed to load</span>
+                  ).map(({ key, label, value, sub, icon: Icon }) => {
+                    const cardLoading = statUpdatedAt[key] === 0 && !statErrors[key];
+                    return (
+                      <Card key={label} className="p-0">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-1 sm:pb-2">
+                          <CardTitle className="text-xs sm:text-sm font-medium truncate">
+                            {label}
+                          </CardTitle>
+                          <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                        </CardHeader>
+                        <CardContent className="p-3 sm:p-4 pt-0 sm:pt-0">
+                          {cardLoading ? (
+                            <>
+                              <div className="h-7 sm:h-8 w-12 bg-muted animate-pulse rounded mb-1" />
+                              <div className="h-3 w-10 bg-muted animate-pulse rounded" />
+                            </>
+                          ) : statErrors[key] ? (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5 text-destructive">
+                                <AlertCircle className="h-4 w-4 shrink-0" />
+                                <span className="text-xs font-medium">Failed to load</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={statRefetch[key]}
+                                className="inline-flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                                Retry
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={handleRefresh}
-                              disabled={isLoading}
-                              className="inline-flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
-                              Retry
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="text-xl sm:text-2xl font-bold">
-                              {value.toLocaleString()}
-                            </div>
-                            <p className="text-[10px] sm:text-xs text-muted-foreground">{sub}</p>
-                          </>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+                          ) : (
+                            <>
+                              <div className="text-xl sm:text-2xl font-bold">
+                                {value.toLocaleString()}
+                              </div>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">{sub}</p>
+                              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                                Updated {formatAgo(statUpdatedAt[key], nowTick)}
+                              </p>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 {/* Dynamic Content */}

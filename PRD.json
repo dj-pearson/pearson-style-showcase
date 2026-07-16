@@ -791,8 +791,8 @@
         "Typecheck passes"
       ],
       "priority": 46,
-      "passes": false,
-      "notes": "MEDIUM: Stats can go stale with no auto-refresh. Single query failure replaces all 4 stat cards with error."
+      "passes": true,
+      "notes": "Refactored the admin dashboard stats to React Query with per-stat independence, auto-refresh, live 'last updated' indicators, and a header refresh button (building on the per-card error isolation from US-036). Each stat is now its own useQuery (['dashboard-stat','projects'|'articles'|'aiTools']) with refetchInterval: 5 minutes, so a single failing query only errors its own card while the other three keep rendering their values; the articles query backs both the Articles and Views cards. Added a real-time 'Updated X ago' label under each stat value (formatAgo relative formatter) driven by a nowTick clock that updates every 30s so the labels stay current without a refetch. Added a manual Refresh button in the dashboard header (RefreshCw) that refetches all three stats immediately and shows a spinning indicator while any query isFetching. Per-card failures show a compact 'Failed to load' + Retry that refetches only that card's query (statRefetch[key]); loading is per-card (skeleton until that query first resolves) and the previous full-page loading spinner gate was removed so the dashboard shell renders immediately. Derived stats/isLoading/hasError/lastRefreshed from the queries so the existing overview System-Status card and keyboard shortcuts keep working; removed the old manual loadDashboardData/useState machinery. Verification: 'npm run typecheck' clean; 'npm run lint' 0 errors; full unit suite 362 tests pass; 'npm run build' succeeds; admin E2E (8 specs) pass; browser-verified the four stat cards with 'Updated just now' labels and the header Refresh button via screenshot."
     },
     {
       "id": "US-047",
