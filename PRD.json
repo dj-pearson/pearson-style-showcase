@@ -403,8 +403,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 23,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Ran an axe-core (wcag2a+wcag2aa) audit across all six public pages (/, /about, /news, /projects, /connect, /search) via Playwright+Chromium and fixed every serious/critical violation found: (1) /about had a serious color-contrast failure on the 'Available' avatar badge (bg-green-500 + white text ~1.9:1) -> changed to bg-green-700 (~4.5:1 AA-compliant); (2) /news and /projects each had two critical button-name failures on the shadcn Select filter/sort triggers (no discernible text) -> added descriptive aria-labels ('Filter articles by category'/'Sort articles', 'Filter projects by tag'/'Sort projects') to all trigger instances (mobile + desktop); (3) /connect had a serious aria-progressbar-name failure on the ContactForm's Radix Progress bars -> added aria-labels ('Form completion progress', 'Message submission progress'). After fixes, all six pages report 0 serious/critical violations. Verified the remaining structural AC items were already present and correct: a focus-visible skip-to-main-content link (Navigation.tsx -> #main-content, .skip-to-content slides from top:-40px to top:0 on :focus); global visible focus indicators (index.css *:focus-visible + element-specific rules: 2px solid cyan outline with 2px offset, high-contrast on dark backgrounds); and aria-live toast announcements (Radix Toast provider renders an assertive live region; Sonner toaster present). Added e2e/public/accessibility.spec.ts as a permanent regression guard (zero serious/critical axe violations per public route, plus a skip-link presence/focus test). Verification: 'npm run typecheck' clean; the a11y spec (7 tests) and the affected homepage/contact specs pass on chromium; browser-verified /about visually (screenshot) showing the corrected badge contrast."
     },
     {
       "id": "US-024",

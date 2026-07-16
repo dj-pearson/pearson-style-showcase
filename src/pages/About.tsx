@@ -161,7 +161,7 @@ const About = () => {
                       className="w-48 h-48 rounded-full object-cover border-4 border-primary/20 shadow-2xl shadow-primary/20"
                     />
                   )}
-                  <div className="absolute -bottom-2 -right-2 bg-green-500 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
+                  <div className="absolute -bottom-2 -right-2 bg-green-700 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
                     Available
                   </div>
                 </div>

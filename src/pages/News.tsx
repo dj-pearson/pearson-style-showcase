@@ -229,7 +229,7 @@ const News = () => {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="mobile-input w-full bg-gray-700/50 border-gray-600">
+                    <SelectTrigger aria-label="Filter articles by category" className="mobile-input w-full bg-gray-700/50 border-gray-600">
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by category" />
                     </SelectTrigger>
@@ -242,7 +242,7 @@ const News = () => {
                   </Select>
 
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="mobile-input w-full bg-gray-700/50 border-gray-600">
+                    <SelectTrigger aria-label="Sort articles" className="mobile-input w-full bg-gray-700/50 border-gray-600">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
@@ -271,7 +271,7 @@ const News = () => {
                 {/* Category Filter */}
                 <div className="flex-initial">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="mobile-input w-[200px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger aria-label="Filter articles by category" className="mobile-input w-[200px] bg-gray-700/50 border-gray-600">
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by category" />
                     </SelectTrigger>
@@ -287,7 +287,7 @@ const News = () => {
                 {/* Sort */}
                 <div className="flex-initial">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="mobile-input w-[160px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger aria-label="Sort articles" className="mobile-input w-[160px] bg-gray-700/50 border-gray-600">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
