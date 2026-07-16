@@ -1,0 +1,925 @@
+openapi: 3.0.3
+info:
+  title: Dan Pearson Platform - Edge Functions API
+  version: 1.0.0
+  description: >
+    OpenAPI specification for the Supabase edge functions powering the Dan
+    Pearson portfolio/CMS platform. Functions are served from
+    functions.danpearson.net. Most endpoints accept POST with a JSON body and,
+    unless marked public, require a Supabase JWT Bearer token. Rate-limited
+    endpoints return `X-RateLimit-*` headers and `429` with `Retry-After` when a
+    limit is exceeded.
+  license:
+    name: Proprietary
+servers:
+  - url: https://functions.danpearson.net
+    description: Production edge functions
+  - url: http://localhost:54321/functions/v1
+    description: Local Supabase functions
+
+tags:
+  - name: Authentication
+    description: Admin login, OAuth, and secure credential vault.
+  - name: Content
+    description: AI content generation, extraction, indexing, and webhooks.
+  - name: Affiliate
+    description: Amazon affiliate click tracking and pipeline.
+  - name: Accounting
+    description: Document parsing and invoice creation.
+  - name: Notifications
+    description: Transactional email and newsletter.
+  - name: Utility
+    description: Health checks, maintenance, image optimization, diagnostics.
+
+security:
+  - SupabaseJWT: []
+
+components:
+  securitySchemes:
+    SupabaseJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase-issued JWT access token.
+
+  headers:
+    X-RateLimit-Limit:
+      description: Max requests allowed in the current window.
+      schema:
+        type: integer
+    X-RateLimit-Remaining:
+      description: Requests remaining in the current window.
+      schema:
+        type: integer
+    X-RateLimit-Reset:
+      description: Unix time (seconds) when the window resets.
+      schema:
+        type: integer
+    Retry-After:
+      description: Seconds to wait before retrying (on 429).
+      schema:
+        type: integer
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Unauthorized
+    BadRequest:
+      description: Invalid or missing input.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Invalid input
+    RateLimited:
+      description: Too many requests.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/X-RateLimit-Limit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/X-RateLimit-Remaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/X-RateLimit-Reset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Rate limit exceeded
+    ServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Internal server error
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+      required:
+        - error
+    SuccessFlag:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+    ServiceHealth:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        latency:
+          type: integer
+        message:
+          type: string
+        lastChecked:
+          type: string
+          format: date-time
+      required:
+        - name
+        - status
+        - lastChecked
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        uptime:
+          type: integer
+          description: Seconds since the function started.
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceHealth'
+      required:
+        - status
+        - timestamp
+        - version
+        - uptime
+        - checks
+
+paths:
+  /admin-auth:
+    post:
+      tags: [Authentication]
+      operationId: adminAuth
+      summary: Admin authentication and session actions
+      description: >
+        Authenticates an admin by email/password against the RBAC whitelist.
+        Rate limited to 5 attempts / 15 minutes per IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [login]
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required: [action, email, password]
+            example:
+              action: login
+              email: admin@danpearson.net
+              password: "••••••••"
+      responses:
+        '200':
+          description: Authenticated; returns admin profile and roles.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      email: { type: string }
+                      roles:
+                        type: array
+                        items: { type: string }
+              example:
+                success: true
+                user: { id: "u-1", email: admin@danpearson.net, roles: [admin] }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not whitelisted for admin access.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /oauth-proxy:
+    get:
+      tags: [Authentication]
+      operationId: oauthProxy
+      summary: OAuth provider redirect/callback proxy
+      description: >
+        Initiates or completes an OAuth flow (Google/Apple), signing state with
+        a dedicated OAUTH_STATE_SECRET. Public (the provider redirects here).
+      security: []
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [google, apple]
+        - name: redirect_to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to the provider or back to the app.
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /secure-vault:
+    post:
+      tags: [Authentication]
+      operationId: secureVault
+      summary: MFA-gated secret vault (CRUD)
+      description: >
+        Encrypts, decrypts, updates, and deletes vault items using AES-256-GCM.
+        Requires an authenticated admin with a verified MFA session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [encrypt, decrypt, update, delete]
+                itemId: { type: string }
+                name: { type: string }
+                value: { type: string }
+                typeId: { type: string, nullable: true }
+              required: [action]
+            example:
+              action: encrypt
+              name: GitHub Token
+              value: "ghp_xxx"
+      responses:
+        '200':
+          description: Action result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+              example: { success: true }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /generate-ai-article:
+    post:
+      tags: [Content]
+      operationId: generateAiArticle
+      summary: Generate an AI article
+      description: Generates and stores an article using the Claude API. Rate limited.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic: { type: string }
+            example: { topic: The Future of AI Automation }
+      responses:
+        '200':
+          description: Generated article record.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  article:
+                    type: object
+                    properties:
+                      title: { type: string }
+                      slug: { type: string }
+                      content: { type: string }
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ai-content-generator:
+    post:
+      tags: [Content]
+      operationId: aiContentGenerator
+      summary: Generate content by type (article/project/seo)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [article, project, seo]
+                prompt: { type: string }
+              required: [type]
+            example: { type: seo, prompt: AI automation consulting }
+      responses:
+        '200':
+          description: Generated content.
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /generate-social-content:
+    post:
+      tags: [Content]
+      operationId: generateSocialContent
+      summary: Generate social posts for an article
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                articleId: { type: string }
+              required: [articleId]
+            example: { articleId: art-1 }
+      responses:
+        '200':
+          description: Generated social content.
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /amazon-article-pipeline:
+    post:
+      tags: [Affiliate]
+      operationId: amazonArticlePipeline
+      summary: Run the Amazon affiliate article pipeline
+      description: Researches products and generates an affiliate article.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category: { type: string }
+            example: { category: home-office }
+      responses:
+        '200':
+          description: Pipeline result.
+          content:
+            application/json:
+              schema: { type: object }
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /extract-from-url:
+    post:
+      tags: [Content]
+      operationId: extractFromUrl
+      summary: Extract structured content from a URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string, format: uri }
+                type: { type: string }
+              required: [url]
+            example: { url: https://example.com/post, type: article }
+      responses:
+        '200':
+          description: Extracted content.
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /generate-ai-tasks:
+    post:
+      tags: [Content]
+      operationId: generateAiTasks
+      summary: Generate tasks from free text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+                project_id: { type: string }
+                project_name: { type: string }
+              required: [text]
+            example: { text: "Ship the new landing page", project_id: p-1, project_name: Web }
+      responses:
+        '200':
+          description: Generated tasks.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /generate-ticket-response:
+    post:
+      tags: [Content]
+      operationId: generateTicketResponse
+      summary: Draft a support ticket response
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket_id: { type: string }
+              required: [ticket_id]
+            example: { ticket_id: t-42 }
+      responses:
+        '200':
+          description: Suggested response.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /google-indexing:
+    post:
+      tags: [Content]
+      operationId: googleIndexing
+      summary: Submit URLs to the Google Indexing API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  items: { type: string, format: uri }
+                type:
+                  type: string
+                  enum: [URL_UPDATED, URL_DELETED]
+                  default: URL_UPDATED
+              required: [urls]
+            example: { urls: [https://danpearson.net/news/x], type: URL_UPDATED }
+      responses:
+        '200':
+          description: Submission result.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /send-article-webhook:
+    post:
+      tags: [Content]
+      operationId: sendArticleWebhook
+      summary: Fire the article-published webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                articleId: { type: string }
+                isTest: { type: boolean, default: false }
+              required: [articleId]
+            example: { articleId: art-1, isTest: false }
+      responses:
+        '200':
+          description: Webhook dispatched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+
+  /test-ai-model:
+    post:
+      tags: [Utility]
+      operationId: testAiModel
+      summary: Test an AI model configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config_id: { type: string }
+              required: [config_id]
+            example: { config_id: cfg-1 }
+      responses:
+        '200':
+          description: Test result.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /track-affiliate-click:
+    post:
+      tags: [Affiliate]
+      operationId: trackAffiliateClick
+      summary: Record an affiliate link click
+      description: Public endpoint; records a click for an article/ASIN. Rate limited.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                articleId:
+                  type: string
+                  format: uuid
+                asin:
+                  type: string
+                  maxLength: 20
+              required: [articleId, asin]
+            example: { articleId: 3fa85f64-5717-4562-b3fc-2c963f66afa6, asin: B0ABCD1234 }
+      responses:
+        '200':
+          description: Click recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /process-accounting-document:
+    post:
+      tags: [Accounting]
+      operationId: processAccountingDocument
+      summary: OCR + AI-parse an uploaded accounting document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                documentId: { type: string }
+                documentType: { type: string }
+                relatedEntityType: { type: string, nullable: true }
+                relatedEntityId: { type: string, nullable: true }
+              required: [documentId]
+            example: { documentId: doc-1, documentType: invoice }
+      responses:
+        '200':
+          description: Parsed document data.
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /create-invoice-from-document:
+    post:
+      tags: [Accounting]
+      operationId: createInvoiceFromDocument
+      summary: Create an invoice from a parsed document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                documentId: { type: string }
+                parsedData: { type: object }
+              required: [documentId, parsedData]
+            example: { documentId: doc-1, parsedData: { total: 108.25 } }
+      responses:
+        '200':
+          description: Created invoice.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /send-contact-email:
+    post:
+      tags: [Notifications]
+      operationId: sendContactEmail
+      summary: Send a contact-form email
+      description: Public; rate limited (3/hour). HTML fields are escaped server-side.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                email: { type: string, format: email, maxLength: 255 }
+                subject: { type: string, minLength: 3, maxLength: 200 }
+                message: { type: string, minLength: 10, maxLength: 5000 }
+              required: [name, email, subject, message]
+            example:
+              name: Jane Doe
+              email: jane@example.com
+              subject: Consulting inquiry
+              message: I'd like to discuss an AI automation project.
+      responses:
+        '200':
+          description: Email sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /newsletter-signup:
+    post:
+      tags: [Notifications]
+      operationId: newsletterSignup
+      summary: Subscribe an email to the newsletter
+      description: Public; validates format and rejects disposable domains. Rate limited.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+              required: [email]
+            example: { email: subscriber@example.com }
+      responses:
+        '200':
+          description: Subscribed (or already subscribed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /send-notification-email:
+    post:
+      tags: [Notifications]
+      operationId: sendNotificationEmail
+      summary: Send a transactional notification email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to: { type: string, format: email }
+                subject: { type: string }
+                body: { type: string }
+              required: [to, subject]
+            example: { to: user@example.com, subject: Update, body: "..." }
+      responses:
+        '200':
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+
+  /send-ticket-email:
+    post:
+      tags: [Notifications]
+      operationId: sendTicketEmail
+      summary: Send a support-ticket email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticketId: { type: string }
+                to: { type: string, format: email }
+                subject: { type: string }
+                body: { type: string }
+              required: [ticketId, to]
+            example: { ticketId: t-1, to: user@example.com, subject: "Re: your ticket", body: "..." }
+      responses:
+        '200':
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+
+  /receive-email:
+    post:
+      tags: [Notifications]
+      operationId: receiveEmail
+      summary: Inbound email webhook
+      description: Public webhook (signature-verified) for inbound email processing.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+
+  /email-webhook-receiver:
+    post:
+      tags: [Notifications]
+      operationId: emailWebhookReceiver
+      summary: Email provider status webhook
+      description: Public webhook (signature-verified) for delivery/bounce events.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'
+
+  /health-check:
+    get:
+      tags: [Utility]
+      operationId: healthCheck
+      summary: Liveness/readiness health check
+      security: []
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema: { type: object }
+        '503':
+          description: Service is unhealthy.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /health-dashboard:
+    get:
+      tags: [Utility]
+      operationId: healthDashboard
+      summary: Structured system health
+      description: Returns overall status plus individual service checks. Public.
+      security: []
+      responses:
+        '200':
+          description: Healthy or degraded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                timestamp: "2026-01-01T00:00:00.000Z"
+                version: "1.0.0"
+                uptime: 3720
+                checks:
+                  - { name: database, status: healthy, latency: 42, lastChecked: "2026-01-01T00:00:00.000Z" }
+                  - { name: edge-runtime, status: healthy, lastChecked: "2026-01-01T00:00:00.000Z" }
+        '503':
+          description: Unhealthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /maintenance-runner:
+    post:
+      tags: [Utility]
+      operationId: maintenanceRunner
+      summary: Run maintenance tasks (manual or scheduled)
+      description: >
+        With `{action: run_due}` runs all due tasks (invoked by the scheduler);
+        with `{taskName, taskId}` runs a single named task.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [run_due]
+                taskName: { type: string }
+                taskId: { type: string }
+            example: { action: run_due }
+      responses:
+        '200':
+          description: Run summary.
+          content:
+            application/json:
+              schema: { type: object }
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /optimize-image:
+    post:
+      tags: [Utility]
+      operationId: optimizeImage
+      summary: Optimize and convert an image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path: { type: string }
+                format:
+                  type: string
+                  enum: [webp, avif, png]
+                width: { type: integer }
+                quality: { type: integer, minimum: 1, maximum: 100 }
+              required: [path]
+            example: { path: uploads/hero.jpg, format: webp, width: 1200, quality: 80 }
+      responses:
+        '200':
+          description: Optimized image metadata.
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /slack-test:
+    post:
+      tags: [Utility]
+      operationId: slackTest
+      summary: Send a Slack test message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                webhookUrl: { type: string, format: uri }
+                channel: { type: string }
+              required: [webhookUrl]
+            example: { webhookUrl: https://hooks.slack.com/services/xxx, channel: "#alerts" }
+      responses:
+        '200':
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessFlag'

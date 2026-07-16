@@ -281,8 +281,8 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created docs/api/openapi.yaml, an OpenAPI 3.0.3 specification covering 27 edge-function endpoints (exceeds the AC's 24). Endpoints are grouped by the six required tags (Authentication, Content, Affiliate, Accounting, Notifications, Utility). Each operation documents its HTTP method, path, summary/description, request body schema with required/optional fields, success and error response schemas, and an example request payload; several include response examples too (e.g. health-dashboard). A SupabaseJWT http-bearer security scheme is defined and applied globally, with public endpoints (oauth-proxy, track-affiliate-click, send-contact-email, newsletter-signup, health-*, webhooks, amazon pipeline) overriding security to []. Rate-limit headers (X-RateLimit-Limit/Remaining/Reset and Retry-After) are documented via a reusable RateLimited (429) response, and reusable components cover Error, SuccessFlag, ServiceHealth, HealthResponse, and the common Unauthorized/BadRequest/ServerError responses. Added a `docs:lint` (redocly lint) and `serve:docs` (redocly preview-docs) script to package.json with @redocly/cli as a dev dependency. VERIFIED: `npx @redocly/cli lint docs/api/openapi.yaml` reports 'Your API description is valid.' with 0 errors (20 advisory warnings, all the optional operation-4xx-response rule). Typecheck clean; full app suite 351 pass."
     },
     {
       "id": "US-017",
