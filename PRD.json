@@ -890,8 +890,8 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "CRITICAL: npm audit reports 22 vulns (2 critical, 11 high). Notable: ws (uninitialized memory disclosure + DoS), yaml (stack overflow)."
+      "passes": true,
+      "notes": "Resolved. On a clean `npm install` against the current lockfile, `npm audit` reports 0 vulnerabilities (0 critical / 0 high / 0 moderate / 0 low) - the previously-reported 22 findings (notably ws memory disclosure/DoS and yaml stack overflow) were already cleared by prior dependency bumps now reflected in package-lock.json. Confirmed current safe versions: ws@8.21.1, yaml@2.9.0. No `npm audit fix`/`--force` was needed and the lockfile was not modified. Verified `npm run typecheck` (0 errors), `npm test -- --run` (210 passed), and `npm run build` all pass. One stale unit test (logger.test.ts 'should call console.warn') was failing on the pre-existing branch state because warn/error now route through the production-aware logger (timestamp+level prefix); updated that assertion to check the call occurred and preserves the original text. No advisories left unresolved."
     },
     {
       "id": "US-053",

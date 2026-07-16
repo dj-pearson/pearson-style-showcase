@@ -60,7 +60,12 @@ describe('Logger Utility', () => {
   it('should call console.warn in development mode', () => {
     if (import.meta.env.DEV) {
       logger.warn('warning message');
-      expect(consoleWarnSpy).toHaveBeenCalledWith('warning message');
+      // warn is routed through the production-aware logger, which prefixes the
+      // message with a timestamp and level (e.g. "[<iso>] [WARN] warning message"),
+      // so assert the call happened and the original text is preserved rather than
+      // matching the raw string exactly.
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      expect(consoleWarnSpy.mock.calls[0][0]).toContain('warning message');
     }
   });
 
