@@ -3,19 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Bell,
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  CheckCircle2,
-  X,
-  Check
-} from 'lucide-react';
+import { Bell, AlertCircle, AlertTriangle, Info, CheckCircle2, X, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import type { RealtimePayload } from '@/types/supabase-realtime';
 
 interface Alert {
   id: string;
@@ -45,16 +38,24 @@ export const SmartAlerts: React.FC = () => {
     // Set up real-time subscription for new alerts
     const subscription = supabase
       .channel('smart-alerts')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'automated_alerts'
-      }, handleNewAlert)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'automated_alerts'
-      }, handleAlertUpdate)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'automated_alerts',
+        },
+        handleNewAlert
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'automated_alerts',
+        },
+        handleAlertUpdate
+      )
       .subscribe();
 
     // Refresh every minute
@@ -92,36 +93,38 @@ export const SmartAlerts: React.FC = () => {
     }
   };
 
-  const handleNewAlert = (payload: any) => {
-    const newAlert = payload.new as Alert;
+  const handleNewAlert = (payload: RealtimePayload) => {
+    const newAlert = payload.new as unknown as Alert;
 
     // Show toast notification for critical alerts
     if (newAlert.severity === 'critical') {
       toast({
         title: '🚨 Critical Alert',
         description: newAlert.title,
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
 
-    setAlerts(prev => [newAlert, ...prev]);
+    setAlerts((prev) => [newAlert, ...prev]);
   };
 
-  const handleAlertUpdate = (payload: any) => {
-    const updatedAlert = payload.new as Alert;
-    setAlerts(prev => prev.map(alert => alert.id === updatedAlert.id ? updatedAlert : alert));
+  const handleAlertUpdate = (payload: RealtimePayload) => {
+    const updatedAlert = payload.new as unknown as Alert;
+    setAlerts((prev) => prev.map((alert) => (alert.id === updatedAlert.id ? updatedAlert : alert)));
   };
 
   const acknowledgeAlert = async (alertId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       const { error } = await supabase
         .from('automated_alerts')
         .update({
           acknowledged: true,
           acknowledged_by: user?.id || null,
-          acknowledged_at: new Date().toISOString()
+          acknowledged_at: new Date().toISOString(),
         })
         .eq('id', alertId);
 
@@ -136,14 +139,16 @@ export const SmartAlerts: React.FC = () => {
       toast({
         title: 'Failed to Acknowledge',
         description: 'Could not acknowledge the alert.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
 
   const resolveAlert = async (alertId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       const { error } = await supabase
         .from('automated_alerts')
@@ -153,14 +158,14 @@ export const SmartAlerts: React.FC = () => {
           resolved_at: new Date().toISOString(),
           acknowledged: true,
           acknowledged_by: user?.id || null,
-          acknowledged_at: new Date().toISOString()
+          acknowledged_at: new Date().toISOString(),
         })
         .eq('id', alertId);
 
       if (error) throw error;
 
       // Remove from list
-      setAlerts(prev => prev.filter(a => a.id !== alertId));
+      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
 
       toast({
         title: 'Alert Resolved',
@@ -171,7 +176,7 @@ export const SmartAlerts: React.FC = () => {
       toast({
         title: 'Failed to Resolve',
         description: 'Could not resolve the alert.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -206,7 +211,7 @@ export const SmartAlerts: React.FC = () => {
     const colors = {
       critical: 'bg-red-500/10 text-red-500 border-red-500/20',
       warning: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-      info: 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+      info: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     };
 
     return (
@@ -216,8 +221,8 @@ export const SmartAlerts: React.FC = () => {
     );
   };
 
-  const unacknowledgedCount = alerts.filter(a => !a.acknowledged).length;
-  const criticalCount = alerts.filter(a => a.severity === 'critical').length;
+  const unacknowledgedCount = alerts.filter((a) => !a.acknowledged).length;
+  const criticalCount = alerts.filter((a) => a.severity === 'critical').length;
 
   return (
     <Card>
@@ -283,9 +288,7 @@ export const SmartAlerts: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="mt-0.5">
-                        {getSeverityIcon(alert.severity)}
-                      </div>
+                      <div className="mt-0.5">{getSeverityIcon(alert.severity)}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-sm font-semibold">{alert.title}</p>
