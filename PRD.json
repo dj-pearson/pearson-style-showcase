@@ -1080,8 +1080,8 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": "MEDIUM: DataExporter (5 spots), contacts import-export, and SystemHealthCard ignore query errors — silent empty exports and false-healthy status."
+      "passes": true,
+      "notes": "Surfaced swallowed Supabase query errors across the flagged spots. (1) DataExporter.tsx: all 6 export queries (invoices, payments, platform_transactions, journal_entries, contacts, and the ai_billing platforms lookup + combined query) now destructure { data, error } and `if (error) throw error;`; the thrown error is caught by the export handler's existing try/catch which shows a destructive 'Export failed' toast instead of producing a silent empty CSV. (2) src/services/contacts/import-export.ts: the existing-contacts lookup (updateExisting path) now throws on error instead of proceeding with an empty set, which would have defeated duplicate detection and created duplicate contacts; the surrounding try/catch in importContactsFromCSV surfaces it. (3) SystemHealthCard.tsx: the error_rate and api_latency metric queries now capture their errors, log them, and set a metricsUnavailable flag - a failed metrics query is no longer treated as zero errors/latency (which read as healthy). apiHealth degrades to 'warning' when metrics are unavailable, and the Error Rate / API Latency metric cards show 'warning' on their respective query errors rather than a false green. (4) Audit of remaining {data}-only destructures: fixed SecurityAlertsDashboard.tsx - its 3 alert queries (role changes, whitelist changes, mass deletions) ran in a react-query queryFn and silently produced no alerts on error (a security false-negative); they now throw so the query surfaces the error state instead of a misleadingly-empty alert list. The other {data:X}-only destructures were reviewed and left as-is where a null result is the correct semantics (supabase.auth.getUser with null handling, existence checks where null = not-found, and max-sort-order lookups that default). Verified: typecheck clean, full suite 342 pass, lint clean on all changed files."
     },
     {
       "id": "US-065",
