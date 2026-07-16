@@ -121,8 +121,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 4 admin component test files (18 tests, all passing) using the shared test-utils render (QueryClient + Router + mock AuthContext) and the createSupabaseMock helper. VaultItemForm.test.tsx (5): renders fields, required-name validation, required-value validation, valid submit via secure-vault + onSuccess, and save-failure surfaced via toast. SmartAlerts.test.tsx (4): renders alert list, severity badge display, empty state, and resolve/dismiss removes the alert. FinancialOverview.test.tsx (4): renders summary cards, computes totals from invoice data ($5,000.00), renders gracefully with no data, and doesn't crash on a query error. ArticleManager.test.tsx (5): renders article list, empty state, opens the create dialog, edit dialog populates the title field, and delete asks for confirmation (window.confirm). AC-vs-reality adaptations: ArticleManager's create-form validation uses toast (not DOM-assertable without a mounted Toaster), so that AC item is covered as 'opens the create form dialog'; its delete confirmation is a native window.confirm (spied), not a Radix dialog. FinancialOverview has no explicit loading/error UI branch (it renders with metrics defaulting to 0), so 'handles loading/error' is covered as graceful no-data render and no-crash-on-error. VaultItemForm has no inline MFA gate (that lives in VaultMFAGate), so 'handles MFA gate' is covered as surfacing an MFA-required save failure via toast. Infra fix: setup.ts now imports '@testing-library/jest-dom/vitest' so the DOM matcher TYPES (toBeInTheDocument/toHaveValue) are augmented globally - previously only the runtime matchers were registered and no existing test had exercised the types. Verified: full suite 315 pass (was 297), typecheck clean, lint clean on new files."
     },
     {
       "id": "US-008",

@@ -1,10 +1,9 @@
-import { expect, afterEach } from 'vitest';
+import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
+// Registers the jest-dom matchers on Vitest's `expect` AND augments the
+// TypeScript types (toBeInTheDocument, toHaveValue, ...) globally for all tests.
+import '@testing-library/jest-dom/vitest';
 import { webcrypto } from 'node:crypto';
-
-// Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
 
 // Cleanup after each test
 afterEach(() => {
