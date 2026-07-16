@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
 import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
+// Pure parse/derive helpers (extracted for unit testing). US-012.
+import { assertApiKeyConfigured, parseAiArticleJson, slugify, calculateReadTime } from "./parse.ts";
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -37,9 +39,7 @@ serve(async (req) => {
     );
 
     const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY');
-    if (!CLAUDE_API_KEY) {
-      throw new Error('CLAUDE_API_KEY not configured');
-    }
+    assertApiKeyConfigured(CLAUDE_API_KEY);
 
     console.log('Fetching articles from AI news website...');
     
@@ -155,26 +155,13 @@ Make sure the content is:
     console.log('AI response received, parsing...');
 
     // Extract JSON from AI response (handle markdown code blocks)
-    let articleData;
-    try {
-      const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/) || aiContent.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiContent;
-      articleData = JSON.parse(jsonStr);
-    } catch (e) {
-      console.error('Failed to parse AI response:', e);
-      throw new Error('Failed to parse AI-generated content');
-    }
+    const articleData = parseAiArticleJson(aiContent);
 
     // Generate a URL-friendly slug
-    const slug = articleData.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 100);
+    const slug = slugify(articleData.title);
 
     // Calculate read time (assuming 200 words per minute)
-    const wordCount = articleData.content.split(/\s+/).length;
-    const readTime = `${Math.ceil(wordCount / 200)} min read`;
+    const readTime = calculateReadTime(articleData.content);
 
     console.log('Saving article to database...');
 

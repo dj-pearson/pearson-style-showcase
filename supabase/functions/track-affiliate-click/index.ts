@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
-import { validateUuid, validateText } from "../_shared/validation.ts";
+import { validateClickInput } from "./validation.ts";
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -38,22 +38,15 @@ serve(async (req) => {
     const body = await req.json();
     const { articleId, asin } = body;
 
-    // Validate inputs
-    const articleIdResult = validateUuid(articleId);
-    if (!articleIdResult.valid) {
+    // Validate inputs (extracted to ./validation.ts, US-012)
+    const clickInput = validateClickInput(articleId, asin);
+    if (!clickInput.valid) {
       return new Response(
-        JSON.stringify({ error: 'Invalid articleId: must be a valid UUID' }),
+        JSON.stringify({ error: clickInput.error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const asinResult = validateText(asin, { required: true, minLength: 1, maxLength: 20 });
-    if (!asinResult.valid) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid asin: ' + asinResult.error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { articleIdResult, asinResult } = clickInput;
 
     // Get user agent and referrer from headers
     const userAgent = req.headers.get('user-agent') || '';
