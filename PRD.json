@@ -70,8 +70,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 4 hook test files under src/hooks/__tests__/ (26 tests total, all passing): usePermission.test.tsx (8), useDeviceTrust.test.tsx (6), useMFAStatus.test.tsx (6), useSecureQuery.test.tsx (6). Each covers happy path, denial/error, and edge cases. Tests use the shared test-utils (createMockAuthValue + the exported AuthContext) and vi.mock for the libs each hook delegates to (device-trust, security-layers, useResourceOwnership, and the Supabase client's auth.mfa.listFactors). AC-vs-reality notes: usePermission is a thin context selector (not a data-fetching hook), so the AC's 'loading state / cache invalidation' were mapped to loading-state and auth-context-refresh assertions, and 'error handling' to the useAuth-outside-provider throw. useSecureQuery has no explicit 'token refresh on 401' path, so that was covered as security-gating: authorized query succeeds, unauthenticated stays disabled/loading, denied check errors, plus ownership-filter and admin-bypass behavior and access_granted/denied event logging. Verified: full suite 236 pass (was 210), typecheck clean, lint clean on the new files."
     },
     {
       "id": "US-005",
