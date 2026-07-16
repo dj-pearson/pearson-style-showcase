@@ -1,0 +1,5 @@
+node_modules
+dist
+.lighthouseci
+coverage
+src/integrations/supabase/types.ts

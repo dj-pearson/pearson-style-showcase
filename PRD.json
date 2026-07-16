@@ -440,8 +440,8 @@
         "Typecheck passes"
       ],
       "priority": 25,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added pre-commit/pre-push hooks and DX tooling. Installed husky (9.1.7), lint-staged (17.0.8), and prettier (3.9.5) as dev dependencies and ran 'npx husky init' (adds the 'prepare':'husky' script and sets git core.hooksPath). .husky/pre-commit runs 'npx lint-staged'; .husky/pre-push runs 'npm run build' to block pushing unbuildable code. lint-staged config in package.json: *.{ts,tsx} -> 'eslint --fix' then 'prettier --write'; *.{json,css,md} -> 'prettier --write'. Created .prettierrc.json (semi:true, singleQuote:true, trailingComma:'es5', printWidth:100, tabWidth:2) and .prettierignore (node_modules, dist, .lighthouseci, coverage, src/integrations/supabase/types.ts). Verified the pre-commit hook end-to-end: staged an intentionally mis-formatted markdown file, committed, and observed lint-staged run prettier --write and normalize the file (collapsed blank lines / multiple spaces) before the commit was recorded; the temp commit/file were then removed. Verification: 'npm run typecheck' clean and 'npm run build' succeeds (so the pre-push hook passes)."
     },
     {
       "id": "US-026",
