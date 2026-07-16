@@ -16,6 +16,7 @@ export enum LogLevel {
   INFO = 1,
   WARN = 2,
   ERROR = 3,
+  FATAL = 4,
 }
 
 // Log level string to enum mapping
@@ -24,15 +25,20 @@ const LOG_LEVEL_MAP: Record<string, LogLevel> = {
   info: LogLevel.INFO,
   warn: LogLevel.WARN,
   error: LogLevel.ERROR,
+  fatal: LogLevel.FATAL,
 };
 
-// Get configured log level from environment
+// Get configured log level from environment. VITE_LOG_LEVEL overrides; otherwise
+// the default is WARN in production and DEBUG in development.
 function getConfiguredLogLevel(): LogLevel {
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    const level = import.meta.env.VITE_LOG_LEVEL?.toLowerCase() || 'info';
-    return LOG_LEVEL_MAP[level] ?? LogLevel.INFO;
+    const configured = import.meta.env.VITE_LOG_LEVEL?.toLowerCase();
+    if (configured && LOG_LEVEL_MAP[configured] !== undefined) {
+      return LOG_LEVEL_MAP[configured];
+    }
+    return import.meta.env.PROD === true ? LogLevel.WARN : LogLevel.DEBUG;
   }
-  return LogLevel.INFO;
+  return LogLevel.WARN;
 }
 
 // Check if running in production
@@ -216,6 +222,10 @@ export interface LogEntry {
     message: string;
     stack?: string;
   };
+  // Request context enrichment (populated in the browser).
+  url?: string;
+  userAgent?: string;
+  sessionId?: string;
 }
 
 /**
@@ -235,6 +245,18 @@ function generateCorrelationId(): string {
 
 // Global correlation ID for the current request/session
 let globalCorrelationId: string | null = null;
+
+// Anonymized, per-session identifier. Random and non-reversible - it is NOT the
+// user id, so it correlates events within a session without exposing identity.
+let anonymousSessionId: string | null = null;
+function getAnonymousSessionId(): string {
+  if (!anonymousSessionId) {
+    anonymousSessionId = `anon-${Math.random().toString(36).substring(2, 10)}${Math.random()
+      .toString(36)
+      .substring(2, 10)}`;
+  }
+  return anonymousSessionId;
+}
 
 /**
  * Set global correlation ID (call at start of request/page)
@@ -262,7 +284,7 @@ function createLogEntry(
   error?: Error
 ): LogEntry {
   const entry: LogEntry = {
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString(), // ISO 8601
     level,
     message: maskPII(message),
     correlationId: context?.correlationId || globalCorrelationId || undefined,
@@ -270,6 +292,15 @@ function createLogEntry(
     userId: context?.userId ? maskPII(context.userId) : undefined,
     requestId: context?.requestId,
   };
+
+  // Request context enrichment (browser only).
+  if (typeof window !== 'undefined') {
+    entry.url = maskPII(window.location?.pathname ?? '');
+    entry.sessionId = getAnonymousSessionId();
+  }
+  if (typeof navigator !== 'undefined') {
+    entry.userAgent = navigator.userAgent;
+  }
 
   if (metadata) {
     entry.metadata = sanitizeObject(metadata) as Record<string, unknown>;
@@ -286,6 +317,82 @@ function createLogEntry(
   return entry;
 }
 
+// ============================================================================
+// Remote transport (batched)
+// ============================================================================
+
+// Batch config: send when we reach BATCH_SIZE entries OR after BATCH_INTERVAL_MS.
+const BATCH_SIZE = 10;
+const BATCH_INTERVAL_MS = 5000;
+
+function getLogEndpoint(): string | undefined {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env.VITE_LOG_ENDPOINT as string | undefined;
+  }
+  return undefined;
+}
+
+let logBuffer: LogEntry[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Send the pending buffer to the remote endpoint. Never throws. */
+async function sendBatch(): Promise<void> {
+  const endpoint = getLogEndpoint();
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  if (logBuffer.length === 0) return;
+
+  // Graceful degradation: with no endpoint configured, just drop the buffer
+  // (entries were already written to the console by outputLog).
+  const batch = logBuffer;
+  logBuffer = [];
+  if (!endpoint) return;
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ logs: batch }),
+      keepalive: true, // allow the request to complete during page unload
+    });
+  } catch {
+    // Never let logging break the app; console output already happened.
+  }
+}
+
+/** Queue an entry for remote delivery, flushing on size/time thresholds. */
+function enqueueRemote(entry: LogEntry): void {
+  // Only buffer when a remote endpoint is configured.
+  if (!getLogEndpoint()) return;
+
+  logBuffer.push(entry);
+  if (logBuffer.length >= BATCH_SIZE) {
+    void sendBatch();
+    return;
+  }
+  if (!flushTimer) {
+    flushTimer = setTimeout(() => {
+      void sendBatch();
+    }, BATCH_INTERVAL_MS);
+  }
+}
+
+/** Flush any pending logs immediately (e.g. on page hide/unload). */
+export function flushLogs(): Promise<void> {
+  return sendBatch();
+}
+
+// Flush pending logs when the page is being hidden/unloaded.
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      void sendBatch();
+    }
+  });
+}
+
 /**
  * Output log entry based on environment
  */
@@ -297,11 +404,15 @@ function outputLog(level: LogLevel, entry: LogEntry): void {
     return;
   }
 
+  // Ship to the remote transport (batched; no-op without an endpoint).
+  enqueueRemote(entry);
+
   if (isProduction()) {
     // Production: Output structured JSON for CloudFlare logging
     const jsonLog = JSON.stringify(entry);
 
     switch (level) {
+      case LogLevel.FATAL:
       case LogLevel.ERROR:
         console.error(jsonLog);
         break;
@@ -323,6 +434,7 @@ function outputLog(level: LogLevel, entry: LogEntry): void {
     const formattedMessage = `${prefix}${component}${correlationId} ${entry.message}`;
 
     switch (level) {
+      case LogLevel.FATAL:
       case LogLevel.ERROR:
         console.error(formattedMessage, entry.metadata || '', entry.error || '');
         break;
@@ -389,6 +501,22 @@ export class ProductionLogger {
     const errorObj = error instanceof Error ? error : undefined;
     const entry = createLogEntry('error', message, this.context, metadata, errorObj);
     outputLog(LogLevel.ERROR, entry);
+  }
+
+  /**
+   * Log fatal message (unrecoverable error).
+   */
+  fatal(message: string, error?: Error | unknown, metadata?: Record<string, unknown>): void {
+    const errorObj = error instanceof Error ? error : undefined;
+    const entry = createLogEntry('fatal', message, this.context, metadata, errorObj);
+    outputLog(LogLevel.FATAL, entry);
+  }
+
+  /**
+   * Flush any pending buffered logs to the remote transport immediately.
+   */
+  flush(): Promise<void> {
+    return flushLogs();
   }
 
   /**

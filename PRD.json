@@ -245,8 +245,8 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Extended src/lib/production-logger.ts with a batched remote transport and structured context. Added a configurable transport that buffers entries and POSTs them as {logs:[...]} via fetch (keepalive:true) to VITE_LOG_ENDPOINT, flushing when the buffer reaches 10 entries OR after 5s (whichever first). Extended the LogLevel enum to include FATAL=4 (with a fatal() method) and made getConfiguredLogLevel honor VITE_LOG_LEVEL when set, otherwise defaulting to WARN in production and DEBUG in development. Request-context enrichment now adds the current URL pathname (PII-masked), navigator.userAgent, an anonymized per-session id (random, non-reversible - not the user id), and the ISO-8601 timestamp to every entry. Added flushLogs()/logger.flush() to send pending logs immediately and a visibilitychange listener that flushes when the page becomes hidden (unload). Graceful degradation throughout: with no VITE_LOG_ENDPOINT the transport is a no-op (entries still go to the console) and a failed fetch is caught so logging never throws. Documented VITE_LOG_ENDPOINT and the VITE_LOG_LEVEL default in .env.example. Updated the US-057 'debug stays silent' test to pin VITE_LOG_LEVEL=warn since the default level changed, and added 4 new transport tests (no-op without endpoint; batch + keepalive POST with enriched entries on flush; auto-flush at 10 entries; no-throw on fetch failure). Verified: typecheck clean, full suite 347 pass, production build succeeds, lint clean."
     },
     {
       "id": "US-015",

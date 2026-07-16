@@ -6,6 +6,7 @@ import {
   createLogger,
   setCorrelationId,
   getCorrelationId,
+  flushLogs,
 } from '../production-logger';
 
 describe('PII Masking', () => {
@@ -193,11 +194,12 @@ describe('ProductionLogger', () => {
     expect(consoleSpy.error).toHaveBeenCalled();
   });
 
-  it('emits warn and error but keeps debug silent at the default INFO level', () => {
+  it('emits warn and error but keeps debug silent below the configured level', () => {
     // This mirrors the production requirement (US-057): error/warn must reach the
-    // console/transport while debug stays silent. The level gate in outputLog is
-    // the same in dev and prod - only the message format differs - so asserting
-    // it here deterministically verifies the prod behavior.
+    // console/transport while debug stays silent. The default level is now WARN in
+    // prod / DEBUG in dev (US-014), so pin VITE_LOG_LEVEL=warn to assert the gate
+    // deterministically regardless of environment.
+    vi.stubEnv('VITE_LOG_LEVEL', 'warn');
     const logger = new ProductionLogger();
 
     logger.debug('Debug message');
@@ -207,6 +209,8 @@ describe('ProductionLogger', () => {
     logger.error('Error message');
     expect(consoleSpy.warn).toHaveBeenCalledTimes(1);
     expect(consoleSpy.error).toHaveBeenCalledTimes(1);
+
+    vi.unstubAllEnvs();
   });
 
   it('should mask PII in log messages', () => {
@@ -226,6 +230,76 @@ describe('ProductionLogger', () => {
     logger.error('An error occurred', error);
 
     expect(consoleSpy.error).toHaveBeenCalled();
+  });
+});
+
+describe('Remote transport (US-014)', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'debug').mockImplementation(() => {});
+  });
+
+  afterEach(async () => {
+    // Drain any buffered logs (endpoint already unstubbed -> dropped, timer cleared).
+    vi.unstubAllEnvs();
+    await flushLogs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('is a graceful no-op when VITE_LOG_ENDPOINT is not set', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    new ProductionLogger().error('boom');
+    await flushLogs();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('batches buffered logs and POSTs them to the endpoint on flush', async () => {
+    vi.stubEnv('VITE_LOG_ENDPOINT', 'https://logs.test/ingest');
+    vi.stubEnv('VITE_LOG_LEVEL', 'debug');
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const logger = new ProductionLogger();
+    logger.warn('one');
+    logger.error('two');
+    await flushLogs();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://logs.test/ingest');
+    expect(opts.keepalive).toBe(true);
+    const body = JSON.parse(opts.body as string);
+    expect(body.logs).toHaveLength(2);
+    // Context enrichment is present.
+    expect(body.logs[0]).toHaveProperty('timestamp');
+    expect(body.logs[0]).toHaveProperty('sessionId');
+    expect(body.logs[0]).toHaveProperty('url');
+  });
+
+  it('auto-flushes once the batch size (10) is reached', async () => {
+    vi.stubEnv('VITE_LOG_ENDPOINT', 'https://logs.test/ingest');
+    vi.stubEnv('VITE_LOG_LEVEL', 'debug');
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const logger = new ProductionLogger();
+    for (let i = 0; i < 10; i++) logger.info(`msg ${i}`);
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not throw when the remote fetch fails', async () => {
+    vi.stubEnv('VITE_LOG_ENDPOINT', 'https://logs.test/ingest');
+    vi.stubEnv('VITE_LOG_LEVEL', 'debug');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    new ProductionLogger().error('boom');
+    await expect(flushLogs()).resolves.toBeUndefined();
   });
 });
 
