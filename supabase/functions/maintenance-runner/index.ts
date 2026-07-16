@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { isTaskDue } from "../_shared/cron.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { isTaskDue } from '../_shared/cron.ts';
 
 /**
  * Run a single maintenance task by name and return its result payload.
@@ -83,7 +83,7 @@ async function runDueTasks(supabase: any) {
 }
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -102,10 +102,9 @@ serve(async (req) => {
     // Scheduler path: run every task that is due right now.
     if (action === 'run_due') {
       const summary = await runDueTasks(supabase);
-      return new Response(
-        JSON.stringify({ success: true, ...summary }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ success: true, ...summary }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Manual path: run a single named task.
@@ -121,21 +120,20 @@ serve(async (req) => {
         p_duration: duration,
         p_issues_found: result.issuesFound || 0,
         p_issues_fixed: result.issuesFixed || 0,
-        p_details: result
+        p_details: result,
       });
     }
 
-    return new Response(
-      JSON.stringify({ success: true, duration, ...result }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ success: true, duration, ...result }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Maintenance task error:', error);
 
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
 
@@ -171,7 +169,7 @@ async function checkBrokenLinks(supabase: any) {
         const response = await fetch(url, {
           method: 'HEAD',
           signal: controller.signal,
-          redirect: 'follow'
+          redirect: 'follow',
         });
         clearTimeout(timeoutId);
 
@@ -184,7 +182,7 @@ async function checkBrokenLinks(supabase: any) {
           p_url: url,
           p_article_id: article.id,
           p_status_code: statusCode,
-          p_response_time: responseTime
+          p_response_time: responseTime,
         });
 
         if (isBroken) {
@@ -198,7 +196,7 @@ async function checkBrokenLinks(supabase: any) {
           p_url: url,
           p_article_id: article.id,
           p_status_code: 0,
-          p_response_time: 10000
+          p_response_time: 10000,
         });
       }
     }
@@ -208,7 +206,7 @@ async function checkBrokenLinks(supabase: any) {
     issuesFound,
     issuesFixed,
     checkedUrls: checkedUrls.length,
-    articlesScanned: articles.length
+    articlesScanned: articles.length,
   };
 }
 
@@ -226,7 +224,7 @@ async function cleanupOldSessions(supabase: any) {
   return {
     issuesFound: 0,
     issuesFixed: 0,
-    sessionsDeleted: data?.length || 0
+    sessionsDeleted: data?.length || 0,
   };
 }
 
@@ -235,42 +233,38 @@ async function performanceAudit(supabase: any) {
   const metrics = [
     { name: 'lcp', value: 0, unit: 'ms' },
     { name: 'fid', value: 0, unit: 'ms' },
-    { name: 'cls', value: 0, unit: 'score' }
+    { name: 'cls', value: 0, unit: 'score' },
   ];
 
   for (const metric of metrics) {
-    await supabase
-      .from('performance_history')
-      .insert({
-        metric_name: metric.name,
-        metric_value: metric.value,
-        metric_unit: metric.unit
-      });
+    await supabase.from('performance_history').insert({
+      metric_name: metric.name,
+      metric_value: metric.value,
+      metric_unit: metric.unit,
+    });
   }
 
   return {
     issuesFound: 0,
     issuesFixed: 0,
-    metricsRecorded: metrics.length
+    metricsRecorded: metrics.length,
   };
 }
 
 async function databaseOptimization(supabase: any) {
   // In a real implementation, this would run VACUUM, ANALYZE, etc.
   // For now, just log the operation
-  await supabase
-    .from('db_optimization_log')
-    .insert({
-      operation_type: 'analyze',
-      table_name: 'all',
-      rows_affected: 0,
-      duration: 0
-    });
+  await supabase.from('db_optimization_log').insert({
+    operation_type: 'analyze',
+    table_name: 'all',
+    rows_affected: 0,
+    duration: 0,
+  });
 
   return {
     issuesFound: 0,
     issuesFixed: 0,
-    tablesOptimized: 0
+    tablesOptimized: 0,
   };
 }
 
@@ -289,6 +283,6 @@ async function generateSitemap(supabase: any) {
   return {
     issuesFound: 0,
     issuesFixed: 0,
-    articlesIncluded: (articles?.length || 0) + (kbArticles?.length || 0)
+    articlesIncluded: (articles?.length || 0) + (kbArticles?.length || 0),
   };
 }

@@ -10,7 +10,7 @@
  * the whole response under ~5 seconds.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import {
   aggregateHealthStatus,
@@ -57,7 +57,9 @@ async function checkDatabase(): Promise<ServiceHealth> {
         name: 'database',
         status: 'unhealthy',
         latency,
-        message: String((result as { error?: { message?: string } }).error?.message ?? 'query error'),
+        message: String(
+          (result as { error?: { message?: string } }).error?.message ?? 'query error'
+        ),
         lastChecked,
       };
     }

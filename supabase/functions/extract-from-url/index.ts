@@ -1,10 +1,15 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { fetchWithTimeout, structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
-import { normalizedErrorResponse } from "../_shared/error-normalizer.ts";
-import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
-import { validateUrl, validateEnum } from "../_shared/validation.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import { normalizedErrorResponse } from '../_shared/error-normalizer.ts';
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  createRateLimitResponse,
+  initRateLimiter,
+} from '../_shared/rate-limiter.ts';
+import { validateUrl, validateEnum } from '../_shared/validation.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -35,7 +40,7 @@ function isPrivateUrl(urlStr: string): boolean {
   try {
     const parsed = new URL(urlStr);
     const hostname = parsed.hostname;
-    return PRIVATE_IP_PATTERNS.some(pattern => pattern.test(hostname));
+    return PRIVATE_IP_PATTERNS.some((pattern) => pattern.test(hostname));
   } catch {
     return true; // If we can't parse it, block it
   }
@@ -44,7 +49,7 @@ function isPrivateUrl(urlStr: string): boolean {
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -65,10 +70,10 @@ serve(async (req) => {
     // Validate URL format
     const urlResult = validateUrl(url);
     if (!urlResult.valid) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid URL: ' + urlResult.error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid URL: ' + urlResult.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // SSRF prevention: block private IPs
@@ -90,10 +95,10 @@ serve(async (req) => {
 
     if (!claudeApiKey) {
       console.error('Claude API key not found');
-      return new Response(
-        JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log(`Extracting content from URL: ${url} for type: ${type}`);
@@ -102,39 +107,50 @@ serve(async (req) => {
     let pageContent = '';
     let metaImage = '';
     let detectedLinks = { github: '', demo: '' };
-    
+
     try {
-      const pageResponse = await fetchWithTimeout(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; ContentExtractor/1.0)',
+      const pageResponse = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; ContentExtractor/1.0)',
+          },
         },
-      }, { timeoutMs: 30_000, maxRetries: 2, label: 'url-fetch' });
-      
+        { timeoutMs: 30_000, maxRetries: 2, label: 'url-fetch' }
+      );
+
       if (!pageResponse.ok) {
         throw new Error(`Failed to fetch URL: ${pageResponse.status}`);
       }
 
       const html = await pageResponse.text();
-      
+
       // Extract meta tags for images
-      const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
-      const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
+      const ogImageMatch = html.match(
+        /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i
+      );
+      const twitterImageMatch = html.match(
+        /<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i
+      );
       metaImage = ogImageMatch?.[1] || twitterImageMatch?.[1] || '';
-      
+
       // Look for GitHub links
       const githubMatch = html.match(/https?:\/\/github\.com\/[^\s"'<>]+/i);
       if (githubMatch) detectedLinks.github = githubMatch[0];
-      
+
       // Look for common demo/live links (excluding the current URL)
       const linkMatches = html.match(/https?:\/\/[^\s"'<>]+/gi) || [];
       for (const link of linkMatches) {
-        if (link !== url && !link.includes('github.com') && 
-            (link.includes('demo') || link.includes('app') || link.includes('live'))) {
+        if (
+          link !== url &&
+          !link.includes('github.com') &&
+          (link.includes('demo') || link.includes('app') || link.includes('live'))
+        ) {
           detectedLinks.demo = link;
           break;
         }
       }
-      
+
       // Extract text content from HTML
       // Remove script and style tags
       pageContent = html
@@ -145,7 +161,12 @@ serve(async (req) => {
         .trim()
         .substring(0, 10000); // Increased limit for better context
     } catch (fetchError) {
-      return normalizedErrorResponse('INTERNAL_ERROR', fetchError, corsHeaders, 'Failed to fetch URL content. Please verify the URL is accessible.');
+      return normalizedErrorResponse(
+        'INTERNAL_ERROR',
+        fetchError,
+        corsHeaders,
+        'Failed to fetch URL content. Please verify the URL is accessible.'
+      );
     }
 
     // Prepare system prompt based on type
@@ -187,7 +208,6 @@ Webpage content:
 ${pageContent}
 
 Return ONLY the JSON object, no other text.`;
-
     } else if (type === 'ai-tool') {
       systemPrompt = `You are an AI tools specialist. Extract AI tool information from the provided webpage content and return ONLY a valid JSON object (no markdown formatting, no code blocks).
 
@@ -229,32 +249,34 @@ Return ONLY the JSON object, no other text.`;
     }
 
     // Call Claude API
-    const aiResponse = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': claudeApiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
+    const aiResponse = await fetchWithTimeout(
+      'https://api.anthropic.com/v1/messages',
+      {
+        method: 'POST',
+        headers: {
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 2000,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: extractionPrompt }],
+          temperature: 0.3,
+        }),
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [
-          { role: 'user', content: extractionPrompt }
-        ],
-        temperature: 0.3,
-      }),
-    }, { timeoutMs: 45_000, maxRetries: 2, label: 'claude-extract' });
+      { timeoutMs: 45_000, maxRetries: 2, label: 'claude-extract' }
+    );
 
     if (!aiResponse.ok) {
       console.error('Claude API error:', aiResponse.status);
       const errorText = await aiResponse.text();
       console.error('Claude API error details:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to extract content from URL' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Failed to extract content from URL' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const aiData = await aiResponse.json();
@@ -270,16 +292,16 @@ Return ONLY the JSON object, no other text.`;
         .replace(/```json\s*/g, '')
         .replace(/```\s*/g, '')
         .trim();
-      
+
       parsedData = JSON.parse(cleanedContent);
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
       console.error('Content that failed to parse:', extractedContent);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Failed to parse extracted data',
           details: 'The AI response was not valid JSON',
-          raw: extractedContent.substring(0, 500)
+          raw: extractedContent.substring(0, 500),
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -288,14 +310,13 @@ Return ONLY the JSON object, no other text.`;
     console.log('Successfully extracted and parsed data');
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         data: parsedData,
-        sourceUrl: url
+        sourceUrl: url,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('URL Extraction Error:', error);
     return structuredErrorResponse(

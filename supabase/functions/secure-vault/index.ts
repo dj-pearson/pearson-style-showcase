@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
 // AES-256-GCM encryption helpers (extracted to _shared/vault-crypto.ts so they

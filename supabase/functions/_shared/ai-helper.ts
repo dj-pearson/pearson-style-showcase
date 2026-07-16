@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 
 interface AIModelConfig {
   id: string;
@@ -158,7 +158,12 @@ export async function callAIWithVision(
   base64Data: string,
   mimeType: string,
   prompt: string,
-  options?: { lightweight?: boolean; maxTokens?: number; temperature?: number; systemPrompt?: string }
+  options?: {
+    lightweight?: boolean;
+    maxTokens?: number;
+    temperature?: number;
+    systemPrompt?: string;
+  }
 ): Promise<AICallResult> {
   const configs = await getAIConfigs(options?.lightweight);
   const maxTokens = options?.maxTokens || 4096;
@@ -167,9 +172,11 @@ export async function callAIWithVision(
 
   const isPdf = mimeType === 'application/pdf';
 
-  const lightweightCount = configs.filter(c => c.is_lightweight).length;
+  const lightweightCount = configs.filter((c) => c.is_lightweight).length;
   const normalCount = configs.length - lightweightCount;
-  console.log(`[AI] Config order: ${configs.length} configs (${lightweightCount} lightweight, ${normalCount} normal fallback)`);
+  console.log(
+    `[AI] Config order: ${configs.length} configs (${lightweightCount} lightweight, ${normalCount} normal fallback)`
+  );
 
   for (const config of configs) {
     const apiKey = Deno.env.get(config.api_key_env_var);
@@ -225,10 +232,7 @@ export async function callAIWithVision(
             messages: [
               {
                 role: 'user',
-                content: [
-                  contentBlock,
-                  { type: 'text', text: prompt },
-                ],
+                content: [contentBlock, { type: 'text', text: prompt }],
               },
             ],
             temperature,

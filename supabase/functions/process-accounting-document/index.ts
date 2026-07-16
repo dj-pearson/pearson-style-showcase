@@ -1,6 +1,6 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { encode as base64Encode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { encode as base64Encode } from 'https://deno.land/std@0.190.0/encoding/base64.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
 import { callAIWithVision } from '../_shared/ai-helper.ts';

@@ -1,5 +1,5 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 // Pure auth helpers (extracted for unit testing; see _shared/auth-helpers.ts). US-011.
 import {
