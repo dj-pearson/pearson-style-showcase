@@ -87,8 +87,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 5 utility-hook test files under src/hooks/__tests__/ (30 tests, all passing): useKeyboardShortcuts (7: registration, firing, cross-platform Ctrl/Cmd, shift+alt combos, disabled, unmount cleanup, display helper), useGlobalSearch (6), useReadingProgress (4: 0% at top, ~50% mid, 100% at bottom, cleanup - with synchronous rAF stub and scroll-geometry overrides), useCanonicalUrl (7: generation, trailing-slash normalization, query-param stripping via router, root, noindex admin routes, article priority, standalone helpers - wrapped in MemoryRouter), useDeviceCapabilities (6). AC-vs-reality notes: useGlobalSearch is only a Cmd/Ctrl+K open-close state hook (no query debounce/results/error handling - that lives in the Search page), so tests cover the real toggle + keyboard wiring + listener cleanup. useDeviceCapabilities derives from screen size / touch points / cores / connection / reduced-motion and does not probe WebGL directly, so 'WebGL support' is covered via the closest real signals (mobile/touch detection and the low-performance & reduced-motion gating that toggles heavy 3D animations); also had to delete jsdom's always-present window.ontouchstart so desktop (non-touch) detection is testable. Verified: full suite 266 pass (was 236), typecheck clean, lint clean on new files."
     },
     {
       "id": "US-006",
