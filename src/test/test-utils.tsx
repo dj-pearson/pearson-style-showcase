@@ -44,11 +44,16 @@ export function createMockAuthValue(overrides: Partial<AuthValue> = {}): AuthVal
     roles: [],
     permissions: [],
 
+    // Security warnings
+    securityWarning: null,
+    dismissSecurityWarning: () => {},
+
     // Actions
     signIn: async () => ({ success: true }),
     signInWithProvider: async () => ({ success: true }),
     signOut: async () => {},
     verifyAdminAccess: async () => false,
+    requireFreshAdminVerification: async () => false,
 
     // Permission checks
     hasRole: () => false,
