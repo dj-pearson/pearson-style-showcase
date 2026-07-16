@@ -675,8 +675,8 @@
         "Typecheck passes"
       ],
       "priority": 39,
-      "passes": false,
-      "notes": "MEDIUM: Buttons range from h-9 to min-h-[44px]. Badge opacity varies between 20% and 90%. Text drops to 12px on mobile."
+      "passes": true,
+      "notes": "Standardized the design system for buttons, inputs, and badges. Created src/lib/design-tokens.ts exporting the canonical constants: BUTTON_HEIGHT (sm 36 / md 44 / lg 52), INPUT_HEIGHT (44), MIN_TOUCH_TARGET (44), MIN_MOBILE_FONT_SIZE (14), BORDER_RADIUS (sm/md/lg/xl/full), and BADGE_OPACITY (informational 0.2 / critical 0.9). Enforced the 44px touch target globally at the primitive level rather than per-component: src/components/ui/button.tsx now includes min-h-[44px] in the base cva class (so every button variant meets WCAG 2.5.5) with size variants set to nominal heights (default h-11=44, lg h-[52px], icon h-11 w-11 min-w-[44px], sm h-9 floored to 44 by the base); src/components/ui/input.tsx base changed from h-10 to min-h-[44px] (keeping text-base=16px to avoid iOS zoom). textarea already had min-h-[80px]/text-base. Standardized badge opacity in ArticleCard.tsx: the no-image 'Featured' badge was using a 20% background (bg-yellow-500/20) inconsistent with the image-overlay Featured badge - changed to the 90% critical/featured style (bg-yellow-500/90 text-yellow-900 border-yellow-500); informational category badge remains at 20% (bg-cyan-500/20). Fixed sub-14px mobile text: ArticleCard meta info (date/read-time/views) changed from 'text-xs sm:text-sm' (12px on mobile) to 'text-sm' (14px) so it never renders below 14px on small screens. Verification: 'npm run typecheck' clean; full unit suite 357 tests pass; full E2E suite 37 specs pass on chromium (button/input interactions unaffected by the size changes)."
     },
     {
       "id": "US-040",
