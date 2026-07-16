@@ -1065,8 +1065,8 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": "MEDIUM: client.ts latches _apiReachable=false after 5 failures and then refuses all auth fetches, so it cannot self-recover without a page reload."
+      "passes": true,
+      "notes": "Replaced the permanent unreachable-latch in src/integrations/supabase/client.ts with a half-open circuit breaker. Previously, once consecutiveProxyFailures hit MAX_PROXY_FAILURES (5), _apiReachable was set false and proxyAuthFetch threw immediately for every subsequent auth request - it never attempted another fetch, so the flag could only reset on a full page reload (self-DoS). Now: (1) added PROXY_COOLDOWN_MS (30s) and _circuitOpenedAt; the fail-fast guard only throws while Date.now()-_circuitOpenedAt < cooldown, after which it falls through and lets the next request act as a half-open probe. (2) A successful probe closes the circuit (_apiReachable=true, failures=0, _circuitOpenedAt=0), restoring auth for the rest of the session. (3) A failed probe re-opens the circuit and restarts the cooldown (rather than latching), and clearStaleAuthTokens() now runs ONLY on the initial trip (guarded by wasReachable) so sustained failure still stops the retry loop but does not permanently block in-session recovery. Exported proxyAuthFetch and a resetAuthProxyCircuit() helper for testing. Added src/integrations/supabase/__tests__/client.test.ts (3 tests, Date.now stubbed for the cooldown): the circuit opens after 5 failures and fails fast without a fetch during cooldown; it reopens after the cooldown and CLOSES on a successful probe (isApiReachable() true again); and stale tokens are cleared once on the initial trip while recovery remains possible after later failed probes. Verified: full suite 342 pass, typecheck clean, lint clean."
     },
     {
       "id": "US-064",
