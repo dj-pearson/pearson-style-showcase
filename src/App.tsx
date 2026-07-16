@@ -6,6 +6,15 @@ import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+// React Query DevTools are loaded lazily and ONLY in development. In production
+// import.meta.env.DEV is statically false, so the dynamic import is dropped and
+// the devtools add zero bytes to the production bundle.
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('@tanstack/react-query-devtools').then((m) => ({ default: m.ReactQueryDevtools }))
+    )
+  : (_props: { initialIsOpen?: boolean }) => null;
 import Analytics from './components/Analytics';
 import TrafficGuard from './components/TrafficGuard';
 import ScrollTracker from './components/ScrollTracker';
@@ -65,6 +74,11 @@ const queryClient = new QueryClient({
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
+      {import.meta.env.DEV && (
+        <Suspense fallback={null}>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </Suspense>
+      )}
       <TooltipProvider>
         <Toaster />
         <Sonner />

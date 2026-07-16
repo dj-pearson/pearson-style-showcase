@@ -807,8 +807,8 @@
         "Typecheck passes"
       ],
       "priority": 47,
-      "passes": false,
-      "notes": "LOW: No way to visualize bundle composition or debug React Query cache/refetch behavior during development."
+      "passes": true,
+      "notes": "Added bundle-analysis tooling and dev-only React Query DevTools. Installed rollup-plugin-visualizer (7.0.1) as a dev dependency and added a 'build:analyze' npm script (ANALYZE=true vite build). vite.config.ts conditionally adds the visualizer plugin only when ANALYZE=true, emitting a treemap stats.html (gzip+brotli sizes) to the project root; added stats.html to .gitignore (verified via git check-ignore). Installed @tanstack/react-query-devtools (5.101.2) as a dev dependency and mounted <ReactQueryDevtools initialIsOpen=false /> inside QueryClientProvider in src/App.tsx, gated on import.meta.env.DEV and loaded via a lazy dynamic import so production builds contain zero devtools bytes (verified: no react-query-devtools reference in dist/assets). Ran the analyzer and recorded the current bundle composition (top 5 largest chunks) as a baseline comment in vite.config.ts: three-vendor ~853KB/230KB gz (three+r3f+drei, lazy), markdown-vendor ~778KB/270KB gz (react-markdown+syntax highlighter, lazy), index/main ~462KB/143KB gz, charts-vendor ~401KB/109KB gz (recharts), AccountingDashboard ~240KB/50KB gz (lazy admin module). Verification: 'npm run build:analyze' generates stats.html and the top-5 chunk sizes match the documented baseline; a normal 'npm run build' does not emit stats.html and excludes the devtools; 'npm run typecheck' clean; 'npm run lint' 0 errors; full unit suite 362 tests pass."
     },
     {
       "id": "US-048",

@@ -73,3 +73,6 @@ test-results/
 
 # Lighthouse CI output
 .lighthouseci/
+
+# Bundle analyzer output
+stats.html
