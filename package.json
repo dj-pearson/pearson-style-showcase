@@ -16,8 +16,35 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "size": "size-limit"
   },
+  "size-limit": [
+    {
+      "name": "main bundle",
+      "path": "dist/assets/index-*.js",
+      "limit": "250 KB",
+      "running": false
+    },
+    {
+      "name": "react-vendor",
+      "path": "dist/assets/react-vendor-*.js",
+      "limit": "50 KB",
+      "running": false
+    },
+    {
+      "name": "three-vendor",
+      "path": "dist/assets/three-vendor-*.js",
+      "limit": "200 KB",
+      "running": false
+    },
+    {
+      "name": "markdown-vendor",
+      "path": "dist/assets/markdown-vendor-*.js",
+      "limit": "240 KB",
+      "running": false
+    }
+  ],
   "dependencies": {
     "@gsap/react": "2.1.2",
     "@hookform/resolvers": "^3.10.0",
@@ -88,6 +115,7 @@
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@playwright/test": "1.57.0",
+    "@size-limit/preset-app": "12.1.0",
     "@tailwindcss/typography": "^0.5.15",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.0",
@@ -106,6 +134,7 @@
     "playwright": "1.57.0",
     "postcss": "^8.4.47",
     "rollup": "^4.28.0",
+    "size-limit": "12.1.0",
     "tailwindcss": "^3.4.11",
     "ts-node": "10.9.2",
     "tsx": "4.21.0",

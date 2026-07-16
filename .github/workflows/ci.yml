@@ -55,3 +55,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Enforce per-chunk bundle budgets (size-limit, brotli). Fails the run if
+      # the main bundle or a heavy vendor chunk exceeds its budget, catching
+      # unintentional bloat before it reaches production.
+      - name: Bundle size
+        run: npm run size
