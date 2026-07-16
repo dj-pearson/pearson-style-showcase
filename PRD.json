@@ -104,8 +104,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 4 lib test files under src/lib/__tests__/ (30 tests, all passing). error-tracking.test.ts (7): capture returns id, dev-gate returns null without VITE_ERROR_TRACKING_DEV, dedup within 5-min window, 50-item breadcrumb cap, sample-rate=0 drops, PII stripping + structured report shape sent to the endpoint, captureMessage - each loaded via resetModules+stubEnv for isolation since sample rate/endpoint are read at module load. session-rotation.test.ts (7): start/stop isActive toggle, rotateSession success + count increment, rotateAfterSensitiveOperation, no-active-session failure, token preserved on refresh failure, clearRotationState cleanup, isRotationNeeded timing (Supabase auth + edge-functions mocked). secure-cache.test.ts (7): AES-GCM set/get round-trip (real Web Crypto), wrong-userId cache miss + cleanup, missing key, secureRemove, availability check, graceful degradation when crypto.subtle is stubbed away, clearCacheSalt. device-trust.test.ts (9): consistent 64-char fingerprint, trust-token format, encrypted store/retrieve, trustDevice persists device id, revoke, list multiple devices, verify trusted device, clearTrustToken, getDeviceInfo (Supabase rpc/from mocked via vi.hoisted; real secure-cache). AC-vs-reality notes: session-rotation's public API is startPeriodicRotation/stopPeriodicRotation/rotateSession (not the sessionRotation.start()/rotateNow() names in CLAUDE.md), tested accordingly; device-trust 'expiry after 30 days' and 'multiple device tracking' are enforced server-side via Supabase RPC/tables, so the client tests cover the client-observable behaviors (fingerprint match, token store/verify, device listing). Verified: full suite 297 pass (was 267), typecheck clean, lint clean on new files."
     },
     {
       "id": "US-007",
