@@ -138,8 +138,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 4 public-page test files under src/pages/__tests__/ (14 tests, all passing) using the shared test-utils render (its MemoryRouter initialEntries option drives useSearchParams / route matching). NotFound.test.tsx (2): renders the 404 message and a Go-Home navigation button. Search.test.tsx (4): renders the search input, displays results for a query (debounced ~300ms, awaited), empty state for no matches, and survives a query error without crashing. Article.test.tsx (4): rendered inside a <Route path='/news/:slug'> so useParams resolves - renders the article title, renders the markdown body (heading + bold text as real elements), shows 'Article Not Found' for a missing article, and injects JSON-LD structured data (script[type=application/ld+json]). Index.test.tsx (4): GSAP (gsap, gsap/ScrollTrigger, @gsap/react useGSAP) and the Three.js HeroSection are mocked so the static homepage renders deterministically - asserts the hero region, SEO document.title, the services/featured content, and that lazy below-the-fold sections behind Suspense render without crashing. SEO is verified via document.title/head since the SEO component writes to the document directly (no Helmet). AC-vs-reality note: Index is a static marketing homepage with no dynamic featured-articles fetch, so 'renders featured articles' is covered by asserting its highlighted services content, and 'handles loading state' by its Suspense-wrapped lazy sections. Verified: full suite 329 pass (was 315), typecheck clean, lint clean on new files."
     },
     {
       "id": "US-009",
