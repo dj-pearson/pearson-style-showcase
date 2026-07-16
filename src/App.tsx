@@ -11,6 +11,7 @@ import ScrollTracker from "./components/ScrollTracker";
 import RoutePrefetcher from "./components/RoutePrefetcher";
 import ErrorBoundary from "./components/ErrorBoundary";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
+import { Sentry } from "./lib/sentry";
 import SuspenseFallback from "./components/SuspenseFallback";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
@@ -75,6 +76,25 @@ const App = () => (
             <ScrollTracker />
             <RoutePrefetcher />
             <Suspense fallback={<SuspenseFallback />}>
+              <Sentry.ErrorBoundary
+                fallback={({ resetError }) => (
+                  <div
+                    role="alert"
+                    className="min-h-[50vh] flex flex-col items-center justify-center gap-4 p-8 text-center"
+                  >
+                    <h1 className="text-2xl font-bold">Something went wrong</h1>
+                    <p className="text-muted-foreground max-w-md">
+                      An unexpected error occurred and has been reported. Please try again.
+                    </p>
+                    <button
+                      onClick={resetError}
+                      className="px-4 py-2 rounded-md bg-primary text-primary-foreground min-h-[44px]"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+              >
               <Routes>
             <Route path="/" element={<Index />} errorElement={<RouteErrorBoundary />} />
             <Route path="/about" element={<About />} errorElement={<RouteErrorBoundary />} />
@@ -149,6 +169,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
               </Routes>
+              </Sentry.ErrorBoundary>
             </Suspense>
             </URLHandler>
           </AuthProvider>

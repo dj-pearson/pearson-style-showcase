@@ -227,8 +227,8 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Installed @sentry/react (10.66.0) and @sentry/vite-plugin (5.4.0). Created src/lib/sentry.ts with initSentry(): a graceful no-op that returns false (skipping Sentry.init) when VITE_SENTRY_DSN is unset, so local/unconfigured builds run unchanged. Environment detection resolves development (import.meta.env.DEV), an explicit VITE_SENTRY_ENVIRONMENT override, or a hostname heuristic (staging/preview/*.pages.dev -> staging, else production). tracesSampleRate is 0.1 for production and 1.0 otherwise (staging/dev). Wired Sentry.reactRouterV6BrowserTracingIntegration with the react-router v6 hooks (useEffect/useLocation/useNavigationType/createRoutesFromChildren/matchRoutes) for route instrumentation, plus Sentry.replayIntegration with replaysSessionSampleRate 0.1 and replaysOnErrorSampleRate 1.0. main.tsx calls initSentry() first so it captures the earliest errors. App.tsx wraps the main <Routes> in Sentry.ErrorBoundary with an accessible fallback UI (role=alert, message, and a Try again button calling resetError). vite.config.ts adds sentryVitePlugin ONLY for production builds and ONLY when SENTRY_AUTH_TOKEN is set (org/project/authToken from build-time env, telemetry off); it generates hidden source maps for that case and deletes them after upload (filesToDeleteAfterUpload) so maps aren't served publicly - all other builds stay map-free. .env.example documents VITE_SENTRY_DSN (with a placeholder), VITE_SENTRY_ENVIRONMENT, and the build-time-only SENTRY_AUTH_TOKEN/ORG/PROJECT (non-VITE, never exposed to the client). VERIFIED: production build succeeds with no VITE_SENTRY_DSN set (graceful no-op); main bundle is 121.19 KB brotli, still under the 250 KB size-limit budget; added a unit test asserting initSentry() no-ops without a DSN; full suite 343 pass, typecheck clean, lint clean."
     },
     {
       "id": "US-014",
