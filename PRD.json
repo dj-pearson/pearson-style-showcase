@@ -263,8 +263,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added a health dashboard endpoint and public status page. supabase/functions/health-dashboard/index.ts (Deno.serve) runs two checks - Supabase database connectivity (a head/count query wrapped in a 4s timeout; slow>1s => degraded, error/timeout => unhealthy) and edge-function runtime (healthy if the handler executes) - and returns structured JSON { status, timestamp, version, uptime, checks:[...] } with HTTP 200 for healthy/degraded and 503 for unhealthy (whole response bounded well under 5s). The pure status/HTTP aggregation was extracted to supabase/functions/_shared/health.ts (aggregateHealthStatus = worst-of-checks; healthHttpStatus) and unit-tested via Deno (_shared/__tests__/health.test.ts, 5 tests passing). src/pages/Status.tsx fetches the endpoint with react-query (refetchInterval 60s auto-refresh), shows a color-coded overall banner (green/yellow/red), per-service rows with status + latency, version, uptime, a last-checked timestamp, and loading/error states; a 503 body is still parsed and displayed. Added a lazy /status route to App.tsx (public, no auth, above the catch-all). VERIFICATION: vitest src/pages/__tests__/Status.test.tsx (4 tests: healthy, degraded, unreachable-error, auto-refresh note) all pass; and browser-verified with Playwright/Chromium - built the SPA, served dist/ with SPA fallback, intercepted the health-dashboard call with a 'degraded' payload, loaded /status, and confirmed it renders the System Status heading, the 'Degraded performance' banner, the database service row, and the version (screenshot shared). typecheck clean, app suite 351 pass, build succeeds, lint clean."
     },
     {
       "id": "US-016",

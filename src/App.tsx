@@ -42,6 +42,7 @@ const TopicHub = lazy(() => import("./pages/TopicHub"));
 const Topics = lazy(() => import("./pages/Topics"));
 const RSSFeed = lazy(() => import("./pages/RSSFeed"));
 const Search = lazy(() => import("./pages/Search"));
+const Status = lazy(() => import("./pages/Status"));
 const Accessibility = lazy(() => import("./pages/Accessibility"));
 
 // Configure QueryClient with optimized defaults for better caching
@@ -109,6 +110,8 @@ const App = () => (
             <Route path="/ai-tools" element={<AITools />} errorElement={<RouteErrorBoundary />} />
             <Route path="/connect" element={<Connect />} errorElement={<RouteErrorBoundary />} />
             <Route path="/search" element={<Search />} errorElement={<RouteErrorBoundary />} />
+            {/* Public system status page (no auth required) */}
+            <Route path="/status" element={<Status />} errorElement={<RouteErrorBoundary />} />
             <Route path="/faq" element={<FAQ />} errorElement={<RouteErrorBoundary />} />
             <Route path="/accessibility" element={<Accessibility />} errorElement={<RouteErrorBoundary />} />
             <Route path="/admin/login" element={<AdminLogin />} errorElement={<RouteErrorBoundary />} />
