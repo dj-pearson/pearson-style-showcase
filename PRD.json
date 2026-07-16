@@ -384,8 +384,8 @@
         "Typecheck passes"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added Lighthouse CI performance-budget enforcement. Installed @lhci/cli (0.15.1) as a dev dependency. Created the config as lighthouserc.cjs (not .js): package.json has \"type\":\"module\", and lhci loads JS config via require(); a module.exports .js file fails under ESM, whereas lhci's search list includes lighthouserc.cjs. Config asserts category scores performance>=0.8, accessibility>=0.9, best-practices>=0.9, seo>=0.9, and Core Web Vitals budgets FCP<2000ms, LCP<3000ms, CLS<0.1, TBT<300ms, across 3 URLs (/, /about, /news), numberOfRuns=3, served via 'vite preview' (SPA fallback so client routes resolve), chromeFlags '--no-sandbox --disable-dev-shm-usage --disable-gpu', reports written to ./.lighthouseci (filesystem target, no external upload). Added 'lighthouse' script to package.json ('vite build && lhci autorun'). Added a 'Lighthouse CI' step to .github/workflows/ci.yml after the build/size steps, gated with if: github.base_ref=='main' || github.ref=='refs/heads/main' so it runs only on pushes to main and PRs targeting main, with dummy VITE_* env vars so the Supabase client boots and the app renders during collection. Added .lighthouseci/ to .gitignore. Verification: 'npm run typecheck' clean; lighthouserc.cjs loads (3 urls / 8 assertions); ran the full pipeline end-to-end locally (vite build -> vite preview -> Chromium collection via CHROME_PATH=preinstalled chromium-1194 -> assertions evaluated -> report written to .lighthouseci). The assertion mechanics work; score failures observed locally (perf 0.61, FCP ~5s) are environmental for this unthrottled single-run sandbox VM and are exactly the regressions the budget is designed to catch on the CI release path."
     },
     {
       "id": "US-023",

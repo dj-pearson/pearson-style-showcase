@@ -70,3 +70,6 @@ danpearson-edge-functions/env.example
 coverage
 e2e-results/
 test-results/
+
+# Lighthouse CI output
+.lighthouseci/

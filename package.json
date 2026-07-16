@@ -22,7 +22,8 @@
     "serve:docs": "redocly preview-docs docs/api/openapi.yaml",
     "db:backup": "bash scripts/db-backup.sh",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "lighthouse": "vite build && lhci autorun"
   },
   "size-limit": [
     {
@@ -122,6 +123,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
     "@eslint/js": "^9.9.0",
+    "@lhci/cli": "0.15.1",
     "@playwright/test": "1.57.0",
     "@redocly/cli": "2.39.0",
     "@size-limit/preset-app": "12.1.0",
