@@ -20,6 +20,7 @@ A modern, full-stack portfolio and content management system featuring AI-powere
 This project features a comprehensive automated CI/CD pipeline powered by GitHub Actions:
 
 ### Continuous Integration
+
 - **Automated Testing**: Run full test suite on every PR and push
 - **Code Quality**: ESLint linting and TypeScript type checking
 - **Build Validation**: Production build verification
@@ -28,12 +29,14 @@ This project features a comprehensive automated CI/CD pipeline powered by GitHub
 - **Coverage Reports**: Generate and archive code coverage metrics
 
 ### Continuous Deployment
+
 - **Automatic Deployments**: Push to `main` deploys to production via Cloudflare Pages
 - **Preview Deployments**: Every PR gets a unique preview URL
 - **Deployment Comments**: Automatic PR comments with deployment URLs
 - **Fast Builds**: Optimized with dependency caching (~5-7 minute builds)
 
 ### Automated Maintenance
+
 - **Dependabot**: Weekly automated dependency updates with smart grouping
 - **Stale Management**: Automatically mark and close inactive issues/PRs
 - **Code Owners**: Automatic review assignments based on file changes
@@ -54,7 +57,13 @@ For detailed CI/CD documentation, see [`.github/README.md`](.github/README.md).
 # Install dependencies
 npm install
 
-# Start development server
+# Configure environment (REQUIRED)
+# The app throws on startup if VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+# are unset — copy the template and fill in your values.
+cp .env.example .env
+# then edit .env
+
+# Start development server (http://localhost:8080)
 npm run dev
 
 # Build for production
@@ -74,12 +83,17 @@ This project is configured for deployment on Cloudflare Pages with the following
 
 - **Build command:** `npm run build`
 - **Build output directory:** `dist`
-- **Node.js version:** 18
+- **Node.js version:** 20 (Node 18 is end-of-life; Vite 6 / Vitest 4 require Node 20+)
 
-**Environment Variables (if needed):**
+**Environment Variables (required):**
 
-- No environment variables required for basic deployment
-- Supabase configuration is handled via hardcoded public keys
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` **must** be set — the app
+  throws on startup if either is missing (see `src/integrations/supabase/client.ts`).
+- Configure these in the Cloudflare Pages project settings (Settings →
+  Environment Variables) before deploying, and locally via a `.env` file.
+- See the [Environment Variables](#-environment-variables) section below and
+  `.env.example` for the full list (including optional error-tracking and
+  logging vars).
 
 **Deployment Steps:**
 
@@ -101,6 +115,7 @@ npm run build
 ## 🏗️ Architecture Overview
 
 ### Frontend Stack
+
 - **React 18**: Modern hooks-based components
 - **TypeScript**: Full type safety with strict mode enabled
 - **Vite**: Lightning-fast build tool with HMR
@@ -110,6 +125,7 @@ npm run build
 - **shadcn/ui**: Accessible, customizable component library
 
 ### Backend Services (Supabase)
+
 - **PostgreSQL**: Relational database for content and users
 - **Edge Functions**: Serverless API endpoints for:
   - AI article generation (GPT-4 integration)
@@ -121,6 +137,7 @@ npm run build
 - **Real-time Subscriptions**: Live data updates (optional)
 
 ### Key Architectural Patterns
+
 - **Code Splitting**: Route-based lazy loading reduces initial bundle
 - **Manual Chunking**: Vendor libraries separated for optimal caching
 - **Optimistic UI**: Instant feedback with background sync
@@ -226,6 +243,7 @@ VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 ### Commit Message Convention
 
 Follow conventional commits for better changelog generation:
+
 - `feat:` - New features
 - `fix:` - Bug fixes
 - `docs:` - Documentation changes
@@ -261,6 +279,7 @@ This downloads the component source to `src/components/ui/`
 ## ⚡ Performance Optimization
 
 ### Current Optimizations
+
 - **Code Splitting**: Routes lazy-loaded, reducing initial bundle by 60%
 - **Vendor Chunking**: React, Three.js, Markdown separated for browser caching
 - **Image Optimization**: Lazy loading with Intersection Observer
@@ -279,12 +298,14 @@ du -sh dist/*
 ```
 
 **Current bundle sizes** (gzipped):
+
 - Main bundle: ~45KB
 - React vendor: ~140KB
 - Three.js vendor: ~276KB (lazy-loaded)
 - Markdown vendor: ~277KB (lazy-loaded)
 
 ### Performance Tips
+
 1. Use `<OptimizedImage>` for all images (auto lazy-loading)
 2. Keep homepage bundle < 50KB for fast FCP/LCP
 3. Lazy load below-the-fold components
@@ -295,35 +316,42 @@ du -sh dist/*
 ### Build Issues
 
 **Error: `ROLLUP_BINARY_NOT_FOUND` on Cloudflare Pages**
+
 - Solution: Optional dependencies issue with Rollup
 - Fixed by adding `.npmrc` with `engine-strict=false`
 - Use `npm install` instead of `npm ci`
 
 **Error: TypeScript errors during build**
+
 - Check `tsconfig.app.json` - strict mode is enabled
 - Run `npm run lint` to catch issues before build
 - Verify all imports have correct paths
 
 **Error: `Cannot find module '@/...'`**
+
 - Check `tsconfig.json` path aliases are configured
 - Restart TypeScript server in VS Code: `Cmd+Shift+P` → "Restart TS Server"
 
 ### Runtime Issues
 
 **404 errors on page refresh**
+
 - Cloudflare Pages: Add `_redirects` file with `/* /index.html 200`
 - Ensures client-side routing works for all routes
 
 **Images not loading**
+
 - Check Supabase storage bucket permissions
 - Verify image URLs are absolute, not relative
 - Check CSP headers allow image domain
 
 **Console errors in production**
+
 - Check `src/lib/logger.ts` - should only log in development
 - Verify `import.meta.env.DEV` is working correctly
 
 **Supabase connection errors**
+
 - Verify `.env` file has correct Supabase URL and keys
 - Check Supabase project is not paused (free tier)
 - Test connection: Check Network tab for 401/403 errors
@@ -331,12 +359,14 @@ du -sh dist/*
 ### Performance Issues
 
 **Slow page loads**
+
 - Run Lighthouse audit to identify bottlenecks
 - Check bundle sizes with `npm run build`
 - Verify lazy loading is working (Network tab)
 - Check for unnecessary re-renders with React DevTools
 
 **High memory usage**
+
 - Three.js scenes not properly disposed
 - Check for memory leaks with Chrome DevTools Memory tab
 - Verify useEffect cleanup functions are implemented
@@ -344,11 +374,13 @@ du -sh dist/*
 ### Development Issues
 
 **Hot reload not working**
+
 - Restart dev server: `npm run dev`
 - Clear browser cache and hard reload
 - Check for console errors blocking execution
 
 **ESLint errors**
+
 - Run `npm run lint` to see all issues
 - Most errors auto-fixable with `npm run lint -- --fix`
 - Check `.eslintrc` for rule configuration
