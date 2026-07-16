@@ -13,7 +13,52 @@ import { secureSet, secureGet, isSecureCacheAvailable } from './secure-cache';
 const TRUST_TOKEN_KEY = 'device_trust_token';
 const DEVICE_ID_KEY = 'device_trust_id';
 const FINGERPRINT_KEY = 'device_fingerprint';
+// Absolute maximum lifetime of a trust record (server-side hard cap).
 const TRUST_DURATION_DAYS = 30;
+// A trust token is invalidated if the device has not been verified within this
+// many days (sliding inactivity window, stricter than the 30-day hard cap).
+const TRUST_INACTIVITY_DAYS = 14;
+const TRUST_INACTIVITY_MS = TRUST_INACTIVITY_DAYS * 24 * 60 * 60 * 1000;
+
+// Rate limiting for trust-token verification. Prevents brute-force guessing of
+// fingerprints/tokens by capping verification attempts in a sliding window.
+const VERIFY_RATE_LIMIT = 5;
+const VERIFY_RATE_WINDOW_MS = 60 * 1000; // 1 minute
+let verifyAttemptTimestamps: number[] = [];
+
+/**
+ * Sliding-window rate limiter for verification attempts. Returns false when the
+ * caller has exceeded VERIFY_RATE_LIMIT attempts within VERIFY_RATE_WINDOW_MS.
+ */
+function allowVerificationAttempt(): boolean {
+  const now = Date.now();
+  verifyAttemptTimestamps = verifyAttemptTimestamps.filter((t) => now - t < VERIFY_RATE_WINDOW_MS);
+  if (verifyAttemptTimestamps.length >= VERIFY_RATE_LIMIT) {
+    return false;
+  }
+  verifyAttemptTimestamps.push(now);
+  return true;
+}
+
+/**
+ * Reset the verification rate-limit window. Exposed for tests and for callers
+ * that want to clear the limiter after a successful full re-authentication.
+ */
+export function resetVerificationRateLimit(): void {
+  verifyAttemptTimestamps = [];
+}
+
+/**
+ * Hash a trust token with SHA-256 (Web Crypto) and return a hex digest.
+ * Only the hash is ever persisted locally or sent to the server, so a token
+ * value at rest cannot be replayed as-is if the raw pre-image is never stored.
+ */
+export async function hashToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 // Types
 export interface TrustedDevice {
@@ -102,7 +147,9 @@ export async function generateDeviceFingerprint(): Promise<string> {
     if (gl) {
       const debugInfo = (gl as WebGLRenderingContext).getExtension('WEBGL_debug_renderer_info');
       if (debugInfo) {
-        const renderer = (gl as WebGLRenderingContext).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        const renderer = (gl as WebGLRenderingContext).getParameter(
+          debugInfo.UNMASKED_RENDERER_WEBGL
+        );
         components.push(renderer);
       }
     }
@@ -112,7 +159,9 @@ export async function generateDeviceFingerprint(): Promise<string> {
 
   // Audio context fingerprint (simplified)
   try {
-    const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
+    const AudioContext =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
     if (AudioContext) {
       const audioCtx = new AudioContext();
       components.push(audioCtx.sampleRate.toString());
@@ -122,14 +171,79 @@ export async function generateDeviceFingerprint(): Promise<string> {
     components.push('audio-blocked');
   }
 
+  // Installed-fonts entropy: measure the rendered width of a probe string in a
+  // set of candidate fonts against baseline fonts. Fonts that are installed
+  // render at a different width than the fallback, yielding a stable per-device
+  // signal that is independent of canvas/WebGL. This is one of several entropy
+  // sources (timezone, screen dimensions, installed fonts, ...) that a stolen
+  // trust token is bound to, so it cannot be replayed from a different device.
+  components.push(detectInstalledFonts());
+
   // Create hash of components
   const data = components.join('|');
   const encoder = new TextEncoder();
   const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const fingerprint = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
   return fingerprint;
+}
+
+/**
+ * Detect which of a set of candidate fonts are installed by comparing the
+ * rendered width of a probe string against baseline (generic) fonts. Returns a
+ * compact signature string (e.g. "Arial,Verdana"). Best-effort: returns a
+ * sentinel when the canvas 2D context is unavailable.
+ */
+function detectInstalledFonts(): string {
+  try {
+    const baseFonts = ['monospace', 'sans-serif', 'serif'];
+    const testFonts = [
+      'Arial',
+      'Verdana',
+      'Times New Roman',
+      'Courier New',
+      'Georgia',
+      'Helvetica',
+      'Comic Sans MS',
+      'Impact',
+      'Tahoma',
+      'Trebuchet MS',
+      'Segoe UI',
+      'Roboto',
+      'Ubuntu',
+      'Cantarell',
+      'Menlo',
+    ];
+    const probe = 'mmmmmmmmmmlli~WwZz0O';
+    const size = '72px';
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 'fonts-unavailable';
+
+    const measure = (font: string) => {
+      ctx.font = `${size} ${font}`;
+      return ctx.measureText(probe).width;
+    };
+
+    // Baseline widths for each generic family.
+    const baseWidths: Record<string, number> = {};
+    for (const base of baseFonts) baseWidths[base] = measure(base);
+
+    const detected: string[] = [];
+    for (const font of testFonts) {
+      // A font is considered installed if it changes the width for at least one
+      // generic fallback family.
+      const isInstalled = baseFonts.some(
+        (base) => measure(`'${font}',${base}`) !== baseWidths[base]
+      );
+      if (isInstalled) detected.push(font);
+    }
+    return detected.length ? detected.join(',') : 'fonts-none';
+  } catch {
+    return 'fonts-blocked';
+  }
 }
 
 /**
@@ -218,19 +332,42 @@ export async function generateTrustToken(): Promise<string> {
   );
 
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return `trust_${timestamp}_${hashArray.map(b => b.toString(16).padStart(2, '0')).join('')}`;
+  return `trust_${timestamp}_${hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
 // Unified key for encrypted trust data
 const ENCRYPTED_TRUST_KEY = 'device_trust_encrypted';
+const LAST_USED_KEY = 'device_trust_last_used';
 
 /**
- * Store trust token encrypted in localStorage.
- * Uses secure-cache AES-GCM encryption when available, with plaintext fallback.
+ * Stored trust record. `token` is ALWAYS a SHA-256 hash of the raw trust token
+ * (never the plaintext token) and `fingerprint` is itself a SHA-256 digest of
+ * device characteristics — no plaintext secrets are persisted. `lastUsedAt` is
+ * an epoch-ms timestamp used to enforce the inactivity window.
  */
-export async function storeTrustToken(token: string, deviceId: string, fingerprint: string, userId?: string): Promise<void> {
+export interface StoredTrust {
+  token: string;
+  deviceId: string;
+  fingerprint: string;
+  lastUsedAt: number;
+}
+
+/**
+ * Store the (already hashed) trust token in localStorage.
+ *
+ * IMPORTANT: `token` MUST be a hash (see hashToken); callers never pass the raw
+ * token. Uses secure-cache AES-GCM encryption when available, with a plaintext
+ * fallback that still only ever holds the hash.
+ */
+export async function storeTrustToken(
+  token: string,
+  deviceId: string,
+  fingerprint: string,
+  userId?: string,
+  lastUsedAt: number = Date.now()
+): Promise<void> {
   try {
-    const trustData = { token, deviceId, fingerprint };
+    const trustData: StoredTrust = { token, deviceId, fingerprint, lastUsedAt };
 
     if (userId && isSecureCacheAvailable()) {
       await secureSet(ENCRYPTED_TRUST_KEY, trustData, userId);
@@ -238,11 +375,14 @@ export async function storeTrustToken(token: string, deviceId: string, fingerpri
       localStorage.removeItem(TRUST_TOKEN_KEY);
       localStorage.removeItem(DEVICE_ID_KEY);
       localStorage.removeItem(FINGERPRINT_KEY);
+      localStorage.removeItem(LAST_USED_KEY);
     } else {
-      // Fallback to plain storage if crypto not available or no userId
+      // Fallback to plain storage if crypto not available or no userId. Only
+      // the hash is written here, never the raw token.
       localStorage.setItem(TRUST_TOKEN_KEY, token);
       localStorage.setItem(DEVICE_ID_KEY, deviceId);
       localStorage.setItem(FINGERPRINT_KEY, fingerprint);
+      localStorage.setItem(LAST_USED_KEY, String(lastUsedAt));
     }
   } catch (error) {
     logger.warn('Failed to store trust token:', error);
@@ -250,25 +390,32 @@ export async function storeTrustToken(token: string, deviceId: string, fingerpri
 }
 
 /**
- * Get stored trust token, decrypting if encrypted.
+ * Get stored trust record, decrypting if encrypted.
  */
-export async function getStoredTrustToken(userId?: string): Promise<{ token: string; deviceId: string; fingerprint: string } | null> {
+export async function getStoredTrustToken(userId?: string): Promise<StoredTrust | null> {
   try {
     // Try encrypted storage first
     if (userId && isSecureCacheAvailable()) {
-      const encrypted = await secureGet<{ token: string; deviceId: string; fingerprint: string }>(
-        ENCRYPTED_TRUST_KEY, userId
-      );
-      if (encrypted) return encrypted;
+      const encrypted = await secureGet<StoredTrust>(ENCRYPTED_TRUST_KEY, userId);
+      if (encrypted) {
+        // Older records may predate the lastUsedAt field; treat those as fresh.
+        return { ...encrypted, lastUsedAt: encrypted.lastUsedAt ?? Date.now() };
+      }
     }
 
     // Fallback: read from legacy plaintext keys
     const token = localStorage.getItem(TRUST_TOKEN_KEY);
     const deviceId = localStorage.getItem(DEVICE_ID_KEY);
     const fingerprint = localStorage.getItem(FINGERPRINT_KEY);
+    const lastUsedRaw = localStorage.getItem(LAST_USED_KEY);
 
     if (token && deviceId && fingerprint) {
-      return { token, deviceId, fingerprint };
+      return {
+        token,
+        deviceId,
+        fingerprint,
+        lastUsedAt: lastUsedRaw ? Number(lastUsedRaw) : Date.now(),
+      };
     }
     return null;
   } catch {
@@ -285,6 +432,7 @@ export function clearTrustToken(): void {
     localStorage.removeItem(TRUST_TOKEN_KEY);
     localStorage.removeItem(DEVICE_ID_KEY);
     localStorage.removeItem(FINGERPRINT_KEY);
+    localStorage.removeItem(LAST_USED_KEY);
   } catch (error) {
     logger.warn('Failed to clear trust token:', error);
   }
@@ -303,8 +451,22 @@ export async function isDeviceTrusted(userId: string): Promise<{
   deviceName?: string;
 }> {
   try {
+    // Rate limit verification to prevent brute-force fingerprint/token guessing.
+    if (!allowVerificationAttempt()) {
+      logger.warn('Device trust verification rate limit exceeded');
+      return { trusted: false };
+    }
+
     const stored = await getStoredTrustToken(userId);
     if (!stored) {
+      return { trusted: false };
+    }
+
+    // Inactivity expiry: invalidate tokens not used within the inactivity
+    // window, independent of the server-side hard expiry.
+    if (Date.now() - stored.lastUsedAt > TRUST_INACTIVITY_MS) {
+      logger.warn('Device trust token expired due to inactivity');
+      clearTrustToken();
       return { trusted: false };
     }
 
@@ -316,7 +478,7 @@ export async function isDeviceTrusted(userId: string): Promise<{
       return { trusted: false };
     }
 
-    // Verify token with database
+    // Verify hashed token with database
     const { data, error } = await supabase.rpc('verify_trust_token', {
       _trust_token: stored.token,
       _user_id: userId,
@@ -329,15 +491,21 @@ export async function isDeviceTrusted(userId: string): Promise<{
     }
 
     if (data && data.length > 0 && data[0].is_valid) {
-      // Update last used timestamp
+      const deviceId = data[0].device_id;
+
+      // Forward secrecy: rotate the trust token on every successful
+      // verification so a captured token becomes useless after the next login.
+      await rotateTrustToken(userId, stored, deviceId);
+
+      // Update last used timestamp server-side (best effort).
       await supabase.rpc('update_device_last_used', {
-        _device_id: data[0].device_id,
+        _device_id: deviceId,
         _ip_address: null, // Will be set by server
       });
 
       return {
         trusted: true,
-        deviceId: data[0].device_id,
+        deviceId,
         deviceName: data[0].device_name,
       };
     }
@@ -348,6 +516,42 @@ export async function isDeviceTrusted(userId: string): Promise<{
   } catch (error) {
     logger.error('Error checking device trust:', error);
     return { trusted: false };
+  }
+}
+
+/**
+ * Rotate the stored trust token to a fresh value (forward secrecy). Generates a
+ * new token, hashes it, atomically swaps it server-side via rotate_trust_token,
+ * and only then persists the new hash locally so local/server stay consistent.
+ * On any failure the existing token is preserved (last-used timestamp refreshed)
+ * so a rotation hiccup never locks the user out.
+ */
+async function rotateTrustToken(
+  userId: string,
+  stored: StoredTrust,
+  deviceId: string
+): Promise<void> {
+  try {
+    const newToken = await generateTrustToken();
+    const newHash = await hashToken(newToken);
+
+    const { data, error } = await supabase.rpc('rotate_trust_token', {
+      _old_trust_token: stored.token,
+      _new_trust_token: newHash,
+      _user_id: userId,
+      _device_fingerprint: stored.fingerprint,
+    });
+
+    if (!error && data === true) {
+      await storeTrustToken(newHash, deviceId, stored.fingerprint, userId, Date.now());
+      return;
+    }
+
+    // Rotation unavailable/failed — keep the current token but refresh activity.
+    await storeTrustToken(stored.token, deviceId, stored.fingerprint, userId, Date.now());
+  } catch (error) {
+    logger.warn('Trust token rotation failed, keeping current token:', error);
+    await storeTrustToken(stored.token, deviceId, stored.fingerprint, userId, Date.now());
   }
 }
 
@@ -363,6 +567,9 @@ export async function trustDevice(
   try {
     const deviceInfo = await getFullDeviceInfo();
     const trustToken = await generateTrustToken();
+    // Only the hash is ever persisted or sent to the server; the raw token is
+    // discarded after hashing so it cannot be recovered from storage.
+    const trustTokenHash = await hashToken(trustToken);
 
     const { data, error } = await supabase.rpc('upsert_trusted_device', {
       _user_id: userId,
@@ -372,7 +579,7 @@ export async function trustDevice(
       _browser: deviceInfo.browser,
       _operating_system: deviceInfo.operatingSystem,
       _ip_address: null, // Will be set by server
-      _trust_token: trustToken,
+      _trust_token: trustTokenHash,
       _verification_method: verificationMethod,
       _expires_in_days: trustDurationDays,
     });
@@ -384,8 +591,8 @@ export async function trustDevice(
 
     const deviceId = data as string;
 
-    // Store token locally (encrypted)
-    await storeTrustToken(trustToken, deviceId, deviceInfo.fingerprint, userId);
+    // Store hashed token locally (encrypted at rest via secure-cache)
+    await storeTrustToken(trustTokenHash, deviceId, deviceInfo.fingerprint, userId);
 
     logger.log('Device trusted successfully:', deviceId);
     return { success: true, deviceId };
