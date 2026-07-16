@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+// Pure auth helpers (extracted for unit testing; see _shared/auth-helpers.ts). US-011.
+import {
+  MAX_LOGIN_ATTEMPTS as MAX_ATTEMPTS,
+  LOGIN_LOCKOUT_MS as LOCKOUT_TIME,
+  isLockedOut,
+  validateLoginInput,
+} from "../_shared/auth-helpers.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -90,8 +97,8 @@ async function ensureAdminRole(userId: string, email: string): Promise<boolean> 
 }
 
 // Rate limiting constants
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes
+// MAX_ATTEMPTS and LOCKOUT_TIME are imported from _shared/auth-helpers.ts
+// (MAX_LOGIN_ATTEMPTS = 5, LOGIN_LOCKOUT_MS = 15 minutes).
 
 // In-memory cache to reduce DB calls (secondary layer, DB is source of truth)
 const rateLimitCache = new Map<string, { count: number; lastCheck: number }>();
@@ -121,7 +128,7 @@ async function checkRateLimit(ip: string): Promise<boolean> {
 
     const attemptCount = count ?? 0;
     rateLimitCache.set(ip, { count: attemptCount, lastCheck: Date.now() });
-    return attemptCount < MAX_ATTEMPTS;
+    return !isLockedOut(attemptCount, MAX_ATTEMPTS);
   } catch (err) {
     console.error('Rate limit check error:', err);
     return true; // Fail open
@@ -537,10 +544,11 @@ serve(async (req) => {
         );
       }
 
-      if (!email || !password) {
+      const loginInput = validateLoginInput(email, password);
+      if (!loginInput.valid) {
         console.log("Missing email or password");
         return new Response(
-          JSON.stringify({ error: "Email and password are required" }),
+          JSON.stringify({ error: loginInput.error }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

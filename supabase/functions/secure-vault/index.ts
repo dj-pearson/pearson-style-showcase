@@ -1,69 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
-
-// AES-256-GCM encryption/decryption
-async function getEncryptionKey(): Promise<CryptoKey> {
-  const keyMaterial = Deno.env.get('VAULT_ENCRYPTION_KEY');
-  if (!keyMaterial) {
-    throw new Error('VAULT_ENCRYPTION_KEY not configured');
-  }
-  
-  // Derive a proper 256-bit key from the secret
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(keyMaterial);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
-  
-  return crypto.subtle.importKey(
-    'raw',
-    hashBuffer,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
-async function encrypt(plaintext: string): Promise<string> {
-  const key = await getEncryptionKey();
-  const encoder = new TextEncoder();
-  const data = encoder.encode(plaintext);
-  
-  // Generate random IV (12 bytes for AES-GCM)
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    data
-  );
-  
-  // Combine IV + encrypted data
-  const combined = new Uint8Array(iv.length + encryptedBuffer.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(encryptedBuffer), iv.length);
-  
-  // Return as base64
-  return btoa(String.fromCharCode(...combined));
-}
-
-async function decrypt(encryptedBase64: string): Promise<string> {
-  const key = await getEncryptionKey();
-  
-  // Decode from base64
-  const combined = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
-  
-  // Extract IV (first 12 bytes) and encrypted data
-  const iv = combined.slice(0, 12);
-  const encryptedData = combined.slice(12);
-  
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    encryptedData
-  );
-  
-  const decoder = new TextDecoder();
-  return decoder.decode(decryptedBuffer);
-}
+// AES-256-GCM encryption helpers (extracted to _shared/vault-crypto.ts so they
+// can be unit-tested without the Supabase import). US-011.
+import { encrypt, decrypt } from '../_shared/vault-crypto.ts';
 
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');

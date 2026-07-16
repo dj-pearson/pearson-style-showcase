@@ -191,8 +191,8 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 4 Deno test files (21 tests total, all passing under `deno test`, verified with Deno 2.9.3 installed via npm). _shared/__tests__/validation.test.ts (6): email/URL/UUID/text validation + sanitizeHtml. _shared/__tests__/rate-limiter.test.ts (7): under/over limit, burst allowance, sliding-window reset (via Date.now stub), clearRateLimits cleanup, and the auth preset. secure-vault/index.test.ts (4): AES-256-GCM encrypt/decrypt round-trip, fresh-IV-per-encryption, tampered-ciphertext rejection (GCM auth tag), and the missing-key guard. admin-auth/index.test.ts (5): login input validation, email-format check, and the 5-attempt lockout threshold. REFACTORS (behavior-preserving, to make the functions testable): extracted secure-vault's AES-GCM crypto into _shared/vault-crypto.ts and admin-auth's login-input validation + lockout threshold into _shared/auth-helpers.ts, then imported them back into the two functions (admin-auth now uses validateLoginInput/isLockedOut and the shared MAX_LOGIN_ATTEMPTS/LOGIN_LOCKOUT_MS constants). ENVIRONMENT ADAPTATIONS: (1) the sandbox's egress returns 403 for jsr.io/deno.land/esm.sh, so std/assert can't be fetched; added _shared/test-asserts.ts - an assertEquals/assertThrows/assert API-compatible shim backed by Deno's built-in node:assert - which the tests import; swapping to `import ... from \"jsr:@std/assert\"` in a networked env leaves the tests unchanged. (2) admin-auth/secure-vault handler flows (login/whitelist/RBAC, MFA gate/CRUD) are Supabase-backed via a blocked URL import and use inline serve handlers, so the tests target the extracted PURE security decisions rather than importing index.ts. Scoped vitest to src/** (include + exclude supabase/**) so the Deno tests aren't picked up by the app runner. Verified: `deno test` 21 pass, app typecheck clean, app vitest 339 pass."
     },
     {
       "id": "US-012",
