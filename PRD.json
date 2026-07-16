@@ -627,8 +627,8 @@
         "Typecheck passes"
       ],
       "priority": 36,
-      "passes": false,
-      "notes": "HIGH: 18 flat menu items are hard to scan. Mobile experience especially poor. Stats cards all disappear when any single query fails."
+      "passes": true,
+      "notes": "Reorganized the admin dashboard sidebar (src/pages/AdminDashboard.tsx) into logical collapsible groups. Kept Overview as a standalone top item and grouped the remaining items into five collapsible sections mapped from the actual menu items: Content (Articles, Projects, AI Tools, SEO, Testimonials, Ventures), Operations (Amazon Pipeline, Traffic Watch, Newsletter, Task Management), Finance (Accounting), Security (Secure Vault), and System (Command Center, Server Health, Support Tickets, AI Configuration, Maintenance, Profile, Settings). Each group is a Radix Collapsible whose SidebarGroupLabel is the trigger, showing the group label plus a ChevronDown that rotates 180deg when expanded (aria-label announces expanded/collapsed). Expand/collapse state is persisted to localStorage ('admin_sidebar_open_groups') and restored on load. On first load with no stored preference the groups start expanded on desktop but on mobile (<640px) start collapsed except the group containing the active view. Reworked dashboard stats loading for per-card error isolation: the three stat queries now run via Promise.allSettled and each card tracks its own error (Articles and Views share the articles query); a single failed query shows an inline 'Failed to load' + Retry only on the affected card(s) while the other cards keep showing their values, instead of the previous all-or-nothing replacement of all four cards. Added e2e/admin/sidebar-groups.spec.ts verifying a group collapses/expands and the state persists across reload. Verification: 'npm run typecheck' clean; full unit suite 357 tests pass; admin E2E suite (8 specs incl. the new group test) passes on chromium; browser-verified the grouped sidebar and per-card error states via screenshot."
     },
     {
       "id": "US-037",
