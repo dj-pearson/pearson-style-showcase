@@ -970,8 +970,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "HIGH: logger.ts suppresses all levels in prod. Auth subsystem uses this dev-only logger, so revocation/logout/rotation failures produce zero prod output. Complements US-014 (remote transport)."
+      "passes": true,
+      "notes": "Done/verified. src/lib/logger.ts routes warn and error through the production-aware logger (productionLogger.warn/error in src/lib/production-logger.ts) while keeping log/info/debug dev-only, so security-critical warnings/errors are emitted in production. production-logger respects VITE_LOG_LEVEL (default INFO) via outputLog's level gate, masks PII, and emits structured JSON in prod (console.error/warn) vs pretty format in dev - the level gate is identical in both, only the format differs. Confirmed every AC-listed critical signal routes through logger.warn/error: failed server-side sign-out ('SECURITY: Server-side session may still be valid' - AuthContext.tsx:709), background admin-revocation (AuthContext.tsx:363,372), session-rotation failures (session-rotation.ts:337,370,414), OAuth state failures (oauth-state.ts:99,116,134,153), and logSecurityEvent insert fallbacks (security-layers.ts:819,822). Added a unit test to production-logger.test.ts asserting warn and error emit to the console while debug stays silent at the default INFO level (the observable prod requirement). Remaining raw console.* calls in the repo are intentional and out of scope: the error-tracking transport itself (would loop), ErrorBoundary prod reporting, service-worker registration (runs outside React), analytics init, and a dev-only icon-button warning. Verified: 267 tests pass, typecheck clean, production build succeeds."
     },
     {
       "id": "US-058",

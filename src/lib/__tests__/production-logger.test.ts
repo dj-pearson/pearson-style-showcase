@@ -193,6 +193,22 @@ describe('ProductionLogger', () => {
     expect(consoleSpy.error).toHaveBeenCalled();
   });
 
+  it('emits warn and error but keeps debug silent at the default INFO level', () => {
+    // This mirrors the production requirement (US-057): error/warn must reach the
+    // console/transport while debug stays silent. The level gate in outputLog is
+    // the same in dev and prod - only the message format differs - so asserting
+    // it here deterministically verifies the prod behavior.
+    const logger = new ProductionLogger();
+
+    logger.debug('Debug message');
+    expect(consoleSpy.debug).not.toHaveBeenCalled();
+
+    logger.warn('Warning message');
+    logger.error('Error message');
+    expect(consoleSpy.warn).toHaveBeenCalledTimes(1);
+    expect(consoleSpy.error).toHaveBeenCalledTimes(1);
+  });
+
   it('should mask PII in log messages', () => {
     const logger = new ProductionLogger();
     logger.info('User email: test@example.com');
