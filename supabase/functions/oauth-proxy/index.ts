@@ -12,12 +12,10 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-};
+// CORS headers are computed per-request from the shared allow-list (never a
+// wildcard). See the handler below.
 
 // Configuration from environment variables
 const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://danpearson.net';
@@ -28,7 +26,10 @@ const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID') || '';
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET') || '';
 const APPLE_CLIENT_ID = Deno.env.get('APPLE_CLIENT_ID') || '';
 const APPLE_CLIENT_SECRET = Deno.env.get('APPLE_CLIENT_SECRET') || '';
-const OAUTH_STATE_SECRET = Deno.env.get('OAUTH_STATE_SECRET') || SUPABASE_SERVICE_ROLE_KEY;
+// Require a dedicated OAuth state-signing secret. Previously this silently fell
+// back to SUPABASE_SERVICE_ROLE_KEY, reusing a high-privilege key as an HMAC
+// secret; the handler now fails loudly if OAUTH_STATE_SECRET is not configured.
+const OAUTH_STATE_SECRET = Deno.env.get('OAUTH_STATE_SECRET') || '';
 
 /**
  * Sign the OAuth state with HMAC-SHA256 to prevent tampering.
@@ -87,8 +88,20 @@ async function verifyState(state: string): Promise<Record<string, unknown> | nul
 
 // Export handler for edge-functions-server
 export default async function handler(req: Request): Promise<Response> {
+  // Resolve CORS from the shared allow-list for this request (never a wildcard).
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Fail loudly if the dedicated OAuth state secret is not configured, rather
+  // than mis-signing state (the old code reused the service-role key here).
+  if (!OAUTH_STATE_SECRET) {
+    return new Response(
+      JSON.stringify({ error: 'OAuth is not configured (missing OAUTH_STATE_SECRET)' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {

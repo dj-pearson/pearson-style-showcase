@@ -8,6 +8,7 @@ import {
   isLockedOut,
   validateLoginInput,
 } from "../_shared/auth-helpers.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -19,23 +20,8 @@ const lockoutNotificationsSent = new Map<string, number>();
 const LOCKOUT_NOTIFICATION_COOLDOWN = 60 * 60 * 1000; // 1 hour cooldown between notifications
 
 // Allowed origins for CORS
-const ALLOWED_ORIGINS = [
-  "https://danpearson.net",
-  "https://www.danpearson.net",
-  "http://localhost:8080",
-  "http://localhost:5173",
-  "http://localhost:3000"
-];
-
-const getCorsHeaders = (origin: string | null) => {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, cookie",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Credentials": "true",
-  };
-};
+// CORS is handled by the shared allow-list helper (imported above). The inline
+// ALLOWED_ORIGINS + getCorsHeaders were removed in favor of _shared/cors.ts.
 
 // Helper function to check if email is in database whitelist
 async function isEmailWhitelisted(email: string): Promise<boolean> {
