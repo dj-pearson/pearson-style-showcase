@@ -985,8 +985,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "HIGH: CSP defined in two diverging places; _headers adds COEP require-corp which likely breaks GA/fonts/CF Insights that lack CORP headers. Builds on US-017 (which synced CSP earlier)."
+      "passes": true,
+      "notes": "Reconciled CSP to a single source of truth and fixed the COEP breakage. (1) Removed the duplicate <meta http-equiv=Content-Security-Policy> from index.html (replaced with a comment pointing to public/_headers); public/_headers is now the single authoritative CSP, served as a real HTTP header by Cloudflare Pages (also strictly more capable - a <meta> CSP silently ignores frame-ancestors/report-to). (2) Eliminated the divergence: added frame-src 'none' to the _headers CSP (only index.html had it) so the header policy is not weaker than before. (3) Removed Cross-Origin-Embedder-Policy: require-corp from _headers - it blocks cross-origin subresources lacking CORP headers (Google Analytics gtag.js, Google Fonts, Cloudflare Insights) and is only needed for cross-origin isolation (SharedArrayBuffer), which this app doesn't use; kept COOP same-origin and CORP same-origin (safe - they govern how other sites reference us, not our own loads). (4) Verified connect-src still covers api.danpearson.net (https + wss) and functions.danpearson.net. VERIFICATION: enumerated every external host referenced by the built site - all are covered by the CSP - and ran a real-browser check (Chromium/Playwright) serving dist/ with the exact reconciled CSP as an HTTP header: 0 CSP violations for GA / Google Fonts / Cloudflare Insights. typecheck clean, 267 tests pass, production build succeeds and copies the reconciled _headers into dist/."
     },
     {
       "id": "US-059",
