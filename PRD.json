@@ -935,8 +935,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "HIGH (live bug): Search.tsx queries projects with published/slug columns that don't exist; error is swallowed so project search silently returns nothing."
+      "passes": true,
+      "notes": "Confirmed against src/integrations/supabase/types.ts that the projects table has neither a `published` nor a `slug` column (it has `status`). Fixed Search.tsx: removed the invalid `.eq('published', true)` filter and the non-existent `slug` from the projects select. Project search now navigates to `/projects#project-<id>` and added matching `id={project-<id>}` anchors (with scroll-mt-24) to each ProjectCard wrapper in Projects.tsx. Did NOT add a `.eq('status','active')` filter because the public Projects page shows all projects regardless of status (PROJECT_STATUSES = Active/In Development/On Hold/Completed/Archived), so filtering would make search inconsistent with the public page. Surfaced previously-swallowed query errors: articles, projects, and ai_tools queries now destructure and log `error` via logger.error. Typecheck passes. Live browser verification requires a deployed Supabase instance with project rows."
     },
     {
       "id": "US-056",
