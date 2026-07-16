@@ -52,6 +52,8 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { hasUnsavedChanges } from '@/lib/unsaved-changes';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 
 // Lazy load all admin modules for better performance
 // This reduces initial bundle size by ~60-80%
@@ -249,6 +251,23 @@ const AdminDashboard = () => {
   }, [openGroups]);
 
   const toggleGroup = (id: string) => setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  // Guard sidebar tab switches: if a mounted form has unsaved changes, confirm
+  // before changing views (tab switches are state changes, not route nav).
+  const [pendingView, setPendingView] = useState<string | null>(null);
+  const requestView = (id: string) => {
+    if (id === activeView) return;
+    if (hasUnsavedChanges()) {
+      setPendingView(id);
+    } else {
+      setActiveView(id);
+    }
+  };
+  const confirmViewChange = () => {
+    if (pendingView) setActiveView(pendingView);
+    setPendingView(null);
+  };
+  const cancelViewChange = () => setPendingView(null);
 
   // Aggregate error flag (true if any stat query failed) for the overview
   // system-status card.
@@ -669,7 +688,7 @@ const AdminDashboard = () => {
                   <SidebarMenu>
                     <SidebarMenuItem>
                       <SidebarMenuButton
-                        onClick={() => setActiveView(overviewItem.id)}
+                        onClick={() => requestView(overviewItem.id)}
                         isActive={activeView === overviewItem.id}
                         tooltip={overviewItem.label}
                       >
@@ -709,7 +728,7 @@ const AdminDashboard = () => {
                             {group.items.map((item) => (
                               <SidebarMenuItem key={item.id}>
                                 <SidebarMenuButton
-                                  onClick={() => setActiveView(item.id)}
+                                  onClick={() => requestView(item.id)}
                                   isActive={activeView === item.id}
                                   tooltip={item.label}
                                 >
@@ -872,6 +891,13 @@ const AdminDashboard = () => {
           open={showShortcuts}
           onOpenChange={setShowShortcuts}
           shortcuts={shortcuts}
+        />
+
+        {/* Warn before switching tabs away from a form with unsaved changes */}
+        <UnsavedChangesDialog
+          open={pendingView !== null}
+          onDiscard={confirmViewChange}
+          onKeepEditing={cancelViewChange}
         />
       </SidebarProvider>
     </>
