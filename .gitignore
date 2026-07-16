@@ -65,3 +65,6 @@ danpearson-edge-functions/.env.*
 edge-functions-template/
 MIGRATION_STATUS.md
 danpearson-edge-functions/env.example
+
+# Test coverage output
+coverage

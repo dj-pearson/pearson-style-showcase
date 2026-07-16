@@ -81,7 +81,10 @@ interface AuthContextType {
   hasAllPermissions: (permissions: string[]) => boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Exported so tests can supply a mock value via <AuthContext.Provider> (see
+// src/test/test-utils.tsx). Application code should continue to use the useAuth
+// hook rather than consuming the context directly.
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

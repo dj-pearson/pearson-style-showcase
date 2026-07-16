@@ -53,8 +53,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added coverage thresholds (statements 60, branches 50, functions 60, lines 60) to vitest.config.ts; current coverage over test-exercised files is ~76% so `npm run test:coverage` passes (exit 0). Installed @vitest/coverage-v8 (was missing). Created src/test/test-utils.tsx with renderWithProviders (exported as `render`) wrapping the UI in QueryClientProvider (retry-off test client), BrowserRouter/MemoryRouter, and a mock value for the real AuthContext via createMockAuthValue; to enable injecting that mock, AuthContext is now exported from src/contexts/AuthContext.tsx (app code still uses the useAuth hook). Created src/test/mocks/supabase.ts (createSupabaseMock: chainable/thenable query builder with from/select/insert/update/delete/eq/order/etc., terminal single/maybeSingle, plus auth signInWithPassword/signInWithOAuth/signOut/onAuthStateChange/getSession, functions.invoke, channel and storage; per-table result overrides). Created src/test/mocks/handlers.ts with typed factories for articles, projects, users/admins, and accounting entities (accounts/invoices/journal entries) plus createMany. Updated src/test/setup.ts to add ResizeObserver and a window.crypto guarantee (falls back to Node webcrypto for subtle/getRandomValues/randomUUID); IntersectionObserver and matchMedia were already mocked. Added dummy VITE_SUPABASE_* env to the vitest `env` block so the fail-fast Supabase client module loads under test (test-utils pulls it in transitively via AuthContext). test:coverage script already existed. Verified: typecheck clean, `npm test -- --run` 210 pass, lint 0 errors, and a scratch self-check confirmed render + supabase mock + factories work end to end. Added coverage/ to .gitignore."
     },
     {
       "id": "US-004",
