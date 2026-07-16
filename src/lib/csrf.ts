@@ -136,53 +136,5 @@ export function requiresCSRFProtection(method: string): boolean {
   return protectedMethods.includes(method.toUpperCase());
 }
 
-/**
- * Enhanced fetch wrapper that automatically adds CSRF headers
- * for state-changing requests
- */
-export async function csrfFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const method = init?.method?.toUpperCase() || 'GET';
-
-  if (requiresCSRFProtection(method)) {
-    const csrfHeaders = await getCSRFHeaders();
-    const headers = new Headers(init?.headers);
-
-    // Add CSRF header
-    headers.set(CSRF_HEADER_NAME, csrfHeaders[CSRF_HEADER_NAME]);
-
-    return fetch(input, {
-      ...init,
-      headers,
-    });
-  }
-
-  return fetch(input, init);
-}
-
-/**
- * Create a fetch instance with automatic CSRF protection
- * Useful for creating API clients
- */
-export function createCSRFProtectedFetch(): typeof fetch {
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    return csrfFetch(input, init);
-  };
-}
-
-/**
- * Hook for React components to get CSRF token
- */
-export function useCSRFToken(): {
-  getToken: () => Promise<string>;
-  refreshToken: () => Promise<string>;
-  headers: () => Promise<Record<string, string>>;
-} {
-  return {
-    getToken: getCSRFToken,
-    refreshToken: refreshCSRFToken,
-    headers: getCSRFHeaders,
-  };
-}
-
 // Export header name for server-side validation
 export { CSRF_HEADER_NAME };

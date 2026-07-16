@@ -1,12 +1,12 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
 
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -14,62 +14,52 @@ serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    // First get the raw text to debug JSON issues
-    const rawBody = await req.text();
-    console.log('Raw request body:', rawBody);
-    console.log('Raw body length:', rawBody.length);
-    
-    // Try to parse the JSON
+    // Parse the JSON body. Do NOT log raw request bodies or echo them back —
+    // they can contain sensitive prompts/context. Log only non-sensitive metadata.
     let requestBody;
     try {
-      requestBody = JSON.parse(rawBody);
+      requestBody = await req.json();
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError);
-      console.error('Raw body that failed to parse:', rawBody);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid JSON format', 
-          details: parseError.message,
-          receivedData: rawBody.substring(0, 500) // First 500 chars for debugging
-        }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid JSON format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-    
+
     // Handle both direct API calls and Make.com integration
     let type, prompt, context, webhookUrl, companyId, templateCategory;
-    
+
     if (requestBody.company_id || requestBody.template_category) {
       // Make.com integration format
       companyId = requestBody.company_id;
       templateCategory = requestBody.template_category || 'article';
       webhookUrl = requestBody.webhook_url;
       type = templateCategory;
-      prompt = requestBody.prompt || `Generate ${templateCategory} content for company ${companyId}`;
+      prompt =
+        requestBody.prompt || `Generate ${templateCategory} content for company ${companyId}`;
       context = requestBody.context;
-      
-      console.log(`Make.com AI Content Request - Company: ${companyId}, Template: ${templateCategory}`);
+
+      console.log(
+        `Make.com AI Content Request - Company: ${companyId}, Template: ${templateCategory}`
+      );
     } else {
       // Direct API format
       type = requestBody.type;
       prompt = requestBody.prompt;
       context = requestBody.context;
-      
-      console.log(`Direct AI Content Request - Type: ${type}, Prompt: ${prompt}`);
+
+      console.log(
+        `Direct AI Content Request - Type: ${type}, Prompt length: ${prompt?.length ?? 0}`
+      );
     }
 
     if (!claudeApiKey) {
       console.error('Claude API key not found');
-      return new Response(
-        JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      return new Response(JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     let systemPrompt = '';
@@ -86,7 +76,7 @@ serve(async (req) => {
         - Meta description for SEO
         Return the response as a JSON object with: title, content (in markdown format), excerpt, tags (array), seoTitle, seoDescription, targetKeyword.`;
         break;
-      
+
       case 'project':
         systemPrompt = `You are a portfolio content specialist. Generate professional project descriptions that showcase technical skills and achievements. Include:
         - A clear project title
@@ -95,7 +85,7 @@ serve(async (req) => {
         - Status information
         Return the response as a JSON object with: title, description, tags (array), status.`;
         break;
-      
+
       case 'ai-tool':
         systemPrompt = `You are an AI tools specialist. Generate comprehensive descriptions for AI tools that highlight their capabilities and use cases. Include:
         - A clear tool title
@@ -105,14 +95,15 @@ serve(async (req) => {
         - Relevant categories and tags
         Return the response as a JSON object with: title, description, features (array), pricing, complexity, category, tags (array).`;
         break;
-      
+
       case 'seo':
         systemPrompt = `You are an SEO specialist. Generate SEO-optimized content including title tags, meta descriptions, and keywords based on the provided content.
         Return the response as a JSON object with: seoTitle, seoDescription, targetKeyword, seoKeywords (array).`;
         break;
 
       default:
-        systemPrompt = 'You are a helpful content creation assistant. Generate high-quality content based on the user\'s request.';
+        systemPrompt =
+          "You are a helpful content creation assistant. Generate high-quality content based on the user's request.";
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -127,7 +118,7 @@ serve(async (req) => {
         max_tokens: 2000,
         system: systemPrompt,
         messages: [
-          { role: 'user', content: `${userPrompt}${context ? `\n\nContext: ${context}` : ''}` }
+          { role: 'user', content: `${userPrompt}${context ? `\n\nContext: ${context}` : ''}` },
         ],
         temperature: 0.7,
       }),
@@ -135,13 +126,10 @@ serve(async (req) => {
 
     if (!response.ok) {
       console.error('Claude API error:', response.status, response.statusText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to generate content' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Failed to generate content' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const data = await response.json();
@@ -165,8 +153,8 @@ serve(async (req) => {
         company_id: companyId,
         template_category: templateCategory,
         generated_at: new Date().toISOString(),
-        type: type
-      }
+        type: type,
+      },
     };
 
     // Send webhook notification if Make.com integration
@@ -184,7 +172,7 @@ serve(async (req) => {
             template_category: templateCategory,
             generated_content: parsedContent,
             timestamp: new Date().toISOString(),
-            webhook_source: 'ai-content-generator'
+            webhook_source: 'ai-content-generator',
           }),
         });
         console.log('Webhook notification sent successfully');
@@ -194,13 +182,9 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify(responseData), 
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
-
+    return new Response(JSON.stringify(responseData), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
