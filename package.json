@@ -19,7 +19,8 @@
     "test:coverage": "vitest --coverage",
     "size": "size-limit",
     "docs:lint": "redocly lint docs/api/openapi.yaml",
-    "serve:docs": "redocly preview-docs docs/api/openapi.yaml"
+    "serve:docs": "redocly preview-docs docs/api/openapi.yaml",
+    "db:backup": "bash scripts/db-backup.sh"
   },
   "size-limit": [
     {

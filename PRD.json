@@ -314,8 +314,8 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added database backup/restore and migration-rollback tooling and docs. docs/database/backup-procedures.md documents the automated Supabase daily snapshots + PITR, the manual pg_dump procedure (via the script or supabase db dump), a backup-verification procedure (restore into a scratch DB and check tables/row counts/RLS), and a restore procedure with post-restore smoke checks. scripts/db-backup.sh runs pg_dump against SUPABASE_DB_URL (never hardcoded) with --no-owner/--no-privileges/--clean/--if-exists, writes a compressed timestamped file to backups/ (backup-YYYYMMDD-HHMMSS.sql.gz UTC), prunes to the 14 most recent (BACKUP_RETENTION), and fails cleanly with guidance if the env var or pg_dump is missing; it is chmod +x, passes `bash -n`, and its guard clauses were exercised. Created rollback SQL for the 5 most recent migrations in supabase/migrations/rollbacks/ (same filenames): content_tables and traffic_detection drop their created tables CASCADE; maintenance_scheduler unschedules the pg_cron job (guarded) and drops its function; fix_webhook_settings_default drops the new service-role policies and restores the original admin-only policies (definitions recovered from migration 20251106032437); and fix_accounting_rls_admin_check carries a prominent warning that it is a corrective security fix whose rollback could reintroduce a vulnerability (it only drops the helper function, never CASCADE-stripping RLS). docs/database/migration-guide.md covers creating migrations (idempotent DDL, RLS required, matching rollback file), testing locally (supabase db reset / migration up + typecheck), rollback procedures (backup first, reverse timestamp order), and a production pre-migration checklist. Added the db:backup script to package.json; backups/ is gitignored (already present). Typecheck passes."
     },
     {
       "id": "US-019",
