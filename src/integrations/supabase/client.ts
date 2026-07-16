@@ -1,6 +1,7 @@
 // danpearson.net Self-Hosted Supabase Client
 // Migrated from cloud Supabase to self-hosted infrastructure
 import { createClient } from '@supabase/supabase-js';
+import { getStoredCSRFTokenSync, requiresCSRFProtection, CSRF_HEADER_NAME } from '@/lib/csrf';
 
 // Self-hosted Supabase configuration
 // API: api.danpearson.net
@@ -13,7 +14,7 @@ const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.d
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error(
     'Missing required Supabase environment variables. ' +
-    'Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.'
+      'Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.'
   );
 }
 
@@ -24,7 +25,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 export function clearStaleAuthTokens(): void {
   try {
     const keys = Object.keys(localStorage);
-    keys.forEach(key => {
+    keys.forEach((key) => {
       if (key.startsWith('sb-') || key.includes('supabase')) {
         localStorage.removeItem(key);
       }
@@ -75,7 +76,26 @@ export const proxyAuthFetch: typeof fetch = async (input, init) => {
     );
   }
 
-  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : (input as Request).url;
+
+  // CSRF: attach the current token to state-changing REST/RPC requests so
+  // PostgREST mutations (insert/update/delete) and edge functions carry it.
+  // Token provisioning is done by the secure-supabase wrapper / invokeEdgeFunction;
+  // if none is stored yet the header is simply omitted.
+  const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+  if (requiresCSRFProtection(method)) {
+    const csrfToken = getStoredCSRFTokenSync();
+    if (csrfToken) {
+      const headers = new Headers(init?.headers);
+      if (!headers.has(CSRF_HEADER_NAME)) headers.set(CSRF_HEADER_NAME, csrfToken);
+      init = { ...init, headers };
+    }
+  }
 
   // Check if this is an auth request to api.danpearson.net
   const supabaseHost = new URL(SUPABASE_URL).origin;
@@ -111,7 +131,7 @@ export const proxyAuthFetch: typeof fetch = async (input, init) => {
             clearStaleAuthTokens();
             console.error(
               '[Supabase] Auth proxy unreachable after multiple attempts. ' +
-              'Cleared stale tokens; will retry after a cooldown.'
+                'Cleared stale tokens; will retry after a cooldown.'
             );
           }
         }

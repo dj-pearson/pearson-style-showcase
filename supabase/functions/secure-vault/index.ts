@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
 // AES-256-GCM encryption helpers (extracted to _shared/vault-crypto.ts so they
 // can be unit-tested without the Supabase import). US-011.
 import { encrypt, decrypt } from '../_shared/vault-crypto.ts';
@@ -12,36 +13,49 @@ Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  // CSRF protection for state-changing vault operations.
+  if (isStateChanging(req.method)) {
+    const csrf = validateCsrf(req);
+    if (!csrf.valid) {
+      console.warn(`secure-vault CSRF validation failed: ${csrf.reason}`);
+      return new Response(JSON.stringify({ error: 'CSRF validation failed' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     // Get auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Create client with user's token for RLS
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
       global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false }
+      auth: { persistSession: false },
     });
 
     // Verify user is authenticated and admin
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+
     if (userError || !user) {
       console.error('Auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Check admin role
@@ -53,10 +67,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (!roleData) {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Admin access required' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const body = await req.json();
@@ -68,10 +82,10 @@ Deno.serve(async (req) => {
       case 'encrypt': {
         const { value, name, typeId, projectId, platformId, placeholderKey, notes } = body;
         if (!value || !name) {
-          return new Response(
-            JSON.stringify({ error: 'Value and name are required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Value and name are required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const encryptedValue = await encrypt(value);
@@ -87,17 +101,19 @@ Deno.serve(async (req) => {
             project_id: projectId || null,
             platform_id: platformId || null,
             placeholder_key: placeholderKey || null,
-            notes: notes || null
+            notes: notes || null,
           })
-          .select('id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at')
+          .select(
+            'id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at'
+          )
           .single();
 
         if (insertError) {
           console.error('Insert error:', insertError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to save vault item' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Failed to save vault item' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Log access
@@ -106,22 +122,21 @@ Deno.serve(async (req) => {
           vault_item_id: item.id,
           action: 'create',
           ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-          user_agent: req.headers.get('user-agent') || 'unknown'
+          user_agent: req.headers.get('user-agent') || 'unknown',
         });
 
-        return new Response(
-          JSON.stringify({ success: true, item }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ success: true, item }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       case 'decrypt': {
         const { itemId } = body;
         if (!itemId) {
-          return new Response(
-            JSON.stringify({ error: 'Item ID is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Item ID is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Fetch the encrypted item
@@ -133,10 +148,10 @@ Deno.serve(async (req) => {
           .single();
 
         if (fetchError || !item) {
-          return new Response(
-            JSON.stringify({ error: 'Vault item not found' }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Vault item not found' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const decryptedValue = await decrypt(item.encrypted_value);
@@ -153,22 +168,21 @@ Deno.serve(async (req) => {
           vault_item_id: itemId,
           action: 'decrypt',
           ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-          user_agent: req.headers.get('user-agent') || 'unknown'
+          user_agent: req.headers.get('user-agent') || 'unknown',
         });
 
-        return new Response(
-          JSON.stringify({ success: true, value: decryptedValue }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ success: true, value: decryptedValue }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       case 'update': {
         const { itemId, value, name, typeId, projectId, platformId, placeholderKey, notes } = body;
         if (!itemId) {
-          return new Response(
-            JSON.stringify({ error: 'Item ID is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Item ID is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const updateData: Record<string, unknown> = {};
@@ -187,15 +201,17 @@ Deno.serve(async (req) => {
           .update(updateData)
           .eq('id', itemId)
           .eq('user_id', user.id)
-          .select('id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at')
+          .select(
+            'id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at'
+          )
           .single();
 
         if (updateError) {
           console.error('Update error:', updateError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to update vault item' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Failed to update vault item' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Log access
@@ -204,22 +220,21 @@ Deno.serve(async (req) => {
           vault_item_id: itemId,
           action: 'update',
           ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-          user_agent: req.headers.get('user-agent') || 'unknown'
+          user_agent: req.headers.get('user-agent') || 'unknown',
         });
 
-        return new Response(
-          JSON.stringify({ success: true, item }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ success: true, item }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       case 'delete': {
         const { itemId } = body;
         if (!itemId) {
-          return new Response(
-            JSON.stringify({ error: 'Item ID is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Item ID is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Log before delete
@@ -228,7 +243,7 @@ Deno.serve(async (req) => {
           vault_item_id: itemId,
           action: 'delete',
           ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-          user_agent: req.headers.get('user-agent') || 'unknown'
+          user_agent: req.headers.get('user-agent') || 'unknown',
         });
 
         const { error: deleteError } = await supabaseClient
@@ -239,29 +254,28 @@ Deno.serve(async (req) => {
 
         if (deleteError) {
           console.error('Delete error:', deleteError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to delete vault item' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Failed to delete vault item' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       default:
-        return new Response(
-          JSON.stringify({ error: 'Invalid action' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Invalid action' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
     }
   } catch (error) {
     console.error('Vault error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

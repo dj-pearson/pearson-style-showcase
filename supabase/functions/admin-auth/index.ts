@@ -1,18 +1,19 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 // Pure auth helpers (extracted for unit testing; see _shared/auth-helpers.ts). US-011.
 import {
   MAX_LOGIN_ATTEMPTS as MAX_ATTEMPTS,
   LOGIN_LOCKOUT_MS as LOCKOUT_TIME,
   isLockedOut,
   validateLoginInput,
-} from "../_shared/auth-helpers.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
+} from '../_shared/auth-helpers.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
+import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
 
 const supabase = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
 // Track locked accounts to avoid sending duplicate emails
@@ -42,13 +43,13 @@ async function getUserRoles(userId: string): Promise<string[]> {
   const { data, error } = await query;
 
   if (error || !data) return [];
-  return data.map(r => r.role);
+  return data.map((r) => r.role);
 }
 
 // Helper function to get user permissions from database
 async function getUserPermissions(userId: string): Promise<string[]> {
   const { data, error } = await supabase.rpc('get_user_permissions', {
-    _user_id: userId
+    _user_id: userId,
   });
 
   if (error || !data) return [];
@@ -283,7 +284,6 @@ This is an automated security notification from Dan Pearson Admin Portal.
 
     // Log the event to the database
     await logLockoutEvent(email, ip, userAgent, attemptCount, true);
-
   } catch (error) {
     console.error('Failed to send lockout notification:', error);
     // Still log the event even if email fails
@@ -429,7 +429,8 @@ function parseUserAgent(userAgent: string): {
 
   // Device type detection
   let device = 'Desktop';
-  if (ua.includes('mobile') || ua.includes('android') && !ua.includes('tablet')) device = 'Mobile';
+  if (ua.includes('mobile') || (ua.includes('android') && !ua.includes('tablet')))
+    device = 'Mobile';
   else if (ua.includes('tablet') || ua.includes('ipad')) device = 'Tablet';
 
   return { browser, os, device };
@@ -438,7 +439,11 @@ function parseUserAgent(userAgent: string): {
 /**
  * Check if an account should be locked and send notification if so
  */
-async function checkAndHandleLockout(ip: string, email: string, userAgent: string): Promise<boolean> {
+async function checkAndHandleLockout(
+  ip: string,
+  email: string,
+  userAgent: string
+): Promise<boolean> {
   try {
     const since = new Date(Date.now() - LOCKOUT_TIME).toISOString();
     const { count, error } = await supabase
@@ -452,7 +457,7 @@ async function checkAndHandleLockout(ip: string, email: string, userAgent: strin
 
     const attemptCount = count ?? 0;
     if (attemptCount >= MAX_ATTEMPTS) {
-      sendLockoutNotification(email, ip, userAgent, attemptCount).catch(err => {
+      sendLockoutNotification(email, ip, userAgent, attemptCount).catch((err) => {
         console.error('Async lockout notification failed:', err);
       });
       return true;
@@ -465,89 +470,101 @@ async function checkAndHandleLockout(ip: string, email: string, userAgent: strin
 }
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { 
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
       headers: {
         ...corsHeaders,
-        "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
-      } 
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      },
     });
+  }
+
+  // CSRF protection for state-changing requests (origin allow-list + token).
+  if (isStateChanging(req.method)) {
+    const csrf = validateCsrf(req);
+    if (!csrf.valid) {
+      console.warn(`admin-auth CSRF validation failed: ${csrf.reason}`);
+      return new Response(JSON.stringify({ error: 'CSRF validation failed' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   console.log(`Admin Auth Request: ${req.method} ${req.url}`);
 
   try {
     const requestBody = await req.text();
-    console.log("Request body:", requestBody);
+    console.log('Request body:', requestBody);
 
     let bodyData: any = {};
-    
+
     try {
       bodyData = requestBody ? JSON.parse(requestBody) : {};
     } catch (e) {
-      console.error("Error parsing JSON:", e);
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON in request body" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error('Error parsing JSON:', e);
+      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { action, email, password } = bodyData;
-    console.log("Parsed action:", action);
+    console.log('Parsed action:', action);
 
     // Handle login action
     if (action === 'login') {
-      const clientIP = req.headers.get("x-forwarded-for") || "unknown";
-      const userAgent = req.headers.get("user-agent") || "unknown";
+      const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+      const userAgent = req.headers.get('user-agent') || 'unknown';
 
       // SECURITY: Don't log sensitive email addresses or IPs
-      console.log("Login attempt received");
+      console.log('Login attempt received');
 
       // Check rate limiting
       if (!(await checkRateLimit(clientIP))) {
         // SECURITY: Don't log IP addresses
-        console.log("Rate limit exceeded");
+        console.log('Rate limit exceeded');
 
         // Send lockout notification if email is provided
         if (email) {
-          sendLockoutNotification(email, clientIP, userAgent, MAX_ATTEMPTS).catch(err => {
+          sendLockoutNotification(email, clientIP, userAgent, MAX_ATTEMPTS).catch((err) => {
             console.error('Failed to send lockout notification:', err);
           });
         }
 
         return new Response(
           JSON.stringify({
-            error: "Too many login attempts. Please try again later."
+            error: 'Too many login attempts. Please try again later.',
           }),
           {
             status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         );
       }
 
       const loginInput = validateLoginInput(email, password);
       if (!loginInput.valid) {
-        console.log("Missing email or password");
-        return new Response(
-          JSON.stringify({ error: loginInput.error }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        console.log('Missing email or password');
+        return new Response(JSON.stringify({ error: loginInput.error }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Check if email is in admin whitelist (database lookup)
       const isWhitelisted = await isEmailWhitelisted(email);
       if (!isWhitelisted) {
         // SECURITY: Don't log sensitive email addresses
-        console.log("Email not in admin whitelist");
+        console.log('Email not in admin whitelist');
         await recordFailedAttempt(clientIP, email);
 
         // Log failed attempt
-        logLoginAttempt(email, clientIP, userAgent, false, 'not_whitelisted').catch(err => {
+        logLoginAttempt(email, clientIP, userAgent, false, 'not_whitelisted').catch((err) => {
           console.error('Failed to log login attempt:', err);
         });
 
@@ -555,42 +572,42 @@ serve(async (req) => {
         await checkAndHandleLockout(clientIP, email, userAgent);
 
         return new Response(
-          JSON.stringify({ error: "Access denied. Not authorized for admin access." }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: 'Access denied. Not authorized for admin access.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       // SECURITY: Don't log sensitive email addresses
-      console.log("Attempting Supabase Auth login");
+      console.log('Attempting Supabase Auth login');
 
       // Use Supabase Auth to authenticate
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
       // SECURITY: Don't log sensitive email addresses
-      console.log("Supabase Auth result:", {
+      console.log('Supabase Auth result:', {
         success: !!authData.user,
-        hasError: !!authError
+        hasError: !!authError,
       });
 
       if (authError || !authData.user) {
-        console.log("Authentication failed:", authError?.message);
+        console.log('Authentication failed:', authError?.message);
         await recordFailedAttempt(clientIP, email);
 
         // Log failed attempt
-        logLoginAttempt(email, clientIP, userAgent, false, 'invalid_credentials').catch(err => {
+        logLoginAttempt(email, clientIP, userAgent, false, 'invalid_credentials').catch((err) => {
           console.error('Failed to log login attempt:', err);
         });
 
         // Check if this attempt triggered a lockout
         await checkAndHandleLockout(clientIP, email, userAgent);
 
-        return new Response(
-          JSON.stringify({ error: "Invalid credentials" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Store admin session
@@ -598,20 +615,18 @@ serve(async (req) => {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
       // SECURITY: Don't log sensitive email addresses
-      console.log("Creating admin session");
+      console.log('Creating admin session');
 
-      const { error: sessionError } = await supabase
-        .from("admin_sessions")
-        .insert({
-          user_id: authData.user.id,
-          session_token: sessionToken,
-          expires_at: expiresAt.toISOString(),
-          ip_address: clientIP,
-          user_agent: req.headers.get("user-agent") || ""
-        });
+      const { error: sessionError } = await supabase.from('admin_sessions').insert({
+        user_id: authData.user.id,
+        session_token: sessionToken,
+        expires_at: expiresAt.toISOString(),
+        ip_address: clientIP,
+        user_agent: req.headers.get('user-agent') || '',
+      });
 
       if (sessionError) {
-        console.error("Session creation error:", sessionError);
+        console.error('Session creation error:', sessionError);
         // Continue anyway, we have successful auth
       }
 
@@ -626,12 +641,14 @@ serve(async (req) => {
       clearFailedAttempts(clientIP);
 
       // Log successful login
-      logLoginAttempt(email, clientIP, userAgent, true, undefined, authData.user.id, 'email').catch(err => {
-        console.error('Failed to log login attempt:', err);
-      });
+      logLoginAttempt(email, clientIP, userAgent, true, undefined, authData.user.id, 'email').catch(
+        (err) => {
+          console.error('Failed to log login attempt:', err);
+        }
+      );
 
       // SECURITY: Don't log sensitive email addresses
-      console.log("Login successful");
+      console.log('Login successful');
 
       return new Response(
         JSON.stringify({
@@ -642,15 +659,15 @@ serve(async (req) => {
             username: authData.user.email.split('@')[0],
             two_factor_enabled: false,
             roles,
-            permissions
-          }
+            permissions,
+          },
         }),
         {
           status: 200,
           headers: {
             ...corsHeaders,
-            "Content-Type": "application/json"
-          }
+            'Content-Type': 'application/json',
+          },
         }
       );
     }
@@ -661,22 +678,25 @@ serve(async (req) => {
       const authHeader = req.headers.get('authorization');
       if (!authHeader) {
         console.error('No authorization header provided');
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Verify the JWT token and get the user
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error } = await supabase.auth.getUser(token);
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser(token);
 
       if (error || !user) {
         console.error('Invalid token or user not found:', error);
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Determine auth provider (for logging and debugging)
@@ -689,20 +709,20 @@ serve(async (req) => {
       if (!isWhitelisted) {
         // SECURITY: Don't log sensitive email addresses
         console.error(`User not in admin whitelist (provider: ${authProvider})`);
-        return new Response(
-          JSON.stringify({ error: 'Forbidden - Not an admin' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Forbidden - Not an admin' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Ensure user has admin role (auto-assign if whitelisted but missing role)
       const hasRole = await ensureAdminRole(user.id, user.email || '');
       if (!hasRole) {
         console.error('Failed to ensure admin role for:', user.email);
-        return new Response(
-          JSON.stringify({ error: 'Forbidden - Admin role not assigned' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Forbidden - Admin role not assigned' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Get user roles and permissions
@@ -711,21 +731,22 @@ serve(async (req) => {
 
       // Create/update admin session for OAuth users
       if (authProvider !== 'email') {
-        const clientIP = req.headers.get("x-forwarded-for") || "unknown";
+        const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
         const sessionToken = crypto.randomUUID();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-        await supabase
-          .from("admin_sessions")
-          .upsert({
+        await supabase.from('admin_sessions').upsert(
+          {
             user_id: user.id,
             session_token: sessionToken,
             expires_at: expiresAt.toISOString(),
             ip_address: clientIP,
-            user_agent: req.headers.get("user-agent") || ""
-          }, {
-            onConflict: 'user_id'
-          });
+            user_agent: req.headers.get('user-agent') || '',
+          },
+          {
+            onConflict: 'user_id',
+          }
+        );
       }
 
       // SECURITY: Don't log sensitive email addresses
@@ -740,7 +761,7 @@ serve(async (req) => {
           last_login: new Date().toISOString(),
           created_at: user.created_at,
           roles,
-          permissions
+          permissions,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -753,7 +774,9 @@ serve(async (req) => {
       if (authHeader) {
         try {
           const token = authHeader.replace('Bearer ', '');
-          const { data: { user } } = await supabase.auth.getUser(token);
+          const {
+            data: { user },
+          } = await supabase.auth.getUser(token);
 
           if (user) {
             // Delete all sessions for this user from admin_sessions table
@@ -770,25 +793,28 @@ serve(async (req) => {
             }
 
             // Log the logout event
-            const clientIP = req.headers.get("x-forwarded-for") || "unknown";
-            const userAgent = req.headers.get("user-agent") || "unknown";
+            const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+            const userAgent = req.headers.get('user-agent') || 'unknown';
 
-            await supabase.from('admin_activity_log').insert({
-              admin_id: user.id,
-              admin_email: user.email,
-              action: 'LOGOUT',
-              action_category: 'authentication',
-              ip_address: clientIP,
-              user_agent: userAgent,
-              success: true,
-              metadata: {
-                session_invalidated: true,
-                timestamp_utc: new Date().toISOString(),
-              },
-              timestamp: new Date().toISOString(),
-            }).catch(err => {
-              console.error('Failed to log logout event:', err);
-            });
+            await supabase
+              .from('admin_activity_log')
+              .insert({
+                admin_id: user.id,
+                admin_email: user.email,
+                action: 'LOGOUT',
+                action_category: 'authentication',
+                ip_address: clientIP,
+                user_agent: userAgent,
+                success: true,
+                metadata: {
+                  session_invalidated: true,
+                  timestamp_utc: new Date().toISOString(),
+                },
+                timestamp: new Date().toISOString(),
+              })
+              .catch((err) => {
+                console.error('Failed to log logout event:', err);
+              });
           }
         } catch (err) {
           console.error('Error during session invalidation:', err);
@@ -796,20 +822,20 @@ serve(async (req) => {
         }
       }
 
-      return new Response(
-        JSON.stringify({ success: true, message: 'Session invalidated' }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: true, message: 'Session invalidated' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (action === 'forgot-password') {
       const { email } = bodyData;
 
       if (!email) {
-        return new Response(
-          JSON.stringify({ error: "Email is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: 'Email is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Check if email is in admin whitelist (database lookup)
@@ -817,46 +843,52 @@ serve(async (req) => {
       if (!isWhitelisted) {
         // Return success to prevent email enumeration
         return new Response(
-          JSON.stringify({ success: true, message: "If the email exists, a reset link has been sent" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            success: true,
+            message: 'If the email exists, a reset link has been sent',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       // SECURITY: Don't log sensitive email addresses
-      console.log("Sending password reset request");
+      console.log('Sending password reset request');
 
       // Use Supabase Auth password reset
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${req.headers.get("origin")}/admin/reset-password`
+        redirectTo: `${req.headers.get('origin')}/admin/reset-password`,
       });
 
       if (resetError) {
-        console.error("Password reset error:", resetError);
-        return new Response(
-          JSON.stringify({ error: "Failed to send reset email" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        console.error('Password reset error:', resetError);
+        return new Response(JSON.stringify({ error: 'Failed to send reset email' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
-      return new Response(
-        JSON.stringify({ success: true, message: "Password reset email sent" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: true, message: 'Password reset email sent' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action", action, available: ["login", "me", "logout", "forgot-password"] }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: 'Unknown action',
+        action,
+        available: ['login', 'me', 'logout', 'forgot-password'],
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     // Log full error details server-side only for debugging
-    console.error("Request error:", error);
+    console.error('Request error:', error);
 
     // Return generic error message to client (security best practice)
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

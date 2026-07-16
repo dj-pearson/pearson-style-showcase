@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
+import { secureMutation } from '@/lib/secure-supabase';
 import { logger } from '@/lib/logger';
 import {
   validateTextInput,
@@ -257,7 +258,9 @@ export const ArticleManager: React.FC = () => {
   // Optimistic UI: Delete article
   const deleteArticleMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('articles').delete().eq('id', id);
+      // CSRF-protected: secureMutation provisions the token before the delete so
+      // the client fetch attaches x-csrf-token to the request.
+      const { error } = await secureMutation(() => supabase.from('articles').delete().eq('id', id));
 
       if (error) throw error;
       return id;

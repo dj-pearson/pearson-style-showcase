@@ -37,7 +37,10 @@ async function generateBoundToken(): Promise<string> {
   // Use crypto.getRandomValues for the nonce instead of predictable Date.now()
   const nonceBytes = new Uint8Array(8);
   crypto.getRandomValues(nonceBytes);
-  const nonce = btoa(String.fromCharCode(...nonceBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const nonce = btoa(String.fromCharCode(...nonceBytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
   const combined = `${nonce}.${randomPart}`;
 
   // Hash the combined value for additional security
@@ -76,6 +79,25 @@ export async function getCSRFToken(): Promise<string> {
   sessionStorage.setItem(CSRF_TOKEN_EXPIRY_KEY, expiry.toString());
 
   return newToken;
+}
+
+/**
+ * Read the current CSRF token from storage synchronously, without generating a
+ * new one. Returns null when no valid (unexpired) token exists. Used by the
+ * Supabase client fetch to attach the token to state-changing requests without
+ * an async hop; call getCSRFToken()/ensureCsrfToken() first to provision one.
+ */
+export function getStoredCSRFTokenSync(): string | null {
+  try {
+    const token = sessionStorage.getItem(CSRF_TOKEN_KEY);
+    const expiryStr = sessionStorage.getItem(CSRF_TOKEN_EXPIRY_KEY);
+    if (token && expiryStr && Date.now() < parseInt(expiryStr, 10)) {
+      return token;
+    }
+  } catch {
+    /* sessionStorage unavailable */
+  }
+  return null;
 }
 
 /**
@@ -118,10 +140,7 @@ export function requiresCSRFProtection(method: string): boolean {
  * Enhanced fetch wrapper that automatically adds CSRF headers
  * for state-changing requests
  */
-export async function csrfFetch(
-  input: RequestInfo | URL,
-  init?: RequestInit
-): Promise<Response> {
+export async function csrfFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const method = init?.method?.toUpperCase() || 'GET';
 
   if (requiresCSRFProtection(method)) {

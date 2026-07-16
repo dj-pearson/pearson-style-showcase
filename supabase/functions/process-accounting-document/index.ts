@@ -1,24 +1,45 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { encode as base64Encode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { callAIWithVision } from "../_shared/ai-helper.ts";
-import { structuredErrorResponse } from "../_shared/fetch-with-timeout.ts";
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
+import { callAIWithVision } from '../_shared/ai-helper.ts';
+import { structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 
 interface ProcessDocumentRequest {
   documentId: string;
-  documentType: 'invoice' | 'bill' | 'receipt' | 'payment_proof' | 'bank_statement' | 'contract' | 'tax_document' | 'other';
+  documentType:
+    | 'invoice'
+    | 'bill'
+    | 'receipt'
+    | 'payment_proof'
+    | 'bank_statement'
+    | 'contract'
+    | 'tax_document'
+    | 'other';
   relatedEntityType?: 'invoice' | 'payment' | 'journal_entry' | 'contact' | 'expense' | 'none';
   relatedEntityId?: string;
 }
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // CSRF protection for state-changing document processing.
+  if (isStateChanging(req.method)) {
+    const csrf = validateCsrf(req);
+    if (!csrf.valid) {
+      console.warn(`process-accounting-document CSRF validation failed: ${csrf.reason}`);
+      return new Response(JSON.stringify({ error: 'CSRF validation failed' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
 
   let documentId: string | null = null;
 
@@ -57,8 +78,7 @@ serve(async (req) => {
     console.log('[Document] Downloading file from storage:', document.file_path);
 
     // Download file from Supabase storage
-    const { data: fileData, error: storageError } = await supabaseClient
-      .storage
+    const { data: fileData, error: storageError } = await supabaseClient.storage
       .from('accounting-documents')
       .download(document.file_path);
 
@@ -186,7 +206,7 @@ Return ONLY valid JSON.`,
   "dates": ["Any important dates in YYYY-MM-DD format"]
 }
 
-Return ONLY valid JSON.`
+Return ONLY valid JSON.`,
     };
 
     const parsingPrompt = parsingPrompts[documentType] || parsingPrompts.other;
@@ -196,16 +216,20 @@ Return ONLY valid JSON.`
       lightweight: true,
       maxTokens: 4096,
       temperature: 0.1,
-      systemPrompt: 'You are an expert at extracting structured data from financial documents. First read and extract all text from the document, then parse it into the requested JSON format. Always return valid JSON without any explanations or markdown formatting.',
+      systemPrompt:
+        'You are an expert at extracting structured data from financial documents. First read and extract all text from the document, then parse it into the requested JSON format. Always return valid JSON without any explanations or markdown formatting.',
     });
 
     const aiContent = aiResult.text;
-    console.log(`[Document] AI processing completed via ${aiResult.provider}/${aiResult.model}, response length: ${aiContent.length}`);
+    console.log(
+      `[Document] AI processing completed via ${aiResult.provider}/${aiResult.model}, response length: ${aiContent.length}`
+    );
 
     // Parse JSON response (handle potential markdown code blocks)
     let parsedData;
     try {
-      const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/) || aiContent.match(/```\n([\s\S]*?)\n```/);
+      const jsonMatch =
+        aiContent.match(/```json\n([\s\S]*?)\n```/) || aiContent.match(/```\n([\s\S]*?)\n```/);
       const jsonStr = jsonMatch ? jsonMatch[1] : aiContent;
       parsedData = JSON.parse(jsonStr);
     } catch (e) {
@@ -214,10 +238,17 @@ Return ONLY valid JSON.`
     }
 
     // Extract key fields for quick access
-    const extractedDate = parsedData.invoice_date || parsedData.transaction_date || parsedData.payment_date || parsedData.document_date || null;
+    const extractedDate =
+      parsedData.invoice_date ||
+      parsedData.transaction_date ||
+      parsedData.payment_date ||
+      parsedData.document_date ||
+      null;
     const extractedAmount = parsedData.total_amount || parsedData.amount || null;
-    const extractedVendor = parsedData.vendor_name || parsedData.merchant_name || parsedData.payee_name || null;
-    const extractedInvoiceNumber = parsedData.invoice_number || parsedData.receipt_number || parsedData.payment_number || null;
+    const extractedVendor =
+      parsedData.vendor_name || parsedData.merchant_name || parsedData.payee_name || null;
+    const extractedInvoiceNumber =
+      parsedData.invoice_number || parsedData.receipt_number || parsedData.payment_number || null;
 
     console.log('[Document] Updating document with parsed data...');
 
