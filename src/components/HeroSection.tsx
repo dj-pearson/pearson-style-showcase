@@ -131,6 +131,18 @@ const HeroSection = () => {
         stagger: 0.2,
       });
 
+      // will-change hints so the GPU promotes the animated name/surname to
+      // their own layers; cleared on cleanup to free GPU memory.
+      gsap.set([nameRef.current, surnameRef.current], { willChange: 'transform' });
+
+      // Skip the mouse-move parallax entirely on touch-only devices (no hover /
+      // coarse pointer): the listeners and rAF work would never produce a
+      // visible effect and just waste cycles on phones.
+      const isTouchOnlyDevice =
+        typeof window !== 'undefined' &&
+        (window.matchMedia?.('(hover: none) and (pointer: coarse)').matches ||
+          ('ontouchstart' in window && !window.matchMedia?.('(pointer: fine)').matches));
+
       // Mouse move parallax effect (Applied to Inner Elements)
       // Throttled using requestAnimationFrame for optimal performance (60fps max)
       let rafId: number | null = null;
@@ -189,8 +201,10 @@ const HeroSection = () => {
         });
       };
 
-      window.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseleave', handleMouseLeave);
+      if (!isTouchOnlyDevice) {
+        window.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseleave', handleMouseLeave);
+      }
 
       return () => {
         // Kill all GSAP animations to prevent memory leaks
@@ -202,11 +216,15 @@ const HeroSection = () => {
           nameWrapperRef.current,
           surnameWrapperRef.current,
         ]);
+        // Release GPU layer promotion.
+        gsap.set([nameRef.current, surnameRef.current], { willChange: 'auto' });
         if (rafId !== null) {
           cancelAnimationFrame(rafId);
         }
-        window.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseleave', handleMouseLeave);
+        if (!isTouchOnlyDevice) {
+          window.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseleave', handleMouseLeave);
+        }
       };
     },
     { scope: containerRef, dependencies: [prefersReducedMotion] }

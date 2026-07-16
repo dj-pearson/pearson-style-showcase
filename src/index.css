@@ -356,6 +356,9 @@
 
   /* Navbar blur effect */
   .navbar-blur {
+    /* -webkit prefix is required for backdrop blur on iOS Safari; without it
+       the fixed nav would render fully opaque (or unblurred) on mobile. */
+    -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
     background: hsl(220 40% 8% / 0.8);
     border-bottom: 1px solid hsl(220 30% 20%);

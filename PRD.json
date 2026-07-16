@@ -775,8 +775,8 @@
         "Typecheck passes"
       ],
       "priority": 45,
-      "passes": false,
-      "notes": "LOW: CSS stagger animations cause jank on budget phones. Mouse move listeners run on touch-only devices."
+      "passes": true,
+      "notes": "Optimized navigation animations and added touch-device detection. Navigation.tsx: replaced the mobile menu's per-item CSS staggered keyframe animations (slideInRight/slideDown) with a single GSAP timeline (useGSAP scoped to the menu, keyed on isMenuOpen) - the container and the .mobile-nav-item links animate in one tween with a tight 0.015s stagger so the whole animation completes in <300ms on mobile; will-change:'transform, opacity' is set during the tween and cleared to 'auto' onComplete to free GPU memory; reduced-motion users get an instant menu (clearProps). Removed the now-unused slideDown/slideInRight keyframes (kept fade-in for the backdrop). HeroSection.tsx: added touch-only device detection ((hover: none) and (pointer: coarse), with an ontouchstart fallback) and skip registering the mousemove/mouseleave parallax listeners entirely on touch-only devices, avoiding wasted rAF/listener work on phones; also set will-change:'transform' on the animated name/surname during setup and clear it to 'auto' in the effect cleanup. index.css: added the -webkit-backdrop-filter prefix to .navbar-blur so the fixed nav's semi-transparent backdrop blur actually renders on iOS Safari (mobile) as content scrolls behind it. Added e2e/public/mobile-nav.spec.ts (375px viewport) verifying the GSAP-animated mobile menu opens and its items settle visible (guards against a broken timeline leaving items at opacity 0). Verification: 'npm run typecheck' clean; 'npm run lint' 0 errors; full unit suite 362 tests pass; 'npm run build' succeeds; homepage/smoke E2E and the new mobile-nav E2E pass on chromium."
     },
     {
       "id": "US-046",
