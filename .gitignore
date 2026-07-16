@@ -68,3 +68,5 @@ danpearson-edge-functions/env.example
 
 # Test coverage output
 coverage
+e2e-results/
+test-results/

@@ -333,8 +333,8 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Set up Playwright E2E infrastructure (@playwright/test was already a dev dep, 1.57.0). playwright.config.ts: baseURL from PLAYWRIGHT_BASE_URL (default http://localhost:8080), chromium + firefox projects, screenshot 'only-on-failure', video 'on-first-retry', trace on-first-retry, 30s per-test timeout, list + html (e2e-results/) reporters, and a webServer block that auto-starts/stops the vite dev server (bound to IPv4 127.0.0.1:8080 since the vite config's '::' host can't bind on this IPv6-less host) with dummy Supabase env so the client boots. The chromium project honors an optional PLAYWRIGHT_CHROMIUM_PATH launch executable for managed environments. e2e/fixtures/test-base.ts extends the base test with a mockSupabase auto-fixture (page.route stubs for **/auth/v1/**, **/rest/v1/**, and **/functions/v1/**) and a loginAsAdmin helper that seeds a fake authenticated admin session in localStorage; the dev-server lifecycle is handled by the config's webServer. e2e/smoke.spec.ts has 5 smoke tests: homepage loads (HTTP 200), homepage <title> matches /Dan Pearson/, navigation to /about and /news, and the 404 view for an invalid route. Added test:e2e (playwright test) and test:e2e:ui (--ui) scripts, and e2e-results/ + test-results/ to .gitignore. VERIFIED: all 5 smoke tests pass on chromium via `npm run test:e2e -- --project=chromium` (using the sandbox's preinstalled Chromium at PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome). The firefox project is configured per the AC but Firefox is not installed in this sandbox (browser downloads are blocked); a full chromium+firefox run requires `npx playwright install firefox` in a normal environment. App typecheck clean; vitest is scoped to src/** so it does not pick up the e2e specs."
     },
     {
       "id": "US-020",
