@@ -951,8 +951,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "HIGH: /sitemap.xml and /rss.xml are advertised (robots.txt, index.html) but 404 in dist/. sw.js references a missing icon; site.webmanifest is empty and unreferenced."
+      "passes": true,
+      "notes": "sitemap.xml: copied the root sitemap.xml to public/sitemap.xml so it deploys to dist/ and is served by Cloudflare Pages (the _redirects '/sitemap.xml 200' passthrough now resolves to a real file). Verified via 'npm run preview' + curl: /sitemap.xml returns HTTP 200 with content-type text/xml and valid XML; /robots.txt returns 200. rss.xml: removed the advertised <link rel=alternate href=/rss.xml> from index.html (replaced with an explanatory comment) because a static SPA host with no SSR cannot serve valid application/rss+xml at that path - the RSSFeed React route only returns the HTML shell. The human-facing feed remains at /feed. sw.js: fixed push handler icon/badge from the missing '/icon-192.png' to the existing '/android-chrome-192x192.png'. site.webmanifest: removed the empty/unreferenced public/site.webmanifest (duplicated public/manifest.json; nothing references it). Build succeeds and dist/ contains sitemap.xml + robots.txt, omits site.webmanifest, and sw.js uses the correct icon."
     },
     {
       "id": "US-057",

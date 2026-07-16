@@ -90,8 +90,16 @@
     <!-- Canonical URL (default, updated by React for specific pages) -->
     <link rel="canonical" href="https://danpearson.net" />
 
-    <!-- RSS Feed for content syndication -->
-    <link rel="alternate" type="application/rss+xml" title="Dan Pearson - RSS Feed" href="https://danpearson.net/rss.xml" />
+    <!-- RSS Feed:
+      The former <link rel="alternate" href="/rss.xml"> was removed because no
+      valid RSS document is deployed at that path. The RSS feed is generated
+      client-side from the database (src/pages/RSSFeed.tsx) and, on a static
+      SPA host (Cloudflare Pages) with no SSR/edge rendering, /rss.xml only
+      returns the HTML app shell with a text/html content-type - which RSS
+      readers cannot parse. Advertising it produced a broken feed contract.
+      The human-facing feed remains reachable at /feed. Re-add this link only
+      once /rss.xml is served as real application/rss+xml (e.g. a Supabase edge
+      function or a build-time snapshot). -->
 
     <!-- Default SEO meta tags (used by crawlers that don't execute JS) -->
     <meta name="keywords" content="AI engineer, business development, NFT development, AI integration, sales leadership, React developer, blockchain, artificial intelligence" />
