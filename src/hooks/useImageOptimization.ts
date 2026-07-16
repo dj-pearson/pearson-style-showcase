@@ -53,7 +53,7 @@ interface UploadResult {
 }
 
 export function useImageOptimization(options: UseImageOptimizationOptions = {}) {
-  const { serverSide = false, defaultOptions = {}, bucket = 'admin-uploads' } = options;
+  const { defaultOptions = {}, bucket = 'admin-uploads' } = options;
 
   const [progress, setProgress] = useState<OptimizationProgress>({
     status: 'idle',

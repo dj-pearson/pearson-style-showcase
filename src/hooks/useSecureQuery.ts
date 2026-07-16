@@ -124,10 +124,9 @@ export function useSecureQuery<TData, TError = Error>(
     enabled = true,
   } = options;
 
-  const { isAuthenticated, isAdminVerified, adminUser, permissions, roles } = useAuth();
+  const { isAuthenticated, isAdminVerified, adminUser } = useAuth();
   const {
     getOwnershipFilter,
-    shouldFilter,
     hasAdminBypass,
     hasRoleBypass,
   } = useResourceOwnership({ resourceType, autoFilter: applyOwnershipFilter });

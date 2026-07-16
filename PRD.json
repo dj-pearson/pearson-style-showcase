@@ -1034,8 +1034,8 @@
         "Wire typecheck into CI (US-001)"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "MEDIUM: 'tsc --noEmit -p tsconfig.app.json' fails with ~40 errors across security.ts, archives, RSSFeed/SitemapXML, MarkdownRenderer, dialog/visually-hidden, analytics, and many unused-var errors. Build ships anyway (esbuild)."
+      "passes": true,
+      "notes": "The 'typecheck' script (tsc --noEmit -p tsconfig.app.json) already existed and the earlier ~40 errors (DOMPurify.Config in security.ts, BreadcrumbItem in archives, RSSFeed/SitemapXML typing, MarkdownRenderer/dialog/visually-hidden/analytics) had already been resolved in prior work. Remaining 13 errors were all unused-declaration errors (TS6133/TS6196): removed dead getStatusColor in ServerHealthDashboard, unused AlertTriangle import in AITaskGeneratorDialog, unused authChecks in SecureRoute, unused logger/checkPermission/AuthorizationResult imports in withSecurityLayers, unused SecurityCheckResult type in SecurityAuditContext, unused serverSide in useImageOptimization, unused permissions/roles/shouldFilter in useSecureQuery, unused vi import in csrf.test, and unused seoData/getArchiveMetadata in TopicHub. 'npx tsc --noEmit -p tsconfig.app.json' now reports 0 errors. Build passes, all 210 tests pass. CI wiring done in US-001."
     },
     {
       "id": "US-062",

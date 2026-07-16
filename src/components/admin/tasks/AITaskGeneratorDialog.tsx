@@ -20,7 +20,6 @@ import {
   X,
   Trash2,
   Edit2,
-  AlertTriangle,
   ClipboardPaste,
   Wand2
 } from 'lucide-react';
