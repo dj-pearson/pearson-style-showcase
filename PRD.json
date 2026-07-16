@@ -18,11 +18,8 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-002",
+      "passes": true,
+      "notes": "Created .github/workflows/ci.yml triggering on pull_request and push to main. Runs npm ci, npm run lint (fails on errors), npm run typecheck (tsc --noEmit -p tsconfig.app.json), npm test -- --run, and npm run build - each failing step fails the run. Uses actions/setup-node with cache:npm plus an explicit actions/cache@v4 step for node_modules keyed on package-lock.json hash. Added concurrency cancel-in-progress and a 20-min timeout. Node version pinned via .nvmrc (Node 22) rather than the AC's original 'Node 18', which is superseded by the completed US-053 (engines >=20 <23; Node 18 would violate engines). Verified all steps pass locally: lint 0 errors, typecheck 0 errors, 210 tests pass, build succeeds."
       "title": "Add bundle size monitoring to CI pipeline",
       "description": "As a developer, I need bundle size checks in CI so that we catch unintentional bundle bloat before it reaches production.",
       "acceptanceCriteria": [
@@ -938,8 +935,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "HIGH (live bug): Search.tsx queries projects with published/slug columns that don't exist; error is swallowed so project search silently returns nothing."
+      "passes": true,
+      "notes": "Confirmed against src/integrations/supabase/types.ts that the projects table has neither a `published` nor a `slug` column (it has `status`). Fixed Search.tsx: removed the invalid `.eq('published', true)` filter and the non-existent `slug` from the projects select. Project search now navigates to `/projects#project-<id>` and added matching `id={project-<id>}` anchors (with scroll-mt-24) to each ProjectCard wrapper in Projects.tsx. Did NOT add a `.eq('status','active')` filter because the public Projects page shows all projects regardless of status (PROJECT_STATUSES = Active/In Development/On Hold/Completed/Archived), so filtering would make search inconsistent with the public page. Surfaced previously-swallowed query errors: articles, projects, and ai_tools queries now destructure and log `error` via logger.error. Typecheck passes. Live browser verification requires a deployed Supabase instance with project rows."
     },
     {
       "id": "US-056",
@@ -954,8 +951,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "HIGH: /sitemap.xml and /rss.xml are advertised (robots.txt, index.html) but 404 in dist/. sw.js references a missing icon; site.webmanifest is empty and unreferenced."
+      "passes": true,
+      "notes": "sitemap.xml: copied the root sitemap.xml to public/sitemap.xml so it deploys to dist/ and is served by Cloudflare Pages (the _redirects '/sitemap.xml 200' passthrough now resolves to a real file). Verified via 'npm run preview' + curl: /sitemap.xml returns HTTP 200 with content-type text/xml and valid XML; /robots.txt returns 200. rss.xml: removed the advertised <link rel=alternate href=/rss.xml> from index.html (replaced with an explanatory comment) because a static SPA host with no SSR cannot serve valid application/rss+xml at that path - the RSSFeed React route only returns the HTML shell. The human-facing feed remains at /feed. sw.js: fixed push handler icon/badge from the missing '/icon-192.png' to the existing '/android-chrome-192x192.png'. site.webmanifest: removed the empty/unreferenced public/site.webmanifest (duplicated public/manifest.json; nothing references it). Build succeeds and dist/ contains sitemap.xml + robots.txt, omits site.webmanifest, and sw.js uses the correct icon."
     },
     {
       "id": "US-057",
@@ -1034,8 +1031,8 @@
         "Wire typecheck into CI (US-001)"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "MEDIUM: 'tsc --noEmit -p tsconfig.app.json' fails with ~40 errors across security.ts, archives, RSSFeed/SitemapXML, MarkdownRenderer, dialog/visually-hidden, analytics, and many unused-var errors. Build ships anyway (esbuild)."
+      "passes": true,
+      "notes": "The 'typecheck' script (tsc --noEmit -p tsconfig.app.json) already existed and the earlier ~40 errors (DOMPurify.Config in security.ts, BreadcrumbItem in archives, RSSFeed/SitemapXML typing, MarkdownRenderer/dialog/visually-hidden/analytics) had already been resolved in prior work. Remaining 13 errors were all unused-declaration errors (TS6133/TS6196): removed dead getStatusColor in ServerHealthDashboard, unused AlertTriangle import in AITaskGeneratorDialog, unused authChecks in SecureRoute, unused logger/checkPermission/AuthorizationResult imports in withSecurityLayers, unused SecurityCheckResult type in SecurityAuditContext, unused serverSide in useImageOptimization, unused permissions/roles/shouldFilter in useSecureQuery, unused vi import in csrf.test, and unused seoData/getArchiveMetadata in TopicHub. 'npx tsc --noEmit -p tsconfig.app.json' now reports 0 errors. Build passes, all 210 tests pass. CI wiring done in US-001."
     },
     {
       "id": "US-062",

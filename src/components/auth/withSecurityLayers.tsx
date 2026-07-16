@@ -20,7 +20,6 @@
 
 import React, { ComponentType, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { logger } from '@/lib/logger';
 import { Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import {
   runSecurityCheck,
@@ -32,9 +31,7 @@ import {
   type SecurityContext,
 } from '@/lib/security-layers';
 import {
-  checkPermission,
   meetsRoleLevel,
-  type AuthorizationResult,
 } from '@/lib/authorization';
 
 // ============================================================================

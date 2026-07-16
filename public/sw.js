@@ -396,8 +396,8 @@ async function syncForms() {
 self.addEventListener('push', (event) => {
   const options = {
     body: event.data ? event.data.text() : 'New content available',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/android-chrome-192x192.png',
+    badge: '/android-chrome-192x192.png',
     vibrate: [200, 100, 200],
     tag: 'pearson-notification',
     requireInteraction: false,

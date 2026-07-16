@@ -269,7 +269,9 @@ const Projects = () => {
               sortedProjects.length > 0 ? (
                 <div className="mobile-grid">
                   {sortedProjects.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
+                    <div key={project.id} id={`project-${project.id}`} className="scroll-mt-24">
+                      <ProjectCard project={project} />
+                    </div>
                   ))}
                 </div>
               ) : (

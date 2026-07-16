@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { SEO_CONFIG, getCanonicalUrl, getArchiveMetadata, generateSlug } from '@/lib/seo';
+import { SEO_CONFIG, getCanonicalUrl, generateSlug } from '@/lib/seo';
 import { validateUrlParam } from '@/lib/security';
 
 type Article = Tables<"articles">;
@@ -116,8 +116,6 @@ const TopicHub = () => {
   const categories = articles
     ? Array.from(new Set(articles.map(a => a.category).filter(Boolean)))
     : [];
-
-  const seoData = getArchiveMetadata('topic', topic, articles?.length || 0);
 
   // Breadcrumb items for visual component (label/path format)
   const breadcrumbItems = [
