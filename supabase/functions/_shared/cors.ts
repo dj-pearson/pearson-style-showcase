@@ -55,12 +55,20 @@ export const getCorsHeaders = (origin: string | null): Record<string, string> =>
   const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]; // Default to production domain
 
   return {
+<<<<<<< HEAD
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-signature, x-webhook-timestamp, x-csrf-token",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
+=======
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers':
       'authorization, x-client-info, apikey, content-type, cookie, x-csrf-token, x-webhook-signature, x-webhook-timestamp',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+>>>>>>> origin/main
   };
 };
 

@@ -36,7 +36,7 @@ export const getCorsHeaders = (origin: string | null): Record<string, string> =>
 
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-signature, x-webhook-timestamp, x-supabase-api-version, x-requested-with",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-signature, x-webhook-timestamp, x-supabase-api-version, x-requested-with, x-csrf-token",
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
