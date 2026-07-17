@@ -1,8 +1,13 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { checkRateLimit, getClientIdentifier, createRateLimitResponse, initRateLimiter } from "../_shared/rate-limiter.ts";
-import { validateUuid, validateText } from "../_shared/validation.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  createRateLimitResponse,
+  initRateLimiter,
+} from '../_shared/rate-limiter.ts';
+import { validateClickInput } from './validation.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -16,7 +21,7 @@ const CLICK_RATE_LIMIT = {
 };
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -38,46 +43,38 @@ serve(async (req) => {
     const body = await req.json();
     const { articleId, asin } = body;
 
-    // Validate inputs
-    const articleIdResult = validateUuid(articleId);
-    if (!articleIdResult.valid) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid articleId: must be a valid UUID' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Validate inputs (extracted to ./validation.ts, US-012)
+    const clickInput = validateClickInput(articleId, asin);
+    if (!clickInput.valid) {
+      return new Response(JSON.stringify({ error: clickInput.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-
-    const asinResult = validateText(asin, { required: true, minLength: 1, maxLength: 20 });
-    if (!asinResult.valid) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid asin: ' + asinResult.error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { articleIdResult, asinResult } = clickInput;
 
     // Get user agent and referrer from headers
     const userAgent = req.headers.get('user-agent') || '';
     const referrer = req.headers.get('referer') || '';
 
     // Get IP (from Cloudflare or X-Forwarded-For)
-    const ipAddress = req.headers.get('cf-connecting-ip') ||
-                      req.headers.get('x-forwarded-for')?.split(',')[0] ||
-                      '';
+    const ipAddress =
+      req.headers.get('cf-connecting-ip') ||
+      req.headers.get('x-forwarded-for')?.split(',')[0] ||
+      '';
 
     // Generate a simple session ID (could be improved with cookies)
     const sessionId = crypto.randomUUID();
 
     // Insert click record
-    const { error: clickError } = await supabase
-      .from('amazon_affiliate_clicks')
-      .insert({
-        article_id: articleIdResult.sanitized,
-        asin: asinResult.sanitized,
-        user_agent: userAgent,
-        referrer: referrer,
-        ip_address: ipAddress,
-        session_id: sessionId,
-      });
+    const { error: clickError } = await supabase.from('amazon_affiliate_clicks').insert({
+      article_id: articleIdResult.sanitized,
+      asin: asinResult.sanitized,
+      user_agent: userAgent,
+      referrer: referrer,
+      ip_address: ipAddress,
+      session_id: sessionId,
+    });
 
     if (clickError) {
       console.error('Error tracking click:', clickError);
@@ -100,28 +97,23 @@ serve(async (req) => {
         .update({ clicks: existingStat.clicks + 1 })
         .eq('id', existingStat.id);
     } else {
-      await supabase
-        .from('amazon_affiliate_stats')
-        .insert({
-          article_id: articleIdResult.sanitized,
-          asin: asinResult.sanitized,
-          date: today,
-          clicks: 1,
-        });
+      await supabase.from('amazon_affiliate_stats').insert({
+        article_id: articleIdResult.sanitized,
+        asin: asinResult.sanitized,
+        date: today,
+        clicks: 1,
+      });
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, ...rateLimitResult.headers, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, ...rateLimitResult.headers, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error in track-affiliate-click:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

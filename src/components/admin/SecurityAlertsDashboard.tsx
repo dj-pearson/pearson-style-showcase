@@ -84,11 +84,15 @@ const SecurityAlertsDashboard: React.FC = () => {
 
       // Check for role changes in last 24 hours
       const dayAgo = subDays(new Date(), 1);
-      const { data: roleChanges } = await supabase
+      const { data: roleChanges, error: roleChangesError } = await supabase
         .from('admin_activity_log')
         .select('*')
         .eq('resource_type', 'user_roles')
         .gte('timestamp', dayAgo.toISOString());
+
+      // Surface query failures instead of silently reporting "no alerts", which
+      // would give a false sense of security.
+      if (roleChangesError) throw roleChangesError;
 
       if (roleChanges && roleChanges.length > 0) {
         roleChanges.forEach((change: { id: string; action: string; admin_email: string; timestamp: string; new_values: Record<string, unknown> | null }) => {
@@ -108,11 +112,13 @@ const SecurityAlertsDashboard: React.FC = () => {
       }
 
       // Check for whitelist changes in last 24 hours
-      const { data: whitelistChanges } = await supabase
+      const { data: whitelistChanges, error: whitelistChangesError } = await supabase
         .from('admin_activity_log')
         .select('*')
         .eq('resource_type', 'admin_whitelist')
         .gte('timestamp', dayAgo.toISOString());
+
+      if (whitelistChangesError) throw whitelistChangesError;
 
       if (whitelistChanges && whitelistChanges.length > 0) {
         whitelistChanges.forEach((change: { id: string; action: string; admin_email: string; timestamp: string; new_values: Record<string, unknown> | null }) => {
@@ -132,11 +138,13 @@ const SecurityAlertsDashboard: React.FC = () => {
       }
 
       // Check for mass deletions (5+ deletes in 10 minutes)
-      const { data: deletions } = await supabase
+      const { data: deletions, error: deletionsError } = await supabase
         .from('admin_activity_log')
         .select('*')
         .eq('action', 'DELETE')
         .gte('timestamp', subHours(new Date(), 1).toISOString());
+
+      if (deletionsError) throw deletionsError;
 
       if (deletions && deletions.length >= 5) {
         // Group by admin and check for bursts

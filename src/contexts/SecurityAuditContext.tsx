@@ -28,7 +28,6 @@ import { logger } from '@/lib/logger';
 import type {
   ResourceType,
   AccessAction,
-  SecurityCheckResult,
 } from '@/lib/security-layers';
 
 // ============================================================================

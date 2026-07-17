@@ -36,6 +36,16 @@
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
 
+# The root document is served for "/" (no .html extension) - keep it fresh too
+# so a new deploy's index.html (with new asset hashes) is picked up immediately.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The service worker script must never be cached by the edge or browser HTTP
+# cache, so an updated worker is fetched promptly and can heal stale clients.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 # Cache fonts for 1 year
 /*.woff
   Cache-Control: public, max-age=31536000, immutable
@@ -77,9 +87,21 @@
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 
   # Content Security Policy - Updated for self-hosted Supabase at api.danpearson.net
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://api.danpearson.net wss://api.danpearson.net https://functions.danpearson.net https://hooks.slack.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://fonts.gstatic.com https://cloudflareinsights.com https://stats.g.doubleclick.net; media-src 'self' https: data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content
+  # This is the single authoritative Content Security Policy for the site
+  # (served as a real HTTP header by Cloudflare Pages). index.html no longer
+  # carries a duplicate <meta> CSP - keep any policy changes here only.
+  # frame-src 'none' is included here (a <meta> CSP previously carried it) so
+  # the header policy is not weaker than the old meta policy.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://api.danpearson.net wss://api.danpearson.net https://functions.danpearson.net https://hooks.slack.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://fonts.gstatic.com https://cloudflareinsights.com https://stats.g.doubleclick.net; media-src 'self' https: data:; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content
 
-  # Cross-Origin policies for better security
-  Cross-Origin-Embedder-Policy: require-corp
+  # Cross-Origin policies.
+  # NOTE: Cross-Origin-Embedder-Policy: require-corp is intentionally NOT set.
+  # require-corp blocks any cross-origin subresource that does not return a
+  # Cross-Origin-Resource-Policy/CORP header - which includes Google Analytics
+  # (gtag.js), Google Fonts, and Cloudflare Insights - silently breaking them.
+  # COEP is only needed for cross-origin isolation (SharedArrayBuffer / high-res
+  # timers), which this app does not use. COOP + CORP below are safe to keep:
+  # they govern how OTHER sites may reference us and do not block our own
+  # cross-origin loads.
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin

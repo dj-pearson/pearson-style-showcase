@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:analyze": "ANALYZE=true vite build",
     "build:dev": "vite build --mode development",
     "build:pages": "npm ci && vite build",
     "lint": "eslint .",
@@ -16,8 +17,51 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "size": "size-limit",
+    "docs:lint": "redocly lint docs/api/openapi.yaml",
+    "serve:docs": "redocly preview-docs docs/api/openapi.yaml",
+    "db:backup": "bash scripts/db-backup.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "lighthouse": "vite build && lhci autorun",
+    "prepare": "husky"
   },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
+  },
+  "size-limit": [
+    {
+      "name": "main bundle",
+      "path": "dist/assets/index-*.js",
+      "limit": "250 KB",
+      "running": false
+    },
+    {
+      "name": "react-vendor",
+      "path": "dist/assets/react-vendor-*.js",
+      "limit": "50 KB",
+      "running": false
+    },
+    {
+      "name": "three-vendor",
+      "path": "dist/assets/three-vendor-*.js",
+      "limit": "200 KB",
+      "running": false
+    },
+    {
+      "name": "markdown-vendor",
+      "path": "dist/assets/markdown-vendor-*.js",
+      "limit": "240 KB",
+      "running": false
+    }
+  ],
   "dependencies": {
     "@gsap/react": "2.1.2",
     "@hookform/resolvers": "^3.10.0",
@@ -50,18 +94,17 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "@sentry/react": "10.66.0",
+    "@sentry/vite-plugin": "5.4.0",
     "@supabase/supabase-js": "^2.51.0",
     "@tanstack/react-query": "^5.56.2",
-    "@types/qrcode": "^1.5.5",
-    "@types/react-syntax-highlighter": "15.5.13",
-    "@types/three": "^0.178.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "dompurify": "^3.2.7",
     "embla-carousel-react": "^8.3.0",
-    "gsap": "3.13.0",
+    "gsap": "3.15.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
@@ -86,29 +129,43 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@eslint/js": "^9.9.0",
+    "@lhci/cli": "0.15.1",
     "@playwright/test": "1.57.0",
+    "@redocly/cli": "2.39.0",
+    "@size-limit/preset-app": "12.1.0",
     "@tailwindcss/typography": "^0.5.15",
+    "@tanstack/react-query-devtools": "5.101.2",
     "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.0",
+    "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
     "@types/node": "^22.5.5",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/react-syntax-highlighter": "15.5.13",
+    "@types/three": "^0.178.1",
     "@vitejs/plugin-react": "4.6.0",
+    "@vitest/coverage-v8": "4.1.10",
     "@vitest/ui": "4.1.10",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
+    "husky": "9.1.7",
     "jsdom": "27.1.0",
+    "lint-staged": "17.0.8",
     "playwright": "1.57.0",
     "postcss": "^8.4.47",
+    "prettier": "3.9.5",
     "rollup": "^4.28.0",
+    "rollup-plugin-visualizer": "7.0.1",
+    "size-limit": "12.1.0",
     "tailwindcss": "^3.4.11",
     "ts-node": "10.9.2",
-    "tsx": "4.21.0",
+    "tsx": "4.23.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^6.1.7",

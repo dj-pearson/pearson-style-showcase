@@ -5,6 +5,8 @@
  * It includes validators for common input types, rate limiting, and schema validation.
  */
 
+import { ALLOWED_ORIGINS } from './cors.ts';
+
 // Type definitions
 export interface ValidationResult {
   valid: boolean;
@@ -55,10 +57,16 @@ export interface ValidatedRequest<T = unknown> {
   context: ValidationContext;
 }
 
-// CORS headers factory
+// CORS headers factory. Never falls back to a wildcard origin; when no allowed
+// origin is supplied it defaults to the production domain from the shared
+// allow-list.
 export function createCorsHeaders(allowedOrigin?: string): Record<string, string> {
+  const resolved =
+    (allowedOrigin && ALLOWED_ORIGINS.includes(allowedOrigin) ? allowedOrigin : undefined) ??
+    Deno.env.get('ALLOWED_ORIGIN') ??
+    ALLOWED_ORIGINS[0];
   return {
-    'Access-Control-Allow-Origin': allowedOrigin || Deno.env.get('ALLOWED_ORIGIN') || '*',
+    'Access-Control-Allow-Origin': resolved,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
   };

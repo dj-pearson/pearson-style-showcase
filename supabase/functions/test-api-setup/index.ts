@@ -1,6 +1,6 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 /**
  * Test API Setup
@@ -10,7 +10,7 @@ import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
  */
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -20,7 +20,7 @@ serve(async (req) => {
   const results: any = {
     timestamp: new Date().toISOString(),
     overall_status: 'unknown',
-    tests: []
+    tests: [],
   };
 
   // Test 1: SerpAPI
@@ -32,7 +32,7 @@ serve(async (req) => {
         name: 'SerpAPI',
         status: 'not_configured',
         message: 'SERPAPI_KEY environment variable not set',
-        required: 'recommended'
+        required: 'recommended',
       });
     } else {
       // Test a simple search
@@ -51,7 +51,7 @@ serve(async (req) => {
           status: 'success',
           message: 'API key is valid and working',
           sample_results: data.shopping_results?.length || 0,
-          required: 'recommended'
+          required: 'recommended',
         });
       } else {
         const errorText = await response.text();
@@ -60,7 +60,7 @@ serve(async (req) => {
           status: 'error',
           message: `API returned error: ${response.status}`,
           details: errorText,
-          required: 'recommended'
+          required: 'recommended',
         });
       }
     }
@@ -70,7 +70,7 @@ serve(async (req) => {
       status: 'error',
       message: 'Failed to test SerpAPI',
       error: (error as Error).message,
-      required: 'recommended'
+      required: 'recommended',
     });
   }
 
@@ -84,7 +84,7 @@ serve(async (req) => {
         name: 'Google Custom Search',
         status: 'not_configured',
         message: 'GOOGLE_SEARCH_API_KEY or GOOGLE_SEARCH_ENGINE_ID not set',
-        required: 'fallback'
+        required: 'fallback',
       });
     } else {
       // Test a simple search
@@ -103,7 +103,7 @@ serve(async (req) => {
           status: 'success',
           message: 'API key and Search Engine ID are valid',
           sample_results: data.items?.length || 0,
-          required: 'fallback'
+          required: 'fallback',
         });
       } else {
         const errorText = await response.text();
@@ -112,7 +112,7 @@ serve(async (req) => {
           status: 'error',
           message: `API returned error: ${response.status}`,
           details: errorText,
-          required: 'fallback'
+          required: 'fallback',
         });
       }
     }
@@ -122,7 +122,7 @@ serve(async (req) => {
       status: 'error',
       message: 'Failed to test Google Custom Search',
       error: (error as Error).message,
-      required: 'fallback'
+      required: 'fallback',
     });
   }
 
@@ -135,7 +135,7 @@ serve(async (req) => {
         name: 'Claude',
         status: 'not_configured',
         message: 'CLAUDE_API_KEY environment variable not set',
-        required: 'required'
+        required: 'required',
       });
     } else {
       // Test with a simple completion
@@ -144,15 +144,13 @@ serve(async (req) => {
         headers: {
           'x-api-key': claudeApiKey,
           'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 20,
-          messages: [
-            { role: 'user', content: 'Say "API test successful" if you can read this.' }
-          ],
-        })
+          messages: [{ role: 'user', content: 'Say "API test successful" if you can read this.' }],
+        }),
       });
 
       if (response.ok) {
@@ -162,7 +160,7 @@ serve(async (req) => {
           status: 'success',
           message: 'API key is valid and AI is responding',
           sample_response: data.content?.[0]?.text?.substring(0, 100),
-          required: 'required'
+          required: 'required',
         });
       } else {
         const errorText = await response.text();
@@ -171,7 +169,7 @@ serve(async (req) => {
           status: 'error',
           message: `API returned error: ${response.status}`,
           details: errorText,
-          required: 'required'
+          required: 'required',
         });
       }
     }
@@ -181,7 +179,7 @@ serve(async (req) => {
       status: 'error',
       message: 'Failed to test Claude',
       error: (error as Error).message,
-      required: 'required'
+      required: 'required',
     });
   }
 
@@ -195,7 +193,7 @@ serve(async (req) => {
         name: 'DataForSEO',
         status: 'not_configured',
         message: 'DATAFORSEO_API_LOGIN or DATAFORSEO_API_PASSWORD not set (optional)',
-        required: 'optional'
+        required: 'optional',
       });
     } else {
       const auth = btoa(`${login}:${password}`);
@@ -204,9 +202,9 @@ serve(async (req) => {
       const response = await fetch('https://api.dataforseo.com/v3/appendix/user_data', {
         method: 'GET',
         headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.ok) {
@@ -215,7 +213,7 @@ serve(async (req) => {
           name: 'DataForSEO',
           status: 'success',
           message: 'API credentials are valid',
-          required: 'optional'
+          required: 'optional',
         });
       } else {
         const errorText = await response.text();
@@ -224,7 +222,7 @@ serve(async (req) => {
           status: 'error',
           message: `API returned error: ${response.status}`,
           details: errorText,
-          required: 'optional'
+          required: 'optional',
         });
       }
     }
@@ -234,7 +232,7 @@ serve(async (req) => {
       status: 'error',
       message: 'Failed to test DataForSEO (optional)',
       error: (error as Error).message,
-      required: 'optional'
+      required: 'optional',
     });
   }
 
@@ -243,14 +241,14 @@ serve(async (req) => {
     const testUrls = [
       'https://www.amazon.com/dp/B08N5WRWNW',
       'https://www.amazon.com/product-name/dp/B08N5WRWNW',
-      'https://www.amazon.com/gp/product/B08N5WRWNW'
+      'https://www.amazon.com/gp/product/B08N5WRWNW',
     ];
 
     const extractASIN = (url: string): string | null => {
       const patterns = [
         /\/dp\/([A-Z0-9]{10})/,
         /\/gp\/product\/([A-Z0-9]{10})/,
-        /\/product\/([A-Z0-9]{10})/
+        /\/product\/([A-Z0-9]{10})/,
       ];
 
       for (const pattern of patterns) {
@@ -262,15 +260,15 @@ serve(async (req) => {
       return null;
     };
 
-    const asins = testUrls.map(url => extractASIN(url));
-    const allValid = asins.every(asin => asin === 'B08N5WRWNW');
+    const asins = testUrls.map((url) => extractASIN(url));
+    const allValid = asins.every((asin) => asin === 'B08N5WRWNW');
 
     results.tests.push({
       name: 'ASIN Extraction',
       status: allValid ? 'success' : 'error',
       message: allValid ? 'ASIN extraction logic working correctly' : 'ASIN extraction has issues',
       sample_asins: asins,
-      required: 'internal'
+      required: 'internal',
     });
   } catch (error) {
     results.tests.push({
@@ -278,7 +276,7 @@ serve(async (req) => {
       status: 'error',
       message: 'Failed to test ASIN extraction',
       error: (error as Error).message,
-      required: 'internal'
+      required: 'internal',
     });
   }
 
@@ -288,7 +286,8 @@ serve(async (req) => {
   );
 
   const hasProductDiscovery = results.tests.some(
-    (t: any) => (t.name === 'SerpAPI' || t.name === 'Google Custom Search') && t.status === 'success'
+    (t: any) =>
+      (t.name === 'SerpAPI' || t.name === 'Google Custom Search') && t.status === 'success'
   );
 
   if (hasRequiredApis && hasProductDiscovery) {
@@ -296,7 +295,8 @@ serve(async (req) => {
     results.message = '✅ All required APIs are configured and working! You can run the pipeline.';
   } else if (hasRequiredApis && !hasProductDiscovery) {
     results.overall_status = 'partial';
-    results.message = '⚠️ AI is working but no product discovery API configured. Configure SerpAPI or Google Search.';
+    results.message =
+      '⚠️ AI is working but no product discovery API configured. Configure SerpAPI or Google Search.';
   } else {
     results.overall_status = 'not_ready';
     results.message = '❌ Required APIs are missing. Check configuration and documentation.';
@@ -331,13 +331,10 @@ serve(async (req) => {
     results.recommendations.push('All systems operational! 🚀');
   }
 
-  return new Response(
-    JSON.stringify(results, null, 2),
-    {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+  return new Response(JSON.stringify(results, null, 2), {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+    },
+  });
 });

@@ -329,12 +329,14 @@ function escapeCSV(value: any): string {
 async function fetchExportData(type: string, from: string, to: string): Promise<Record<string, any>[]> {
   switch (type) {
     case 'invoices': {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('invoices')
         .select('*, contacts(contact_name)')
         .gte('invoice_date', from)
         .lte('invoice_date', to)
         .order('invoice_date', { ascending: false });
+
+      if (error) throw error;
 
       return (data || []).map((inv: any) => ({
         invoice_number: inv.invoice_number,
@@ -352,12 +354,14 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
     }
 
     case 'payments': {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('payments')
         .select('*, contacts(contact_name)')
         .gte('payment_date', from)
         .lte('payment_date', to)
         .order('payment_date', { ascending: false });
+
+      if (error) throw error;
 
       return (data || []).map((pay: any) => ({
         payment_number: pay.payment_number,
@@ -373,12 +377,14 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
     }
 
     case 'transactions': {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('platform_transactions')
         .select('*, platforms(name), expense_categories(name)')
         .gte('transaction_date', from)
         .lte('transaction_date', to)
         .order('transaction_date', { ascending: false });
+
+      if (error) throw error;
 
       return (data || []).map((tx: any) => ({
         platform_name: tx.platforms?.name || '',
@@ -393,12 +399,14 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
     }
 
     case 'journal_entries': {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('journal_entries')
         .select(`*, journal_entry_lines(*, accounts(account_name, account_number))`)
         .gte('entry_date', from)
         .lte('entry_date', to)
         .order('entry_date', { ascending: false });
+
+      if (error) throw error;
 
       const rows: Record<string, any>[] = [];
       (data || []).forEach((entry: any) => {
@@ -419,10 +427,12 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
     }
 
     case 'contacts': {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('contacts')
         .select('*')
         .order('contact_name');
+
+      if (error) throw error;
 
       return (data || []).map((c: any) => ({
         contact_name: c.contact_name,
@@ -438,10 +448,12 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
 
     case 'ai_billing': {
       // Fetch AI-related platform transactions
-      const { data: aiPlatforms } = await supabase
+      const { data: aiPlatforms, error: aiPlatformsError } = await supabase
         .from('platforms')
         .select('id, name')
         .or('name.ilike.%openai%,name.ilike.%anthropic%,name.ilike.%claude%,name.ilike.%cursor%,name.ilike.%copilot%,name.ilike.%gemini%,name.ilike.%replicate%,name.ilike.%midjourney%,name.ilike.%lovable%,name.ilike.%replit%');
+
+      if (aiPlatformsError) throw aiPlatformsError;
 
       const aiPlatformIds = aiPlatforms?.map(p => p.id) || [];
 
@@ -457,7 +469,9 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
         query = query.in('platform_id', aiPlatformIds);
       }
 
-      const { data } = await query;
+      const { data, error } = await query;
+
+      if (error) throw error;
 
       return (data || []).map((tx: any) => ({
         platform_name: tx.platforms?.name || '',

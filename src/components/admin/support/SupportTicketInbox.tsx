@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { RealtimePayload } from '@/types/supabase-realtime';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ import {
   Trash2,
   CheckCheck,
   X as XIcon,
-  Filter
+  Filter,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
@@ -65,7 +66,7 @@ interface SupportTicketInboxProps {
 
 export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   onSelectTicket,
-  selectedTicketId
+  selectedTicketId,
 }) => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [filteredTickets, setFilteredTickets] = useState<SupportTicket[]>([]);
@@ -85,16 +86,24 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     // Subscribe to new tickets
     const subscription = supabase
       .channel('support-tickets')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'support_tickets'
-      }, handleNewTicket)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'support_tickets'
-      }, handleTicketUpdate)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_tickets',
+        },
+        handleNewTicket
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'support_tickets',
+        },
+        handleTicketUpdate
+      )
       .subscribe();
 
     return () => {
@@ -124,12 +133,14 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     }
   };
 
-  const handleNewTicket = (payload: any) => {
-    setTickets(prev => [payload.new, ...prev]);
+  const handleNewTicket = (payload: RealtimePayload) => {
+    const ticket = payload.new as unknown as SupportTicket;
+    setTickets((prev) => [ticket, ...prev]);
   };
 
-  const handleTicketUpdate = (payload: any) => {
-    setTickets(prev => prev.map(t => t.id === payload.new.id ? payload.new : t));
+  const handleTicketUpdate = (payload: RealtimePayload) => {
+    const ticket = payload.new as unknown as SupportTicket;
+    setTickets((prev) => prev.map((t) => (t.id === ticket.id ? ticket : t)));
   };
 
   const filterTickets = () => {
@@ -138,40 +149,42 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     // Archive filter - hide archived statuses by default
     const archivedStatuses = ['closed', 'resolved', 'disregard', 'spam'];
     if (!showArchived) {
-      filtered = filtered.filter(t => !archivedStatuses.includes(t.status));
+      filtered = filtered.filter((t) => !archivedStatuses.includes(t.status));
     }
 
     // Status filter with "active" preset
     if (statusFilter === 'active') {
-      filtered = filtered.filter(t =>
-        t.status === 'open' || 
-        t.status === 'in_progress' || 
-        t.status === 'waiting_for_user' ||
-        t.status === 'waiting_for_agent'
+      filtered = filtered.filter(
+        (t) =>
+          t.status === 'open' ||
+          t.status === 'in_progress' ||
+          t.status === 'waiting_for_user' ||
+          t.status === 'waiting_for_agent'
       );
     } else if (statusFilter !== 'all') {
-      filtered = filtered.filter(t => t.status === statusFilter);
+      filtered = filtered.filter((t) => t.status === statusFilter);
     }
 
     // Category filter
     if (categoryFilter !== 'all') {
-      filtered = filtered.filter(t => t.category === categoryFilter);
+      filtered = filtered.filter((t) => t.category === categoryFilter);
     }
 
     // Priority filter
     if (priorityFilter !== 'all') {
-      filtered = filtered.filter(t => t.priority === parseInt(priorityFilter));
+      filtered = filtered.filter((t) => t.priority === parseInt(priorityFilter));
     }
 
     // Enhanced search query - search across ticket number, subject, message, email, and name
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.ticket_number?.toLowerCase().includes(query) ||
-        t.subject?.toLowerCase().includes(query) ||
-        t.message?.toLowerCase().includes(query) ||
-        t.user_email?.toLowerCase().includes(query) ||
-        t.user_name?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (t) =>
+          t.ticket_number?.toLowerCase().includes(query) ||
+          t.subject?.toLowerCase().includes(query) ||
+          t.message?.toLowerCase().includes(query) ||
+          t.user_email?.toLowerCase().includes(query) ||
+          t.user_name?.toLowerCase().includes(query)
       );
     }
 
@@ -183,10 +196,14 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
       4: { label: 'Urgent', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
       3: { label: 'High', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
       2: { label: 'Normal', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-      1: { label: 'Low', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' }
+      1: { label: 'Low', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
     };
     const { label, color } = config[priority as keyof typeof config] || config[2];
-    return <Badge variant="outline" className={`text-xs ${color}`}>{label}</Badge>;
+    return (
+      <Badge variant="outline" className={`text-xs ${color}`}>
+        {label}
+      </Badge>
+    );
   };
 
   const getStatusIcon = (status: string) => {
@@ -215,7 +232,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
       question: 'Question',
       billing: 'Billing',
       spam: 'Spam',
-      other: 'Other'
+      other: 'Other',
     };
     return labels[category] || category;
   };
@@ -245,7 +262,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     if (selectedTickets.size === filteredTickets.length) {
       setSelectedTickets(new Set());
     } else {
-      setSelectedTickets(new Set(filteredTickets.map(t => t.id)));
+      setSelectedTickets(new Set(filteredTickets.map((t) => t.id)));
     }
   };
 
@@ -273,7 +290,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
       toast({
         title: 'Update Failed',
         description: 'Could not update tickets',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
@@ -283,7 +300,11 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const bulkDelete = async () => {
     if (selectedTickets.size === 0) return;
 
-    if (!confirm(`Are you sure you want to delete ${selectedTickets.size} ticket(s)? This action cannot be undone.`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete ${selectedTickets.size} ticket(s)? This action cannot be undone.`
+      )
+    ) {
       return;
     }
 
@@ -308,7 +329,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
       toast({
         title: 'Delete Failed',
         description: 'Could not delete tickets',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
@@ -317,16 +338,17 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
 
   const stats = {
     total: tickets.length,
-    open: tickets.filter(t => t.status === 'open').length,
-    inProgress: tickets.filter(t => t.status === 'in_progress').length,
-    waitingForUser: tickets.filter(t => t.status === 'waiting_for_user').length,
-    waitingForAgent: tickets.filter(t => t.status === 'waiting_for_agent').length,
-    unresponded: tickets.filter(t => !t.first_response_at && t.status !== 'closed').length,
-    archived: tickets.filter(t => t.status === 'closed' || t.status === 'resolved').length
+    open: tickets.filter((t) => t.status === 'open').length,
+    inProgress: tickets.filter((t) => t.status === 'in_progress').length,
+    waitingForUser: tickets.filter((t) => t.status === 'waiting_for_user').length,
+    waitingForAgent: tickets.filter((t) => t.status === 'waiting_for_agent').length,
+    unresponded: tickets.filter((t) => !t.first_response_at && t.status !== 'closed').length,
+    archived: tickets.filter((t) => t.status === 'closed' || t.status === 'resolved').length,
   };
 
   const hasSelection = selectedTickets.size > 0;
-  const isAllSelected = selectedTickets.size === filteredTickets.length && filteredTickets.length > 0;
+  const isAllSelected =
+    selectedTickets.size === filteredTickets.length && filteredTickets.length > 0;
 
   return (
     <Card>
@@ -343,25 +365,21 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
               )}
             </CardTitle>
             <CardDescription>
-              {showArchived ? 'Viewing all tickets including archived' : 'Manage active customer support requests'}
+              {showArchived
+                ? 'Viewing all tickets including archived'
+                : 'Manage active customer support requests'}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
             {stats.unresponded > 0 && (
-              <Badge variant="destructive">
-                {stats.unresponded} needs response
-              </Badge>
+              <Badge variant="destructive">{stats.unresponded} needs response</Badge>
             )}
             <div className="flex items-center gap-2 border rounded-md px-3 py-2">
               <Archive className="h-4 w-4 text-muted-foreground" />
               <Label htmlFor="show-archived" className="text-sm cursor-pointer">
                 Show Archived
               </Label>
-              <Switch
-                id="show-archived"
-                checked={showArchived}
-                onCheckedChange={setShowArchived}
-              />
+              <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
             </div>
           </div>
         </div>
@@ -404,30 +422,27 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                     Close Tickets
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => bulkUpdateStatus('disregard')} className="text-gray-600">
+                  <DropdownMenuItem
+                    onClick={() => bulkUpdateStatus('disregard')}
+                    className="text-gray-600"
+                  >
                     <XIcon className="h-4 w-4 mr-2" />
                     Disregard
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => bulkUpdateStatus('spam')} className="text-orange-600">
+                  <DropdownMenuItem
+                    onClick={() => bulkUpdateStatus('spam')}
+                    className="text-orange-600"
+                  >
                     <AlertCircle className="h-4 w-4 mr-2" />
                     Mark as Spam
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={bulkDelete}
-                disabled={isProcessing}
-              >
+              <Button variant="destructive" size="sm" onClick={bulkDelete} disabled={isProcessing}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedTickets(new Set())}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setSelectedTickets(new Set())}>
                 <XIcon className="h-4 w-4 mr-2" />
                 Clear
               </Button>
@@ -437,23 +452,40 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
 
         {/* Stats Bar */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
-          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('open')}>
+          <div
+            className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
+            onClick={() => setStatusFilter('open')}
+          >
             <p className="text-xl font-bold text-blue-600">{stats.open}</p>
             <p className="text-xs text-muted-foreground">Open</p>
           </div>
-          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('in_progress')}>
+          <div
+            className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
+            onClick={() => setStatusFilter('in_progress')}
+          >
             <p className="text-xl font-bold text-yellow-600">{stats.inProgress}</p>
             <p className="text-xs text-muted-foreground">In Progress</p>
           </div>
-          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('waiting_for_user')}>
+          <div
+            className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
+            onClick={() => setStatusFilter('waiting_for_user')}
+          >
             <p className="text-xl font-bold text-purple-600">{stats.waitingForUser}</p>
             <p className="text-xs text-muted-foreground">Waiting</p>
           </div>
-          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setStatusFilter('active')}>
-            <p className="text-xl font-bold text-green-600">{stats.open + stats.inProgress + stats.waitingForUser + stats.waitingForAgent}</p>
+          <div
+            className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
+            onClick={() => setStatusFilter('active')}
+          >
+            <p className="text-xl font-bold text-green-600">
+              {stats.open + stats.inProgress + stats.waitingForUser + stats.waitingForAgent}
+            </p>
             <p className="text-xs text-muted-foreground">Active</p>
           </div>
-          <div className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setShowArchived(!showArchived)}>
+          <div
+            className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
+            onClick={() => setShowArchived(!showArchived)}
+          >
             <p className="text-xl font-bold text-gray-600">{stats.archived}</p>
             <p className="text-xs text-muted-foreground">Archived</p>
           </div>
@@ -552,7 +584,9 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                   <div
                     key={ticket.id}
                     className={`p-3 rounded-lg border transition-colors ${
-                      selectedTicketId === ticket.id ? 'bg-muted border-primary' : 'bg-card hover:bg-muted/50'
+                      selectedTicketId === ticket.id
+                        ? 'bg-muted border-primary'
+                        : 'bg-card hover:bg-muted/50'
                     } ${selectedTickets.has(ticket.id) ? 'ring-2 ring-primary/50' : ''}`}
                   >
                     <div className="flex items-start gap-3">
@@ -565,10 +599,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                       />
 
                       {/* Ticket Content */}
-                      <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => onSelectTicket(ticket)}
-                      >
+                      <div className="flex-1 cursor-pointer" onClick={() => onSelectTicket(ticket)}>
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             {getStatusIcon(ticket.status)}
@@ -579,7 +610,9 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                             {getSentimentIcon(ticket.ai_sentiment_score)}
                           </div>
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {formatDistanceToNow(new Date(ticket.last_activity_at), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(ticket.last_activity_at), {
+                              addSuffix: true,
+                            })}
                           </span>
                         </div>
 
@@ -589,18 +622,26 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                           <span>{ticket.user_name || ticket.user_email}</span>
                           <span>•</span>
                           <span>{getCategoryLabel(ticket.category)}</span>
-                          {!ticket.first_response_at && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
-                            <>
-                              <span>•</span>
-                              <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">
-                                No response
-                              </Badge>
-                            </>
-                          )}
+                          {!ticket.first_response_at &&
+                            ticket.status !== 'closed' &&
+                            ticket.status !== 'resolved' && (
+                              <>
+                                <span>•</span>
+                                <Badge
+                                  variant="outline"
+                                  className="bg-red-500/10 text-red-500 border-red-500/20 text-xs"
+                                >
+                                  No response
+                                </Badge>
+                              </>
+                            )}
                           {(ticket.status === 'resolved' || ticket.status === 'closed') && (
                             <>
                               <span>•</span>
-                              <Badge variant="outline" className="bg-gray-500/10 text-gray-500 border-gray-500/20 text-xs">
+                              <Badge
+                                variant="outline"
+                                className="bg-gray-500/10 text-gray-500 border-gray-500/20 text-xs"
+                              >
                                 <Archive className="h-3 w-3 mr-1" />
                                 Archived
                               </Badge>

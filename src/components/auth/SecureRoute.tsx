@@ -205,7 +205,6 @@ export const SecureRoute: React.FC<SecureRouteProps> = ({
       }
 
       // Layer 2: Authorization Checks
-      const authChecks: AuthorizationResult[] = [];
 
       // Check admin requirement
       const needsAdminAccess = requireAdmin || requireRole || requirePermission || requireRoleLevel;

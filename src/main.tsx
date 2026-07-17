@@ -1,11 +1,16 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { initSentry } from './lib/sentry'
 import { initPerformanceMonitoring } from './lib/performance'
 import { registerServiceWorker } from './lib/registerSW'
 import { initErrorTracking } from './lib/error-tracking'
 import { initErrorAlerting, connectToErrorTracking } from './lib/error-alerting'
 import { initGoogleAnalytics } from './lib/analytics'
+
+// Initialize Sentry first so it can capture the earliest errors (no-op if
+// VITE_SENTRY_DSN is not configured).
+initSentry();
 
 // Initialize error tracking first to capture any initialization errors
 initErrorTracking();

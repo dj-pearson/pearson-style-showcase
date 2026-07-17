@@ -1,11 +1,12 @@
 /**
  * Edge Functions Helper for danpearson.net
- * 
+ *
  * Self-hosted edge functions at functions.danpearson.net
  * This helper provides a drop-in replacement for supabase.functions.invoke()
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { getCSRFHeaders, requiresCSRFProtection } from '@/lib/csrf';
 
 const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
 
@@ -23,16 +24,16 @@ export interface EdgeFunctionResult<T = any> {
 /**
  * Invoke an edge function at functions.danpearson.net
  * Drop-in replacement for supabase.functions.invoke()
- * 
+ *
  * @param functionName - Name of the function to invoke
  * @param options - Options including body, headers, method
  * @returns Promise with data and error (matches Supabase API)
- * 
+ *
  * @example
  * ```typescript
  * // Before (cloud Supabase):
  * const { data, error } = await supabase.functions.invoke('my-function', { body: { ... } });
- * 
+ *
  * // After (self-hosted):
  * const { data, error } = await invokeEdgeFunction('my-function', { body: { ... } });
  * ```
@@ -48,11 +49,16 @@ export async function invokeEdgeFunction<T = any>(
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
 
+    // CSRF: attach (and provision) the token for state-changing invocations so
+    // sensitive edge functions (admin-auth, secure-vault, ...) receive it.
+    const csrfHeaders = requiresCSRFProtection(method) ? await getCSRFHeaders() : {};
+
     const response = await fetch(`${FUNCTIONS_URL}/${functionName}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...csrfHeaders,
         ...headers,
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -69,13 +75,16 @@ export async function invokeEdgeFunction<T = any>(
 
       return {
         data: null,
-        error: new Error(errorData.error || errorData.message || `Function ${functionName} failed with status ${response.status}`),
+        error: new Error(
+          errorData.error ||
+            errorData.message ||
+            `Function ${functionName} failed with status ${response.status}`
+        ),
       };
     }
 
     const data = await response.json();
     return { data, error: null };
-
   } catch (error) {
     return {
       data: null,
@@ -87,7 +96,7 @@ export async function invokeEdgeFunction<T = any>(
 /**
  * Alternative: Direct fetch to edge function
  * Use this when you need more control over the request
- * 
+ *
  * @example
  * ```typescript
  * const response = await fetchEdgeFunction('my-function', {
@@ -113,7 +122,7 @@ export async function fetchEdgeFunction(
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...headers,
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -137,7 +146,7 @@ export async function checkEdgeFunctionsHealth(): Promise<{
         error: `Health check failed with status ${response.status}`,
       };
     }
-    
+
     const data = await response.json();
     return {
       healthy: data.status === 'healthy',

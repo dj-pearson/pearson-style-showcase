@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { hasUnsavedChanges } from '@/lib/unsaved-changes';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +32,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, FileText, ExternalLink, Download, Edit, Eye, Upload as UploadIcon, Trash2, X, RefreshCw } from 'lucide-react';
+import {
+  Plus,
+  FileText,
+  ExternalLink,
+  Download,
+  Edit,
+  Eye,
+  Upload as UploadIcon,
+  Trash2,
+  X,
+  RefreshCw,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -88,7 +102,13 @@ export const InvoicesManager = () => {
   const queryClient = useQueryClient();
 
   // Fetch invoices using TanStack Query
-  const { data: invoices = [], isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: invoices = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['invoices', filterType, filterStatus],
     queryFn: async () => {
       let query = supabase
@@ -149,7 +169,7 @@ export const InvoicesManager = () => {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const updates: any = { status };
       if (status === 'paid') {
-        const invoice = invoices.find(i => i.id === id);
+        const invoice = invoices.find((i) => i.id === id);
         if (invoice) {
           updates.amount_paid = invoice.total_amount;
           updates.amount_due = 0;
@@ -198,18 +218,20 @@ export const InvoicesManager = () => {
     csvLines.push('Invoice #,Type,Contact,Date,Due Date,Total,Paid,Due,Status,Source');
 
     invoices.forEach((inv) => {
-      csvLines.push([
-        `"${inv.invoice_number}"`,
-        inv.invoice_type,
-        `"${inv.contacts?.contact_name || ''}"`,
-        inv.invoice_date,
-        inv.due_date || '',
-        inv.total_amount.toFixed(2),
-        inv.amount_paid.toFixed(2),
-        inv.amount_due.toFixed(2),
-        inv.status,
-        inv.import_source || 'manual',
-      ].join(','));
+      csvLines.push(
+        [
+          `"${inv.invoice_number}"`,
+          inv.invoice_type,
+          `"${inv.contacts?.contact_name || ''}"`,
+          inv.invoice_date,
+          inv.due_date || '',
+          inv.total_amount.toFixed(2),
+          inv.amount_paid.toFixed(2),
+          inv.amount_due.toFixed(2),
+          inv.status,
+          inv.import_source || 'manual',
+        ].join(',')
+      );
     });
 
     const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -259,11 +281,25 @@ export const InvoicesManager = () => {
                     onUploadComplete={async (documentId, parsedData) => {
                       if (parsedData) {
                         const extractedData: ParsedInvoiceData = {
-                          invoice_number: parsedData.invoice_number || parsedData.invoiceNumber || '',
-                          invoice_date: parsedData.invoice_date || parsedData.invoiceDate || parsedData.date || '',
+                          invoice_number:
+                            parsedData.invoice_number || parsedData.invoiceNumber || '',
+                          invoice_date:
+                            parsedData.invoice_date ||
+                            parsedData.invoiceDate ||
+                            parsedData.date ||
+                            '',
                           due_date: parsedData.due_date || parsedData.dueDate || '',
-                          total_amount: parseFloat(parsedData.total_amount || parsedData.totalAmount || parsedData.amount || '0'),
-                          vendor_name: parsedData.vendor_name || parsedData.vendorName || parsedData.from || '',
+                          total_amount: parseFloat(
+                            parsedData.total_amount ||
+                              parsedData.totalAmount ||
+                              parsedData.amount ||
+                              '0'
+                          ),
+                          vendor_name:
+                            parsedData.vendor_name ||
+                            parsedData.vendorName ||
+                            parsedData.from ||
+                            '',
                           notes: parsedData.description || parsedData.notes || '',
                           line_items: parsedData.line_items || parsedData.items || [],
                         };
@@ -276,7 +312,8 @@ export const InvoicesManager = () => {
                           const invoiceData = {
                             invoice_type: 'purchase' as const,
                             invoice_number: extractedData.invoice_number || `SCAN-${Date.now()}`,
-                            invoice_date: extractedData.invoice_date || new Date().toISOString().split('T')[0],
+                            invoice_date:
+                              extractedData.invoice_date || new Date().toISOString().split('T')[0],
                             due_date: extractedData.due_date || null,
                             subtotal: totalAmount,
                             total_amount: totalAmount,
@@ -306,7 +343,10 @@ export const InvoicesManager = () => {
                               description: item.description,
                               quantity: item.quantity || 1,
                               unit_price: item.unit_price || item.amount || item.total || 0,
-                              line_total: item.amount || item.total || ((item.quantity || 1) * (item.unit_price || 0)),
+                              line_total:
+                                item.amount ||
+                                item.total ||
+                                (item.quantity || 1) * (item.unit_price || 0),
                             }));
 
                             await supabase.from('invoice_items').insert(items);
@@ -349,13 +389,19 @@ export const InvoicesManager = () => {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={showCreateDialog} onOpenChange={(open) => {
-                setShowCreateDialog(open);
-                if (!open) {
-                  setParsedInvoiceData(null);
-                  setEditingInvoice(null);
-                }
-              }}>
+              <Dialog
+                open={showCreateDialog}
+                onOpenChange={(open) => {
+                  // Block overlay/escape close when the form has unsaved changes;
+                  // the in-form Cancel button provides a guarded exit.
+                  if (!open && hasUnsavedChanges()) return;
+                  setShowCreateDialog(open);
+                  if (!open) {
+                    setParsedInvoiceData(null);
+                    setEditingInvoice(null);
+                  }
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -429,7 +475,9 @@ export const InvoicesManager = () => {
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-destructive font-medium">Failed to load invoices</p>
-              <p className="text-sm mt-1">{error instanceof Error ? error.message : 'Unknown error'}</p>
+              <p className="text-sm mt-1">
+                {error instanceof Error ? error.message : 'Unknown error'}
+              </p>
               <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Retry
@@ -473,9 +521,15 @@ export const InvoicesManager = () => {
                       <TableCell>{invoice.contacts?.contact_name || '-'}</TableCell>
                       <TableCell>{formatDate(invoice.invoice_date)}</TableCell>
                       <TableCell>{invoice.due_date ? formatDate(invoice.due_date) : '-'}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(invoice.total_amount)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(invoice.amount_paid)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(invoice.amount_due)}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(invoice.total_amount)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(invoice.amount_paid)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(invoice.amount_due)}
+                      </TableCell>
                       <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                       <TableCell>
                         {invoice.import_source ? (
@@ -524,7 +578,9 @@ export const InvoicesManager = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => updateStatusMutation.mutate({ id: invoice.id, status: 'paid' })}
+                              onClick={() =>
+                                updateStatusMutation.mutate({ id: invoice.id, status: 'paid' })
+                              }
                               title="Mark as paid"
                             >
                               <span className="text-xs font-medium text-green-600">Paid</span>
@@ -554,10 +610,13 @@ export const InvoicesManager = () => {
       </Card>
 
       {/* View Invoice Dialog */}
-      <Dialog open={showViewDialog} onOpenChange={(open) => {
-        setShowViewDialog(open);
-        if (!open) setSelectedInvoice(null);
-      }}>
+      <Dialog
+        open={showViewDialog}
+        onOpenChange={(open) => {
+          setShowViewDialog(open);
+          if (!open) setSelectedInvoice(null);
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Invoice {selectedInvoice?.invoice_number}</DialogTitle>
@@ -583,7 +642,9 @@ export const InvoicesManager = () => {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Due Date</Label>
-                  <p className="font-medium">{selectedInvoice.due_date ? formatDate(selectedInvoice.due_date) : '-'}</p>
+                  <p className="font-medium">
+                    {selectedInvoice.due_date ? formatDate(selectedInvoice.due_date) : '-'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Source</Label>
@@ -609,8 +670,12 @@ export const InvoicesManager = () => {
                         <TableRow key={item.id}>
                           <TableCell>{item.description}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(Number(item.unit_price))}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(Number(item.line_total))}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            {formatCurrency(Number(item.unit_price))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {formatCurrency(Number(item.line_total))}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -621,15 +686,21 @@ export const InvoicesManager = () => {
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="font-medium">Total</span>
-                  <span className="font-mono font-bold">{formatCurrency(selectedInvoice.total_amount)}</span>
+                  <span className="font-mono font-bold">
+                    {formatCurrency(selectedInvoice.total_amount)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Paid</span>
-                  <span className="font-mono text-green-600">{formatCurrency(selectedInvoice.amount_paid)}</span>
+                  <span className="font-mono text-green-600">
+                    {formatCurrency(selectedInvoice.amount_paid)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Due</span>
-                  <span className="font-mono text-red-600">{formatCurrency(selectedInvoice.amount_due)}</span>
+                  <span className="font-mono text-red-600">
+                    {formatCurrency(selectedInvoice.amount_due)}
+                  </span>
                 </div>
               </div>
 
@@ -664,11 +735,17 @@ const InvoiceForm = ({
   const [formData, setFormData] = useState({
     invoice_type: existingInvoice?.invoice_type || 'purchase',
     invoice_number: existingInvoice?.invoice_number || initialData?.invoice_number || '',
-    invoice_date: existingInvoice?.invoice_date || initialData?.invoice_date || new Date().toISOString().split('T')[0],
+    invoice_date:
+      existingInvoice?.invoice_date ||
+      initialData?.invoice_date ||
+      new Date().toISOString().split('T')[0],
     due_date: existingInvoice?.due_date || initialData?.due_date || '',
     contact_id: existingInvoice?.contact_id || '',
     status: existingInvoice?.status || 'draft',
-    notes: existingInvoice?.notes || initialData?.notes || (initialData?.vendor_name ? `Vendor: ${initialData.vendor_name}` : ''),
+    notes:
+      existingInvoice?.notes ||
+      initialData?.notes ||
+      (initialData?.vendor_name ? `Vendor: ${initialData.vendor_name}` : ''),
   });
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
@@ -677,21 +754,46 @@ const InvoiceForm = ({
       quantity: item.quantity || 1,
       unit_price: item.unit_price || item.total || 0,
       line_total: item.total || (item.quantity || 1) * (item.unit_price || 0),
-    })) || (initialData?.total_amount ? [{
-      description: initialData.vendor_name ? `${initialData.vendor_name} charges` : 'Service charges',
-      quantity: 1,
-      unit_price: initialData.total_amount,
-      line_total: initialData.total_amount,
-    }] : [{
-      description: '',
-      quantity: 1,
-      unit_price: 0,
-      line_total: 0,
-    }])
+    })) ||
+      (initialData?.total_amount
+        ? [
+            {
+              description: initialData.vendor_name
+                ? `${initialData.vendor_name} charges`
+                : 'Service charges',
+              quantity: 1,
+              unit_price: initialData.total_amount,
+              line_total: initialData.total_amount,
+            },
+          ]
+        : [
+            {
+              description: '',
+              quantity: 1,
+              unit_price: 0,
+              line_total: 0,
+            },
+          ])
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // Track unsaved changes vs the form's initial state (captured on first render).
+  const currentSnapshot = useMemo(
+    () => JSON.stringify({ formData, lineItems }),
+    [formData, lineItems]
+  );
+  const initialSnapshotRef = useRef<string | null>(null);
+  if (initialSnapshotRef.current === null) initialSnapshotRef.current = currentSnapshot;
+  const isDirty = currentSnapshot !== initialSnapshotRef.current;
+  const {
+    isBlocking: isCloseBlocked,
+    requestNavigation: requestClose,
+    confirmDiscard: confirmClose,
+    cancelDiscard: cancelClose,
+  } = useUnsavedChanges(isDirty);
+  const guardedClose = () => requestClose(onClose);
 
   // Fetch contacts for dropdown
   const { data: contacts = [] } = useQuery({
@@ -739,14 +841,16 @@ const InvoiceForm = ({
   // Populate line items from existing when editing
   useState(() => {
     if (existingItems.length > 0 && lineItems.length === 1 && !lineItems[0].description) {
-      setLineItems(existingItems.map((item: any) => ({
-        id: item.id,
-        description: item.description || '',
-        quantity: Number(item.quantity || 1),
-        unit_price: Number(item.unit_price || 0),
-        line_total: Number(item.line_total || 0),
-        expense_category_id: item.expense_category_id,
-      })));
+      setLineItems(
+        existingItems.map((item: any) => ({
+          id: item.id,
+          description: item.description || '',
+          quantity: Number(item.quantity || 1),
+          unit_price: Number(item.unit_price || 0),
+          line_total: Number(item.line_total || 0),
+          expense_category_id: item.expense_category_id,
+        }))
+      );
     }
   });
 
@@ -758,7 +862,8 @@ const InvoiceForm = ({
 
     // Recalculate line total
     if (field === 'quantity' || field === 'unit_price') {
-      updated[index].line_total = (Number(updated[index].quantity) || 0) * (Number(updated[index].unit_price) || 0);
+      updated[index].line_total =
+        (Number(updated[index].quantity) || 0) * (Number(updated[index].unit_price) || 0);
     }
 
     setLineItems(updated);
@@ -783,7 +888,8 @@ const InvoiceForm = ({
         invoice_number: formData.invoice_number,
         invoice_date: formData.invoice_date,
         due_date: formData.due_date || null,
-        contact_id: formData.contact_id && formData.contact_id !== 'none' ? formData.contact_id : null,
+        contact_id:
+          formData.contact_id && formData.contact_id !== 'none' ? formData.contact_id : null,
         subtotal: subtotal,
         total_amount: subtotal,
         amount_due: subtotal,
@@ -816,7 +922,7 @@ const InvoiceForm = ({
       }
 
       // Insert line items
-      const validItems = lineItems.filter(item => item.description.trim() && item.line_total > 0);
+      const validItems = lineItems.filter((item) => item.description.trim() && item.line_total > 0);
       if (validItems.length > 0) {
         const items = validItems.map((item, index) => ({
           invoice_id: invoiceId,
@@ -825,7 +931,10 @@ const InvoiceForm = ({
           quantity: item.quantity,
           unit_price: item.unit_price,
           line_total: item.line_total,
-          expense_category_id: item.expense_category_id && item.expense_category_id !== 'none' ? item.expense_category_id : null,
+          expense_category_id:
+            item.expense_category_id && item.expense_category_id !== 'none'
+              ? item.expense_category_id
+              : null,
         }));
 
         const { error: itemsError } = await supabase.from('invoice_items').insert(items);
@@ -858,7 +967,9 @@ const InvoiceForm = ({
           <Label>Type</Label>
           <Select
             value={formData.invoice_type}
-            onValueChange={(value) => setFormData({ ...formData, invoice_type: value as 'sales' | 'purchase' })}
+            onValueChange={(value) =>
+              setFormData({ ...formData, invoice_type: value as 'sales' | 'purchase' })
+            }
           >
             <SelectTrigger>
               <SelectValue />
@@ -996,7 +1107,9 @@ const InvoiceForm = ({
                     <Input
                       type="number"
                       value={item.quantity}
-                      onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)
+                      }
                       className="text-right border-0 shadow-none"
                     />
                   </TableCell>
@@ -1005,7 +1118,9 @@ const InvoiceForm = ({
                       type="number"
                       step="0.01"
                       value={item.unit_price}
-                      onChange={(e) => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)
+                      }
                       className="text-right border-0 shadow-none"
                     />
                   </TableCell>
@@ -1047,8 +1162,13 @@ const InvoiceForm = ({
         />
       </div>
 
+      <UnsavedChangesDialog
+        open={isCloseBlocked}
+        onDiscard={confirmClose}
+        onKeepEditing={cancelClose}
+      />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={guardedClose}>
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>

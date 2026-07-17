@@ -9,6 +9,8 @@
  * - Headers for rate limit info (X-RateLimit-*)
  */
 
+import { getCorsHeaders } from './cors.ts';
+
 // Rate limit configuration presets
 export interface RateLimitConfig {
   windowMs: number;        // Time window in milliseconds
@@ -313,7 +315,7 @@ export function withRateLimit(
     if (!result.allowed) {
       const corsHeaders = options?.getCorsHeaders
         ? options.getCorsHeaders(origin)
-        : { 'Access-Control-Allow-Origin': origin || '*' };
+        : getCorsHeaders(origin); // shared allow-list; never a wildcard origin
 
       console.log(`[RateLimiter] Rate limit exceeded for ${identifier} on ${endpoint}`);
       return createRateLimitResponse(result, corsHeaders);

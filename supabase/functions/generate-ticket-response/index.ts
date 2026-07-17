@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -14,54 +14,54 @@ serve(async (req) => {
     const { ticket_id } = await req.json();
 
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // Fetch ticket and all email threads
     const { data: ticket, error: ticketError } = await supabaseClient
-      .from("support_tickets")
-      .select("*")
-      .eq("id", ticket_id)
+      .from('support_tickets')
+      .select('*')
+      .eq('id', ticket_id)
       .single();
 
     if (ticketError || !ticket) {
-      throw new Error("Ticket not found");
+      throw new Error('Ticket not found');
     }
 
     const { data: threads, error: threadsError } = await supabaseClient
-      .from("email_threads")
-      .select("*")
-      .eq("ticket_id", ticket_id)
-      .order("created_at", { ascending: true });
+      .from('email_threads')
+      .select('*')
+      .eq('ticket_id', ticket_id)
+      .order('created_at', { ascending: true });
 
     if (threadsError) {
-      throw new Error("Failed to fetch email threads");
+      throw new Error('Failed to fetch email threads');
     }
 
     // Get active AI model config for ticket_response use case
     // use_case is now a comma-separated string, so we check if it contains ticket_response or all
     const { data: configs, error: configError } = await supabaseClient
-      .from("ai_model_configs")
-      .select("*")
-      .eq("is_active", true)
-      .order("priority", { ascending: false });
+      .from('ai_model_configs')
+      .select('*')
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
 
     if (configError || !configs) {
-      throw new Error("Failed to load AI model configurations");
+      throw new Error('Failed to load AI model configurations');
     }
 
     const activeConfigs = configs || [];
 
     // Prefer ticket_response-specific configs, then 'all', then general configs
-    const ticketConfigs = activeConfigs.filter((c: any) =>
-      c.use_case && c.use_case.includes("ticket_response")
+    const ticketConfigs = activeConfigs.filter(
+      (c: any) => c.use_case && c.use_case.includes('ticket_response')
     );
-    const allUseConfigs = activeConfigs.filter((c: any) =>
-      c.use_case && c.use_case.includes("all")
+    const allUseConfigs = activeConfigs.filter(
+      (c: any) => c.use_case && c.use_case.includes('all')
     );
-    const generalConfigs = activeConfigs.filter((c: any) =>
-      !c.use_case || c.use_case.includes("general")
+    const generalConfigs = activeConfigs.filter(
+      (c: any) => !c.use_case || c.use_case.includes('general')
     );
 
     const orderedConfigs =
@@ -72,17 +72,17 @@ serve(async (req) => {
           : generalConfigs;
 
     if (orderedConfigs.length === 0) {
-      throw new Error("No active AI configuration found for ticket responses");
+      throw new Error('No active AI configuration found for ticket responses');
     }
 
     // Build conversation history
-    const conversationHistory = threads.map(thread => ({
-      role: thread.direction === "inbound" ? "customer" : "agent",
+    const conversationHistory = threads.map((thread) => ({
+      role: thread.direction === 'inbound' ? 'customer' : 'agent',
       from: thread.from_email,
       to: thread.to_email,
       subject: thread.subject,
       body: thread.body_text || thread.body_html,
-      timestamp: thread.created_at
+      timestamp: thread.created_at,
     }));
 
     const systemPrompt = `You are a helpful customer support agent for BuildDesk. 
@@ -93,9 +93,12 @@ Ticket Status: ${ticket.status}
 Ticket Priority: ${ticket.priority}
 
 Conversation History:
-${conversationHistory.map(msg => 
-  `[${msg.timestamp}] ${msg.role.toUpperCase()} (${msg.from} → ${msg.to}):\n${msg.body}\n---`
-).join("\n")}
+${conversationHistory
+  .map(
+    (msg) =>
+      `[${msg.timestamp}] ${msg.role.toUpperCase()} (${msg.from} → ${msg.to}):\n${msg.body}\n---`
+  )
+  .join('\n')}
 
 Generate a response that:
 1. Addresses the customer's concerns directly
@@ -111,7 +114,7 @@ Generate ONLY the response text, no additional formatting or metadata.`;
     // Try each config in priority order until one succeeds
     for (const config of orderedConfigs) {
       console.log(`Trying model: ${config.provider} - ${config.model_name}`);
-      
+
       try {
         const apiKey = Deno.env.get(config.api_key_secret_name);
         if (!apiKey) {
@@ -119,18 +122,20 @@ Generate ONLY the response text, no additional formatting or metadata.`;
           continue;
         }
 
-        if (config.provider === "gemini-paid" || config.provider === "gemini-free") {
+        if (config.provider === 'gemini-paid' || config.provider === 'gemini-free') {
           const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
             {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                contents: [{
-                  parts: [{ text: systemPrompt }]
-                }],
-                generationConfig: config.configuration || {}
-              })
+                contents: [
+                  {
+                    parts: [{ text: systemPrompt }],
+                  },
+                ],
+                generationConfig: config.configuration || {},
+              }),
             }
           );
 
@@ -142,22 +147,19 @@ Generate ONLY the response text, no additional formatting or metadata.`;
               break;
             }
           }
-
-        } else if (config.provider === "claude") {
-          const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
+        } else if (config.provider === 'claude') {
+          const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01"
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
               model: config.model_name,
               max_tokens: 1024,
-              messages: [
-                { role: "user", content: systemPrompt }
-              ]
-            })
+              messages: [{ role: 'user', content: systemPrompt }],
+            }),
           });
 
           if (response.ok) {
@@ -168,8 +170,7 @@ Generate ONLY the response text, no additional formatting or metadata.`;
               break;
             }
           }
-
-        } else if (config.provider === "openai" || config.provider === "lovable") {
+        } else if (config.provider === 'openai' || config.provider === 'lovable') {
           // Deprecated: redirect openai/lovable configs to Claude
           console.warn(`Provider "${config.provider}" is deprecated, falling back to Claude`);
           const claudeKey = Deno.env.get('CLAUDE_API_KEY');
@@ -177,21 +178,19 @@ Generate ONLY the response text, no additional formatting or metadata.`;
             console.error('CLAUDE_API_KEY not configured for fallback');
             continue;
           }
-          const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
+          const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
-              "x-api-key": claudeKey,
-              "anthropic-version": "2023-06-01"
+              'Content-Type': 'application/json',
+              'x-api-key': claudeKey,
+              'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-6",
+              model: 'claude-sonnet-4-6',
               max_tokens: 1024,
-              system: "You are a helpful customer support agent.",
-              messages: [
-                { role: "user", content: systemPrompt }
-              ]
-            })
+              system: 'You are a helpful customer support agent.',
+              messages: [{ role: 'user', content: systemPrompt }],
+            }),
           });
 
           if (response.ok) {
@@ -203,7 +202,6 @@ Generate ONLY the response text, no additional formatting or metadata.`;
             }
           }
         }
-
       } catch (error) {
         console.error(`Failed with ${config.provider}:`, error);
         continue;
@@ -211,7 +209,7 @@ Generate ONLY the response text, no additional formatting or metadata.`;
     }
 
     if (!generatedResponse) {
-      throw new Error("All AI models failed to generate a response");
+      throw new Error('All AI models failed to generate a response');
     }
 
     return new Response(
@@ -221,16 +219,15 @@ Generate ONLY the response text, no additional formatting or metadata.`;
         model_used: `${usedConfig.provider} - ${usedConfig.model_name}`,
         config_id: usedConfig.id,
         ticket_subject: ticket.subject,
-        ticket_number: ticket.ticket_number
+        ticket_number: ticket.ticket_number,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error("Generate response error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error('Generate response error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

@@ -64,15 +64,6 @@ interface CoolifyResources {
   services: CoolifyService[];
 }
 
-function getStatusColor(status?: string): string {
-  if (!status) return 'bg-gray-400';
-  const s = status.toLowerCase();
-  if (s.includes('running') || s.includes('healthy') || s.includes('started')) return 'bg-green-500';
-  if (s.includes('stopped') || s.includes('exited')) return 'bg-red-500';
-  if (s.includes('restarting') || s.includes('starting') || s.includes('building')) return 'bg-yellow-500';
-  return 'bg-gray-400';
-}
-
 function getStatusBadge(status?: string) {
   if (!status) return <Badge variant="secondary">Unknown</Badge>;
   const s = status.toLowerCase();

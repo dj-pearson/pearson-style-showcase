@@ -10,7 +10,6 @@
  * This prevents state interception, replay, and cross-provider attacks.
  */
 
-import { getCSRFToken } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 
 // Storage keys
@@ -18,8 +17,6 @@ const OAUTH_STATE_KEY = 'oauth_state';
 const OAUTH_STATE_META_KEY = 'oauth_state_meta';
 const OAUTH_STATE_EXPIRY_KEY = 'oauth_state_expiry';
 
-// State expiry time (30 minutes for OAuth flows - reduced from general CSRF 4-hour window)
-const STATE_EXPIRY_MS = 30 * 60 * 1000;
 // Grace period after verification for slow redirects (reduced from 5 min)
 const STATE_GRACE_MS = 30 * 1000; // 30 seconds
 // Key to track used states
@@ -30,19 +27,6 @@ interface OAuthStateMeta {
   redirectTo: string;
   csrfToken: string;
   createdAt: number;
-}
-
-/**
- * Generate a cryptographically secure random string
- */
-function generateRandomString(): string {
-  const randomBytes = new Uint8Array(32);
-  crypto.getRandomValues(randomBytes);
-  const base64 = btoa(String.fromCharCode(...randomBytes));
-  return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
 }
 
 /**
@@ -63,41 +47,6 @@ async function generateBindingHash(
     .replace(/\//g, '_')
     .replace(/=+$/, '');
   return hashBase64;
-}
-
-/**
- * Generate an OAuth state parameter bound to provider and CSRF token.
- * The state encodes a random component + binding hash.
- */
-export async function generateOAuthState(provider: string, redirectTo: string = '/'): Promise<string> {
-  const randomPart = generateRandomString();
-  const csrfToken = await getCSRFToken();
-  const bindingHash = await generateBindingHash(randomPart, provider, redirectTo, csrfToken);
-
-  // State format: random.hash (the hash binds it to provider/redirect/csrf)
-  return `${randomPart}.${bindingHash}`;
-}
-
-/**
- * Store OAuth state in sessionStorage with metadata for later verification
- */
-export async function storeOAuthState(state: string, provider: string, redirectTo: string = '/'): Promise<void> {
-  try {
-    const csrfToken = await getCSRFToken();
-    const expiry = Date.now() + STATE_EXPIRY_MS;
-    const meta: OAuthStateMeta = {
-      provider,
-      redirectTo,
-      csrfToken,
-      createdAt: Date.now(),
-    };
-
-    sessionStorage.setItem(OAUTH_STATE_KEY, state);
-    sessionStorage.setItem(OAUTH_STATE_META_KEY, JSON.stringify(meta));
-    sessionStorage.setItem(OAUTH_STATE_EXPIRY_KEY, expiry.toString());
-  } catch (error) {
-    logger.error('Failed to store OAuth state:', error);
-  }
 }
 
 /**
@@ -239,7 +188,12 @@ export async function verifyOAuthState(
     const parts = receivedState.split('.');
     if (parts.length === 2) {
       const [randomPart, receivedHash] = parts;
-      const expectedHash = await generateBindingHash(randomPart, meta.provider, meta.redirectTo, meta.csrfToken);
+      const expectedHash = await generateBindingHash(
+        randomPart,
+        meta.provider,
+        meta.redirectTo,
+        meta.csrfToken
+      );
 
       if (!timingSafeEqual(receivedHash, expectedHash)) {
         clearStoredOAuthState();
@@ -252,24 +206,4 @@ export async function verifyOAuthState(
   clearStoredOAuthState();
 
   return { valid: true };
-}
-
-/**
- * Generate and store OAuth state, returning the state for use in OAuth request.
- * Convenience function combining generation and storage.
- * State is bound to the specified provider and redirect URL.
- */
-export async function createOAuthState(provider: string, redirectTo: string = '/'): Promise<string> {
-  const state = await generateOAuthState(provider, redirectTo);
-  await storeOAuthState(state, provider, redirectTo);
-  return state;
-}
-
-/**
- * Legacy compatibility: retrieve stored state (for existing code that uses this pattern)
- * @deprecated Use verifyOAuthState instead for proper provider binding verification
- */
-export function retrieveOAuthState(): string | null {
-  const { state } = retrieveOAuthStateAndMeta();
-  return state;
 }

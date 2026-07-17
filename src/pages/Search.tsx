@@ -67,27 +67,36 @@ const Search = () => {
         }
 
         // Search articles with full-text search
-        const { data: articles } = await supabase
+        const { data: articles, error: articlesError } = await supabase
           .from('articles')
           .select('id, title, excerpt, slug, category, tags, image_url')
           .eq('published', true)
           .or(`title.ilike.%${sanitized}%,excerpt.ilike.%${sanitized}%`)
           .limit(10);
 
-        // Search projects
-        const { data: projects } = await supabase
+        if (articlesError) logger.error('Search articles query failed:', articlesError);
+
+        // Search projects.
+        // NOTE: the projects table has no `published` or `slug` column (it uses
+        // `status`). The public Projects page shows all projects regardless of
+        // status, so search does the same for consistency and navigates via an
+        // id-based anchor (#project-<id>).
+        const { data: projects, error: projectsError } = await supabase
           .from('projects')
-          .select('id, title, description, slug, image_url')
-          .eq('published', true)
+          .select('id, title, description, image_url')
           .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
           .limit(5);
 
+        if (projectsError) logger.error('Search projects query failed:', projectsError);
+
         // Search AI tools
-        const { data: aiTools } = await supabase
+        const { data: aiTools, error: aiToolsError } = await supabase
           .from('ai_tools')
           .select('id, title, description, category, link, image_url')
           .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`)
           .limit(5);
+
+        if (aiToolsError) logger.error('Search ai_tools query failed:', aiToolsError);
 
         // Combine and format results
         const combined: SearchResult[] = [
@@ -124,8 +133,8 @@ const Search = () => {
   const handleResultClick = (result: SearchResult) => {
     if (result.type === 'article' && result.slug) {
       navigate(`/news/${result.slug}`);
-    } else if (result.type === 'project' && result.slug) {
-      navigate(`/projects#${result.slug}`);
+    } else if (result.type === 'project') {
+      navigate(`/projects#project-${result.id}`);
     } else if (result.type === 'ai_tool' && result.url) {
       window.open(result.url, '_blank');
     }

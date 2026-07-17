@@ -64,23 +64,37 @@ export const SystemHealthCard: React.FC = () => {
       const oneHourAgo = new Date();
       oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-      const { data } = await supabase
+      const { data, error: errorMetricsError } = await supabase
         .from('system_metrics')
         .select('*')
         .eq('metric_type', 'error_rate')
         .gte('recorded_at', oneHourAgo.toISOString());
 
+      // A failed metrics query must NOT be treated as "zero errors" - that would
+      // make an unhealthy (or unmonitored) system read as healthy.
+      if (errorMetricsError) {
+        logger.error('Failed to load error-rate metrics:', errorMetricsError);
+      }
+
       const errorCount = (data as any[])?.length || 0;
       const errorRate = errorCount / 60; // Errors per minute
 
       // Get API latency metrics
-      const { data: latencyMetrics } = await supabase
+      const { data: latencyMetrics, error: latencyError } = await supabase
         .from('system_metrics')
         .select('value')
         .eq('metric_type', 'api_latency')
         .gte('recorded_at', oneHourAgo.toISOString())
         .order('recorded_at', { ascending: false })
         .limit(10);
+
+      if (latencyError) {
+        logger.error('Failed to load API latency metrics:', latencyError);
+      }
+
+      // If we could not read the monitoring metrics at all, surface it as a
+      // degraded (warning) state rather than reporting everything healthy.
+      const metricsUnavailable = Boolean(errorMetricsError || latencyError);
 
       const avgLatency = latencyMetrics && latencyMetrics.length > 0
         ? (latencyMetrics as any[]).reduce((sum, m) => sum + Number(m.value), 0) / latencyMetrics.length
@@ -95,6 +109,7 @@ export const SystemHealthCard: React.FC = () => {
       const apiHealth: 'healthy' | 'warning' | 'critical' =
         avgLatency > 2000 ? 'critical' :
         avgLatency > 1000 ? 'warning' :
+        metricsUnavailable ? 'warning' :
         'healthy';
 
       setHealth({
@@ -113,14 +128,14 @@ export const SystemHealthCard: React.FC = () => {
           name: 'Error Rate',
           value: errorRate,
           unit: '/min',
-          status: errorRate > 5 ? 'critical' : errorRate > 2 ? 'warning' : 'healthy',
+          status: errorMetricsError ? 'warning' : errorRate > 5 ? 'critical' : errorRate > 2 ? 'warning' : 'healthy',
           trend: 'stable'
         },
         {
           name: 'API Latency',
           value: Math.round(avgLatency),
           unit: 'ms',
-          status: avgLatency > 2000 ? 'critical' : avgLatency > 1000 ? 'warning' : 'healthy',
+          status: latencyError ? 'warning' : avgLatency > 2000 ? 'critical' : avgLatency > 1000 ? 'warning' : 'healthy',
           trend: 'stable'
         },
         {

@@ -8,6 +8,7 @@ import {
   initRateLimiter,
   type RateLimitConfig,
 } from "../_shared/rate-limiter.ts";
+import { validateEmail, sanitizeInput, escapeHtml, messageToHtml } from "./validation.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API"));
 
@@ -30,14 +31,7 @@ const CONTACT_RATE_LIMIT: RateLimitConfig = {
 };
 
 // Input validation
-function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email) && email.length <= 255;
-}
-
-function sanitizeInput(input: string, maxLength: number): string {
-  return input.trim().slice(0, maxLength);
-}
+// Input validation / sanitization lives in ./validation.ts (imported at top).
 
 const handler = async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
@@ -107,11 +101,11 @@ const handler = async (req: Request): Promise<Response> => {
       subject: `Contact Form: ${subject}`,
       html: `
         <h2>New Contact Form Submission</h2>
-        <p><strong>From:</strong> ${name} (${email})</p>
-        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>From:</strong> ${escapeHtml(name)} (${escapeHtml(email)})</p>
+        <p><strong>Subject:</strong> ${escapeHtml(subject)}</p>
         <hr />
         <h3>Message:</h3>
-        <p>${message.replace(/\n/g, '<br>')}</p>
+        <p>${messageToHtml(message)}</p>
       `,
     });
 
@@ -123,10 +117,10 @@ const handler = async (req: Request): Promise<Response> => {
       to: [email],
       subject: "Thank you for contacting us!",
       html: `
-        <h1>Thank you for reaching out, ${name}!</h1>
+        <h1>Thank you for reaching out, ${escapeHtml(name)}!</h1>
         <p>We have received your message and will get back to you as soon as possible.</p>
         <p><strong>Your message:</strong></p>
-        <p>${message.replace(/\n/g, '<br>')}</p>
+        <p>${messageToHtml(message)}</p>
         <hr />
         <p>Best regards,<br>The Build Desk Team</p>
       `,

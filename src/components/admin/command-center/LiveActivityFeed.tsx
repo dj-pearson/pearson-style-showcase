@@ -2,21 +2,28 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Activity,
-  MousePointerClick,
-  Mail,
-  MessageSquare,
-  Wrench,
-  Settings,
-} from 'lucide-react';
+import { Activity, MousePointerClick, Mail, MessageSquare, Wrench, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { formatDistanceToNow } from 'date-fns';
+import type {
+  RealtimePayload,
+  AffiliateClickRow,
+  NewsletterSubscriberRow,
+  ContactSubmissionRow,
+  ToolSubmissionRow,
+  AdminActionRow,
+} from '@/types/supabase-realtime';
 
 interface ActivityEvent {
   id: string;
-  type: 'article_view' | 'affiliate_click' | 'newsletter_signup' | 'contact_form' | 'tool_submission' | 'admin_action';
+  type:
+    | 'article_view'
+    | 'affiliate_click'
+    | 'newsletter_signup'
+    | 'contact_form'
+    | 'tool_submission'
+    | 'admin_action';
   title: string;
   description: string;
   timestamp: Date;
@@ -35,31 +42,51 @@ export const LiveActivityFeed: React.FC = () => {
     // Set up real-time subscription for new activities
     const subscription = supabase
       .channel('activity-feed')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'amazon_affiliate_clicks'
-      }, handleNewAffiliateClick)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'newsletter_subscribers'
-      }, handleNewSubscriber)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'contact_submissions'
-      }, handleNewContact)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'ai_tool_submissions'
-      }, handleNewToolSubmission)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'admin_activity_log'
-      }, handleNewAdminAction)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'amazon_affiliate_clicks',
+        },
+        handleNewAffiliateClick
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'newsletter_subscribers',
+        },
+        handleNewSubscriber
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'contact_submissions',
+        },
+        handleNewContact
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'ai_tool_submissions',
+        },
+        handleNewToolSubmission
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'admin_activity_log',
+        },
+        handleNewAdminAction
+      )
       .subscribe();
 
     // Refresh every 30 seconds to catch article views
@@ -119,7 +146,7 @@ export const LiveActivityFeed: React.FC = () => {
       // Combine and sort all activities
       const allActivities: ActivityEvent[] = [];
 
-      clicks?.forEach(click => {
+      clicks?.forEach((click) => {
         allActivities.push({
           id: `click-${click.id}`,
           type: 'affiliate_click',
@@ -128,11 +155,11 @@ export const LiveActivityFeed: React.FC = () => {
           timestamp: new Date(click.clicked_at),
           metadata: { asin: click.asin },
           icon: <MousePointerClick className="h-4 w-4" />,
-          color: 'text-blue-500'
+          color: 'text-blue-500',
         });
       });
 
-      subscribers?.forEach(sub => {
+      subscribers?.forEach((sub) => {
         allActivities.push({
           id: `sub-${sub.id}`,
           type: 'newsletter_signup',
@@ -140,44 +167,44 @@ export const LiveActivityFeed: React.FC = () => {
           description: sub.email,
           timestamp: new Date(sub.subscribed_at),
           icon: <Mail className="h-4 w-4" />,
-          color: 'text-green-500'
+          color: 'text-green-500',
         });
       });
 
-      contacts?.forEach((contact: any) => {
+      contacts?.forEach((contact: ContactSubmissionRow) => {
         allActivities.push({
           id: `contact-${contact.id}`,
           type: 'contact_form',
           title: 'Contact Form Submitted',
           description: contact.subject || contact.name || 'New contact',
-          timestamp: new Date(contact.submitted_at || contact.created_at),
+          timestamp: new Date(contact.submitted_at || contact.created_at || Date.now()),
           icon: <MessageSquare className="h-4 w-4" />,
-          color: 'text-purple-500'
+          color: 'text-purple-500',
         });
       });
 
-      toolSubmissions?.forEach((tool: any) => {
+      toolSubmissions?.forEach((tool: ToolSubmissionRow) => {
         allActivities.push({
           id: `tool-${tool.id}`,
           type: 'tool_submission',
           title: 'AI Tool Submitted',
           description: tool.tool_name || 'New tool',
-          timestamp: new Date(tool.submitted_at || tool.created_at),
+          timestamp: new Date(tool.submitted_at || tool.created_at || Date.now()),
           icon: <Wrench className="h-4 w-4" />,
-          color: 'text-orange-500'
+          color: 'text-orange-500',
         });
       });
 
-      adminActions?.forEach((action: any) => {
+      adminActions?.forEach((action: AdminActionRow) => {
         allActivities.push({
           id: `admin-${action.id}`,
           type: 'admin_action',
           title: formatActionName(action.action || 'action'),
           description: action.resource_title || action.action_category || action.details || '',
-          timestamp: new Date(action.timestamp || action.created_at),
+          timestamp: new Date(action.timestamp || action.created_at || Date.now()),
           metadata: { admin: action.admin_email || 'admin' },
           icon: <Settings className="h-4 w-4" />,
-          color: 'text-gray-500'
+          color: 'text-gray-500',
         });
       });
 
@@ -192,77 +219,82 @@ export const LiveActivityFeed: React.FC = () => {
     }
   };
 
-  const handleNewAffiliateClick = (payload: any) => {
+  const handleNewAffiliateClick = (payload: RealtimePayload<AffiliateClickRow>) => {
+    const row = payload.new as AffiliateClickRow;
     const newActivity: ActivityEvent = {
-      id: `click-${payload.new.id}`,
+      id: `click-${row.id}`,
       type: 'affiliate_click',
       title: 'Affiliate Link Clicked',
       description: 'New affiliate click',
-      timestamp: new Date(payload.new.clicked_at),
-      metadata: { asin: payload.new.asin },
+      timestamp: new Date(row.clicked_at),
+      metadata: { asin: row.asin },
       icon: <MousePointerClick className="h-4 w-4" />,
-      color: 'text-blue-500'
+      color: 'text-blue-500',
     };
-    setActivities(prev => [newActivity, ...prev].slice(0, 50));
+    setActivities((prev) => [newActivity, ...prev].slice(0, 50));
   };
 
-  const handleNewSubscriber = (payload: any) => {
+  const handleNewSubscriber = (payload: RealtimePayload<NewsletterSubscriberRow>) => {
+    const row = payload.new as NewsletterSubscriberRow;
     const newActivity: ActivityEvent = {
-      id: `sub-${payload.new.id}`,
+      id: `sub-${row.id}`,
       type: 'newsletter_signup',
       title: 'Newsletter Signup',
-      description: payload.new.email,
-      timestamp: new Date(payload.new.subscribed_at),
+      description: row.email,
+      timestamp: new Date(row.subscribed_at),
       icon: <Mail className="h-4 w-4" />,
-      color: 'text-green-500'
+      color: 'text-green-500',
     };
-    setActivities(prev => [newActivity, ...prev].slice(0, 50));
+    setActivities((prev) => [newActivity, ...prev].slice(0, 50));
   };
 
-  const handleNewContact = (payload: any) => {
+  const handleNewContact = (payload: RealtimePayload<ContactSubmissionRow>) => {
+    const row = payload.new as ContactSubmissionRow;
     const newActivity: ActivityEvent = {
-      id: `contact-${payload.new.id}`,
+      id: `contact-${row.id}`,
       type: 'contact_form',
       title: 'Contact Form Submitted',
-      description: payload.new.subject || payload.new.name,
-      timestamp: new Date(payload.new.submitted_at),
+      description: row.subject || row.name || 'New contact',
+      timestamp: new Date(row.submitted_at || row.created_at || Date.now()),
       icon: <MessageSquare className="h-4 w-4" />,
-      color: 'text-purple-500'
+      color: 'text-purple-500',
     };
-    setActivities(prev => [newActivity, ...prev].slice(0, 50));
+    setActivities((prev) => [newActivity, ...prev].slice(0, 50));
   };
 
-  const handleNewToolSubmission = (payload: any) => {
+  const handleNewToolSubmission = (payload: RealtimePayload<ToolSubmissionRow>) => {
+    const row = payload.new as ToolSubmissionRow;
     const newActivity: ActivityEvent = {
-      id: `tool-${payload.new.id}`,
+      id: `tool-${row.id}`,
       type: 'tool_submission',
       title: 'AI Tool Submitted',
-      description: payload.new.tool_name,
-      timestamp: new Date(payload.new.submitted_at),
+      description: row.tool_name || 'New tool',
+      timestamp: new Date(row.submitted_at || row.created_at || Date.now()),
       icon: <Wrench className="h-4 w-4" />,
-      color: 'text-orange-500'
+      color: 'text-orange-500',
     };
-    setActivities(prev => [newActivity, ...prev].slice(0, 50));
+    setActivities((prev) => [newActivity, ...prev].slice(0, 50));
   };
 
-  const handleNewAdminAction = (payload: any) => {
+  const handleNewAdminAction = (payload: RealtimePayload<AdminActionRow>) => {
+    const row = payload.new as AdminActionRow;
     const newActivity: ActivityEvent = {
-      id: `admin-${payload.new.id}`,
+      id: `admin-${row.id}`,
       type: 'admin_action',
-      title: formatActionName(payload.new.action),
-      description: payload.new.resource_title || payload.new.action_category || '',
-      timestamp: new Date(payload.new.timestamp),
-      metadata: { admin: payload.new.admin_email },
+      title: formatActionName(row.action || 'action'),
+      description: row.resource_title || row.action_category || '',
+      timestamp: new Date(row.timestamp || row.created_at || Date.now()),
+      metadata: { admin: row.admin_email || 'admin' },
       icon: <Settings className="h-4 w-4" />,
-      color: 'text-gray-500'
+      color: 'text-gray-500',
     };
-    setActivities(prev => [newActivity, ...prev].slice(0, 50));
+    setActivities((prev) => [newActivity, ...prev].slice(0, 50));
   };
 
   const formatActionName = (action: string): string => {
     return action
       .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
   };
 
@@ -304,7 +336,7 @@ export const LiveActivityFeed: React.FC = () => {
                   key={activity.id}
                   className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                   style={{
-                    animation: index < 3 ? 'fadeIn 0.3s ease-in' : 'none'
+                    animation: index < 3 ? 'fadeIn 0.3s ease-in' : 'none',
                   }}
                 >
                   <div className={`p-2 rounded-full bg-muted ${activity.color}`}>

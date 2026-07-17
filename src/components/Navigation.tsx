@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, CheckCircle2, Search } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -13,6 +15,39 @@ const Navigation = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen } = useGlobalSearch();
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Animate the mobile menu with a single GSAP timeline (smoother than CSS
+  // per-item staggered keyframes on budget devices). The whole animation
+  // completes in <300ms; will-change is set during the tween and cleared on
+  // complete to free GPU memory. Reduced-motion users get an instant menu.
+  useGSAP(
+    () => {
+      const menu = mobileMenuRef.current;
+      if (!isMenuOpen || !menu) return;
+
+      const items = menu.querySelectorAll<HTMLElement>('.mobile-nav-item');
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (prefersReducedMotion) {
+        gsap.set([menu, ...items], { clearProps: 'all' });
+        return;
+      }
+
+      gsap.set([menu, ...items], { willChange: 'transform, opacity' });
+      const tl = gsap.timeline({
+        onComplete: () => {
+          gsap.set([menu, ...items], { willChange: 'auto' });
+        },
+      });
+      tl.from(menu, { y: -8, opacity: 0, duration: 0.2, ease: 'power2.out' }, 0).from(
+        items,
+        { y: 8, opacity: 0, duration: 0.2, stagger: 0.015, ease: 'power2.out' },
+        0.02
+      );
+    },
+    { scope: mobileMenuRef, dependencies: [isMenuOpen] }
+  );
 
   // Fetch availability status from profile settings
   const { data: profile } = useQuery({
@@ -85,7 +120,11 @@ const Navigation = () => {
         />
       )}
 
-      <nav className="fixed top-0 left-0 right-0 z-50 navbar-blur" role="navigation" aria-label="Main navigation">
+      <nav
+        className="fixed top-0 left-0 right-0 z-50 navbar-blur"
+        role="navigation"
+        aria-label="Main navigation"
+      >
         <div className="container mx-auto mobile-container py-3 sm:py-4">
           <div className="flex items-center justify-between">
             {/* Logo - Mobile First with larger touch target */}
@@ -97,177 +136,161 @@ const Navigation = () => {
               Dan Pearson
             </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-4 xl:space-x-6">
-            {/* Availability Badge */}
-            {profile?.availability_status === 'available' && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" aria-hidden="true" />
-                <span className="text-xs font-medium text-green-500">Available</span>
-              </div>
-            )}
-            {profile?.availability_status === 'limited' && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" aria-hidden="true"></div>
-                <span className="text-xs font-medium text-yellow-500">Limited</span>
-              </div>
-            )}
-
-            {/* Search Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsSearchOpen(true)}
-              className="flex items-center gap-2 text-muted-foreground hover:text-primary"
-              aria-label="Open search"
-            >
-              <Search className="w-4 h-4" aria-hidden="true" />
-              <span className="hidden xl:inline">Search</span>
-              <kbd className="hidden xl:inline px-1.5 py-0.5 text-xs bg-muted rounded">⌘K</kbd>
-            </Button>
-
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.path}
-                className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-primary min-h-[44px] flex items-center ${
-                  isActive(item.path)
-                    ? 'text-primary'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                {item.name}
-                {isActive(item.path) && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-                )}
-              </Link>
-            ))}
-
-            <Link
-              to="/admin/login"
-              className="flex items-center space-x-2 ml-4 px-3 py-2 text-xs text-muted-foreground hover:text-primary transition-colors duration-200 rounded-md hover:bg-muted/20"
-            >
-              <div className="w-3 h-3 rounded-full border border-primary/50"></div>
-              <span>Admin</span>
-            </Link>
-          </div>
-
-          {/* Mobile Menu Button - Touch Optimized */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
-            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            aria-expanded={isMenuOpen}
-            aria-controls="mobile-navigation-menu"
-          >
-            {isMenuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
-          </button>
-        </div>
-
-        {/* Mobile Navigation - Optimized for Touch & Swipe */}
-        {isMenuOpen && (
-          <div
-            id="mobile-navigation-menu"
-            role="menu"
-            aria-label="Navigation menu"
-            className="lg:hidden mt-4 pb-4 border-t border-border"
-            style={{
-              animation: 'slideDown 0.3s ease-out',
-              maxHeight: 'calc(100vh - 80px)',
-              overflowY: 'auto',
-              WebkitOverflowScrolling: 'touch'
-            }}
-          >
-            <div className="flex flex-col pt-4 space-y-1">
-              {/* Mobile Availability Badge */}
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center space-x-4 xl:space-x-6">
+              {/* Availability Badge */}
               {profile?.availability_status === 'available' && (
-                <div className="mx-4 mb-2 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" aria-hidden="true" />
-                  <span className="text-sm font-medium text-green-500">Available for Projects</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500" aria-hidden="true" />
+                  <span className="text-xs font-medium text-green-500">Available</span>
                 </div>
               )}
               {profile?.availability_status === 'limited' && (
-                <div className="mx-4 mb-2 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" aria-hidden="true"></div>
-                  <span className="text-sm font-medium text-yellow-500">Limited Availability</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+                  <div
+                    className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"
+                    aria-hidden="true"
+                  ></div>
+                  <span className="text-xs font-medium text-yellow-500">Limited</span>
                 </div>
               )}
 
-              {navItems.map((item, index) => (
+              {/* Search Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsSearchOpen(true)}
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary"
+                aria-label="Open search"
+              >
+                <Search className="w-4 h-4" aria-hidden="true" />
+                <span className="hidden xl:inline">Search</span>
+                <kbd className="hidden xl:inline px-1.5 py-0.5 text-xs bg-muted rounded">⌘K</kbd>
+              </Button>
+
+              {navItems.map((item) => (
                 <Link
                   key={item.name}
                   to={item.path}
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
-                    isActive(item.path)
-                      ? 'text-primary bg-primary/10 shadow-lg shadow-primary/5'
-                      : 'text-muted-foreground hover:bg-muted/20 active:bg-muted/30'
+                  className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-primary min-h-[44px] flex items-center ${
+                    isActive(item.path) ? 'text-primary' : 'text-muted-foreground'
                   }`}
-                  style={{
-                    animation: `slideInRight 0.3s ease-out ${index * 0.05}s both`
-                  }}
                 >
                   {item.name}
                   {isActive(item.path) && (
-                    <div className="ml-auto w-2 h-2 rounded-full bg-primary"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
                   )}
                 </Link>
               ))}
 
               <Link
                 to="/admin/login"
-                onClick={() => setIsMenuOpen(false)}
-                className="flex items-center space-x-3 px-6 py-4 mt-4 border-t border-border mx-2 text-base text-muted-foreground hover:text-primary transition-all duration-200 rounded-xl hover:bg-muted/20 active:bg-muted/30 touch-target"
-                style={{
-                  animation: `slideInRight 0.3s ease-out ${navItems.length * 0.05}s both`
-                }}
+                className="flex items-center space-x-2 ml-4 px-3 py-2 text-xs text-muted-foreground hover:text-primary transition-colors duration-200 rounded-md hover:bg-muted/20"
               >
-                <div className="w-3 h-3 rounded-full border-2 border-primary/50"></div>
-                <span>Admin Access</span>
+                <div className="w-3 h-3 rounded-full border border-primary/50"></div>
+                <span>Admin</span>
               </Link>
             </div>
 
-            {/* Swipe indicator */}
-            <div className="flex justify-center mt-6 mb-2">
-              <div className="w-12 h-1 bg-muted rounded-full"></div>
-            </div>
+            {/* Mobile Menu Button - Touch Optimized */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="lg:hidden text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
+              aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={isMenuOpen}
+              aria-controls="mobile-navigation-menu"
+            >
+              {isMenuOpen ? (
+                <X size={24} aria-hidden="true" />
+              ) : (
+                <Menu size={24} aria-hidden="true" />
+              )}
+            </button>
           </div>
-        )}
-      </div>
 
-      {/* Mobile menu animations */}
-      <style>{`
+          {/* Mobile Navigation - Optimized for Touch & Swipe */}
+          {isMenuOpen && (
+            <div
+              ref={mobileMenuRef}
+              id="mobile-navigation-menu"
+              role="menu"
+              aria-label="Navigation menu"
+              className="lg:hidden mt-4 pb-4 border-t border-border"
+              style={{
+                maxHeight: 'calc(100vh - 80px)',
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              <div className="flex flex-col pt-4 space-y-1">
+                {/* Mobile Availability Badge */}
+                {profile?.availability_status === 'available' && (
+                  <div className="mx-4 mb-2 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" aria-hidden="true" />
+                    <span className="text-sm font-medium text-green-500">
+                      Available for Projects
+                    </span>
+                  </div>
+                )}
+                {profile?.availability_status === 'limited' && (
+                  <div className="mx-4 mb-2 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+                    <div
+                      className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"
+                      aria-hidden="true"
+                    ></div>
+                    <span className="text-sm font-medium text-yellow-500">
+                      Limited Availability
+                    </span>
+                  </div>
+                )}
+
+                {navItems.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`mobile-nav-item px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
+                      isActive(item.path)
+                        ? 'text-primary bg-primary/10 shadow-lg shadow-primary/5'
+                        : 'text-muted-foreground hover:bg-muted/20 active:bg-muted/30'
+                    }`}
+                  >
+                    {item.name}
+                    {isActive(item.path) && (
+                      <div className="ml-auto w-2 h-2 rounded-full bg-primary"></div>
+                    )}
+                  </Link>
+                ))}
+
+                <Link
+                  to="/admin/login"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="mobile-nav-item flex items-center space-x-3 px-6 py-4 mt-4 border-t border-border mx-2 text-base text-muted-foreground hover:text-primary transition-all duration-200 rounded-xl hover:bg-muted/20 active:bg-muted/30 touch-target"
+                >
+                  <div className="w-3 h-3 rounded-full border-2 border-primary/50"></div>
+                  <span>Admin Access</span>
+                </Link>
+              </div>
+
+              {/* Swipe indicator */}
+              <div className="flex justify-center mt-6 mb-2">
+                <div className="w-12 h-1 bg-muted rounded-full"></div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Backdrop fade (mobile menu items/container are animated via GSAP) */}
+        <style>{`
         @keyframes fade-in {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
       `}</style>
-    </nav>
+      </nav>
 
-    {/* Global Search Dialog */}
-    <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+      {/* Global Search Dialog */}
+      <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
     </>
   );
 };

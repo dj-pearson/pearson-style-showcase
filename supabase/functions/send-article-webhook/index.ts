@@ -1,8 +1,8 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -41,12 +41,14 @@ Deno.serve(async (req) => {
     if (isTest) {
       // Send test payload with example data
       payload = {
-        articleTitle: "Example Article: Best Productivity Tools for 2025",
-        articleUrl: "https://yourdomain.com/article/best-productivity-tools-2025",
-        shortForm: "🚀 Just published: Best Productivity Tools for 2025! Discover game-changing apps that will transform your workflow. #Productivity #Tech #Tools2025",
-        longForm: "We've just published an in-depth guide to the Best Productivity Tools for 2025! 📊\n\nAfter extensive testing and research, we've compiled a comprehensive list of tools that can revolutionize how you work. From AI-powered assistants to smart automation platforms, these tools are designed to save you time and boost your efficiency.\n\n👉 Check out our full guide and find the perfect tools for your workflow!",
-        imageUrl: "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=800",
-        isTest: true
+        articleTitle: 'Example Article: Best Productivity Tools for 2025',
+        articleUrl: 'https://yourdomain.com/article/best-productivity-tools-2025',
+        shortForm:
+          '🚀 Just published: Best Productivity Tools for 2025! Discover game-changing apps that will transform your workflow. #Productivity #Tech #Tools2025',
+        longForm:
+          "We've just published an in-depth guide to the Best Productivity Tools for 2025! 📊\n\nAfter extensive testing and research, we've compiled a comprehensive list of tools that can revolutionize how you work. From AI-powered assistants to smart automation platforms, these tools are designed to save you time and boost your efficiency.\n\n👉 Check out our full guide and find the perfect tools for your workflow!",
+        imageUrl: 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=800',
+        isTest: true,
       };
     } else {
       // Fetch article details
@@ -63,9 +65,9 @@ Deno.serve(async (req) => {
       // Check if social content exists, if not generate it first
       if (!article.social_short_form || !article.social_long_form) {
         console.log('Social content not found, generating...');
-        
+
         const generateResponse = await supabaseClient.functions.invoke('generate-social-content', {
-          body: { articleId }
+          body: { articleId },
         });
 
         if (generateResponse.error) {
@@ -91,8 +93,9 @@ Deno.serve(async (req) => {
 
       // Get image URL with fallback, avoiding development URLs
       let imageUrl = article.social_image_url || article.image_url;
-      const fallbackImage = 'https://scontent.fmkc1-1.fna.fbcdn.net/v/t39.30808-6/350526663_265361856015104_2511515537397835596_n.png?_nc_cat=100&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=_PDkKTskHscQ7kNvwHraKVB&_nc_oc=AdndVNO2DrOi5JevmH1yceOg7IO-o9OyWItYuOURwX-aM3YiF02tCo5m9p5igXx03fk&_nc_zt=23&_nc_ht=scontent.fmkc1-1.fna&_nc_gid=PRDn38SFrtGIBgimQFdCqg&oh=00_AfjZZm3QbIK1dT2hiZJm4x3kjkWq8-7QzQE2iS9dogCGtQ&oe=6912061C';
-      
+      const fallbackImage =
+        'https://scontent.fmkc1-1.fna.fbcdn.net/v/t39.30808-6/350526663_265361856015104_2511515537397835596_n.png?_nc_cat=100&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=_PDkKTskHscQ7kNvwHraKVB&_nc_oc=AdndVNO2DrOi5JevmH1yceOg7IO-o9OyWItYuOURwX-aM3YiF02tCo5m9p5igXx03fk&_nc_zt=23&_nc_ht=scontent.fmkc1-1.fna&_nc_gid=PRDn38SFrtGIBgimQFdCqg&oh=00_AfjZZm3QbIK1dT2hiZJm4x3kjkWq8-7QzQE2iS9dogCGtQ&oe=6912061C';
+
       // Replace development URLs or use fallback if no image
       if (!imageUrl || imageUrl.includes('.lovable.app') || imageUrl.includes('localhost')) {
         imageUrl = fallbackImage;
@@ -104,7 +107,7 @@ Deno.serve(async (req) => {
         shortForm: article.social_short_form,
         longForm: article.social_long_form,
         imageUrl: imageUrl,
-        isTest: false
+        isTest: false,
       };
     }
 
@@ -128,22 +131,18 @@ Deno.serve(async (req) => {
     console.log('Webhook sent successfully');
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: isTest ? 'Test webhook sent successfully' : 'Article webhook sent successfully',
-        payload 
+        payload,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error sending webhook:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

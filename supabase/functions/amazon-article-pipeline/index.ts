@@ -1,9 +1,14 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
-import { checkRateLimit, getClientIdentifier, createRateLimitResponse, type RateLimitConfig } from "../_shared/rate-limiter.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  createRateLimitResponse,
+  type RateLimitConfig,
+} from '../_shared/rate-limiter.ts';
 
 // Rate limit: 2 requests per hour per IP (expensive AI operation)
 const PIPELINE_RATE_LIMIT: RateLimitConfig = {
@@ -25,7 +30,7 @@ function extractASIN(url: string): string | null {
     /\/dp\/([A-Z0-9]{10})/,
     /\/gp\/product\/([A-Z0-9]{10})/,
     /\/product\/([A-Z0-9]{10})/,
-    /amazon\.com\/([A-Z0-9]{10})/
+    /amazon\.com\/([A-Z0-9]{10})/,
   ];
 
   for (const pattern of patterns) {
@@ -107,7 +112,7 @@ async function fetchProductsViaSerpAPI(niche: string, itemCount: number = 5): Pr
         ratingCount,
         price,
         imageUrl: item.thumbnail || '',
-        bulletPoints: item.extensions || []
+        bulletPoints: item.extensions || [],
       };
     })
     .filter((p: any) => p !== null && p.asin)
@@ -122,7 +127,9 @@ async function fetchProductsViaGoogleSearch(niche: string, itemCount: number = 5
   const searchEngineId = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
 
   if (!googleApiKey || !searchEngineId) {
-    throw new Error('Google Search API not configured (GOOGLE_SEARCH_API_KEY or GOOGLE_SEARCH_ENGINE_ID missing)');
+    throw new Error(
+      'Google Search API not configured (GOOGLE_SEARCH_API_KEY or GOOGLE_SEARCH_ENGINE_ID missing)'
+    );
   }
 
   // Search specifically on Amazon.com for products
@@ -164,7 +171,7 @@ async function fetchProductsViaGoogleSearch(niche: string, itemCount: number = 5
         ratingCount: 0,
         price: 0,
         imageUrl: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.cse_thumbnail?.[0]?.src || '',
-        bulletPoints: []
+        bulletPoints: [],
       };
     })
     .filter((p: any) => p !== null && p.asin)
@@ -193,7 +200,7 @@ async function fetchAmazonProducts(
     }
   } catch (error) {
     await log('warn', 'SerpAPI failed, falling back to Google Search', {
-      error: (error as Error)?.message ?? String(error)
+      error: (error as Error)?.message ?? String(error),
     });
   }
 
@@ -208,7 +215,7 @@ async function fetchAmazonProducts(
     }
   } catch (error) {
     await log('error', 'Google Search also failed', {
-      error: (error as Error)?.message ?? String(error)
+      error: (error as Error)?.message ?? String(error),
     });
     throw new Error(`Both SerpAPI and Google Search failed: ${(error as Error)?.message}`);
   }
@@ -217,7 +224,10 @@ async function fetchAmazonProducts(
 }
 
 // Enrich product data with Amazon page scraping (optional enhancement)
-async function enrichProductData(products: any[], log: (level: string, message: string, ctx?: any) => Promise<void>): Promise<any[]> {
+async function enrichProductData(
+  products: any[],
+  log: (level: string, message: string, ctx?: any) => Promise<void>
+): Promise<any[]> {
   const enrichedProducts = [];
 
   for (const product of products) {
@@ -236,7 +246,7 @@ async function enrichProductData(products: any[], log: (level: string, message: 
       enrichedProducts.push(product);
     } catch (error) {
       await log('warn', `Failed to enrich product ${product.asin}`, {
-        error: (error as Error)?.message
+        error: (error as Error)?.message,
       });
       enrichedProducts.push(product);
     }
@@ -260,11 +270,15 @@ async function generateArticleContent(products: any[], niche: string, wordCount:
 TARGET WORD COUNT: ${wordCount} words
 
 PRODUCTS TO REVIEW:
-${products.map((p, i) => `${i + 1}. ${p.title}
+${products
+  .map(
+    (p, i) => `${i + 1}. ${p.title}
    - ASIN: ${p.asin}
    - Image URL: ${p.imageUrl || 'No image available'}
    ${p.price > 0 ? `- Price: $${p.price}` : ''}
-   ${p.rating > 0 ? `- Rating: ${p.rating}/5 stars (${p.ratingCount || 0} reviews)` : ''}`).join('\n\n')}
+   ${p.rating > 0 ? `- Rating: ${p.rating}/5 stars (${p.ratingCount || 0} reviews)` : ''}`
+  )
+  .join('\n\n')}
 
 ARTICLE STRUCTURE:
 
@@ -360,17 +374,16 @@ IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting,
     headers: {
       'x-api-key': claudeApiKey,
       'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 8192,
-      system: 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.',
-      messages: [
-        { role: 'user', content: prompt }
-      ],
+      system:
+        'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
-    })
+    }),
   });
 
   if (!response.ok) {
@@ -396,31 +409,33 @@ IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting,
     // Log first 500 chars of the problematic content for debugging
     console.error('[ERROR] JSON parse failed. Content preview:', jsonContent.substring(0, 500));
     console.error('[ERROR] Parse error:', parseError);
-    
+
     // Try to fix common JSON issues
     // 1. Remove any leading/trailing whitespace or BOM
     jsonContent = jsonContent.trim().replace(/^\uFEFF/, '');
-    
+
     // 2. Try to find the JSON object boundaries
     const jsonStart = jsonContent.indexOf('{');
     const jsonEnd = jsonContent.lastIndexOf('}');
-    
+
     if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
       jsonContent = jsonContent.substring(jsonStart, jsonEnd + 1);
-      
+
       try {
         return JSON.parse(jsonContent);
       } catch (secondError) {
         console.error('[ERROR] Second parse attempt failed:', secondError);
       }
     }
-    
-    throw new Error(`Failed to parse AI response as JSON: ${parseError.message}. Content length: ${content.length}`);
+
+    throw new Error(
+      `Failed to parse AI response as JSON: ${parseError.message}. Content length: ${content.length}`
+    );
   }
 }
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -445,7 +460,9 @@ serve(async (req) => {
       if (req.method === 'POST') {
         bodyOverrides = await req.json();
       }
-    } catch (_) { /* ignore bad json */ }
+    } catch (_) {
+      /* ignore bad json */
+    }
 
     // Simple concurrency guard: if a run started in the last 10s and is still running, skip
     const tenSecondsAgo = new Date(Date.now() - 10_000).toISOString();
@@ -457,10 +474,13 @@ serve(async (req) => {
       .limit(1);
 
     if (running && running.length) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Pipeline busy. Try again shortly.'
-      }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Pipeline busy. Try again shortly.',
+        }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create run record
@@ -479,7 +499,7 @@ serve(async (req) => {
         run_id: runId,
         level,
         message,
-        ctx: ctx || {}
+        ctx: ctx || {},
       });
       console.log(`[${level.toUpperCase()}] ${message}`, ctx || '');
     };
@@ -493,7 +513,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const settings = settingsRow || {
-      niches: ["home office", "travel gear", "fitness"],
+      niches: ['home office', 'travel gear', 'fitness'],
       daily_post_count: 1,
       min_rating: 4.0,
       price_min: null,
@@ -502,10 +522,11 @@ serve(async (req) => {
       word_count_target: 1500,
       amazon_tag: 'your-tag-20',
       cache_only_mode: false,
-      id: null
+      id: null,
     };
 
-    const effectiveCacheOnly = Boolean(settings.cache_only_mode) || Boolean(bodyOverrides?.cacheOnly);
+    const effectiveCacheOnly =
+      Boolean(settings.cache_only_mode) || Boolean(bodyOverrides?.cacheOnly);
 
     if (!settings) {
       throw new Error('Pipeline settings not configured');
@@ -514,7 +535,7 @@ serve(async (req) => {
     await log('info', 'Settings loaded', {
       niches: settings.niches,
       cache_only_mode: settings.cache_only_mode,
-      amazon_tag: settings.amazon_tag
+      amazon_tag: settings.amazon_tag,
     });
 
     // Seed search terms from CSV if table is empty
@@ -524,18 +545,17 @@ serve(async (req) => {
 
     if (count === 0) {
       await log('info', 'Seeding search terms from CSV in storage bucket');
-      
+
       // Read CSV from Supabase storage (admin-uploads bucket)
       // Note: You need to upload amazon_ideas.csv to the admin-uploads bucket first
-      const { data: csvData, error: csvError } = await supabase
-        .storage
+      const { data: csvData, error: csvError } = await supabase.storage
         .from('admin-uploads')
         .download('amazon_ideas.csv');
 
       if (csvError) {
         await log('warn', 'CSV file not found in storage, using fallback niches', {
           error: csvError.message,
-          note: 'Upload amazon_ideas.csv to admin-uploads bucket to use CSV search terms'
+          note: 'Upload amazon_ideas.csv to admin-uploads bucket to use CSV search terms',
         });
         // Fall back to using settings niches if CSV not found
         const niches = settings.niches as string[];
@@ -544,12 +564,12 @@ serve(async (req) => {
         const csvText = await csvData.text();
         const lines = csvText.split('\n').slice(1); // Skip header
         const terms = lines
-          .filter(line => line.trim())
-          .map(line => {
+          .filter((line) => line.trim())
+          .map((line) => {
             const [search_term, category] = line.split(',');
             return { search_term: search_term?.trim(), category: category?.trim() };
           })
-          .filter(t => t.search_term && t.category);
+          .filter((t) => t.search_term && t.category);
 
         if (terms.length > 0) {
           // Insert in batches to avoid payload size issues
@@ -592,140 +612,151 @@ serve(async (req) => {
       searchTermId = selectedTerm.id;
 
       await log('info', `Selected search term (attempt ${retryCount + 1}): ${niche}`, {
-        category: selectedTerm.category
+        category: selectedTerm.category,
       });
 
-    // Try cached products first (24h window)
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: cached, error: cacheError } = await supabase
-      .from('amazon_products')
-      .select('asin, title, brand, rating, rating_count, price, image_url, bullet_points')
-      .eq('niche', niche)
-      .gte('last_seen_at', twentyFourHoursAgo)
-      .order('rating', { ascending: false })
-      .limit(5);
+      // Try cached products first (24h window)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: cached, error: cacheError } = await supabase
+        .from('amazon_products')
+        .select('asin, title, brand, rating, rating_count, price, image_url, bullet_points')
+        .eq('niche', niche)
+        .gte('last_seen_at', twentyFourHoursAgo)
+        .order('rating', { ascending: false })
+        .limit(5);
 
-    // Reset products for this attempt
-    products = [];
+      // Reset products for this attempt
+      products = [];
 
-    if (cacheError) {
-      await log('warn', 'Cache query failed', { error: cacheError.message });
-    }
-
-    if (cached && cached.length) {
-      products = (cached as any[]).map((c) => ({
-        asin: c.asin,
-        title: c.title,
-        brand: c.brand,
-        rating: c.rating || 0,
-        ratingCount: c.rating_count || 0,
-        price: c.price || 0,
-        imageUrl: c.image_url || '',
-        bulletPoints: c.bullet_points || []
-      }));
-
-      products = products.filter((p) => (
-        p.asin && // Must have ASIN
-        (settings.price_min ? p.price >= settings.price_min : true) &&
-        (settings.price_max ? p.price <= settings.price_max : true)
-      ));
-
-      if (products.length >= 3) {
-        await log('info', `Using ${products.length} cached products`);
-      } else {
-        products = [];
+      if (cacheError) {
+        await log('warn', 'Cache query failed', { error: cacheError.message });
       }
-    }
 
-    if (products.length < 3) {
-      // Only fetch new products if cache-only is false
-      if (!effectiveCacheOnly) {
-        try {
-          await log('info', 'Fetching fresh products via SerpAPI/Google Search');
+      if (cached && cached.length) {
+        products = (cached as any[]).map((c) => ({
+          asin: c.asin,
+          title: c.title,
+          brand: c.brand,
+          rating: c.rating || 0,
+          ratingCount: c.rating_count || 0,
+          price: c.price || 0,
+          imageUrl: c.image_url || '',
+          bulletPoints: c.bullet_points || [],
+        }));
 
-          // Fetch products using new method
-          let freshProducts = await fetchAmazonProducts(niche, 5, supabase, log);
-
-          // Enrich product data if possible
-          freshProducts = await enrichProductData(freshProducts, log);
-
-          // Filter based on settings
-          freshProducts = freshProducts.filter((p: any) => (
+        products = products.filter(
+          (p) =>
             p.asin && // Must have ASIN
             (settings.price_min ? p.price >= settings.price_min : true) &&
             (settings.price_max ? p.price <= settings.price_max : true)
-          ));
+        );
 
-          if (freshProducts.length === 0) {
-            throw new Error('No products passed filtering criteria');
-          }
+        if (products.length >= 3) {
+          await log('info', `Using ${products.length} cached products`);
+        } else {
+          products = [];
+        }
+      }
 
-          products = freshProducts;
+      if (products.length < 3) {
+        // Only fetch new products if cache-only is false
+        if (!effectiveCacheOnly) {
+          try {
+            await log('info', 'Fetching fresh products via SerpAPI/Google Search');
 
-          // Store newly fetched products in DB for caching
-          if (products.length > 0) {
-            await log('info', `Caching ${products.length} products for future use`);
+            // Fetch products using new method
+            let freshProducts = await fetchAmazonProducts(niche, 5, supabase, log);
 
-            for (const product of products) {
-              await supabase.from('amazon_products').upsert({
-                asin: product.asin,
-                title: product.title,
-                brand: product.brand || '',
-                rating: product.rating || 0,
-                rating_count: product.ratingCount || 0,
-                price: product.price || 0,
-                image_url: product.imageUrl || '',
-                niche: niche,
-                bullet_points: product.bulletPoints || [],
-                last_seen_at: new Date().toISOString()
-              }, { onConflict: 'asin' });
+            // Enrich product data if possible
+            freshProducts = await enrichProductData(freshProducts, log);
+
+            // Filter based on settings
+            freshProducts = freshProducts.filter(
+              (p: any) =>
+                p.asin && // Must have ASIN
+                (settings.price_min ? p.price >= settings.price_min : true) &&
+                (settings.price_max ? p.price <= settings.price_max : true)
+            );
+
+            if (freshProducts.length === 0) {
+              throw new Error('No products passed filtering criteria');
+            }
+
+            products = freshProducts;
+
+            // Store newly fetched products in DB for caching
+            if (products.length > 0) {
+              await log('info', `Caching ${products.length} products for future use`);
+
+              for (const product of products) {
+                await supabase.from('amazon_products').upsert(
+                  {
+                    asin: product.asin,
+                    title: product.title,
+                    brand: product.brand || '',
+                    rating: product.rating || 0,
+                    rating_count: product.ratingCount || 0,
+                    price: product.price || 0,
+                    image_url: product.imageUrl || '',
+                    niche: niche,
+                    bullet_points: product.bulletPoints || [],
+                    last_seen_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'asin' }
+                );
+              }
+            }
+          } catch (err) {
+            await log('error', 'Product fetching failed; trying fallback cache', {
+              error: (err as Error)?.message ?? String(err),
+            });
+
+            // Fallback to older cache (7 days)
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: oldCache } = await supabase
+              .from('amazon_products')
+              .select('asin, title, brand, rating, rating_count, price, image_url, bullet_points')
+              .eq('niche', niche)
+              .gte('last_seen_at', sevenDaysAgo)
+              .order('rating', { ascending: false })
+              .limit(5);
+
+            if (oldCache && oldCache.length) {
+              products = (oldCache as any[])
+                .map((c) => ({
+                  asin: c.asin,
+                  title: c.title,
+                  brand: c.brand,
+                  rating: c.rating || 0,
+                  ratingCount: c.rating_count || 0,
+                  price: c.price || 0,
+                  imageUrl: c.image_url || '',
+                  bulletPoints: c.bullet_points || [],
+                }))
+                .filter(
+                  (p: any) =>
+                    p.asin &&
+                    (settings.price_min ? p.price >= settings.price_min : true) &&
+                    (settings.price_max ? p.price <= settings.price_max : true)
+                );
+
+              await log('info', `Using fallback cache: ${products.length} products`);
             }
           }
-        } catch (err) {
-          await log('error', 'Product fetching failed; trying fallback cache', {
-            error: (err as Error)?.message ?? String(err)
-          });
-
-          // Fallback to older cache (7 days)
-          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-          const { data: oldCache } = await supabase
-            .from('amazon_products')
-            .select('asin, title, brand, rating, rating_count, price, image_url, bullet_points')
-            .eq('niche', niche)
-            .gte('last_seen_at', sevenDaysAgo)
-            .order('rating', { ascending: false })
-            .limit(5);
-
-          if (oldCache && oldCache.length) {
-            products = (oldCache as any[]).map((c) => ({
-              asin: c.asin,
-              title: c.title,
-              brand: c.brand,
-              rating: c.rating || 0,
-              ratingCount: c.rating_count || 0,
-              price: c.price || 0,
-              imageUrl: c.image_url || '',
-              bulletPoints: c.bullet_points || []
-            })).filter((p: any) => (
-              p.asin &&
-              (settings.price_min ? p.price >= settings.price_min : true) &&
-              (settings.price_max ? p.price <= settings.price_max : true)
-            ));
-
-            await log('info', `Using fallback cache: ${products.length} products`);
-          }
+        } else {
+          await log('info', 'Cache-only mode enabled; skipping product search APIs');
         }
-      } else {
-        await log('info', 'Cache-only mode enabled; skipping product search APIs');
       }
-    }
 
       // Check if we got enough products
       if (products.length >= 3) {
         await log('info', `Found ${products.length} products for "${niche}"`);
         break; // Success, exit retry loop
       } else {
-        await log('warn', `Insufficient products for "${niche}" (${products.length}), retrying with different term`);
+        await log(
+          'warn',
+          `Insufficient products for "${niche}" (${products.length}), retrying with different term`
+        );
         retryCount++;
         products = []; // Reset for next attempt
       }
@@ -743,15 +774,18 @@ serve(async (req) => {
           finished_at: new Date().toISOString(),
           posts_created: 0,
           posts_published: 0,
-          note: message
+          note: message,
         })
         .eq('id', runId);
 
-      return new Response(JSON.stringify({
-        success: false,
-        message,
-        runId
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message,
+          runId,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
+      );
     }
 
     await log('info', `Using ${products.length} products for article generation`);
@@ -760,22 +794,19 @@ serve(async (req) => {
     await log('info', 'Generating SEO-optimized article content with AI');
     let articleData;
     try {
-      articleData = await generateArticleContent(
-        products,
-        niche,
-        settings.word_count_target
-      );
+      articleData = await generateArticleContent(products, niche, settings.word_count_target);
       await log('info', 'AI article generation completed successfully');
     } catch (aiError) {
       await log('error', 'AI generation failed', {
         error: (aiError as Error)?.message,
-        stack: (aiError as Error)?.stack
+        stack: (aiError as Error)?.stack,
       });
       throw new Error(`AI generation failed: ${(aiError as Error)?.message}`);
     }
 
     // Create slug
-    const slug = articleData.title.toLowerCase()
+    const slug = articleData.title
+      .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
@@ -795,7 +826,7 @@ serve(async (req) => {
         target_keyword: articleData.target_keyword,
         seo_keywords: articleData.seo_keywords,
         tags: ['Amazon', 'Product Review', niche],
-        read_time: `${Math.ceil(settings.word_count_target / 200)} min read`
+        read_time: `${Math.ceil(settings.word_count_target / 200)} min read`,
       })
       .select()
       .single();
@@ -804,7 +835,7 @@ serve(async (req) => {
 
     await log('info', `Article created: ${article.title}`, {
       slug: article.slug,
-      published: article.published
+      published: article.published,
     });
 
     // Mark search term as used (if we have a searchTermId)
@@ -814,7 +845,7 @@ serve(async (req) => {
         .update({
           used_at: new Date().toISOString(),
           article_id: article.id,
-          product_count: products.length
+          product_count: products.length,
         })
         .eq('id', searchTermId);
 
@@ -823,7 +854,7 @@ serve(async (req) => {
 
     // Link products to article with affiliate URLs and replace placeholders in content
     let finalContent = articleData.content;
-    
+
     for (const productData of articleData.products) {
       // Generate proper Amazon Associates affiliate URL with all required parameters
       const linkId = Math.random().toString(36).substring(2, 15);
@@ -840,30 +871,29 @@ serve(async (req) => {
         cons: productData.cons,
         specs: productData.specs,
         best_for: productData.best_for,
-        affiliate_url: affiliateUrl
+        affiliate_url: affiliateUrl,
       });
 
       await log('info', `Linked product ${productData.asin} with affiliate URL`, {
         asin: productData.asin,
-        tag: settings.amazon_tag
+        tag: settings.amazon_tag,
       });
     }
 
     // Update article content with actual affiliate links
-    await supabase
-      .from('articles')
-      .update({ content: finalContent })
-      .eq('id', article.id);
+    await supabase.from('articles').update({ content: finalContent }).eq('id', article.id);
 
     // If article is published, trigger webhook to distribute to social
     if (article.published) {
       try {
         await supabase.functions.invoke('send-article-webhook', {
-          body: { articleId: article.id, isTest: false }
+          body: { articleId: article.id, isTest: false },
         });
         await log('info', 'Webhook invoked for article', { articleId: article.id });
       } catch (e) {
-        await log('error', 'Failed to invoke webhook', { error: (e as Error)?.message || String(e) });
+        await log('error', 'Failed to invoke webhook', {
+          error: (e as Error)?.message || String(e),
+        });
       }
     }
 
@@ -875,7 +905,7 @@ serve(async (req) => {
         finished_at: new Date().toISOString(),
         posts_created: 1,
         posts_published: article.published ? 1 : 0,
-        note: `Successfully created article: ${article.title}`
+        note: `Successfully created article: ${article.title}`,
       })
       .eq('id', runId);
 
@@ -897,16 +927,15 @@ serve(async (req) => {
           title: article.title,
           slug: article.slug,
           url: `https://yourdomain.com/news/${article.slug}`,
-          published: article.published
+          published: article.published,
         },
         products: products.length,
         affiliateTag: settings.amazon_tag,
         method: 'SerpAPI/Google Search',
-        runId: runId
+        runId: runId,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }

@@ -1,8 +1,17 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase, isApiReachable, clearStaleAuthTokens } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { logger } from '@/lib/logger';
+import { toast } from '@/components/ui/sonner';
 // oauth-state.ts is still used by AuthCallback for legacy PKCE flows
 // The primary OAuth flow now uses the oauth-proxy edge function
 import {
@@ -25,16 +34,25 @@ export type AppRole = 'admin' | 'editor' | 'viewer';
 
 // Cache keys for localStorage
 const ADMIN_CACHE_KEY = 'admin_user_cache';
-const ADMIN_CACHE_TTL = 30 * 60 * 1000; // 30 minutes - admin verification is valid for this long
+// Admin verification cache lifetime. Kept short so stale permissions cannot be
+// exploited after a role change (reduced from 30 minutes for tighter security).
+const ADMIN_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+// Refresh cached admin data in the background once it is older than this, so
+// roles/permissions stay fresh well before the hard TTL expiry.
+const ADMIN_CACHE_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+// Generic auth-failure message. Using one message for every failure mode
+// prevents user enumeration (e.g. distinguishing "not an admin" from "wrong
+// password").
+const AUTH_GENERIC_ERROR = 'Authentication failed';
 
 // Auth status state machine - eliminates race conditions by having explicit states
 export type AuthStatus =
-  | 'initializing'      // App just loaded, checking for existing session
-  | 'unauthenticated'   // No valid session
-  | 'authenticated'     // Supabase session valid, admin verification pending
-  | 'verifying_admin'   // Currently verifying admin access
-  | 'admin_verified'    // Full admin access verified
-  | 'error';            // Auth error occurred
+  | 'initializing' // App just loaded, checking for existing session
+  | 'unauthenticated' // No valid session
+  | 'authenticated' // Supabase session valid, admin verification pending
+  | 'verifying_admin' // Currently verifying admin access
+  | 'admin_verified' // Full admin access verified
+  | 'error'; // Auth error occurred
 
 interface AdminUser {
   id: string;
@@ -68,11 +86,22 @@ interface AuthContextType {
   roles: AppRole[];
   permissions: string[];
 
+  // Security warnings (surfaced in a visible banner)
+  securityWarning: string | null;
+  dismissSecurityWarning: () => void;
+
   // Actions
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signInWithProvider: (provider: Provider) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   verifyAdminAccess: () => Promise<boolean>;
+  /**
+   * Force an immediate admin-auth re-verification before a sensitive operation
+   * (role/permission changes, vault access, financial approvals). Returns true
+   * only when the server confirms current admin access; surfaces a warning and
+   * returns false otherwise.
+   */
+  requireFreshAdminVerification: () => Promise<boolean>;
 
   // Permission checks
   hasRole: (role: AppRole) => boolean;
@@ -81,7 +110,10 @@ interface AuthContextType {
   hasAllPermissions: (permissions: string[]) => boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Exported so tests can supply a mock value via <AuthContext.Provider> (see
+// src/test/test-utils.tsx). Application code should continue to use the useAuth
+// hook rather than consuming the context directly.
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -102,11 +134,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('initializing');
   const [error, setError] = useState<string | null>(null);
+  // Visible security warning surfaced to the user (e.g. background admin
+  // re-verification failed). Rendered by SecurityWarningBanner.
+  const [securityWarning, setSecurityWarning] = useState<string | null>(null);
 
   // Refs to track current state without causing re-renders
   // These prevent stale closure issues in the auth listener
   const authStatusRef = useRef<AuthStatus>('initializing');
   const isProcessingRef = useRef(false);
+  // Stable reference to signOut so callbacks (e.g. a toast retry button) can
+  // invoke it without a temporal-dead-zone reference to the memoized callback.
+  const signOutRef = useRef<() => Promise<void>>();
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -144,7 +182,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       logger.debug('Using cached admin data', {
         email: data.adminUser.email,
-        ageMinutes: Math.round(age / 60000)
+        ageMinutes: Math.round(age / 60000),
       });
       return data.adminUser;
     } catch (err) {
@@ -157,27 +195,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * Save admin data to localStorage cache (encrypted)
    * Now async due to encryption operations
    */
-  const setCachedAdminData = useCallback(async (userId: string, adminData: AdminUser): Promise<void> => {
-    try {
-      // Check if secure cache is available
-      if (!isSecureCacheAvailable()) {
-        logger.debug('Secure cache not available, skipping cache');
-        return;
-      }
+  const setCachedAdminData = useCallback(
+    async (userId: string, adminData: AdminUser): Promise<void> => {
+      try {
+        // Check if secure cache is available
+        if (!isSecureCacheAvailable()) {
+          logger.debug('Secure cache not available, skipping cache');
+          return;
+        }
 
-      const cacheData: CachedAdminData = {
-        adminUser: adminData,
-        userId,
-        timestamp: Date.now()
-      };
-      const success = await secureSet(ADMIN_CACHE_KEY, cacheData, userId);
-      if (success) {
-        logger.debug('Cached admin data (encrypted) for:', adminData.email);
+        const cacheData: CachedAdminData = {
+          adminUser: adminData,
+          userId,
+          timestamp: Date.now(),
+        };
+        const success = await secureSet(ADMIN_CACHE_KEY, cacheData, userId);
+        if (success) {
+          logger.debug('Cached admin data (encrypted) for:', adminData.email);
+        }
+      } catch (err) {
+        logger.debug('Failed to cache admin data:', err);
       }
-    } catch (err) {
-      logger.debug('Failed to cache admin data:', err);
-    }
-  }, []);
+    },
+    []
+  );
 
   /**
    * Clear cached admin data and encryption salt
@@ -204,7 +245,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setAuthStatus('verifying_admin');
 
     try {
-      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session: currentSession },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
       if (sessionError || !currentSession) {
         logger.debug('No valid session found during admin verification', {
@@ -224,12 +268,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       const adminCheckPromise = invokeEdgeFunction('admin-auth', {
-        body: { action: 'me' }
+        body: { action: 'me' },
       });
 
       const { data, error: functionError } = await Promise.race([
         adminCheckPromise,
-        timeoutPromise
+        timeoutPromise,
       ]);
 
       logger.debug('admin-auth me response:', {
@@ -250,7 +294,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: data.email,
         username: data.username || data.email?.split('@')[0],
         roles: data.roles || ['admin'],
-        permissions: data.permissions || []
+        permissions: data.permissions || [],
       };
 
       setAdminUser(adminData);
@@ -281,7 +325,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const clearStoredAuthData = useCallback(() => {
     try {
       const keys = Object.keys(localStorage);
-      keys.forEach(key => {
+      keys.forEach((key) => {
         if (key.startsWith('sb-') || key.includes('supabase')) {
           localStorage.removeItem(key);
         }
@@ -301,135 +345,154 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * OPTIMIZATION: On page reload, we first check for cached admin data
    * to avoid a slow edge function call. This makes reloads instant.
    */
-  const processSession = useCallback(async (newSession: Session | null, source: string) => {
-    // Prevent concurrent processing
-    if (isProcessingRef.current) {
-      logger.debug(`Skipping session processing from ${source} - already processing`);
-      return;
-    }
-
-    logger.debug(`Processing session from ${source}:`, { hasSession: !!newSession });
-    isProcessingRef.current = true;
-
-    try {
-      if (!newSession) {
-        setSession(null);
-        setUser(null);
-        setAdminUser(null);
-        clearCachedAdminData();
-        setAuthStatus('unauthenticated');
-        setError(null);
+  const processSession = useCallback(
+    async (newSession: Session | null, source: string) => {
+      // Prevent concurrent processing
+      if (isProcessingRef.current) {
+        logger.debug(`Skipping session processing from ${source} - already processing`);
         return;
       }
 
-      // Update session state immediately
-      setSession(newSession);
-      setUser(newSession.user);
+      logger.debug(`Processing session from ${source}:`, { hasSession: !!newSession });
+      isProcessingRef.current = true;
 
-      // FAST PATH: Check for cached admin data first (now encrypted)
-      // This makes page reloads instant without waiting for edge function
-      const cachedAdmin = await getCachedAdminData(newSession.user.id);
-      if (cachedAdmin) {
-        logger.debug('Using cached admin data for instant auth restore');
-        setAdminUser(cachedAdmin);
-        setAuthStatus('admin_verified');
+      try {
+        if (!newSession) {
+          setSession(null);
+          setUser(null);
+          setAdminUser(null);
+          clearCachedAdminData();
+          setAuthStatus('unauthenticated');
+          setError(null);
+          return;
+        }
 
-        // Background refresh: Update cache if it's getting old (> 15 min)
-        // Note: We check the age from the cached data, not by re-reading localStorage
-        const cacheAgeCheck = await secureGet<CachedAdminData>(ADMIN_CACHE_KEY, newSession.user.id);
-        if (cacheAgeCheck) {
-          const age = Date.now() - cacheAgeCheck.timestamp;
-          if (age > ADMIN_CACHE_TTL / 2) {
-            logger.debug('Cache is getting stale, refreshing in background');
-            // Don't await - let it run in background
-            invokeEdgeFunction('admin-auth', { body: { action: 'me' } })
-              .then(async ({ data, error }) => {
-                if (!error && data && !data.error) {
-                  const freshAdminData: AdminUser = {
-                    id: data.id,
-                    email: data.email,
-                    username: data.username || data.email?.split('@')[0],
-                    roles: data.roles || ['admin'],
-                    permissions: data.permissions || []
-                  };
-                  await setCachedAdminData(newSession.user.id, freshAdminData);
-                  // Update state if still mounted and session matches
-                  setAdminUser(freshAdminData);
-                } else {
-                  // Background verification failed - revoke admin access immediately
-                  logger.warn('Background admin verification failed, revoking cached admin status');
+        // Update session state immediately
+        setSession(newSession);
+        setUser(newSession.user);
+
+        // FAST PATH: Check for cached admin data first (now encrypted)
+        // This makes page reloads instant without waiting for edge function
+        const cachedAdmin = await getCachedAdminData(newSession.user.id);
+        if (cachedAdmin) {
+          logger.debug('Using cached admin data for instant auth restore');
+          setAdminUser(cachedAdmin);
+          setAuthStatus('admin_verified');
+
+          // Background refresh: Update cache once it is older than the refresh
+          // threshold (5 min) so roles/permissions stay fresh before hard expiry.
+          // Note: We check the age from the cached data, not by re-reading localStorage
+          const cacheAgeCheck = await secureGet<CachedAdminData>(
+            ADMIN_CACHE_KEY,
+            newSession.user.id
+          );
+          if (cacheAgeCheck) {
+            const age = Date.now() - cacheAgeCheck.timestamp;
+            if (age > ADMIN_CACHE_REFRESH_MS) {
+              logger.debug('Cache is getting stale, refreshing in background');
+              // Don't await - let it run in background
+              invokeEdgeFunction('admin-auth', { body: { action: 'me' } })
+                .then(async ({ data, error }) => {
+                  if (!error && data && !data.error) {
+                    const freshAdminData: AdminUser = {
+                      id: data.id,
+                      email: data.email,
+                      username: data.username || data.email?.split('@')[0],
+                      roles: data.roles || ['admin'],
+                      permissions: data.permissions || [],
+                    };
+                    await setCachedAdminData(newSession.user.id, freshAdminData);
+                    // Update state if still mounted and session matches
+                    setAdminUser(freshAdminData);
+                    setSecurityWarning(null);
+                  } else {
+                    // Background verification failed - revoke admin access immediately
+                    // and surface a visible warning instead of failing silently.
+                    logger.warn(
+                      'Background admin verification failed, revoking cached admin status'
+                    );
+                    setAdminUser(null);
+                    setAuthStatus('unauthenticated');
+                    // Clear stale cache
+                    secureRemove(ADMIN_CACHE_KEY);
+                    setSecurityWarning(
+                      'Your admin access could not be re-verified and has been suspended. Please sign in again.'
+                    );
+                  }
+                })
+                .catch(() => {
+                  // Network error during background refresh - revoke to be safe
+                  logger.warn(
+                    'Background admin refresh network error, revoking cached admin status'
+                  );
                   setAdminUser(null);
                   setAuthStatus('unauthenticated');
-                  // Clear stale cache
                   secureRemove(ADMIN_CACHE_KEY);
-                }
-              })
-              .catch(() => {
-                // Network error during background refresh - revoke to be safe
-                logger.warn('Background admin refresh network error, revoking cached admin status');
-                setAdminUser(null);
-                setAuthStatus('unauthenticated');
-                secureRemove(ADMIN_CACHE_KEY);
-              });
+                  setSecurityWarning(
+                    'We could not confirm your admin access due to a connection problem. Please sign in again.'
+                  );
+                });
+            }
           }
+          return;
         }
-        return;
-      }
 
-      // SLOW PATH: No cache, need to verify with edge function
-      setAuthStatus('verifying_admin');
+        // SLOW PATH: No cache, need to verify with edge function
+        setAuthStatus('verifying_admin');
 
-      // Verify admin access with timeout (10 seconds, consistent with other verification)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Admin verification timeout')), 10000);
-      });
+        // Verify admin access with timeout (10 seconds, consistent with other verification)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Admin verification timeout')), 10000);
+        });
 
-      const adminCheckPromise = invokeEdgeFunction('admin-auth', {
-        body: { action: 'me' }
-      });
+        const adminCheckPromise = invokeEdgeFunction('admin-auth', {
+          body: { action: 'me' },
+        });
 
-      const { data, error: functionError } = await Promise.race([
-        adminCheckPromise,
-        timeoutPromise
-      ]);
+        const { data, error: functionError } = await Promise.race([
+          adminCheckPromise,
+          timeoutPromise,
+        ]);
 
-      if (functionError || data?.error) {
-        logger.warn('Admin verification failed:', functionError?.message || data?.error);
+        if (functionError || data?.error) {
+          logger.warn('Admin verification failed:', functionError?.message || data?.error);
+          setAdminUser(null);
+          clearCachedAdminData();
+          setAuthStatus('authenticated');
+          return;
+        }
+
+        const adminData: AdminUser = {
+          id: data.id,
+          email: data.email,
+          username: data.username || data.email?.split('@')[0],
+          roles: data.roles || ['admin'],
+          permissions: data.permissions || [],
+        };
+
+        setAdminUser(adminData);
+        // Cache the admin data asynchronously (fire-and-forget is OK here)
+        setCachedAdminData(newSession.user.id, adminData).catch(() => {
+          logger.debug('Failed to cache admin data, continuing without cache');
+        });
+        setAuthStatus('admin_verified');
+
+        // Start periodic session rotation for security
+        initializeSessionRotation();
+        startPeriodicRotation();
+
+        logger.info(`Admin verified from ${source}:`, adminData.email);
+      } catch (err) {
+        logger.error('Error during admin verification:', err);
         setAdminUser(null);
         clearCachedAdminData();
         setAuthStatus('authenticated');
-        return;
+      } finally {
+        isProcessingRef.current = false;
       }
-
-      const adminData: AdminUser = {
-        id: data.id,
-        email: data.email,
-        username: data.username || data.email?.split('@')[0],
-        roles: data.roles || ['admin'],
-        permissions: data.permissions || []
-      };
-
-      setAdminUser(adminData);
-      // Cache the admin data asynchronously (fire-and-forget is OK here)
-      setCachedAdminData(newSession.user.id, adminData).catch(() => {
-        logger.debug('Failed to cache admin data, continuing without cache');
-      });
-      setAuthStatus('admin_verified');
-
-      // Start periodic session rotation for security
-      initializeSessionRotation();
-      startPeriodicRotation();
-
-      logger.info(`Admin verified from ${source}:`, adminData.email);
-    } catch (err) {
-      logger.error('Error during admin verification:', err);
-      setAdminUser(null);
-      clearCachedAdminData();
-      setAuthStatus('authenticated');
-    } finally {
-      isProcessingRef.current = false;
-    }
-  }, [getCachedAdminData, setCachedAdminData, clearCachedAdminData]);
+    },
+    [getCachedAdminData, setCachedAdminData, clearCachedAdminData]
+  );
 
   /**
    * Initialize auth on mount and set up listener
@@ -440,66 +503,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Set up auth state change listener FIRST
     logger.debug('Setting up auth state change listener');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        if (!mounted) return;
-        
-        const currentStatus = authStatusRef.current;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (!mounted) return;
 
-        logger.debug(`Auth state changed: ${event}`, {
-          hasSession: !!currentSession,
-          currentStatus
-        });
+      const currentStatus = authStatusRef.current;
 
-        switch (event) {
-          case 'INITIAL_SESSION':
-            // This fires on page load/reload with restored session
-            logger.debug('Initial session event received', { hasSession: !!currentSession });
-            if (currentSession && !isProcessingRef.current) {
-              await processSession(currentSession, 'INITIAL_SESSION event');
-            }
-            // DON'T set unauthenticated here - let the manual fallback handle null sessions
-            // The INITIAL_SESSION event may fire before localStorage is fully read
-            break;
+      logger.debug(`Auth state changed: ${event}`, {
+        hasSession: !!currentSession,
+        currentStatus,
+      });
 
-          case 'SIGNED_IN':
-            // Skip if we're already processing, verifying, or verified
-            if (isProcessingRef.current ||
-                currentStatus === 'verifying_admin' ||
-                currentStatus === 'admin_verified') {
-              logger.debug('Skipping SIGNED_IN - already handling auth');
-              return;
-            }
-            await processSession(currentSession, 'SIGNED_IN event');
-            break;
+      switch (event) {
+        case 'INITIAL_SESSION':
+          // This fires on page load/reload with restored session
+          logger.debug('Initial session event received', { hasSession: !!currentSession });
+          if (currentSession && !isProcessingRef.current) {
+            await processSession(currentSession, 'INITIAL_SESSION event');
+          }
+          // DON'T set unauthenticated here - let the manual fallback handle null sessions
+          // The INITIAL_SESSION event may fire before localStorage is fully read
+          break;
 
-          case 'SIGNED_OUT':
-            logger.info('User signed out');
-            setSession(null);
-            setUser(null);
-            setAdminUser(null);
-            clearCachedAdminData();
-            setAuthStatus('unauthenticated');
-            setError(null);
-            break;
+        case 'SIGNED_IN':
+          // Skip if we're already processing, verifying, or verified
+          if (
+            isProcessingRef.current ||
+            currentStatus === 'verifying_admin' ||
+            currentStatus === 'admin_verified'
+          ) {
+            logger.debug('Skipping SIGNED_IN - already handling auth');
+            return;
+          }
+          await processSession(currentSession, 'SIGNED_IN event');
+          break;
 
-          case 'TOKEN_REFRESHED':
-            logger.debug('Token refreshed');
-            setSession(currentSession);
-            setUser(currentSession?.user ?? null);
-            break;
+        case 'SIGNED_OUT':
+          logger.info('User signed out');
+          setSession(null);
+          setUser(null);
+          setAdminUser(null);
+          clearCachedAdminData();
+          setAuthStatus('unauthenticated');
+          setError(null);
+          break;
 
-          case 'USER_UPDATED':
-            logger.debug('User data updated');
-            setSession(currentSession);
-            setUser(currentSession?.user ?? null);
-            break;
+        case 'TOKEN_REFRESHED':
+          logger.debug('Token refreshed');
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          break;
 
-          default:
-            logger.debug(`Unhandled auth event: ${event}`);
-        }
+        case 'USER_UPDATED':
+          logger.debug('User data updated');
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          break;
+
+        default:
+          logger.debug(`Unhandled auth event: ${event}`);
       }
-    );
+    });
 
     // Check for existing session IMMEDIATELY - no delay needed
     // With caching, this is now very fast
@@ -511,7 +576,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         logger.debug('Checking for existing session immediately');
 
         try {
-          const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+          const {
+            data: { session: existingSession },
+            error,
+          } = await supabase.auth.getSession();
 
           if (!mounted) return;
 
@@ -521,7 +589,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (error.message?.includes('Failed to fetch') || isApiReachable() === false) {
               logger.error('API unreachable (likely CORS issue). Clearing stale tokens.');
               clearStaleAuthTokens();
-              setError('Unable to connect to authentication server. Please contact the administrator.');
+              setError(
+                'Unable to connect to authentication server. Please contact the administrator.'
+              );
             }
             setAuthStatus('unauthenticated');
             return;
@@ -553,7 +623,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logger.debug('Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once on mount
 
   /**
@@ -562,69 +632,77 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * For MFA flows, AdminLogin handles the Supabase auth directly,
    * then calls verifyAdminAccess after MFA completion.
    */
-  const signIn = useCallback(async (email: string, password: string) => {
-    logger.debug('Sign in attempt:', email);
-    setError(null);
-    isProcessingRef.current = true;
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      logger.debug('Sign in attempt:', email);
+      setError(null);
+      isProcessingRef.current = true;
 
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      if (authError || !authData.session) {
-        logger.warn('Supabase signInWithPassword failed:', authError?.message);
+        if (authError || !authData.session) {
+          logger.warn('Supabase signInWithPassword failed:', authError?.message);
+          isProcessingRef.current = false;
+          setAuthStatus('unauthenticated');
+          // Generic message to avoid user enumeration: do not distinguish between
+          // "wrong credentials" and other authentication failures.
+          setError(AUTH_GENERIC_ERROR);
+          return { success: false, error: AUTH_GENERIC_ERROR };
+        }
+
+        logger.debug(
+          'Supabase signInWithPassword succeeded, verifying admin access via admin-auth me'
+        );
+        setSession(authData.session);
+        setUser(authData.user);
+
+        // verifyAdminAccess now handles setting authStatus and starting session rotation
+        const adminVerified = await verifyAdminAccess();
+
+        if (!adminVerified) {
+          logger.warn('Admin verification failed after sign-in');
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setAdminUser(null);
+          setAuthStatus('unauthenticated');
+          isProcessingRef.current = false;
+          // Same generic message as the auth-failure path so an attacker cannot
+          // tell "valid password but not an admin" from "invalid credentials".
+          setError(AUTH_GENERIC_ERROR);
+          return { success: false, error: AUTH_GENERIC_ERROR };
+        }
+
+        isProcessingRef.current = false;
+        logger.info('Sign in successful and admin verified:', email);
+
+        // Rotate session after login (sensitive operation)
+        rotateAfterSensitiveOperation('login').catch((err) => {
+          logger.warn('Post-login rotation failed:', err);
+        });
+
+        return { success: true };
+      } catch (err) {
+        logger.error('Sign in error:', err);
         isProcessingRef.current = false;
         setAuthStatus('unauthenticated');
-        const errorMsg = authError?.message || 'Login failed';
+        // Detect CORS/network errors
+        const isCorsError =
+          (err instanceof TypeError && err.message?.includes('Failed to fetch')) ||
+          isApiReachable() === false;
+        const errorMsg = isCorsError
+          ? 'Unable to connect to authentication server. This is a CORS configuration issue on the API server.'
+          : 'Network error. Please try again.';
         setError(errorMsg);
         return { success: false, error: errorMsg };
       }
-
-      logger.debug('Supabase signInWithPassword succeeded, verifying admin access via admin-auth me');
-      setSession(authData.session);
-      setUser(authData.user);
-
-      // verifyAdminAccess now handles setting authStatus and starting session rotation
-      const adminVerified = await verifyAdminAccess();
-
-      if (!adminVerified) {
-        logger.warn('Admin verification failed after sign-in');
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-        setAdminUser(null);
-        setAuthStatus('unauthenticated');
-        isProcessingRef.current = false;
-        const errorMsg = 'Access denied';
-        setError(errorMsg);
-        return { success: false, error: errorMsg };
-      }
-
-      isProcessingRef.current = false;
-      logger.info('Sign in successful and admin verified:', email);
-
-      // Rotate session after login (sensitive operation)
-      rotateAfterSensitiveOperation('login').catch(err => {
-        logger.warn('Post-login rotation failed:', err);
-      });
-
-      return { success: true };
-    } catch (err) {
-      logger.error('Sign in error:', err);
-      isProcessingRef.current = false;
-      setAuthStatus('unauthenticated');
-      // Detect CORS/network errors
-      const isCorsError = (err instanceof TypeError && err.message?.includes('Failed to fetch')) ||
-                          isApiReachable() === false;
-      const errorMsg = isCorsError
-        ? 'Unable to connect to authentication server. This is a CORS configuration issue on the API server.'
-        : 'Network error. Please try again.';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-  }, [verifyAdminAccess]);
+    },
+    [verifyAdminAccess]
+  );
 
   /**
    * Sign in with OAuth provider (Google, Apple, etc.)
@@ -680,7 +758,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           const { data, error: functionError } = await invokeEdgeFunction('admin-auth', {
-            body: { action: 'logout' }
+            body: { action: 'logout' },
           });
 
           if (!functionError && data?.success) {
@@ -692,7 +770,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (attempt < maxRetries) {
             logger.debug(`Session invalidation attempt ${attempt} failed, retrying...`);
             // Exponential backoff: 500ms, 1000ms, 2000ms
-            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt - 1)));
+            await new Promise((resolve) => setTimeout(resolve, 500 * Math.pow(2, attempt - 1)));
           }
         } catch (err) {
           if (attempt === maxRetries) {
@@ -701,9 +779,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
 
-      // Warn if server invalidation failed - this is a security concern
+      // Warn if server invalidation failed - this is a security concern. Surface
+      // it to the user with an actionable retry instead of proceeding silently.
       if (!serverInvalidated) {
-        logger.warn('SECURITY: Server-side session may still be valid. Admin should check admin_sessions table.');
+        logger.warn(
+          'SECURITY: Server-side session may still be valid. Admin should check admin_sessions table.'
+        );
+        toast.error('Sign out could not be fully completed', {
+          description: 'Your session may still be active on the server. Retry to fully sign out.',
+          action: {
+            label: 'Retry Sign Out',
+            onClick: () => {
+              void signOutRef.current?.();
+            },
+          },
+        });
       }
 
       // Sign out from Supabase Auth (clears local tokens)
@@ -727,70 +817,111 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [clearStoredAuthData]);
 
+  // Keep a stable reference to signOut for use inside callbacks (e.g. the
+  // "Retry Sign Out" toast action) without a TDZ reference.
+  useEffect(() => {
+    signOutRef.current = signOut;
+  }, [signOut]);
+
+  const dismissSecurityWarning = useCallback(() => setSecurityWarning(null), []);
+
+  /**
+   * Force a fresh admin-auth verification before a sensitive operation. Returns
+   * true only when the server confirms current admin access; otherwise surfaces
+   * a warning banner and returns false so the caller can abort the operation.
+   */
+  const requireFreshAdminVerification = useCallback(async (): Promise<boolean> => {
+    const verified = await verifyAdminAccess();
+    if (!verified) {
+      setSecurityWarning(
+        'Your admin access could not be re-verified for this action. Please sign in again.'
+      );
+    }
+    return verified;
+  }, [verifyAdminAccess]);
+
   // Permission check functions
-  const hasRole = useCallback((role: AppRole): boolean => {
-    return adminUser?.roles?.includes(role) ?? false;
-  }, [adminUser]);
+  const hasRole = useCallback(
+    (role: AppRole): boolean => {
+      return adminUser?.roles?.includes(role) ?? false;
+    },
+    [adminUser]
+  );
 
-  const hasPermission = useCallback((permission: string): boolean => {
-    return adminUser?.permissions?.includes(permission) ?? false;
-  }, [adminUser]);
+  const hasPermission = useCallback(
+    (permission: string): boolean => {
+      return adminUser?.permissions?.includes(permission) ?? false;
+    },
+    [adminUser]
+  );
 
-  const hasAnyPermission = useCallback((permissions: string[]): boolean => {
-    if (!adminUser?.permissions) return false;
-    return permissions.some(p => adminUser.permissions.includes(p));
-  }, [adminUser]);
+  const hasAnyPermission = useCallback(
+    (permissions: string[]): boolean => {
+      if (!adminUser?.permissions) return false;
+      return permissions.some((p) => adminUser.permissions.includes(p));
+    },
+    [adminUser]
+  );
 
-  const hasAllPermissions = useCallback((permissions: string[]): boolean => {
-    if (!adminUser?.permissions) return false;
-    return permissions.every(p => adminUser.permissions.includes(p));
-  }, [adminUser]);
+  const hasAllPermissions = useCallback(
+    (permissions: string[]): boolean => {
+      if (!adminUser?.permissions) return false;
+      return permissions.every((p) => adminUser.permissions.includes(p));
+    },
+    [adminUser]
+  );
 
   // Computed values - memoized for performance
-  const value = useMemo<AuthContextType>(() => ({
-    session,
-    user,
-    adminUser,
-    authStatus,
-    error,
+  const value = useMemo<AuthContextType>(
+    () => ({
+      session,
+      user,
+      adminUser,
+      authStatus,
+      error,
 
-    isLoading: authStatus === 'initializing' || authStatus === 'verifying_admin',
-    isAuthenticated: !!session && !!user,
-    isAdminVerified: authStatus === 'admin_verified' && !!adminUser,
-    isAdmin: adminUser?.roles?.includes('admin') ?? false,
-    isEditor: adminUser?.roles?.includes('editor') ?? false,
-    isViewer: adminUser?.roles?.includes('viewer') ?? false,
-    roles: adminUser?.roles ?? [],
-    permissions: adminUser?.permissions ?? [],
+      isLoading: authStatus === 'initializing' || authStatus === 'verifying_admin',
+      isAuthenticated: !!session && !!user,
+      isAdminVerified: authStatus === 'admin_verified' && !!adminUser,
+      isAdmin: adminUser?.roles?.includes('admin') ?? false,
+      isEditor: adminUser?.roles?.includes('editor') ?? false,
+      isViewer: adminUser?.roles?.includes('viewer') ?? false,
+      roles: adminUser?.roles ?? [],
+      permissions: adminUser?.permissions ?? [],
 
-    signIn,
-    signInWithProvider,
-    signOut,
-    verifyAdminAccess,
+      securityWarning,
+      dismissSecurityWarning,
 
-    hasRole,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions
-  }), [
-    session,
-    user,
-    adminUser,
-    authStatus,
-    error,
-    signIn,
-    signInWithProvider,
-    signOut,
-    verifyAdminAccess,
-    hasRole,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions
-  ]);
+      signIn,
+      signInWithProvider,
+      signOut,
+      verifyAdminAccess,
+      requireFreshAdminVerification,
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+      hasRole,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+    }),
+    [
+      session,
+      user,
+      adminUser,
+      authStatus,
+      error,
+      securityWarning,
+      dismissSecurityWarning,
+      signIn,
+      signInWithProvider,
+      signOut,
+      verifyAdminAccess,
+      requireFreshAdminVerification,
+      hasRole,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+    ]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

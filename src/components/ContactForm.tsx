@@ -146,7 +146,7 @@ const ContactForm = () => {
             <h3 className="mobile-heading-sm">Send a Message</h3>
             <span className="text-sm text-muted-foreground font-medium">{completionPercentage()}% complete</span>
           </div>
-          <Progress value={completionPercentage()} className="h-2.5" />
+          <Progress value={completionPercentage()} className="h-2.5" aria-label="Form completion progress" />
         </div>
 
         {/* Submission Progress */}
@@ -156,7 +156,7 @@ const ContactForm = () => {
               <Loader2 className="w-5 h-5 animate-spin text-primary flex-shrink-0" />
               <span className="text-base font-medium">Sending your message...</span>
             </div>
-            <Progress value={submitProgress} className="h-2.5" />
+            <Progress value={submitProgress} className="h-2.5" aria-label="Message submission progress" />
           </div>
         )}
 

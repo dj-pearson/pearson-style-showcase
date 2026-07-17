@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from 'recharts';
 import { TrendingDown, TrendingUp, Minus, Bell, BellOff, DollarSign } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -153,19 +161,23 @@ const AmazonPriceTracker = ({ asin, currentPrice, productTitle }: AmazonPriceTra
   const trend = getPriceTrend();
 
   // Format chart data
-  const chartData = priceHistory?.map(point => ({
-    date: new Date(point.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    price: parseFloat(point.price.toString()),
-  })) || [];
+  const chartData =
+    priceHistory?.map((point) => ({
+      date: new Date(point.recorded_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      price: parseFloat(point.price.toString()),
+    })) || [];
 
   // Calculate savings if there's a lowest price
-  const potentialSavings = currentPrice && priceStats?.lowest_price
-    ? currentPrice - priceStats.lowest_price
-    : 0;
+  const potentialSavings =
+    currentPrice && priceStats?.lowest_price ? currentPrice - priceStats.lowest_price : 0;
 
-  const savingsPercentage = currentPrice && priceStats?.lowest_price
-    ? ((potentialSavings / currentPrice) * 100).toFixed(0)
-    : 0;
+  const savingsPercentage =
+    currentPrice && priceStats?.lowest_price
+      ? ((potentialSavings / currentPrice) * 100).toFixed(0)
+      : 0;
 
   if (isLoadingHistory) {
     return (
@@ -217,9 +229,7 @@ const AmazonPriceTracker = ({ asin, currentPrice, productTitle }: AmazonPriceTra
                 </Badge>
               )}
             </CardTitle>
-            <CardDescription>
-              {priceHistory.length} price points tracked
-            </CardDescription>
+            <CardDescription>{priceHistory.length} price points tracked</CardDescription>
           </div>
 
           {/* Price Alert Button */}
@@ -308,15 +318,11 @@ const AmazonPriceTracker = ({ asin, currentPrice, productTitle }: AmazonPriceTra
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Average</p>
-              <p className="text-lg font-bold">
-                ${priceStats.average_price.toFixed(2)}
-              </p>
+              <p className="text-lg font-bold">${priceStats.average_price.toFixed(2)}</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Current</p>
-              <p className="text-lg font-bold">
-                ${currentPrice?.toFixed(2) || 'N/A'}
-              </p>
+              <p className="text-lg font-bold">${currentPrice?.toFixed(2) || 'N/A'}</p>
             </div>
           </div>
         )}
@@ -330,9 +336,7 @@ const AmazonPriceTracker = ({ asin, currentPrice, productTitle }: AmazonPriceTra
                 <p className="font-medium text-green-500">
                   Save ${potentialSavings.toFixed(2)} ({savingsPercentage}%)
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Compared to lowest recorded price
-                </p>
+                <p className="text-sm text-muted-foreground">Compared to lowest recorded price</p>
               </div>
             </div>
           </div>
@@ -344,33 +348,34 @@ const AmazonPriceTracker = ({ asin, currentPrice, productTitle }: AmazonPriceTra
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00b4d8" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#00b4d8" stopOpacity={0} />
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
                 dataKey="date"
-                stroke="#888"
+                stroke="hsl(var(--muted-foreground))"
                 style={{ fontSize: '12px' }}
               />
               <YAxis
-                stroke="#888"
+                stroke="hsl(var(--muted-foreground))"
                 style={{ fontSize: '12px' }}
                 tickFormatter={(value) => `$${value}`}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1a1a1a',
-                  border: '1px solid #333',
+                  backgroundColor: 'hsl(var(--popover))',
+                  border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--popover-foreground))',
                 }}
                 formatter={(value: number) => [`$${value.toFixed(2)}`, 'Price']}
               />
               <Area
                 type="monotone"
                 dataKey="price"
-                stroke="#00b4d8"
+                stroke="hsl(var(--primary))"
                 strokeWidth={2}
                 fill="url(#priceGradient)"
               />
