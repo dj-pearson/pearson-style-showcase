@@ -270,7 +270,6 @@ function runShader(canvas: HTMLCanvasElement, frag: string): ShaderHandle | null
   let active = true;
   let enter = 0;
   const start = performance.now();
-  let last = start;
 
   const loop = (now: number) => {
     raf = requestAnimationFrame(loop);
@@ -288,7 +287,6 @@ function runShader(canvas: HTMLCanvasElement, frag: string): ShaderHandle | null
     gl.uniform1f(uTime, reduce ? 0.6 : t);
     gl.uniform1f(uEnter, reduce ? 1 : enter);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    last = now;
   };
   raf = requestAnimationFrame(loop);
   // Render one static frame immediately for reduced motion users.
