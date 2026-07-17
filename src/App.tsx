@@ -53,6 +53,7 @@ const RSSFeed = lazy(() => import('./pages/RSSFeed'));
 const Search = lazy(() => import('./pages/Search'));
 const Status = lazy(() => import('./pages/Status'));
 const Accessibility = lazy(() => import('./pages/Accessibility'));
+const Showcase = lazy(() => import('./pages/Showcase'));
 
 // Configure QueryClient with optimized defaults for better caching
 const queryClient = new QueryClient({
@@ -129,6 +130,7 @@ const App = () => (
                       <Route path="/status" element={<Status />} />
                       <Route path="/faq" element={<FAQ />} />
                       <Route path="/accessibility" element={<Accessibility />} />
+                      <Route path="/showcase" element={<Showcase />} />
                       <Route path="/admin/login" element={<AdminLogin />} />
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route

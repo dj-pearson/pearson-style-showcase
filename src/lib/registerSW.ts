@@ -7,6 +7,13 @@ export function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
+        // Whether this page already had a controlling worker when it loaded.
+        // If it did, a later controllerchange means an *update* took over and
+        // we should reload to get fresh assets. If it did not, the first
+        // controller is just the initial registration - reloading then would
+        // be a needless flash on every first visit.
+        const hadControllerAtLoad = Boolean(navigator.serviceWorker.controller);
+
         const registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/',
         });
@@ -14,9 +21,12 @@ export function registerServiceWorker() {
         console.log('[SW] Service Worker registered successfully:', registration.scope);
 
         // Check for updates every hour
-        setInterval(() => {
-          registration.update();
-        }, 60 * 60 * 1000);
+        setInterval(
+          () => {
+            registration.update();
+          },
+          60 * 60 * 1000
+        );
 
         // Handle service worker updates
         registration.addEventListener('updatefound', () => {
@@ -32,11 +42,20 @@ export function registerServiceWorker() {
           }
         });
 
-        // Listen for controller change (new service worker activated)
+        // Listen for controller change (new service worker activated).
+        // When a fresh worker claims this page we reload once so the document
+        // is re-fetched network-first and picks up the current asset hashes.
+        // The guard prevents a reload loop (controllerchange can fire more
+        // than once). We also skip the very first controller acquisition on a
+        // page that started with no controller, which is a normal first-visit
+        // registration and not an update.
+        let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log('[SW] New service worker activated');
-          // Optionally reload the page to use new service worker
-          // window.location.reload();
+          if (refreshing) return;
+          if (!hadControllerAtLoad) return; // first-ever registration, no reload
+          refreshing = true;
+          console.log('[SW] New service worker activated - reloading for fresh assets');
+          window.location.reload();
         });
 
         // Listen for stale assets detection from service worker
@@ -46,7 +65,6 @@ export function registerServiceWorker() {
             showStaleAssetsNotification(event.data.asset);
           }
         });
-
       } catch (error) {
         console.error('[SW] Service Worker registration failed:', error);
       }
@@ -59,7 +77,8 @@ export function registerServiceWorker() {
 function showUpdateNotification(newWorker: ServiceWorker) {
   // Show a notification to the user that an update is available
   const notification = document.createElement('div');
-  notification.className = 'fixed bottom-4 right-4 bg-primary text-primary-foreground p-4 rounded-lg shadow-lg z-50 max-w-sm';
+  notification.className =
+    'fixed bottom-4 right-4 bg-primary text-primary-foreground p-4 rounded-lg shadow-lg z-50 max-w-sm';
 
   // Create notification content using DOM methods for security
   const container = document.createElement('div');
@@ -78,7 +97,8 @@ function showUpdateNotification(newWorker: ServiceWorker) {
 
   const updateBtn = document.createElement('button');
   updateBtn.id = 'sw-update-btn';
-  updateBtn.className = 'px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors text-sm font-medium';
+  updateBtn.className =
+    'px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors text-sm font-medium';
   updateBtn.textContent = 'Update';
 
   textContainer.appendChild(title);
@@ -112,7 +132,8 @@ function showStaleAssetsNotification(assetPath?: string) {
 
   const notification = document.createElement('div');
   notification.id = 'stale-assets-notification';
-  notification.className = 'fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm bg-amber-600 text-white p-4 rounded-lg shadow-lg z-[100]';
+  notification.className =
+    'fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm bg-amber-600 text-white p-4 rounded-lg shadow-lg z-[100]';
 
   // Create notification content using DOM methods for security
   const outerContainer = document.createElement('div');
@@ -132,7 +153,10 @@ function showStaleAssetsNotification(assetPath?: string) {
   path.setAttribute('stroke-linecap', 'round');
   path.setAttribute('stroke-linejoin', 'round');
   path.setAttribute('stroke-width', '2');
-  path.setAttribute('d', 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15');
+  path.setAttribute(
+    'd',
+    'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+  );
 
   svg.appendChild(path);
 
@@ -145,7 +169,8 @@ function showStaleAssetsNotification(assetPath?: string) {
 
   const description = document.createElement('p');
   description.className = 'text-sm opacity-90';
-  description.textContent = 'A new version was deployed. The page will refresh automatically, or click the button below.';
+  description.textContent =
+    'A new version was deployed. The page will refresh automatically, or click the button below.';
 
   textContainer.appendChild(title);
   textContainer.appendChild(description);
@@ -155,7 +180,8 @@ function showStaleAssetsNotification(assetPath?: string) {
 
   const refreshBtn = document.createElement('button');
   refreshBtn.id = 'stale-assets-refresh-btn';
-  refreshBtn.className = 'w-full px-4 py-2 bg-white/20 hover:bg-white/30 rounded transition-colors font-medium';
+  refreshBtn.className =
+    'w-full px-4 py-2 bg-white/20 hover:bg-white/30 rounded transition-colors font-medium';
   refreshBtn.textContent = 'Refresh Now';
 
   outerContainer.appendChild(topContainer);
@@ -182,14 +208,14 @@ async function performStaleAssetsRecovery() {
     // Clear all caches
     if ('caches' in window) {
       const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map(name => caches.delete(name)));
+      await Promise.all(cacheNames.map((name) => caches.delete(name)));
       console.log('[SW] Cleared', cacheNames.length, 'caches');
     }
 
     // Unregister service worker to ensure completely fresh load
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map(reg => reg.unregister()));
+      await Promise.all(registrations.map((reg) => reg.unregister()));
       console.log('[SW] Unregistered service workers');
     }
 
@@ -220,6 +246,8 @@ export async function unregisterServiceWorker() {
  * Check if the app is running as a PWA (installed)
  */
 export function isPWA(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-         (window.navigator as any).standalone === true;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  );
 }

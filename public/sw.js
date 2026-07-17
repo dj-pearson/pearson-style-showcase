@@ -1,7 +1,7 @@
 // Service Worker for Progressive Web App
 // Version 1.0.0
 
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const CACHE_NAME = `pearson-portfolio-${CACHE_VERSION}`;
 
 // Assets to cache immediately on install
@@ -38,8 +38,12 @@ self.addEventListener('install', (event) => {
         console.log('[ServiceWorker] Caching app shell');
         return cache.addAll(PRECACHE_ASSETS);
       })
-      // Don't call skipWaiting() here - let the user control when to update
-      // This prevents page disruption during navigation
+      // Activate this worker as soon as it has finished installing. Previous
+      // versions deliberately waited, but that let a broken/stale worker keep
+      // control indefinitely. Because navigations are now network-first (see
+      // handleNavigation) an immediate takeover cannot pin clients to an old
+      // index.html, and it lets a fixed worker self-heal already-open tabs.
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -63,9 +67,11 @@ self.addEventListener('activate', (event) => {
           })
         );
         
-        // Don't claim clients immediately - this can cause page flickering
-        // The new SW will take control on next navigation or page reload
-        console.log('[ServiceWorker] Activated. Will control pages on next navigation.');
+        // Take control of all open clients immediately so the corrected
+        // worker (and its network-first navigation handling) applies without
+        // requiring a second manual reload.
+        await self.clients.claim();
+        console.log('[ServiceWorker] Activated and claimed clients.');
       })
   );
 });
@@ -109,6 +115,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Navigations (the HTML document) MUST be network-first. Serving a stale
+  // cached index.html is what caused blank pages: the old shell referenced
+  // hashed assets (index-<hash>.js/.css) that no longer exist after a deploy,
+  // and Cloudflare Pages answers those missing asset URLs with index.html
+  // (text/html) via the SPA fallback -> MIME-type errors -> nothing renders.
+  // A fresh document always references the current asset hashes.
+  if (request.mode === 'navigate') {
+    event.respondWith(handleNavigation(request));
+    return;
+  }
+
   // Determine cache strategy based on URL
   const strategy = getStrategyForUrl(url.pathname);
 
@@ -116,6 +133,67 @@ self.addEventListener('fetch', (event) => {
     handleFetch(request, strategy)
   );
 });
+
+// True for build-hashed assets whose content type is known and fixed. If the
+// network returns HTML for one of these, the asset is gone (stale deployment)
+// and Pages served the SPA fallback instead - never cache or return that.
+function isHashedAsset(url) {
+  return url.pathname.startsWith('/assets/') &&
+    /\.(js|mjs|css)$/.test(url.pathname);
+}
+
+function looksLikeHtml(response) {
+  const type = response.headers.get('Content-Type') || '';
+  return type.includes('text/html');
+}
+
+// A hashed asset resolved to HTML (or a hard 404/503): treat as a stale chunk.
+// Drop any poisoned cache entry, ask open clients to recover, and return a
+// clean 503 so the module/stylesheet loader fails fast instead of choking on
+// an HTML body with the wrong MIME type.
+async function staleChunkResponse(request, url) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.delete(request);
+  } catch (e) {
+    /* ignore */
+  }
+  notifyClientsToRefresh(url.pathname);
+  return new Response(
+    JSON.stringify({
+      error: 'CHUNK_LOAD_FAILED',
+      message: 'Application update required. Please refresh the page.',
+      asset: url.pathname,
+    }),
+    {
+      status: 503,
+      statusText: 'Service Unavailable - Refresh Required',
+      headers: new Headers({
+        'Content-Type': 'application/json',
+        'X-SW-Stale-Chunk': 'true',
+      }),
+    }
+  );
+}
+
+// Network-first handler for HTML navigations. Falls back to the cached shell
+// only when the network is unreachable (genuine offline).
+async function handleNavigation(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      // Keep the latest shell for offline use.
+      cache.put('/index.html', response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.warn('[ServiceWorker] Navigation offline, serving cached shell');
+    const cached =
+      (await cache.match('/index.html')) || (await cache.match('/'));
+    return cached || offlineFallback(request);
+  }
+}
 
 // Get cache strategy for a given URL
 function getStrategyForUrl(pathname) {
@@ -171,9 +249,17 @@ async function cacheFirst(request) {
 // Network First strategy - try network, fallback to cache
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
+  const url = new URL(request.url);
 
   try {
     const response = await fetch(request);
+
+    // A hashed asset that came back as HTML means the SPA fallback fired for a
+    // file that no longer exists (stale deployment). Recover instead of caching
+    // an HTML body under a .js/.css URL.
+    if (isHashedAsset(url) && (looksLikeHtml(response) || response.status === 404)) {
+      return staleChunkResponse(request, url);
+    }
 
     // Cache successful responses
     if (response.ok) {
@@ -199,13 +285,24 @@ async function staleWhileRevalidate(request) {
   const cached = await cache.match(request);
   const url = new URL(request.url);
 
+  // Defend against a poisoned entry: a previous worker version may have cached
+  // an HTML SPA-fallback body under a hashed asset URL. Never serve that.
+  if (cached && isHashedAsset(url) && looksLikeHtml(cached)) {
+    await cache.delete(request);
+    return staleChunkResponse(request, url);
+  }
+
   // If we have a cached version, return it immediately
   // and update the cache in the background (fire and forget)
   if (cached) {
     // Update cache in background - don't await
     fetch(request)
       .then((response) => {
-        if (response.ok) {
+        // Stale chunk: asset gone (HTML fallback) or a hard 404/503.
+        if (isHashedAsset(url) && (looksLikeHtml(response) || response.status === 404)) {
+          console.warn('[ServiceWorker] Stale asset detected, removing from cache:', url.pathname);
+          cache.delete(request);
+        } else if (response.ok) {
           cache.put(request, response.clone());
         } else if (response.status === 404 || response.status === 503) {
           // Stale chunk detected - remove from cache
@@ -225,6 +322,11 @@ async function staleWhileRevalidate(request) {
   // No cached version - must wait for network
   try {
     const response = await fetch(request);
+
+    // A hashed asset that resolves to HTML is a stale deployment - recover.
+    if (isHashedAsset(url) && (looksLikeHtml(response) || response.status === 404)) {
+      return staleChunkResponse(request, url);
+    }
 
     if (response.ok) {
       cache.put(request, response.clone());

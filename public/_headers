@@ -36,6 +36,16 @@
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
 
+# The root document is served for "/" (no .html extension) - keep it fresh too
+# so a new deploy's index.html (with new asset hashes) is picked up immediately.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The service worker script must never be cached by the edge or browser HTTP
+# cache, so an updated worker is fetched promptly and can heal stale clients.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 # Cache fonts for 1 year
 /*.woff
   Cache-Control: public, max-age=31536000, immutable
