@@ -13,6 +13,7 @@
  */
 
 import { maskPII, sanitizeObject } from '@/lib/production-logger';
+import { Sentry } from '@/lib/sentry';
 
 // Configuration
 const ERROR_TRACKING_ENDPOINT = import.meta.env.VITE_ERROR_TRACKING_ENDPOINT || '';
@@ -130,9 +131,7 @@ export function initErrorTracking(options?: {
 
     // Unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
-      const error = event.reason instanceof Error
-        ? event.reason
-        : new Error(String(event.reason));
+      const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
 
       captureException(error, {
         tags: { type: 'unhandled_rejection' },
@@ -141,7 +140,7 @@ export function initErrorTracking(options?: {
 
     // Track navigation for breadcrumbs
     const originalPushState = history.pushState;
-    history.pushState = function(...args) {
+    history.pushState = function (...args) {
       addBreadcrumb({
         category: 'navigation',
         message: `Navigate to ${args[2]}`,
@@ -152,17 +151,27 @@ export function initErrorTracking(options?: {
     };
 
     // Track clicks for breadcrumbs
-    document.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement;
-      if (target.tagName === 'BUTTON' || target.tagName === 'A' || target.closest('button') || target.closest('a')) {
-        const text = target.textContent?.substring(0, 50) || target.getAttribute('aria-label') || 'unknown';
-        addBreadcrumb({
-          category: 'ui.click',
-          message: `Click on ${target.tagName.toLowerCase()}: ${text}`,
-          level: 'info',
-        });
-      }
-    }, { capture: true });
+    document.addEventListener(
+      'click',
+      (event) => {
+        const target = event.target as HTMLElement;
+        if (
+          target.tagName === 'BUTTON' ||
+          target.tagName === 'A' ||
+          target.closest('button') ||
+          target.closest('a')
+        ) {
+          const text =
+            target.textContent?.substring(0, 50) || target.getAttribute('aria-label') || 'unknown';
+          addBreadcrumb({
+            category: 'ui.click',
+            message: `Click on ${target.tagName.toLowerCase()}: ${text}`,
+            level: 'info',
+          });
+        }
+      },
+      { capture: true }
+    );
   }
 
   console.log('[ErrorTracking] Initialized', {
@@ -313,7 +322,7 @@ function createErrorReport(
       environment: isProduction ? 'production' : 'development',
       ...options?.tags,
     },
-    extra: options?.extra ? sanitizeObject(options.extra) as Record<string, unknown> : {},
+    extra: options?.extra ? (sanitizeObject(options.extra) as Record<string, unknown>) : {},
     breadcrumbs: [...breadcrumbs],
   };
 }
@@ -352,57 +361,80 @@ async function sendErrorReport(report: ErrorReport): Promise<void> {
 }
 
 /**
- * Send to Sentry-compatible endpoint
+ * Map our internal severity to a Sentry severity level.
+ */
+function toSentryLevel(severity: ErrorSeverity): 'fatal' | 'error' | 'warning' | 'info' {
+  switch (severity) {
+    case 'fatal':
+      return 'fatal';
+    case 'warning':
+      return 'warning';
+    case 'info':
+      return 'info';
+    default:
+      return 'error';
+  }
+}
+
+/**
+ * Route an error report to Sentry via the official @sentry/react SDK.
+ *
+ * Using the SDK (rather than hand-rolling an envelope POST to the raw DSN) means
+ * events hit the correct ingest endpoint with the proper auth headers, and they
+ * inherit the SDK's environment, release, and transport/retry behavior.
+ *
+ * Sentry.init() has already run at startup (main.tsx) whenever a DSN is set, so
+ * these capture calls are wired to the same project DSN. Deduplication, rate
+ * limiting, sampling, and PII masking have already been applied upstream.
  */
 async function sendToSentry(report: ErrorReport): Promise<void> {
-  // Sentry envelope format
-  const envelope = {
-    event_id: report.id.replace(/-/g, ''),
-    timestamp: report.timestamp,
-    platform: 'javascript',
-    level: report.severity,
-    logger: 'javascript',
-    message: report.message,
-    exception: {
-      values: [{
-        type: 'Error',
-        value: report.message,
-        stacktrace: report.stack ? { frames: parseStackTrace(report.stack) } : undefined,
-      }],
-    },
-    tags: report.tags,
-    extra: report.extra,
-    user: report.context.userId ? { id: report.context.userId } : undefined,
-    contexts: {
-      browser: {
-        name: getBrowserName(),
-        version: getBrowserVersion(),
-      },
-      device: {
-        screen_width_pixels: report.context.viewport.width,
-        screen_height_pixels: report.context.viewport.height,
-      },
-    },
-    breadcrumbs: report.breadcrumbs.map(b => ({
-      timestamp: b.timestamp,
-      category: b.category,
-      message: b.message,
-      level: b.level,
-      data: b.data,
-    })),
-  };
+  Sentry.withScope((scope) => {
+    scope.setLevel(toSentryLevel(report.severity));
 
-  const response = await fetch(SENTRY_DSN, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(envelope),
+    // Preserve our deduplication fingerprint so Sentry groups events the same way.
+    scope.setFingerprint([report.fingerprint]);
+
+    // Tags (environment, error type, component, etc.).
+    scope.setTags(report.tags);
+    if (report.context.component) {
+      scope.setTag('component', report.context.component);
+    }
+
+    // Additional structured context (already sanitized upstream).
+    scope.setExtras({
+      ...report.extra,
+      internalErrorId: report.id,
+      sessionId: report.context.sessionId,
+      buildVersion: report.context.buildVersion,
+      url: report.context.url,
+      viewport: report.context.viewport,
+    });
+
+    if (report.context.userId) {
+      scope.setUser({ id: report.context.userId });
+    }
+
+    // Replay our breadcrumb trail onto the Sentry scope.
+    for (const b of report.breadcrumbs) {
+      scope.addBreadcrumb({
+        category: b.category,
+        message: b.message,
+        level: b.level,
+        data: b.data,
+        timestamp: new Date(b.timestamp).getTime() / 1000,
+      });
+    }
+
+    // Reconstruct an Error carrying our (masked) message + stack so Sentry can
+    // build a proper exception/stacktrace group.
+    const error = new Error(report.message);
+    error.name = report.severity === 'info' ? 'Message' : 'Error';
+    if (report.stack) {
+      error.stack = report.stack;
+    }
+
+    Sentry.captureException(error);
   });
-
-  if (!response.ok) {
-    throw new Error(`Sentry responded with ${response.status}`);
-  }
 }
 
 /**
@@ -420,54 +452,6 @@ async function sendToCustomEndpoint(report: ErrorReport): Promise<void> {
   if (!response.ok) {
     throw new Error(`Custom endpoint responded with ${response.status}`);
   }
-}
-
-/**
- * Parse stack trace into frames
- */
-function parseStackTrace(stack: string): Array<{ filename: string; lineno: number; colno: number; function: string }> {
-  const lines = stack.split('\n').slice(1);
-  return lines.map(line => {
-    const match = line.match(/at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/) ||
-                  line.match(/at\s+(.+?):(\d+):(\d+)/);
-
-    if (match) {
-      return {
-        function: match[1] || '<anonymous>',
-        filename: match[2] || match[1] || '<unknown>',
-        lineno: parseInt(match[3] || match[2] || '0', 10),
-        colno: parseInt(match[4] || match[3] || '0', 10),
-      };
-    }
-
-    return {
-      function: '<unknown>',
-      filename: '<unknown>',
-      lineno: 0,
-      colno: 0,
-    };
-  }).filter(frame => frame.filename !== '<unknown>');
-}
-
-/**
- * Get browser name
- */
-function getBrowserName(): string {
-  const ua = navigator.userAgent;
-  if (ua.includes('Firefox')) return 'Firefox';
-  if (ua.includes('Chrome')) return 'Chrome';
-  if (ua.includes('Safari')) return 'Safari';
-  if (ua.includes('Edge')) return 'Edge';
-  return 'Unknown';
-}
-
-/**
- * Get browser version
- */
-function getBrowserVersion(): string {
-  const ua = navigator.userAgent;
-  const match = ua.match(/(Firefox|Chrome|Safari|Edge)\/(\d+)/);
-  return match ? match[2] : 'Unknown';
 }
 
 /**
@@ -514,7 +498,7 @@ export function captureException(
   const report = createErrorReport(err, severity, options);
 
   // Send asynchronously
-  sendErrorReport(report).catch(sendErr => {
+  sendErrorReport(report).catch((sendErr) => {
     console.error('[ErrorTracking] Failed to send error report:', sendErr);
   });
 
