@@ -27,6 +27,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AccessibilityProvider } from './contexts/AccessibilityContext';
 import AccessibilityWidget from './components/AccessibilityWidget';
 import RouteAnnouncer from './components/RouteAnnouncer';
+import CookieConsentBanner from './components/CookieConsentBanner';
 
 // Lazy load pages to reduce initial bundle and improve FID
 import Index from './pages/Index';
@@ -54,6 +55,9 @@ const Search = lazy(() => import('./pages/Search'));
 const Status = lazy(() => import('./pages/Status'));
 const Accessibility = lazy(() => import('./pages/Accessibility'));
 const Showcase = lazy(() => import('./pages/Showcase'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
 
 // Configure QueryClient with optimized defaults for better caching
 const queryClient = new QueryClient({
@@ -130,6 +134,9 @@ const App = () => (
                       <Route path="/status" element={<Status />} />
                       <Route path="/faq" element={<FAQ />} />
                       <Route path="/accessibility" element={<Accessibility />} />
+                      <Route path="/privacy" element={<PrivacyPolicy />} />
+                      <Route path="/terms" element={<TermsOfService />} />
+                      <Route path="/cookies" element={<CookiePolicy />} />
                       <Route path="/showcase" element={<Showcase />} />
                       <Route path="/admin/login" element={<AdminLogin />} />
                       <Route path="/auth/callback" element={<AuthCallback />} />
@@ -244,6 +251,7 @@ const App = () => (
               </URLHandler>
             </AuthProvider>
             <AccessibilityWidget />
+            <CookieConsentBanner />
           </AccessibilityProvider>
         </BrowserRouter>
       </TooltipProvider>

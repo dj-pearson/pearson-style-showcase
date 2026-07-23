@@ -7,6 +7,12 @@ interface AccessibilityPreferences {
   highContrast: boolean;
   /** Reduced motion preference (respects OS-level by default) */
   reducedMotion: boolean;
+  /**
+   * Whether the user explicitly set reducedMotion via the in-app widget. When
+   * true, live OS-level `prefers-reduced-motion` changes no longer override the
+   * user's manual choice.
+   */
+  reducedMotionExplicit: boolean;
   /** Highlight links for visibility */
   highlightLinks: boolean;
   /** Large cursor mode */
@@ -31,6 +37,7 @@ const defaultPreferences: AccessibilityPreferences = {
   fontSize: 1,
   highContrast: false,
   reducedMotion: false,
+  reducedMotionExplicit: false,
   highlightLinks: false,
   largeCursor: false,
 };
@@ -99,40 +106,49 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
     savePreferences(preferences);
   }, [preferences]);
 
-  // Listen for OS-level motion preference changes
+  // Listen for OS-level motion preference changes. We only follow the OS when
+  // the user has not made an explicit in-app choice, so a manual toggle is never
+  // clobbered by a later system change.
   useEffect(() => {
     const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
     const handler = (e: MediaQueryListEvent) => {
-      setPreferences(prev => ({ ...prev, reducedMotion: e.matches }));
+      setPreferences((prev) =>
+        prev.reducedMotionExplicit ? prev : { ...prev, reducedMotion: e.matches }
+      );
     };
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
   }, []);
 
   const setFontSize = useCallback((size: number) => {
-    setPreferences(prev => ({ ...prev, fontSize: size }));
+    setPreferences((prev) => ({ ...prev, fontSize: size }));
   }, []);
 
   const toggleHighContrast = useCallback(() => {
-    setPreferences(prev => ({ ...prev, highContrast: !prev.highContrast }));
+    setPreferences((prev) => ({ ...prev, highContrast: !prev.highContrast }));
   }, []);
 
   const toggleReducedMotion = useCallback(() => {
-    setPreferences(prev => ({ ...prev, reducedMotion: !prev.reducedMotion }));
+    setPreferences((prev) => ({
+      ...prev,
+      reducedMotion: !prev.reducedMotion,
+      reducedMotionExplicit: true,
+    }));
   }, []);
 
   const toggleHighlightLinks = useCallback(() => {
-    setPreferences(prev => ({ ...prev, highlightLinks: !prev.highlightLinks }));
+    setPreferences((prev) => ({ ...prev, highlightLinks: !prev.highlightLinks }));
   }, []);
 
   const toggleLargeCursor = useCallback(() => {
-    setPreferences(prev => ({ ...prev, largeCursor: !prev.largeCursor }));
+    setPreferences((prev) => ({ ...prev, largeCursor: !prev.largeCursor }));
   }, []);
 
   const resetPreferences = useCallback(() => {
     const defaults = {
       ...defaultPreferences,
       reducedMotion: getSystemReducedMotion(),
+      reducedMotionExplicit: false,
     };
     setPreferences(defaults);
   }, []);
@@ -164,20 +180,10 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
       {children}
 
       {/* Global screen reader live regions */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
-      >
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {politeMessage}
       </div>
-      <div
-        role="alert"
-        aria-live="assertive"
-        aria-atomic="true"
-        className="sr-only"
-      >
+      <div role="alert" aria-live="assertive" aria-atomic="true" className="sr-only">
         {assertiveMessage}
       </div>
     </AccessibilityContext.Provider>

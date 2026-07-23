@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAnalytics } from '../components/Analytics';
 import { shouldSuppressForOddTraffic } from '@/lib/traffic-detection';
+import { useAccessibility } from '@/contexts/AccessibilityContext';
 
 // Lazy load below-the-fold components to improve FID
 const CaseStudies = lazy(() => import('../components/CaseStudies'));
@@ -22,7 +23,9 @@ const Testimonials = lazy(() => import('../components/Testimonials'));
 const CurrentVentures = lazy(() => import('../components/CurrentVentures'));
 const AuthoritySection = lazy(() => import('../components/homepage/AuthoritySection'));
 const FAQSection = lazy(() => import('../components/homepage/FAQSection'));
-const Interactive3DOrb = lazy(() => import('../components/Interactive3DOrb').then(module => ({ default: module.Interactive3DOrb })));
+const Interactive3DOrb = lazy(() =>
+  import('../components/Interactive3DOrb').then((module) => ({ default: module.Interactive3DOrb }))
+);
 
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger);
@@ -35,7 +38,8 @@ function shouldDisableHeavyAnimations(): boolean {
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const connection = (navigator as any).connection;
-  const isSlowConnection = connection?.saveData ||
+  const isSlowConnection =
+    connection?.saveData ||
     connection?.effectiveType === 'slow-2g' ||
     connection?.effectiveType === '2g';
 
@@ -49,13 +53,17 @@ const Index = () => {
   const heroRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
+  const { preferences } = useAccessibility();
 
-  // Check if heavy animations should be disabled. Flagged "odd traffic"
-  // (e.g. bot floods from unexpected countries) is soft-handled by skipping the
-  // expensive 3D orb / WebGL context entirely.
+  // Check if heavy animations should be disabled. This honors the OS-level
+  // reduced-motion setting, the in-app "Reduce Motion" widget toggle, and
+  // flagged "odd traffic" (e.g. bot floods) — the expensive 3D orb / WebGL
+  // context is skipped entirely in any of those cases. Re-evaluates when the
+  // in-app preference changes so toggling it live unmounts the orb.
   const disableHeavyAnimations = useMemo(
-    () => shouldDisableHeavyAnimations() || shouldSuppressForOddTraffic(),
-    []
+    () =>
+      preferences.reducedMotion || shouldDisableHeavyAnimations() || shouldSuppressForOddTraffic(),
+    [preferences.reducedMotion]
   );
 
   useEffect(() => {
@@ -91,52 +99,55 @@ const Index = () => {
     };
   }, [disableHeavyAnimations]);
 
-  useGSAP(() => {
-    if (!mainRef.current) return;
+  useGSAP(
+    () => {
+      if (!mainRef.current) return;
 
-    // Hero Exit Animation
-    // As user scrolls down, Hero content fades out and scales down (zooms out)
-    gsap.to(heroRef.current, {
-      scrollTrigger: {
-        trigger: heroRef.current,
-        start: "top top",
-        end: "bottom center",
-        scrub: 1,
-      },
-      opacity: 0,
-      scale: 0.8,
-      ease: "power1.inOut"
-    });
-
-    // Sections Entry Animation (Zoom Out / Settle effect)
-    // Select all direct section children of the content wrapper
-    const sections = gsap.utils.toArray<HTMLElement>(".animate-section");
-
-    sections.forEach((section) => {
-      gsap.fromTo(section,
-        {
-          opacity: 0,
-          scale: 1.1,
-          y: 50
+      // Hero Exit Animation
+      // As user scrolls down, Hero content fades out and scales down (zooms out)
+      gsap.to(heroRef.current, {
+        scrollTrigger: {
+          trigger: heroRef.current,
+          start: 'top top',
+          end: 'bottom center',
+          scrub: 1,
         },
-        {
-          scrollTrigger: {
-            trigger: section,
-            start: "top 85%", // Start animation when top of section hits 85% of viewport
-            end: "top 50%",
-            scrub: 1,
-            toggleActions: "play none none reverse"
-          },
-          opacity: 1,
-          scale: 1,
-          y: 0,
-          duration: 1,
-          ease: "power2.out"
-        }
-      );
-    });
+        opacity: 0,
+        scale: 0.8,
+        ease: 'power1.inOut',
+      });
 
-  }, { scope: mainRef });
+      // Sections Entry Animation (Zoom Out / Settle effect)
+      // Select all direct section children of the content wrapper
+      const sections = gsap.utils.toArray<HTMLElement>('.animate-section');
+
+      sections.forEach((section) => {
+        gsap.fromTo(
+          section,
+          {
+            opacity: 0,
+            scale: 1.1,
+            y: 50,
+          },
+          {
+            scrollTrigger: {
+              trigger: section,
+              start: 'top 85%', // Start animation when top of section hits 85% of viewport
+              end: 'top 50%',
+              scrub: 1,
+              toggleActions: 'play none none reverse',
+            },
+            opacity: 1,
+            scale: 1,
+            y: 0,
+            duration: 1,
+            ease: 'power2.out',
+          }
+        );
+      });
+    },
+    { scope: mainRef }
+  );
 
   return (
     <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
@@ -144,15 +155,18 @@ const Index = () => {
       <div className="fixed inset-0 z-0" aria-hidden="true" role="presentation">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
         {shouldLoadOrb && !disableHeavyAnimations && (
-          <div className="absolute inset-0 z-0" style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}>
+          <div
+            className="absolute inset-0 z-0"
+            style={{ contentVisibility: 'auto', containIntrinsicSize: '100vw 100vh' }}
+          >
             <HeroErrorBoundary>
-              <Suspense fallback={
-                <div
-                  className="absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-accent/10"
-                >
-                  <div className="absolute inset-0 animate-pulse opacity-30 bg-gradient-radial from-primary/20 via-transparent to-transparent" />
-                </div>
-              }>
+              <Suspense
+                fallback={
+                  <div className="absolute inset-0 bg-gradient-to-br from-background via-primary/5 to-accent/10">
+                    <div className="absolute inset-0 animate-pulse opacity-30 bg-gradient-radial from-primary/20 via-transparent to-transparent" />
+                  </div>
+                }
+              >
                 <Interactive3DOrb />
               </Suspense>
             </HeroErrorBoundary>
@@ -175,13 +189,11 @@ const Index = () => {
         data={{
           name: 'Dan Pearson',
           jobTitle: 'AI Solutions Consultant & SaaS Developer',
-          description: 'AI Solutions Consultant with 15+ years of experience helping businesses implement automation that reduces costs by an average of 40%. Built 7 SaaS platforms serving 10,000+ users and generated $2.8M+ in revenue for clients through digital transformation.',
+          description:
+            'AI Solutions Consultant with 15+ years of experience helping businesses implement automation that reduces costs by an average of 40%. Built 7 SaaS platforms serving 10,000+ users and generated $2.8M+ in revenue for clients through digital transformation.',
           url: 'https://danpearson.net',
           email: 'dan@danpearson.net',
-          sameAs: [
-            'https://linkedin.com/in/danpearson',
-            'https://github.com/dj-pearson'
-          ],
+          sameAs: ['https://linkedin.com/in/danpearson', 'https://github.com/dj-pearson'],
           knowsAbout: [
             'AI Business Automation',
             'Artificial Intelligence Integration',
@@ -194,24 +206,24 @@ const Index = () => {
             'TypeScript',
             'Cloud Architecture',
             'Business Intelligence',
-            'Workflow Automation'
+            'Workflow Automation',
           ],
           worksFor: {
             '@type': 'Organization',
-            name: 'Pearson Media LLC'
+            name: 'Pearson Media LLC',
           },
           address: {
             '@type': 'PostalAddress',
             addressLocality: 'Des Moines',
             addressRegion: 'IA',
-            addressCountry: 'US'
+            addressCountry: 'US',
           },
           alumniOf: [],
           awards: [
             'Generated $2.8M+ in client revenue through AI automation',
             'Built 7 successful SaaS platforms',
-            'Served 50+ businesses with AI implementation'
-          ]
+            'Served 50+ businesses with AI implementation',
+          ],
         }}
       />
 
@@ -221,7 +233,7 @@ const Index = () => {
         data={{
           name: 'Dan Pearson - AI Business Automation',
           description: 'Expert AI automation consulting and SaaS development services',
-          url: 'https://danpearson.net'
+          url: 'https://danpearson.net',
         }}
       />
 
@@ -231,7 +243,7 @@ const Index = () => {
         data={{
           name: 'Pearson Media LLC',
           email: 'dan@danpearson.net',
-          phone: ''
+          phone: '',
         }}
       />
 
@@ -241,14 +253,42 @@ const Index = () => {
         data={{
           name: 'Main Navigation',
           items: [
-            { name: 'Home', url: 'https://danpearson.net/', description: 'AI Business Automation Consultant' },
-            { name: 'About', url: 'https://danpearson.net/about', description: 'About Dan Pearson - AI Engineer & Business Development Expert' },
-            { name: 'Projects', url: 'https://danpearson.net/projects', description: 'AI automation projects and case studies' },
-            { name: 'News', url: 'https://danpearson.net/news', description: 'Latest articles on AI automation and business' },
-            { name: 'AI Tools', url: 'https://danpearson.net/ai-tools', description: 'Recommended AI tools for business' },
-            { name: 'FAQ', url: 'https://danpearson.net/faq', description: 'Frequently asked questions about AI automation' },
-            { name: 'Connect', url: 'https://danpearson.net/connect', description: 'Get in touch for AI consulting' }
-          ]
+            {
+              name: 'Home',
+              url: 'https://danpearson.net/',
+              description: 'AI Business Automation Consultant',
+            },
+            {
+              name: 'About',
+              url: 'https://danpearson.net/about',
+              description: 'About Dan Pearson - AI Engineer & Business Development Expert',
+            },
+            {
+              name: 'Projects',
+              url: 'https://danpearson.net/projects',
+              description: 'AI automation projects and case studies',
+            },
+            {
+              name: 'News',
+              url: 'https://danpearson.net/news',
+              description: 'Latest articles on AI automation and business',
+            },
+            {
+              name: 'AI Tools',
+              url: 'https://danpearson.net/ai-tools',
+              description: 'Recommended AI tools for business',
+            },
+            {
+              name: 'FAQ',
+              url: 'https://danpearson.net/faq',
+              description: 'Frequently asked questions about AI automation',
+            },
+            {
+              name: 'Connect',
+              url: 'https://danpearson.net/connect',
+              description: 'Get in touch for AI consulting',
+            },
+          ],
         }}
       />
 
@@ -258,12 +298,13 @@ const Index = () => {
         data={{
           name: 'Dan Pearson - AI Automation Consulting',
           alternateName: 'Pearson Media LLC',
-          description: 'AI automation consulting services helping businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Serving Des Moines and nationwide.',
+          description:
+            'AI automation consulting services helping businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Serving Des Moines and nationwide.',
           email: 'dan@danpearson.net',
           addressLocality: 'Des Moines',
           addressRegion: 'IA',
           addressCountry: 'US',
-          priceRange: '$$'
+          priceRange: '$$',
         }}
       />
 
@@ -277,11 +318,13 @@ const Index = () => {
 
         {/* Authority Section - SEO Enhancement */}
         <div className="animate-section pointer-events-auto">
-          <Suspense fallback={
-            <div className="mobile-section text-center">
-              <div className="skeleton w-full h-96"></div>
-            </div>
-          }>
+          <Suspense
+            fallback={
+              <div className="mobile-section text-center">
+                <div className="skeleton w-full h-96"></div>
+              </div>
+            }
+          >
             <AuthoritySection />
           </Suspense>
         </div>
@@ -291,11 +334,10 @@ const Index = () => {
           <div className="max-w-6xl mx-auto">
             {/* Section Title */}
             <div className="text-center mb-10 sm:mb-12 lg:mb-16">
-              <h2 className="mobile-heading-lg text-primary mb-4">
-                How I Can Help
-              </h2>
+              <h2 className="mobile-heading-lg text-primary mb-4">How I Can Help</h2>
               <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-                Combining cutting-edge technology with proven business strategies to deliver innovative solutions
+                Combining cutting-edge technology with proven business strategies to deliver
+                innovative solutions
               </p>
             </div>
 
@@ -311,7 +353,8 @@ const Index = () => {
                   </div>
                   <h3 className="mobile-heading-sm text-foreground mb-4">NFT Development</h3>
                   <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                    Unique generative collections with cutting-edge technology and mathematical precision
+                    Unique generative collections with cutting-edge technology and mathematical
+                    precision
                   </p>
                 </CardContent>
               </Card>
@@ -326,7 +369,8 @@ const Index = () => {
                   </div>
                   <h3 className="mobile-heading-sm text-foreground mb-4">AI Integration</h3>
                   <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                    Leveraging OpenAI, Auto-GPT, and machine learning for innovative business solutions
+                    Leveraging OpenAI, Auto-GPT, and machine learning for innovative business
+                    solutions
                   </p>
                 </CardContent>
               </Card>
@@ -359,7 +403,8 @@ const Index = () => {
                   Ready to Innovate Together?
                 </h2>
                 <p className="mobile-body text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Let's combine cutting-edge technology with proven business strategies to bring your vision to life.
+                  Let's combine cutting-edge technology with proven business strategies to bring
+                  your vision to life.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto">
@@ -395,20 +440,21 @@ const Index = () => {
         <section className="mobile-section mobile-container animate-section pointer-events-auto">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-10 sm:mb-12">
-              <h2 className="mobile-heading-lg text-primary mb-4">
-                Current Ventures
-              </h2>
+              <h2 className="mobile-heading-lg text-primary mb-4">Current Ventures</h2>
               <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-                Building 7 AI-powered SaaS platforms under Pearson Media LLC. Here's what I'm working on right now.
+                Building 7 AI-powered SaaS platforms under Pearson Media LLC. Here's what I'm
+                working on right now.
               </p>
             </div>
-            <Suspense fallback={
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
-                ))}
-              </div>
-            }>
+            <Suspense
+              fallback={
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
+                  ))}
+                </div>
+              }
+            >
               <CurrentVentures />
             </Suspense>
           </div>
@@ -416,12 +462,14 @@ const Index = () => {
 
         {/* Case Studies Section */}
         <div className="animate-section pointer-events-auto">
-          <Suspense fallback={
-            <div className="mobile-section text-center">
-              <div className="skeleton w-16 h-16 mx-auto mb-4 rounded-full"></div>
-              <div className="skeleton w-48 h-6 mx-auto"></div>
-            </div>
-          }>
+          <Suspense
+            fallback={
+              <div className="mobile-section text-center">
+                <div className="skeleton w-16 h-16 mx-auto mb-4 rounded-full"></div>
+                <div className="skeleton w-48 h-6 mx-auto"></div>
+              </div>
+            }
+          >
             <CaseStudies />
           </Suspense>
         </div>
@@ -430,20 +478,20 @@ const Index = () => {
         <section className="mobile-section mobile-container animate-section pointer-events-auto">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-10 sm:mb-12">
-              <h2 className="mobile-heading-lg text-primary mb-4">
-                What Clients Say
-              </h2>
+              <h2 className="mobile-heading-lg text-primary mb-4">What Clients Say</h2>
               <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
                 Don't just take my word for it. Here's what people I've worked with have to say.
               </p>
             </div>
-            <Suspense fallback={
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="skeleton w-full h-64 rounded-lg"></div>
-                ))}
-              </div>
-            }>
+            <Suspense
+              fallback={
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="skeleton w-full h-64 rounded-lg"></div>
+                  ))}
+                </div>
+              }
+            >
               <Testimonials />
             </Suspense>
           </div>
@@ -451,11 +499,13 @@ const Index = () => {
 
         {/* FAQ Section - SEO Enhancement */}
         <div className="animate-section pointer-events-auto">
-          <Suspense fallback={
-            <div className="mobile-section text-center">
-              <div className="skeleton w-full h-96"></div>
-            </div>
-          }>
+          <Suspense
+            fallback={
+              <div className="mobile-section text-center">
+                <div className="skeleton w-full h-96"></div>
+              </div>
+            }
+          >
             <FAQSection />
           </Suspense>
         </div>
@@ -463,12 +513,14 @@ const Index = () => {
         {/* Newsletter Signup Section */}
         <section className="mobile-section mobile-container bg-muted/30 animate-section pointer-events-auto">
           <div className="max-w-2xl mx-auto">
-            <Suspense fallback={
-              <div className="text-center">
-                <div className="skeleton w-full h-32 mb-4"></div>
-                <div className="skeleton w-full h-12"></div>
-              </div>
-            }>
+            <Suspense
+              fallback={
+                <div className="text-center">
+                  <div className="skeleton w-full h-32 mb-4"></div>
+                  <div className="skeleton w-full h-12"></div>
+                </div>
+              }
+            >
               <NewsletterSignup />
             </Suspense>
           </div>

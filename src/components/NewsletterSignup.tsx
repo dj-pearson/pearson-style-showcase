@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { logger } from "@/lib/logger";
+import { Link } from 'react-router-dom';
+import { logger } from '@/lib/logger';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ const NewsletterSignup = () => {
     register,
     handleSubmit,
     reset,
-    formState: { errors }
+    formState: { errors },
   } = useForm<NewsletterFormData>({
     resolver: zodResolver(newsletterSchema),
   });
@@ -37,7 +38,7 @@ const NewsletterSignup = () => {
 
     try {
       const { data: result, error } = await invokeEdgeFunction('newsletter-signup', {
-        body: { email: data.email }
+        body: { email: data.email },
       });
 
       if (error) {
@@ -47,8 +48,9 @@ const NewsletterSignup = () => {
 
       trackNewsletterSignup('success');
       toast({
-        title: "Successfully subscribed!",
-        description: result.message || "Thank you for subscribing. Check your inbox for a welcome email!",
+        title: 'Successfully subscribed!',
+        description:
+          result.message || 'Thank you for subscribing. Check your inbox for a welcome email!',
       });
 
       reset();
@@ -56,9 +58,10 @@ const NewsletterSignup = () => {
       logger.error('Newsletter signup failed:', error);
       trackNewsletterSignup('failure');
       toast({
-        title: "Subscription failed",
-        description: error instanceof Error ? error.message : "Please try again later or contact me directly.",
-        variant: "destructive",
+        title: 'Subscription failed',
+        description:
+          error instanceof Error ? error.message : 'Please try again later or contact me directly.',
+        variant: 'destructive',
       });
     } finally {
       setIsSubmitting(false);
@@ -92,11 +95,7 @@ const NewsletterSignup = () => {
                 <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
               )}
             </div>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="whitespace-nowrap"
-            >
+            <Button type="submit" disabled={isSubmitting} className="whitespace-nowrap">
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -110,9 +109,13 @@ const NewsletterSignup = () => {
               )}
             </Button>
           </div>
-          
+
           <p className="text-xs text-muted-foreground text-center">
-            No spam. Unsubscribe at any time. Your privacy is important to me.
+            No spam. Unsubscribe at any time. By subscribing you agree to our{' '}
+            <Link to="/privacy" className="underline underline-offset-2 hover:text-primary">
+              Privacy Policy
+            </Link>
+            .
           </p>
         </form>
       </CardContent>

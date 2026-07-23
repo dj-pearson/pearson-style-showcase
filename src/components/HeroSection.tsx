@@ -3,6 +3,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { useAccessibility } from '@/contexts/AccessibilityContext';
 
 /**
  * Check if animations should be reduced for accessibility or performance
@@ -28,7 +29,10 @@ function usePrefersReducedMotion(): boolean {
 
 const HeroSection = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const osReducedMotion = usePrefersReducedMotion();
+  const { preferences } = useAccessibility();
+  // Honor BOTH the OS-level setting and the in-app "Reduce Motion" widget toggle.
+  const prefersReducedMotion = osReducedMotion || preferences.reducedMotion;
   // Note: 3D Orb is now rendered in Index.tsx as a fixed background
   // to avoid duplicate WebGL contexts and improve performance
   const nameWrapperRef = useRef<HTMLSpanElement>(null);

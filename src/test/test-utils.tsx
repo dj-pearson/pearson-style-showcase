@@ -18,6 +18,7 @@ import { render, type RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '@/contexts/AuthContext';
+import { AccessibilityProvider } from '@/contexts/AccessibilityContext';
 
 type AuthValue = NonNullable<React.ContextType<typeof AuthContext>>;
 
@@ -108,7 +109,9 @@ function AllProviders({
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
+        <AccessibilityProvider>
+          <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
+        </AccessibilityProvider>
       </Router>
     </QueryClientProvider>
   );

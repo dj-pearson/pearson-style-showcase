@@ -845,7 +845,10 @@ const AdminDashboard = () => {
             </header>
 
             {/* Main Content Area */}
-            <main className="flex-1 overflow-auto -webkit-overflow-scrolling-touch">
+            <main
+              id="main-content"
+              className="flex-1 overflow-auto -webkit-overflow-scrolling-touch"
+            >
               <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
                 {/* Stats Cards with loading skeletons and error recovery */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
