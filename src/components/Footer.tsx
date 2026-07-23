@@ -1,8 +1,8 @@
-
 import { Link } from 'react-router-dom';
 import { Github, Linkedin, Mail, ExternalLink } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { openCookiePreferences } from '@/lib/cookie-preferences';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -25,18 +25,18 @@ const Footer = () => {
     {
       name: 'GitHub',
       href: profile?.github_url || 'https://github.com/danpearson',
-      icon: Github
+      icon: Github,
     },
     {
       name: 'LinkedIn',
       href: profile?.linkedin_url || 'https://www.linkedin.com/in/danpearson',
-      icon: Linkedin
+      icon: Linkedin,
     },
     {
       name: 'Email',
       href: `mailto:${profile?.email || 'dan@danpearson.net'}`,
-      icon: Mail
-    }
+      icon: Mail,
+    },
   ];
 
   const quickLinks = [
@@ -45,11 +45,14 @@ const Footer = () => {
     { name: 'News', href: '/news' },
     { name: 'AI Tools', href: '/ai-tools' },
     { name: 'Connect', href: '/connect' },
-    { name: 'FAQ', href: '/faq' }
+    { name: 'FAQ', href: '/faq' },
   ];
 
   const legalLinks = [
-    { name: 'Accessibility', href: '/accessibility' }
+    { name: 'Privacy', href: '/privacy' },
+    { name: 'Terms', href: '/terms' },
+    { name: 'Cookies', href: '/cookies' },
+    { name: 'Accessibility', href: '/accessibility' },
   ];
 
   return (
@@ -59,9 +62,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-8 lg:gap-10 mb-8">
           {/* Brand Section */}
           <div className="space-y-4 text-center sm:text-left">
-            <h3 className="text-xl sm:text-xl font-bold hero-gradient-text">
-              Dan Pearson
-            </h3>
+            <h3 className="text-xl sm:text-xl font-bold hero-gradient-text">Dan Pearson</h3>
             <p className="text-base sm:text-base text-primary font-semibold mb-2">
               Sales Leader • NFT Developer • AI Enthusiast
             </p>
@@ -97,8 +98,8 @@ const Footer = () => {
                   <a
                     key={social.name}
                     href={social.href}
-                    target={isExternal ? "_blank" : undefined}
-                    rel={isExternal ? "noopener noreferrer" : undefined}
+                    target={isExternal ? '_blank' : undefined}
+                    rel={isExternal ? 'noopener noreferrer' : undefined}
                     className="touch-target-lg rounded-xl bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200 flex items-center justify-center active:scale-95 hover:shadow-lg hover:shadow-primary/10"
                     aria-label={`Connect on ${social.name}${isExternal ? ' (opens in new tab)' : ''}`}
                   >
@@ -125,7 +126,10 @@ const Footer = () => {
 
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-sm sm:text-sm text-muted-foreground order-1 sm:order-2">
             {/* Legal/Accessibility Links */}
-            <nav aria-label="Legal" className="flex items-center gap-3">
+            <nav
+              aria-label="Legal"
+              className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
+            >
               {legalLinks.map((link) => (
                 <Link
                   key={link.name}
@@ -135,6 +139,13 @@ const Footer = () => {
                   {link.name}
                 </Link>
               ))}
+              <button
+                type="button"
+                onClick={openCookiePreferences}
+                className="hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-muted/20 active:bg-muted/30 px-2"
+              >
+                Cookie settings
+              </button>
             </nav>
             <span className="hidden sm:inline text-border">|</span>
             <span className="font-medium">Built with React & Supabase</span>

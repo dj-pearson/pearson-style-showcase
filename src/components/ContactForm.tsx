@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,17 +25,21 @@ type WindowWithGtag = Window & {
 };
 
 const contactSchema = z.object({
-  name: z.string()
+  name: z
+    .string()
     .min(2, 'Name must be at least 2 characters')
     .max(50, 'Name must be less than 50 characters')
     .regex(/^[a-zA-Z\s]+$/, 'Name can only contain letters and spaces'),
-  email: z.string()
+  email: z
+    .string()
     .email('Please enter a valid email address')
     .max(100, 'Email must be less than 100 characters'),
-  subject: z.string()
+  subject: z
+    .string()
     .min(5, 'Subject must be at least 5 characters')
     .max(100, 'Subject must be less than 100 characters'),
-  message: z.string()
+  message: z
+    .string()
     .min(10, 'Message must be at least 10 characters')
     .max(1000, 'Message must be less than 1000 characters'),
 });
@@ -60,7 +65,7 @@ const ContactForm = () => {
   const watchedFields = form.watch();
   const completionPercentage = useCallback(() => {
     const fields = Object.values(watchedFields);
-    const completedFields = fields.filter(field => field && field.length > 0).length;
+    const completedFields = fields.filter((field) => field && field.length > 0).length;
     return Math.round((completedFields / fields.length) * 100);
   }, [watchedFields]);
 
@@ -75,60 +80,60 @@ const ContactForm = () => {
       if (typeof window !== 'undefined' && windowWithGtag.gtag) {
         windowWithGtag.gtag('event', 'form_start', {
           event_category: 'Contact',
-          event_label: 'Contact Form Submission Started'
+          event_label: 'Contact Form Submission Started',
         });
       }
-      
+
       setSubmitProgress(25);
 
       // Send email via edge function
-      const { error } = await invokeEdgeFunction(
-        "send-contact-email",
-        {
-          body: {
-            name: data.name,
-            email: data.email,
-            subject: data.subject,
-            message: data.message,
-          },
-        }
-      );
+      const { error } = await invokeEdgeFunction('send-contact-email', {
+        body: {
+          name: data.name,
+          email: data.email,
+          subject: data.subject,
+          message: data.message,
+        },
+      });
 
       setSubmitProgress(100);
 
       if (error) {
         throw error;
       }
-      
+
       // Track successful submission
       if (typeof window !== 'undefined' && windowWithGtag.gtag) {
         windowWithGtag.gtag('event', 'form_submit', {
           event_category: 'Contact',
           event_label: 'Contact Form Submitted Successfully',
-          value: 1
+          value: 1,
         });
       }
-      
+
       toast({
-        title: "Message sent successfully!",
+        title: 'Message sent successfully!',
         description: "Thank you for reaching out. I'll get back to you within 24 hours.",
         action: <CheckCircle className="w-5 h-5 text-green-500" />,
       });
-      
+
       form.reset();
     } catch (error) {
       // Track failed submission
       if (typeof window !== 'undefined' && windowWithGtag.gtag) {
         windowWithGtag.gtag('event', 'form_error', {
           event_category: 'Contact',
-          event_label: 'Contact Form Submission Failed'
+          event_label: 'Contact Form Submission Failed',
         });
       }
 
       toast({
-        title: "Error sending message",
-        description: error instanceof Error ? error.message : "Please try again or contact me directly via email.",
-        variant: "destructive",
+        title: 'Error sending message',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Please try again or contact me directly via email.',
+        variant: 'destructive',
         action: <AlertCircle className="w-5 h-5 text-red-500" />,
       });
     } finally {
@@ -144,9 +149,15 @@ const ContactForm = () => {
         <div className="mb-6">
           <div className="flex justify-between items-center mb-3">
             <h3 className="mobile-heading-sm">Send a Message</h3>
-            <span className="text-sm text-muted-foreground font-medium">{completionPercentage()}% complete</span>
+            <span className="text-sm text-muted-foreground font-medium">
+              {completionPercentage()}% complete
+            </span>
           </div>
-          <Progress value={completionPercentage()} className="h-2.5" aria-label="Form completion progress" />
+          <Progress
+            value={completionPercentage()}
+            className="h-2.5"
+            aria-label="Form completion progress"
+          />
         </div>
 
         {/* Submission Progress */}
@@ -156,7 +167,11 @@ const ContactForm = () => {
               <Loader2 className="w-5 h-5 animate-spin text-primary flex-shrink-0" />
               <span className="text-base font-medium">Sending your message...</span>
             </div>
-            <Progress value={submitProgress} className="h-2.5" aria-label="Message submission progress" />
+            <Progress
+              value={submitProgress}
+              className="h-2.5"
+              aria-label="Message submission progress"
+            />
           </div>
         )}
 
@@ -256,6 +271,14 @@ const ContactForm = () => {
                 </>
               )}
             </Button>
+
+            <p className="text-xs text-muted-foreground text-center">
+              We use the details you provide only to respond to your message. See our{' '}
+              <Link to="/privacy" className="underline underline-offset-2 hover:text-primary">
+                Privacy Policy
+              </Link>{' '}
+              for how we handle your information.
+            </p>
           </form>
         </Form>
       </div>

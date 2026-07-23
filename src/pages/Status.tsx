@@ -73,7 +73,7 @@ const Status = () => {
         description="Live operational status of the Dan Pearson platform services."
         url="https://danpearson.net/status"
       />
-      <main className="min-h-[100dvh] bg-background px-4 py-12">
+      <main id="main-content" className="min-h-[100dvh] bg-background px-4 py-12">
         <div className="mx-auto max-w-2xl">
           <h1 className="text-3xl font-bold mb-2">System Status</h1>
           <p className="text-muted-foreground mb-8">Live health of platform services.</p>
@@ -123,11 +123,12 @@ const Status = () => {
             {data && <span>Version {data.version}</span>}
             {data && <span>Uptime {formatUptime(data.uptime)}</span>}
             <span>
-              Last checked{' '}
-              {dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : '—'}
+              Last checked {dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : '—'}
             </span>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">This page refreshes automatically every 60 seconds.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            This page refreshes automatically every 60 seconds.
+          </p>
         </div>
       </main>
     </>

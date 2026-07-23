@@ -12,6 +12,7 @@ import {
   createRoutesFromChildren,
   matchRoutes,
 } from 'react-router-dom';
+import { hasConsent, onConsentChange } from './consent';
 
 /** Resolve the deployment environment from Vite env / hostname. */
 function resolveEnvironment(): 'development' | 'staging' | 'production' {
@@ -53,28 +54,47 @@ export function initSentry(): boolean {
 
   const environment = resolveEnvironment();
 
+  // Session Replay records user interactions, so it is treated as a
+  // consent-gated ("functional") technology. Error/performance monitoring
+  // itself runs under legitimate interest for site security and reliability.
+  const integrations = [
+    Sentry.reactRouterV6BrowserTracingIntegration({
+      useEffect,
+      useLocation,
+      useNavigationType,
+      createRoutesFromChildren,
+      matchRoutes,
+    }),
+  ];
+
+  if (hasConsent('functional')) {
+    // Mask text/media by default so replays don't capture personal data.
+    integrations.push(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
+  }
+
   Sentry.init({
     dsn,
     environment,
-    // Performance monitoring with react-router v6 route instrumentation.
-    integrations: [
-      Sentry.reactRouterV6BrowserTracingIntegration({
-        useEffect,
-        useLocation,
-        useNavigationType,
-        createRoutesFromChildren,
-        matchRoutes,
-      }),
-      // Session Replay.
-      Sentry.replayIntegration(),
-    ],
+    integrations,
     tracesSampleRate: tracesSampleRateFor(environment),
-    // Replay: capture 10% of all sessions, and 100% of sessions with an error.
+    // Replay: capture 10% of all sessions, and 100% of sessions with an error
+    // (only takes effect once the replay integration is enabled by consent).
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
   });
 
   initialized = true;
+
+  // If the visitor grants functional consent later in the session, add Session
+  // Replay at runtime without requiring a page reload.
+  let replayAdded = hasConsent('functional');
+  onConsentChange((state) => {
+    if (state.functional && !replayAdded) {
+      replayAdded = true;
+      Sentry.addIntegration(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
+    }
+  });
+
   return true;
 }
 

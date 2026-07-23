@@ -13,16 +13,16 @@ import {
   Phone,
   CheckCircle,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
 } from 'lucide-react';
 import ExternalLinkComponent from '@/components/ui/external-link';
 
+// Date of the most recent accessibility review. Update this when the statement
+// is re-audited — it must reflect the actual review date, not today's date.
+const LAST_REVIEWED = 'July 23, 2026';
+
 const Accessibility = () => {
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  const currentDate = LAST_REVIEWED;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -42,17 +42,13 @@ const Accessibility = () => {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
                 <AccessibilityIcon className="w-8 h-8 text-primary" aria-hidden="true" />
               </div>
-              <h1 className="mobile-heading-lg hero-gradient-text mb-4">
-                Accessibility Statement
-              </h1>
+              <h1 className="mobile-heading-lg hero-gradient-text mb-4">Accessibility Statement</h1>
               <p className="mobile-body text-muted-foreground max-w-2xl mx-auto">
                 Dan Pearson and Pearson Media LLC are committed to ensuring digital accessibility
-                for people with disabilities. We continually improve the user experience for everyone
-                and apply relevant accessibility standards.
+                for people with disabilities. We continually improve the user experience for
+                everyone and apply relevant accessibility standards.
               </p>
-              <p className="text-sm text-muted-foreground mt-4">
-                Last updated: {currentDate}
-              </p>
+              <p className="text-sm text-muted-foreground mt-4">Last updated: {currentDate}</p>
             </div>
 
             {/* Conformance Status */}
@@ -66,35 +62,61 @@ const Accessibility = () => {
               <CardContent className="space-y-4">
                 <p className="text-muted-foreground">
                   The Web Content Accessibility Guidelines (WCAG) defines requirements for designers
-                  and developers to improve accessibility for people with disabilities. It defines three
-                  levels of conformance: Level A, Level AA, and Level AAA.
+                  and developers to improve accessibility for people with disabilities. It defines
+                  three levels of conformance: Level A, Level AA, and Level AAA.
                 </p>
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                   <p className="font-semibold text-foreground">
-                    danpearson.net is <strong>substantially conformant</strong> with WCAG 2.1 level AA.
+                    danpearson.net is <strong>substantially conformant</strong> with WCAG 2.1 level
+                    AA.
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Substantially conformant means that most content on this website meets the WCAG 2.1
-                    Level AA success criteria. We continuously audit and improve accessibility to
-                    maintain and enhance compliance.
+                    Substantially conformant means that most content on this website meets the WCAG
+                    2.1 Level AA success criteria. We continuously audit and improve accessibility
+                    to maintain and enhance compliance.
                   </p>
                 </div>
 
                 {/* WCAG 2.1 AA Criteria Met */}
                 <div className="mt-4 p-4 bg-muted/30 rounded-lg">
-                  <h4 className="font-semibold text-foreground mb-2">Key WCAG 2.1 AA Criteria Met:</h4>
+                  <h4 className="font-semibold text-foreground mb-2">
+                    Key WCAG 2.1 AA Criteria Met:
+                  </h4>
                   <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
-                    <li><strong>1.1.1 Non-text Content:</strong> Alt text for images and icons</li>
-                    <li><strong>1.3.1 Info and Relationships:</strong> Semantic HTML, proper heading hierarchy</li>
-                    <li><strong>1.4.3 Contrast (Minimum):</strong> 4.5:1 ratio for normal text</li>
-                    <li><strong>1.4.4 Resize Text:</strong> Content reflows up to 400% zoom</li>
-                    <li><strong>2.1.1 Keyboard:</strong> All functionality available via keyboard</li>
-                    <li><strong>2.4.1 Bypass Blocks:</strong> Skip-to-content links provided</li>
-                    <li><strong>2.4.3 Focus Order:</strong> Logical tab order throughout</li>
-                    <li><strong>2.4.7 Focus Visible:</strong> Clear focus indicators on all elements</li>
-                    <li><strong>2.5.5 Target Size:</strong> 44px minimum touch targets</li>
-                    <li><strong>3.2.1 On Focus:</strong> No unexpected context changes</li>
-                    <li><strong>4.1.2 Name, Role, Value:</strong> Proper ARIA labels and roles</li>
+                    <li>
+                      <strong>1.1.1 Non-text Content:</strong> Alt text for images and icons
+                    </li>
+                    <li>
+                      <strong>1.3.1 Info and Relationships:</strong> Semantic HTML, proper heading
+                      hierarchy
+                    </li>
+                    <li>
+                      <strong>1.4.3 Contrast (Minimum):</strong> 4.5:1 ratio for normal text
+                    </li>
+                    <li>
+                      <strong>1.4.4 Resize Text:</strong> Content reflows up to 400% zoom
+                    </li>
+                    <li>
+                      <strong>2.1.1 Keyboard:</strong> All functionality available via keyboard
+                    </li>
+                    <li>
+                      <strong>2.4.1 Bypass Blocks:</strong> Skip-to-content links provided
+                    </li>
+                    <li>
+                      <strong>2.4.3 Focus Order:</strong> Logical tab order throughout
+                    </li>
+                    <li>
+                      <strong>2.4.7 Focus Visible:</strong> Clear focus indicators on all elements
+                    </li>
+                    <li>
+                      <strong>2.5.5 Target Size:</strong> 44px minimum touch targets
+                    </li>
+                    <li>
+                      <strong>3.2.1 On Focus:</strong> No unexpected context changes
+                    </li>
+                    <li>
+                      <strong>4.1.2 Name, Role, Value:</strong> Proper ARIA labels and roles
+                    </li>
                   </ul>
                 </div>
               </CardContent>
@@ -144,8 +166,8 @@ const Accessibility = () => {
                       <div>
                         <h3 className="font-semibold text-foreground">Screen Reader Support</h3>
                         <p className="text-sm text-muted-foreground">
-                          Semantic HTML structure, ARIA labels, and live regions ensure compatibility
-                          with assistive technologies.
+                          Semantic HTML structure, ARIA labels, and live regions ensure
+                          compatibility with assistive technologies.
                         </p>
                       </div>
                     </div>
@@ -206,12 +228,15 @@ const Accessibility = () => {
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>HTML5 with semantic markup</li>
-                  <li>WAI-ARIA (Web Accessibility Initiative - Accessible Rich Internet Applications)</li>
+                  <li>
+                    WAI-ARIA (Web Accessibility Initiative - Accessible Rich Internet Applications)
+                  </li>
                   <li>CSS with support for high contrast and reduced motion preferences</li>
                   <li>JavaScript with progressive enhancement</li>
                 </ul>
                 <p className="text-muted-foreground mt-4">
-                  These technologies are relied upon for conformance with the accessibility standards used.
+                  These technologies are relied upon for conformance with the accessibility
+                  standards used.
                 </p>
               </CardContent>
             </Card>
@@ -223,7 +248,8 @@ const Accessibility = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-muted-foreground">
-                  This website is designed to be compatible with the following assistive technologies:
+                  This website is designed to be compatible with the following assistive
+                  technologies:
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>NVDA and JAWS screen readers on Windows</li>
@@ -234,7 +260,8 @@ const Accessibility = () => {
                   <li>Voice control software</li>
                 </ul>
                 <p className="text-muted-foreground mt-4">
-                  The site is tested with the latest versions of Chrome, Firefox, Safari, and Edge browsers.
+                  The site is tested with the latest versions of Chrome, Firefox, Safari, and Edge
+                  browsers.
                 </p>
               </CardContent>
             </Card>
@@ -254,29 +281,38 @@ const Accessibility = () => {
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-2">
-                    <span className="text-yellow-500 mt-1" aria-hidden="true">•</span>
+                    <span className="text-yellow-500 mt-1" aria-hidden="true">
+                      •
+                    </span>
                     <div>
                       <strong className="text-foreground">Third-party content:</strong>
                       <span className="text-muted-foreground ml-1">
-                        Some embedded content from third-party services may not meet all accessibility standards.
+                        Some embedded content from third-party services may not meet all
+                        accessibility standards.
                       </span>
                     </div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-yellow-500 mt-1" aria-hidden="true">•</span>
+                    <span className="text-yellow-500 mt-1" aria-hidden="true">
+                      •
+                    </span>
                     <div>
                       <strong className="text-foreground">PDF documents:</strong>
                       <span className="text-muted-foreground ml-1">
-                        Some older PDF files may not be fully accessible. Contact us for accessible alternatives.
+                        Some older PDF files may not be fully accessible. Contact us for accessible
+                        alternatives.
                       </span>
                     </div>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-yellow-500 mt-1" aria-hidden="true">•</span>
+                    <span className="text-yellow-500 mt-1" aria-hidden="true">
+                      •
+                    </span>
                     <div>
                       <strong className="text-foreground">Complex visualizations:</strong>
                       <span className="text-muted-foreground ml-1">
-                        3D elements and complex charts include text alternatives, but may not convey all information.
+                        3D elements and complex charts include text alternatives, but may not convey
+                        all information.
                       </span>
                     </div>
                   </li>
@@ -291,8 +327,8 @@ const Accessibility = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <p className="text-muted-foreground">
-                  We welcome your feedback on the accessibility of danpearson.net. Please let us know
-                  if you encounter accessibility barriers:
+                  We welcome your feedback on the accessibility of danpearson.net. Please let us
+                  know if you encounter accessibility barriers:
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -324,8 +360,8 @@ const Accessibility = () => {
                 </div>
 
                 <p className="text-sm text-muted-foreground">
-                  We try to respond to accessibility feedback within 5 business days.
-                  If you need immediate assistance, please specify in your message.
+                  We try to respond to accessibility feedback within 5 business days. If you need
+                  immediate assistance, please specify in your message.
                 </p>
               </CardContent>
             </Card>
@@ -342,17 +378,21 @@ const Accessibility = () => {
                 </p>
                 <ul className="space-y-2 text-muted-foreground">
                   <li className="flex items-start gap-2">
-                    <span className="text-primary" aria-hidden="true">•</span>
+                    <span className="text-primary" aria-hidden="true">
+                      •
+                    </span>
                     <span>
                       <strong className="text-foreground">U.S. Department of Justice</strong> -
                       Civil Rights Division, Disability Rights Section
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-primary" aria-hidden="true">•</span>
+                    <span className="text-primary" aria-hidden="true">
+                      •
+                    </span>
                     <span>
-                      <strong className="text-foreground">U.S. Access Board</strong> -
-                      For Section 508 compliance concerns
+                      <strong className="text-foreground">U.S. Access Board</strong> - For Section
+                      508 compliance concerns
                     </span>
                   </li>
                 </ul>
@@ -374,7 +414,9 @@ const Accessibility = () => {
                     className="p-3 rounded-lg border border-border hover:border-primary/50 transition-colors block"
                   >
                     <span className="text-foreground font-medium">WCAG Guidelines</span>
-                    <p className="text-sm text-muted-foreground">Web Content Accessibility Guidelines</p>
+                    <p className="text-sm text-muted-foreground">
+                      Web Content Accessibility Guidelines
+                    </p>
                   </ExternalLinkComponent>
 
                   <ExternalLinkComponent
@@ -412,7 +454,7 @@ const Accessibility = () => {
               <Button
                 size="lg"
                 className="btn-futuristic"
-                onClick={() => window.location.href = '/connect'}
+                onClick={() => (window.location.href = '/connect')}
               >
                 Contact Us
                 <ExternalLink className="w-5 h-5 ml-2" aria-hidden="true" />
