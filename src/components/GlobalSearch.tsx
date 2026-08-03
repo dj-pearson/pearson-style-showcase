@@ -103,13 +103,29 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
         .or(`title.ilike.%${sanitized}%,excerpt.ilike.%${sanitized}%`)
         .limit(5);
 
-      // Search projects
-      const { data: projects } = await supabase
+      /*
+       * Search projects.
+       *
+       * This query was broken and failing silently. It selected `slug` and
+       * filtered on `published` — NEITHER COLUMN EXISTS on public.projects,
+       * so PostgREST returned 400 ("column projects.slug does not exist") and
+       * projects never appeared in search results at all. It went unnoticed
+       * because only `data` was destructured: supabase-js reports this as an
+       * `error` value rather than throwing, so the surrounding try/catch never
+       * saw it and `projects?.map(...) || []` quietly yielded nothing.
+       *
+       * `error` is now read and logged so the next schema drift is visible.
+       * The visibility filter matches Projects.tsx and is fail-open for the
+       * same NULL-handling reason documented there.
+       */
+      const { data: projects, error: projectsError } = await supabase
         .from('projects')
-        .select('id, title, description, slug, image_url')
-        .eq('published', true)
+        .select('id, title, description, image_url')
+        .or('status.is.null,status.neq.archived')
         .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
         .limit(3);
+
+      if (projectsError) logger.error('Project search failed:', projectsError);
 
       // Search AI tools
       const { data: aiTools } = await supabase
@@ -149,8 +165,12 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
   const handleResultClick = (result: SearchResult) => {
     if (result.type === 'article' && result.slug) {
       navigate(`/news/${result.slug}`);
-    } else if (result.type === 'project' && result.slug) {
-      navigate(`/projects#${result.slug}`);
+    } else if (result.type === 'project') {
+      // public.projects has no `slug` column and there is no per-project route,
+      // so this navigated to `/projects#undefined` — and in practice did
+      // nothing at all, because the old `&& result.slug` guard could never be
+      // satisfied. The list page is the real destination.
+      navigate('/projects');
     } else if (result.type === 'ai_tool' && result.url) {
       window.open(result.url, '_blank');
     }

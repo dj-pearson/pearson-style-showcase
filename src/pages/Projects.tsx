@@ -51,15 +51,39 @@ const Projects = () => {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      /*
+       * VISIBILITY FILTER — deliberately FAIL-OPEN.
+       *
+       * `status` did not control visibility at all before this: every row in the
+       * table rendered publicly regardless of its value. The filter is written
+       * as or(is.null, neq.archived) rather than the obvious neq.archived
+       * because PostgREST's neq maps to SQL `status <> 'archived'`, which
+       * evaluates to NULL for a NULL status and therefore DROPS those rows.
+       * Verified against the live API on a column that is null across the table:
+       * neq returned 0 rows, or(is.null, neq) returned all 7.
+       *
+       * That matters in two directions. A project created through the admin UI
+       * without a status would silently vanish from the public page; and if this
+       * code shipped before the accompanying data migration ran, a naive filter
+       * would empty the page entirely. Only an explicit 'archived' hides a row.
+       *
+       * The count query carries the SAME filter — omitting it there leaves the
+       * pagination total counting rows the list will never show, which produces
+       * a trailing empty page.
+       */
+      const VISIBLE = 'status.is.null,status.neq.archived';
+
       const { count, error: countError } = await supabase
         .from('projects')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .or(VISIBLE);
 
       if (countError) throw countError;
 
       const { data, error } = await supabase
         .from('projects')
         .select('id, title, description, image_url, live_link, github_link, tags, featured, sort_order, created_at, status, updated_at')
+        .or(VISIBLE)
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false })

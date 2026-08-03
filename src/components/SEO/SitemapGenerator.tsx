@@ -27,9 +27,13 @@ const SitemapGenerator = () => {
         .select('slug, updated_at, created_at')
         .eq('published', true);
 
+      // Same fail-open visibility filter as Projects.tsx: an archived project
+      // should not be advertised for indexing. `neq` alone would drop rows with
+      // a NULL status, so the null case is spelled out.
       const { data: projects } = await supabase
         .from('projects')
-        .select('id, updated_at');
+        .select('id, updated_at')
+        .or('status.is.null,status.neq.archived');
 
       const { data: aiTools } = await supabase
         .from('ai_tools')
