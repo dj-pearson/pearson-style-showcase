@@ -190,11 +190,11 @@ const About = () => {
                 ) : (
                   <>
                     <p className="text-xl sm:text-2xl text-primary font-semibold mb-4">
-                      {profile?.bio_headline || 'Bridging the gap between sales and technology'}
+                      {profile?.bio_headline || 'AI CRM Automation Consultant'}
                     </p>
                     <p className="mobile-body text-muted-foreground mb-6 max-w-2xl">
                       {profile?.bio_subheadline ||
-                        'With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.'}
+                        'Capture-layer automation for revenue teams under 50 seats. Fifteen years carrying a quota came first; seven SaaS platforms came after.'}
                     </p>
 
                     <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center text-muted-foreground">
