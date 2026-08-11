@@ -1,4 +1,4 @@
--- Corrective / reconciliation migration for the `public.projects` table.
+-- Reconciliation migration for the `public.projects` table.
 --
 -- WHY THIS EXISTS
 -- ---------------
@@ -6,26 +6,46 @@
 -- apply with: ERROR: relation "projects" already exists.
 --
 -- Root cause is NOT a bad migration and NOT a forward missing-dependency. The
--- live schema ALREADY contains `public.projects` (the migration tracker reports
--- 12/16 of that file's objects as present). The table was created by an earlier
--- migration whose file is no longer in the repo -- it shows up in the hub's
--- `orphanApplied` list (the 2025-07-16 cluster: 20250716025820 ... 20250716113424).
--- The tracker never recorded 20250716201805 (nor its near-duplicate
--- 20250716201924) as applied, so the applier treats them as pending and re-runs
--- their bare `CREATE TABLE public.projects`, which collides with the existing
--- table.
+-- live schema ALREADY contains `public.projects`. The table was created by an
+-- earlier migration whose file is no longer in the repo -- it shows up in the
+-- hub's `orphanApplied` list (the 2025-07-16 cluster: 20250716025820 ...
+-- 20250716113424). The tracker never recorded 20250716201805 (nor its
+-- near-duplicate 20250716201924) as applied, so the applier treats them as
+-- pending and re-runs their bare `CREATE TABLE public.projects`, which collides
+-- with the existing table.
 --
 -- The correct resolution for those two files is to BASELINE them (mark applied
--- without executing) -- NOT to rewrite them and NOT to re-run them. See the
--- operator summary.
+-- without executing) -- NOT to rewrite them and NOT to re-run them.
 --
--- This migration only RECONCILES the parts of `public.projects` that the
--- original orphaned creation may have skipped: RLS enablement, the four named
--- RLS policies, and the updated_at trigger (the hub reports 4 of that table's
--- objects as absent from the live schema -- consistent with the four policies).
--- It is fully idempotent and inserts NO data (the sample rows already exist and
--- must not be duplicated). Running it when everything is already present is a
--- no-op.
+-- CORRECTION, 2026-08-11
+-- ----------------------
+-- The first version of this file also recreated the four ORIGINAL projects RLS
+-- policies ("Projects can be read by everyone" / created / updated / deleted),
+-- on the reasoning that the hub reports 4 of 20250716201805's objects as absent
+-- from the live schema. That reasoning was wrong and the statements were
+-- dangerous.
+--
+-- Those four policies are absent BY DESIGN. Migration 20251007232740 ("Fix
+-- projects RLS - only admins can modify") drops all four by name and replaces
+-- them with an admin-scoped set, and the hub verifies that file as fully
+-- present (39/39) against the live schema. So the live schema is CORRECT and
+-- the 4 "absent" objects are simply the retired legacy policy names.
+--
+-- Recreating them would have been a live security regression: RLS policies
+-- combine with OR, so adding `FOR INSERT WITH CHECK (true)` alongside "Only
+-- admins can create projects" grants anonymous INSERT/UPDATE/DELETE on the
+-- public projects table to anyone holding the anon key. This file has never
+-- been applied (hub verdict: partial, pending), so the statements are removed
+-- here rather than reverted by a follow-up.
+--
+-- All policy management for `public.projects` now lives in
+-- 20260811000001_reconcile_projects_rls_admin_only.sql, which states the
+-- intended end state idempotently.
+--
+-- What remains below is only the structural reconciliation: table existence,
+-- the trigger function, RLS enablement and the updated_at trigger. It inserts
+-- NO data (the sample rows already exist and must not be duplicated) and is a
+-- no-op when everything is already present.
 
 -- Table: create only if the orphaned creation somehow left it absent. Present
 -- in the live schema today, so normally a no-op.
@@ -54,34 +74,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- RLS: enabling an already-enabled table is a harmless no-op.
+-- RLS: enabling an already-enabled table is a harmless no-op. Policies are
+-- deliberately NOT touched here -- see 20260811000001.
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-
--- Policies: DROP IF EXISTS + CREATE makes each definition deterministic and
--- idempotent regardless of whether the orphaned creation added them.
-DROP POLICY IF EXISTS "Projects can be read by everyone" ON public.projects;
-CREATE POLICY "Projects can be read by everyone"
-ON public.projects
-FOR SELECT
-USING (true);
-
-DROP POLICY IF EXISTS "Projects can be created" ON public.projects;
-CREATE POLICY "Projects can be created"
-ON public.projects
-FOR INSERT
-WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Projects can be updated" ON public.projects;
-CREATE POLICY "Projects can be updated"
-ON public.projects
-FOR UPDATE
-USING (true);
-
-DROP POLICY IF EXISTS "Projects can be deleted" ON public.projects;
-CREATE POLICY "Projects can be deleted"
-ON public.projects
-FOR DELETE
-USING (true);
 
 -- Trigger: DROP IF EXISTS + CREATE is idempotent.
 DROP TRIGGER IF EXISTS update_projects_updated_at ON public.projects;
