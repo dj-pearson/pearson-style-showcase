@@ -169,7 +169,7 @@ Updating the CRM is unpaid work that happens after the paid work is done.
 
 That is the whole problem in one sentence. A rep''s day is calls, demos, follow-ups, negotiations — the things they are measured and compensated on. CRM entry is a tax levied on top of it, payable in the tired part of the day, in a system that gives them nothing back.
 
-Every rep does this arithmetic, consciously or not: *what do I get for the next twenty minutes of typing?* And the honest answer, in most organisations, is "my manager gets a report." That is not a motivation problem. That is a correctly-solved arithmetic problem.
+Every rep does this arithmetic, consciously or not: _what do I get for the next twenty minutes of typing?_ And the honest answer, in most organisations, is "my manager gets a report." That is not a motivation problem. That is a correctly-solved arithmetic problem.
 
 So the question is not how to make reps comply. It is how to change the arithmetic.
 
@@ -191,7 +191,7 @@ Notice what all four have in common: they attack the symptom while leaving the a
 
 The single highest-leverage change: stop asking a human to record what happened, and let the system observe it. Call recording with transcription and structured summary. Meeting notes drafted from the actual conversation. Email threads attached to the right deal without anyone dragging anything.
 
-The rep''s job shifts from *writing* to *confirming* — twenty minutes becomes twenty seconds. That is not a productivity improvement, it is a change of category. This is rung 2 on [the Pipeline Automation Ladder](/ai-crm-automation), and it is the rung that fixes adoption as a side effect of fixing something else.
+The rep''s job shifts from _writing_ to _confirming_ — twenty minutes becomes twenty seconds. That is not a productivity improvement, it is a change of category. This is rung 2 on [the Pipeline Automation Ladder](/ai-crm-automation), and it is the rung that fixes adoption as a side effect of fixing something else.
 
 ### 2. Remove fields, do not add them
 
@@ -207,7 +207,7 @@ The moment a rep opens the CRM because it helps them close, adoption stops being
 
 ### 4. Make stage changes evidence-based
 
-Instead of asking a rep to assert that a deal is at Proposal, let the system propose the stage from what actually happened, and have the rep confirm or correct it. You get two things: a stage you can trust, and a record of *why* it moved, which is what makes a forecast auditable three months later when nobody remembers.
+Instead of asking a rep to assert that a deal is at Proposal, let the system propose the stage from what actually happened, and have the rep confirm or correct it. You get two things: a stage you can trust, and a record of _why_ it moved, which is what makes a forecast auditable three months later when nobody remembers.
 
 ### 5. Fix the worst path first, publicly
 
@@ -217,11 +217,11 @@ Do not run a "CRM improvement initiative." Pick the single most-hated piece of m
 
 Three numbers, none of which a rep can game by opening records:
 
-| Metric | What it tells you | How to get it |
-|---|---|---|
-| **Capture coverage** | Share of customer conversations reaching the CRM without a human typing them in | Compare calendar and call-system events against logged activity |
-| **Seller time in CRM** | Hours per week spent feeding the system rather than selling | Ask the team. Their number is usually higher than management assumes |
-| **Stage-change provenance** | Share of stage changes with evidence attached | Audit a sample of 20 recent moves and see if you can tell why each happened |
+| Metric                      | What it tells you                                                               | How to get it                                                               |
+| --------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Capture coverage**        | Share of customer conversations reaching the CRM without a human typing them in | Compare calendar and call-system events against logged activity             |
+| **Seller time in CRM**      | Hours per week spent feeding the system rather than selling                     | Ask the team. Their number is usually higher than management assumes        |
+| **Stage-change provenance** | Share of stage changes with evidence attached                                   | Audit a sample of 20 recent moves and see if you can tell why each happened |
 
 Adoption rate measures whether people complied. These measure whether the system is earning its place.
 
@@ -253,7 +253,7 @@ It works better, because expectations are on the floor. The first automation tha
 
 ---
 
-*Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five failure modes, including the compliance spiral this article describes.*',
+_Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five failure modes, including the compliance spiral this article describes._',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'Sales Automation', 'Pipeline', 'RevOps']::text[],
     'Dan Pearson',
@@ -273,18 +273,18 @@ It works better, because expectations are on the floor. The first automation tha
 
 The more useful answer is that a good share of the teams asking this question should not buy either one yet. I will come back to that, because it is the part neither vendor''s comparison page will tell you.
 
-*Pricing below is as published in August 2026 and changes often — verify current numbers before budgeting.*
+_Pricing below is as published in August 2026 and changes often — verify current numbers before budgeting._
 
 ## The short verdict
 
-| | HubSpot Breeze | Salesforce Agentforce |
-|---|---|---|
-| **Best for** | Sales-led teams of 5–50 seats without a dedicated admin | Complex sales processes, 50+ seats, existing Salesforce estate |
-| **Pricing model** | Per-seat licence plus credits; outcome pricing on some agents | Per-conversation or Flex Credits, on top of licence |
-| **Time to first value** | Days | Weeks to months |
-| **Admin burden** | Low — configurable by an ops-minded seller | High — realistically needs an admin or partner |
-| **Ceiling** | Reaches a wall on genuinely complex processes | Very high; you will not outgrow it |
-| **Verdict** | **The default choice under 50 seats** | **Right when the process is complex or you are already invested** |
+|                         | HubSpot Breeze                                                | Salesforce Agentforce                                             |
+| ----------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Best for**            | Sales-led teams of 5–50 seats without a dedicated admin       | Complex sales processes, 50+ seats, existing Salesforce estate    |
+| **Pricing model**       | Per-seat licence plus credits; outcome pricing on some agents | Per-conversation or Flex Credits, on top of licence               |
+| **Time to first value** | Days                                                          | Weeks to months                                                   |
+| **Admin burden**        | Low — configurable by an ops-minded seller                    | High — realistically needs an admin or partner                    |
+| **Ceiling**             | Reaches a wall on genuinely complex processes                 | Very high; you will not outgrow it                                |
+| **Verdict**             | **The default choice under 50 seats**                         | **Right when the process is complex or you are already invested** |
 
 ## The pricing arithmetic, worked
 
@@ -314,12 +314,12 @@ Salesforce''s own worked example is instructive: 100 users, 3 cases/day, 20 work
 
 ### The comparison that matters
 
-| | HubSpot (20 seats, Pro) | Salesforce (20 seats) |
-|---|---|---|
-| Base licence | $1,800/mo | Sales Cloud licence, tier-dependent |
-| AI layer | Outcome-priced; usage-dependent | $2/conversation, or $500/100k credits, or $125/user/mo |
-| Mandatory onboarding | $1,500–$3,000 one-off | Partner implementation typically required |
-| Realistic year one | ~$24k–$28k | Meaningfully higher at this size |
+|                      | HubSpot (20 seats, Pro)         | Salesforce (20 seats)                                  |
+| -------------------- | ------------------------------- | ------------------------------------------------------ |
+| Base licence         | $1,800/mo                       | Sales Cloud licence, tier-dependent                    |
+| AI layer             | Outcome-priced; usage-dependent | $2/conversation, or $500/100k credits, or $125/user/mo |
+| Mandatory onboarding | $1,500–$3,000 one-off           | Partner implementation typically required              |
+| Realistic year one   | ~$24k–$28k                      | Meaningfully higher at this size                       |
 
 **Verdict on cost:** HubSpot is cheaper at this size and — more importantly — its costs are legible in advance. Salesforce''s Flex Credits are the more flexible model at scale and the harder one to forecast when you are small.
 
@@ -382,7 +382,7 @@ Forecast variance quarter over quarter, and seller hours per week on CRM admin. 
 
 ---
 
-*Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automation-complete-guide). Or read [why most AI CRM projects fail](/news/why-ai-crm-projects-fail).*
+_Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automation-complete-guide). Or read [why most AI CRM projects fail](/news/why-ai-crm-projects-fail)._
 
 ## Sources
 
