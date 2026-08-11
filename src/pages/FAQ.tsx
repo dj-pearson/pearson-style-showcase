@@ -39,14 +39,14 @@ const FAQ = () => {
 
   // Get unique categories
   const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(faqData.map(faq => faq.category))];
+    const uniqueCategories = [...new Set(faqData.map((faq) => faq.category))];
     return uniqueCategories.filter(Boolean);
   }, [faqData]);
 
   // Filter FAQs by selected category
   const filteredFAQs = useMemo(() => {
     if (!selectedCategory) return faqData;
-    return faqData.filter(faq => faq.category === selectedCategory);
+    return faqData.filter((faq) => faq.category === selectedCategory);
   }, [faqData, selectedCategory]);
 
   const toggleFAQ = (index: number) => {
@@ -57,7 +57,7 @@ const FAQ = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <SEO
         title="FAQ | AI Automation Questions Answered | Dan Pearson"
-        description="Get answers to frequently asked questions about AI automation, business process optimization, implementation costs, and how AI can transform your business. Expert insights from an AI consultant with 50+ successful implementations."
+        description="Get answers to frequently asked questions about AI automation, business process optimization, implementation costs, and how AI can transform your business. Answers from a consultant who spent 15 years carrying a quota before building the automation."
         keywords="AI automation FAQ, AI implementation questions, business automation help, AI consulting FAQ, AI integration questions, how does AI automation work, AI automation costs, AI for small business, workflow automation FAQ"
         url="https://danpearson.net/faq"
         type="website"
@@ -67,10 +67,10 @@ const FAQ = () => {
       <StructuredData
         type="faq"
         data={{
-          questions: faqData.map(item => ({
+          questions: faqData.map((item) => ({
             question: item.question,
-            answer: item.answer
-          }))
+            answer: item.answer,
+          })),
         }}
       />
 
@@ -80,8 +80,8 @@ const FAQ = () => {
         data={{
           items: [
             { name: 'Home', url: 'https://danpearson.net' },
-            { name: 'FAQ', url: 'https://danpearson.net/faq' }
-          ]
+            { name: 'FAQ', url: 'https://danpearson.net/faq' },
+          ],
         }}
       />
 
@@ -99,8 +99,8 @@ const FAQ = () => {
                 Frequently Asked Questions
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Get answers to common questions about AI automation, implementation,
-                and how it can transform your business operations.
+                Get answers to common questions about AI automation, implementation, and how it can
+                transform your business operations.
               </p>
             </div>
           </div>
@@ -113,17 +113,17 @@ const FAQ = () => {
               <div className="max-w-4xl mx-auto">
                 <div className="flex flex-wrap gap-2 justify-center">
                   <Button
-                    variant={selectedCategory === null ? "default" : "outline"}
+                    variant={selectedCategory === null ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedCategory(null)}
                     className="rounded-full"
                   >
                     All Questions
                   </Button>
-                  {categories.map(category => (
+                  {categories.map((category) => (
                     <Button
                       key={category}
-                      variant={selectedCategory === category ? "default" : "outline"}
+                      variant={selectedCategory === category ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setSelectedCategory(category)}
                       className="rounded-full"
@@ -208,8 +208,8 @@ const FAQ = () => {
                     Still Have Questions?
                   </h2>
                   <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-                    Can't find the answer you're looking for? I'm here to help.
-                    Reach out for a free consultation about your AI automation needs.
+                    Can't find the answer you're looking for? I'm here to help. Reach out for a free
+                    consultation about your AI automation needs.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <Button asChild size="lg" className="font-semibold">
@@ -219,9 +219,7 @@ const FAQ = () => {
                       </Link>
                     </Button>
                     <Button asChild variant="outline" size="lg">
-                      <Link to="/about">
-                        Learn About My Services
-                      </Link>
+                      <Link to="/about">Learn About My Services</Link>
                     </Button>
                   </div>
                 </div>

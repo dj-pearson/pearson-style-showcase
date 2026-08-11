@@ -504,9 +504,37 @@ You run this. The admin in this repo already has task management with AI generat
 
 **This is the highest-credibility, lowest-cost asset available to you.** It's already built. It just isn't visible.
 
-### 11.4 Claims substantiation (blocking)
+### 11.4 Claims substantiation — RESOLVED 2026-08-11
 
-Before any of the above ships, the four headline numbers in `AuthoritySection.tsx` need a source each: which client, what period, how measured. Where a number can't be substantiated, either soften it to something defensible or cut it. This is a Phase-0 blocker, not a nice-to-have — see §15.
+The audit found **11 quantified claims across 9 files**, not the four on the homepage. They were triaged into three groups and the aggregate client-outcome claims were retired.
+
+**Kept — structural, verifiable from Dan's own records**
+
+- 15+ years in sales and business development
+- 7 SaaS platforms built under Pearson Media LLC
+- Managing 29 fitness locations at $600K+ monthly sales (specific, checkable against employment history — and now the lead credential on `/about`, because a precise number about your own career is worth more than a round one about someone else's)
+
+**Retired — aggregate outcome claims with no client, period, baseline or method**
+
+| Claim                                | Was in                                                               |
+| ------------------------------------ | -------------------------------------------------------------------- |
+| $2.8M+ revenue generated for clients | `AuthoritySection.tsx`, `AuthorByline.tsx`                           |
+| 40% average cost reduction           | `AuthoritySection.tsx`, `AuthorByline.tsx`, `StructuredData.tsx` ×2  |
+| 83% retention improvement via AI CRM | `AuthoritySection.tsx`                                               |
+| 50+ businesses helped                | `AuthoritySection.tsx` ×2, `AuthorByline.tsx`, `News.tsx`, `FAQ.tsx` |
+| 10,000+ platform users               | `AuthoritySection.tsx`, `AuthorByline.tsx`                           |
+| 60% of business tasks automated      | `About.tsx`                                                          |
+| Teams exceeding quota by 20%         | `About.tsx`                                                          |
+| 10,000 unique NFTs generated         | `About.tsx`                                                          |
+| 20+ technologies                     | `AuthoritySection.tsx`                                               |
+
+The worst offender was `StructuredData.tsx`'s `slogan` field: _"Reduce operational costs by 40% with intelligent AI automation"_ — an unsourced performance claim in machine-readable markup, emitted sitewide.
+
+**What replaced them.** `AuthoritySection` was rebuilt around proof a reader can check without trusting anyone: the published 12-point method, three verifiable artifacts (the audit methodology, the seven clickable platforms, this site's own engineering), and the CRM-specific expertise areas. No number a stranger has to take on faith.
+
+**Restoring a figure.** Any retired number can come back the moment it has a client, a period, a baseline and a measurement. Put the provenance in a code comment beside it. The 83% CRM retention figure is the one most worth reconstructing — with sourcing it becomes the flagship case study and is worth more than all four original stats combined.
+
+**The reasoning, for future reference.** Round unsourced numbers are the most common element on consultant sites, so they read as template rather than evidence, and generative engines discount them. A small specific sourced number outperforms a large vague one on both counts. More importantly: category leadership comes from the framework and the argument — the capture-layer thesis, the Ladder, the published audit — not from a stat bar. The stat bar is what undifferentiated consultancies reach for _because_ they have no framework.
 
 ---
 
@@ -613,16 +641,16 @@ Roughly **12–17 dev-days** of code across Phases 1–3. The larger investment 
 
 ## 15. Risks, guardrails, and what to say no to
 
-| Risk                                                       | Severity | Mitigation                                                                                                                                                                                        |
-| ---------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Unsubstantiated claims** ($2.8M, 83%, 40%, 10,000 users) | **High** | Source each or soften it. A category leader gets fact-checked. Overstated numbers are both a legal and a credibility exposure, and LLMs increasingly discount unsourced figures. Phase-0 blocker. |
-| Narrowing costs non-CRM leads                              | Medium   | Real, and worth it. Keep `/projects` and `/ai-tools` intact as secondary surfaces; the homepage and money page carry the focus.                                                                   |
-| The other six SaaS platforms look scattered                | Medium   | Reframe them as multi-industry revenue-data evidence, not as separate offerings.                                                                                                                  |
-| Vendor blogs out-rank you on head terms                    | Medium   | Don't contest them. Clusters B and C are the ground you can hold.                                                                                                                                 |
-| Slow results (SEO is 6–12 months)                          | Medium   | LinkedIn and the newsletter carry months 1–3 while the site compounds.                                                                                                                            |
-| Content quality drops under cadence                        | Medium   | Halve the cadence before halving the standard. One excellent pillar beats four thin posts, especially for citation.                                                                               |
-| New pages ship generic AI-template UI                      | Low      | `CLAUDE.md` craft floor + `npx impeccable detect` before every commit.                                                                                                                            |
-| Framework doesn't catch on                                 | Low      | Even unadopted, it structures your content and improves conversion. No downside.                                                                                                                  |
+| Risk                                                           | Severity | Mitigation                                                                                                                                                                        |
+| -------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~**Unsubstantiated claims** ($2.8M, 83%, 40%, 10,000 users)~~ | ~~High~~ | **Resolved 2026-08-11.** All 11 aggregate outcome claims retired across 9 files; structural facts kept; proof rebuilt around published method and checkable artifacts. See §11.4. |
+| Narrowing costs non-CRM leads                                  | Medium   | Real, and worth it. Keep `/projects` and `/ai-tools` intact as secondary surfaces; the homepage and money page carry the focus.                                                   |
+| The other six SaaS platforms look scattered                    | Medium   | Reframe them as multi-industry revenue-data evidence, not as separate offerings.                                                                                                  |
+| Vendor blogs out-rank you on head terms                        | Medium   | Don't contest them. Clusters B and C are the ground you can hold.                                                                                                                 |
+| Slow results (SEO is 6–12 months)                              | Medium   | LinkedIn and the newsletter carry months 1–3 while the site compounds.                                                                                                            |
+| Content quality drops under cadence                            | Medium   | Halve the cadence before halving the standard. One excellent pillar beats four thin posts, especially for citation.                                                               |
+| New pages ship generic AI-template UI                          | Low      | `CLAUDE.md` craft floor + `npx impeccable detect` before every commit.                                                                                                            |
+| Framework doesn't catch on                                     | Low      | Even unadopted, it structures your content and improves conversion. No downside.                                                                                                  |
 
 ### Say no to
 

@@ -10,18 +10,26 @@ interface AuthorBylineProps {
   showFullBio?: boolean;
 }
 
-// Default credentials - can be moved to database in future
+// Default credentials - can be moved to database in future.
+//
+// Every entry here is structural: a fact about Dan's own history or work that
+// can be checked without trusting a number. The aggregate client-outcome claims
+// that used to sit in this list ("Helped 50+ businesses", "Generated $2.8M+")
+// were retired — see AI_CRM_AUTOMATION_STRATEGY.md §11.4. This byline appears
+// beneath every article, so it is the single most-repeated set of claims on the
+// site and the least forgiving place to carry an unsourced figure.
 const DEFAULT_CREDENTIALS = [
-  "15+ years in software development and business automation",
-  "Founder of Pearson Media LLC with 7 active SaaS platforms",
-  "Helped 50+ businesses implement AI automation",
-  "Generated $2.8M+ in revenue for clients through digital transformation",
-  "Expert in React, TypeScript, AI integration, and cloud architecture"
+  '15+ years in sales and business development before moving into automation',
+  'Founder of Pearson Media LLC with 7 active SaaS platforms',
+  'Publishes the Pipeline Automation Ladder and the 12-point CRM automation audit',
+  'Builds capture-layer automation for HubSpot, Salesforce, Pipedrive, GoHighLevel and Zoho',
+  'Works in React, TypeScript, Postgres and edge functions — including this site',
 ];
 
-const DEFAULT_BIO = "Dan Pearson is an AI Solutions Consultant with 15+ years of experience in business automation and digital transformation. He has built 7 SaaS platforms serving 10,000+ users and helped 50+ businesses implement AI solutions that deliver measurable ROI. Dan specializes in integrating OpenAI, Claude, and other AI technologies to streamline business operations and reduce costs by an average of 40%.";
+const DEFAULT_BIO =
+  'Dan Pearson is an AI CRM automation consultant working with sales-led revenue teams of 5-50 seats. He argues that most AI CRM projects fail because they automate the reporting layer instead of the capture layer, and he builds the capture layer: automated call and meeting logging, note generation, enrichment, routing and stage-change evidence, inside the CRM a team already owns. Fifteen years carrying a quota came first; seven SaaS platforms under Pearson Media LLC came after.';
 
-const AuthorByline = ({ authorName = "Dan Pearson", showFullBio = true }: AuthorBylineProps) => {
+const AuthorByline = ({ authorName = 'Dan Pearson', showFullBio = true }: AuthorBylineProps) => {
   // Fetch author data from profile_settings
   const { data: profile } = useQuery({
     queryKey: ['profile-settings-author'],
@@ -37,13 +45,13 @@ const AuthorByline = ({ authorName = "Dan Pearson", showFullBio = true }: Author
   });
 
   const authorInfo = {
-    name: "Dan Pearson",
-    title: profile?.bio_headline || "AI Solutions Consultant & SaaS Developer",
+    name: 'Dan Pearson',
+    title: profile?.bio_headline || 'AI Solutions Consultant & SaaS Developer',
     bio: profile?.bio_subheadline || DEFAULT_BIO,
     credentials: DEFAULT_CREDENTIALS,
-    email: profile?.email || "dan@danpearson.net",
-    linkedin: profile?.linkedin_url || "https://linkedin.com/in/danpearson",
-    website: "https://danpearson.net"
+    email: profile?.email || 'dan@danpearson.net',
+    linkedin: profile?.linkedin_url || 'https://linkedin.com/in/danpearson',
+    website: 'https://danpearson.net',
   };
 
   return (
@@ -54,7 +62,10 @@ const AuthorByline = ({ authorName = "Dan Pearson", showFullBio = true }: Author
           <div className="flex-shrink-0">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border-2 border-primary/30">
               <span className="text-3xl sm:text-4xl font-bold text-primary">
-                {authorInfo.name.split(' ').map(n => n[0]).join('')}
+                {authorInfo.name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')}
               </span>
             </div>
           </div>
@@ -62,9 +73,7 @@ const AuthorByline = ({ authorName = "Dan Pearson", showFullBio = true }: Author
           {/* Author Info */}
           <div className="flex-1 space-y-4">
             <div>
-              <h3 className="text-xl font-bold text-foreground mb-1">
-                About the Author
-              </h3>
+              <h3 className="text-xl font-bold text-foreground mb-1">About the Author</h3>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span className="font-semibold text-foreground">{authorInfo.name}</span>
                 <span>•</span>
@@ -74,16 +83,17 @@ const AuthorByline = ({ authorName = "Dan Pearson", showFullBio = true }: Author
 
             {showFullBio && (
               <>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {authorInfo.bio}
-                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{authorInfo.bio}</p>
 
                 {/* Credentials */}
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-foreground">Experience & Expertise:</h4>
                   <ul className="space-y-1">
                     {authorInfo.credentials.map((credential, index) => (
-                      <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <li
+                        key={index}
+                        className="text-sm text-muted-foreground flex items-start gap-2"
+                      >
                         <span className="text-primary mt-1">•</span>
                         <span>{credential}</span>
                       </li>
@@ -118,10 +128,7 @@ const AuthorByline = ({ authorName = "Dan Pearson", showFullBio = true }: Author
                 asChild
                 className="hover:bg-primary/10 hover:border-primary"
               >
-                <a
-                  href={`mailto:${authorInfo.email}`}
-                  className="flex items-center gap-2"
-                >
+                <a href={`mailto:${authorInfo.email}`} className="flex items-center gap-2">
                   <Mail className="w-4 h-4" />
                   Email
                 </a>

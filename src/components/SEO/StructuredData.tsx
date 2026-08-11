@@ -437,11 +437,11 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
           '@context': 'https://schema.org',
           '@type': 'ProfessionalService',
           '@id': 'https://danpearson.net/#localbusiness',
-          name: data?.name || 'Dan Pearson - AI Automation Consulting',
+          name: data?.name || 'Dan Pearson - AI CRM Automation Consulting',
           alternateName: data?.alternateName || 'Pearson Media LLC',
           description:
             data?.description ||
-            'AI automation consulting services helping businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Specializing in OpenAI, Claude AI, and custom SaaS development.',
+            'AI CRM automation consulting for sales-led revenue teams of 5-50 seats: automated call logging, note capture, enrichment, routing and stage-change evidence inside the CRM the team already owns.',
           url: 'https://danpearson.net',
           telephone: data?.telephone || '',
           email: data?.email || 'dan@danpearson.net',
@@ -530,14 +530,17 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
           },
           sameAs: ['https://linkedin.com/in/danpearson', 'https://github.com/dj-pearson'],
           knowsAbout: [
-            'Artificial Intelligence',
-            'Business Automation',
+            'AI CRM Automation',
+            'CRM Data Quality',
+            'Sales Pipeline Automation',
+            'Revenue Operations',
+            'AI Agents for Sales',
             'SaaS Development',
-            'Digital Transformation',
-            'Machine Learning',
-            'Workflow Optimization',
           ],
-          slogan: 'Reduce operational costs by 40% with intelligent AI automation',
+          // A slogan is advertising copy in machine-readable markup, so it must
+          // not carry a performance claim. This one used to promise a 40% cost
+          // reduction sitewide, unsourced (strategy doc §11.4).
+          slogan: 'Automate the capture layer, and the pipeline stops lying',
         };
         break;
 
