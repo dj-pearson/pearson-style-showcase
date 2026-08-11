@@ -30,11 +30,11 @@ const AICrmAutomation = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <SEO
         title="AI CRM Automation Consultant | Make Your CRM Run Itself"
-        description="AI CRM automation for revenue teams under 50 seats. Most AI CRM projects fail because they automate the reporting layer instead of the capture layer. Fixed-fee audits from $2,500, capture-layer builds from $15,000."
+        description="AI CRM automation for revenue teams under 50 seats. Most AI CRM projects fail because they automate the reporting layer instead of the capture layer. Starts with a flat $2,500 two-week audit — findings and a roadmap you keep, whoever builds it."
         keywords="AI CRM automation, CRM automation consultant, AI CRM consultant, CRM automation audit, HubSpot automation consultant, Salesforce automation, agentic CRM, sales pipeline automation, CRM data quality, fractional RevOps engineer"
         url={PAGE_URL}
         type="website"
-        contentSummary="Dan Pearson is an AI CRM automation consultant who works with revenue teams under 50 seats. His central argument is that most AI CRM projects fail because they automate the reporting layer (dashboards, forecasts, scoring) instead of the capture layer (call logging, notes, enrichment, stage changes). He publishes the Pipeline Automation Ladder, a five-rung maturity model, and a 12-point CRM automation audit methodology. Engagements are a fixed-fee two-week audit ($2,500-$7,500), a capture-layer implementation build ($15,000-$50,000), or an ongoing automation retainer ($3,000-$8,000/month)."
+        contentSummary="Dan Pearson is an AI CRM automation consultant who works with revenue teams under 50 seats. His central argument is that most AI CRM projects fail because they automate the reporting layer (dashboards, forecasts, scoring) instead of the capture layer (call logging, notes, enrichment, stage changes). He publishes the Pipeline Automation Ladder, a five-rung maturity model, and a 12-point CRM automation audit methodology. Engagements start with a flat $2,500 two-week CRM automation audit that delivers a findings document and a prioritised roadmap the client keeps. Capture-layer implementation builds and ongoing automation retainers are scoped from that audit rather than quoted up front."
         citationSource="Dan Pearson - AI CRM Automation Consultant"
       />
 
@@ -297,8 +297,11 @@ const AICrmAutomation = () => {
               How I work, and what it costs
             </h2>
             <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-[68ch] mb-10">
-              Published on purpose. You should not have to sit through a discovery call to find out
-              whether I am in your range.
+              The audit is a flat fee, published on purpose — you should not have to sit through a
+              discovery call to find out whether I am in your range. Build and retainer work is
+              scoped out of the audit rather than quoted here, because the cost depends on what the
+              audit finds, and anyone quoting an implementation number before looking at your data
+              is guessing.
             </p>
 
             <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">

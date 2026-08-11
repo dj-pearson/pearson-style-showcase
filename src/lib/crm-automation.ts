@@ -163,11 +163,12 @@ export interface ServiceTier {
 /**
  * The offer ladder.
  *
- * NOTE: the price bands below are the recommendation from
- * AI_CRM_AUTOMATION_STRATEGY.md §4 and need Dan's confirmation before this page
- * is merged to main. They are published deliberately — an assistant asked "what
- * does he charge?" can only relay what the page states — but they are his
- * numbers to set, not the strategy's.
+ * Only the audit carries a number, and it is a flat one. That is deliberate on
+ * both sides: the audit is the offer we actually want a stranger to buy, so it
+ * needs to be legible to an assistant answering "what does he charge?" — while
+ * build and retainer scope genuinely cannot be known before the audit, and a
+ * wide published band there would anchor the whole page on its ceiling rather
+ * than on the $2,500 door. Only tiers with `priceMin` emit a PriceSpecification.
  */
 export const SERVICE_TIERS: ServiceTier[] = [
   {
@@ -177,9 +178,9 @@ export const SERVICE_TIERS: ServiceTier[] = [
     description:
       'A twelve-point review of how data enters your CRM, where it rots and what it is costing the forecast. Delivered as a written findings document with a prioritised roadmap and your placement on the Pipeline Automation Ladder. Yours to keep and to implement with anyone.',
     duration: '2 weeks',
-    priceLabel: '$2,500 – $7,500',
+    priceLabel: '$2,500 flat',
     priceMin: 2500,
-    priceMax: 7500,
+    priceMax: 2500,
   },
   {
     tier: 'Build',
@@ -188,9 +189,7 @@ export const SERVICE_TIERS: ServiceTier[] = [
     description:
       'Automating the rung-2 work: call and meeting capture, note generation, enrichment, deduplication, routing and stage-change evidence. Built into the CRM you already own, with the integrations and custom services the job actually needs.',
     duration: '4 – 12 weeks',
-    priceLabel: '$15,000 – $50,000',
-    priceMin: 15000,
-    priceMax: 50000,
+    priceLabel: 'Scoped from the audit',
   },
   {
     tier: 'Operate',
@@ -199,10 +198,7 @@ export const SERVICE_TIERS: ServiceTier[] = [
     description:
       'Continuous work on the automation layer: extending what is built, retiring what stopped earning its keep, and moving the team up the ladder one rung at a time. For teams that want the capability without hiring a full-time RevOps engineer.',
     duration: 'Monthly',
-    priceLabel: '$3,000 – $8,000 / month',
-    priceMin: 3000,
-    priceMax: 8000,
-    unit: 'MONTH',
+    priceLabel: 'Scoped to the work',
   },
 ];
 
@@ -276,7 +272,7 @@ export const CRM_FAQS: FaqEntry[] = [
   {
     question: 'How much does CRM automation cost?',
     answer:
-      'A fixed-fee audit runs $2,500 to $7,500 and takes two weeks, producing a findings document and a prioritised roadmap you keep regardless of who implements it. An implementation sprint typically runs $15,000 to $50,000 depending on how many capture paths need automating and how much integration work sits underneath. Ongoing retainer work runs $3,000 to $8,000 a month. Platform and API costs sit on top and are usually modest by comparison — the expensive part of CRM automation has always been the thinking, not the tokens.',
+      'The audit is $2,500, flat, and takes two weeks. You get a findings document and a prioritised roadmap that is yours to keep regardless of who implements it. Build and retainer work is scoped out of that audit rather than quoted up front, because the cost depends almost entirely on how many capture paths need automating and what integration work sits underneath — and neither of us knows that before the audit. Anyone who quotes an implementation number before looking at your data is guessing. Platform and API costs sit on top and are usually modest by comparison; the expensive part of CRM automation has always been the thinking, not the tokens.',
   },
   {
     question: 'How long does a CRM automation project take?',

@@ -62,6 +62,16 @@ describe('AI CRM Automation page', () => {
       expect(service).toBeDefined();
       expect(service.serviceType).toBe('AI CRM Automation');
       expect(service.hasOfferCatalog.itemListElement).toHaveLength(SERVICE_TIERS.length);
+
+      // Only the audit is priced. Build and retainer are scoped from it, so they
+      // must not emit a price an assistant could quote back as a real number.
+      const priced = service.hasOfferCatalog.itemListElement.filter(
+        (offer: { priceSpecification?: unknown }) => offer.priceSpecification
+      );
+      expect(priced).toHaveLength(1);
+      expect(priced[0].itemOffered.name).toBe('CRM Automation Audit');
+      expect(priced[0].priceSpecification.minPrice).toBe(2500);
+      expect(priced[0].priceSpecification.maxPrice).toBe(2500);
     });
   });
 });

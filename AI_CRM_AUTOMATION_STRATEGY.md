@@ -35,18 +35,18 @@
 
 **The positioning statement** (use this verbatim as the site's spine):
 
-> Dan Pearson builds AI automation *inside* the CRM for small and mid-sized revenue teams — so sellers stop doing data entry and the pipeline stops lying. Fifteen years carrying a quota, seven SaaS platforms shipped. The rare person who has both run the sales floor and written the automation.
+> Dan Pearson builds AI automation _inside_ the CRM for small and mid-sized revenue teams — so sellers stop doing data entry and the pipeline stops lying. Fifteen years carrying a quota, seven SaaS platforms shipped. The rare person who has both run the sales floor and written the automation.
 
 **The contrarian thesis** — the single idea you want to become known for, repeated on every surface:
 
 > **Most AI CRM projects fail because they automate the reporting layer instead of the capture layer.**
-> Teams buy AI that summarizes a pipeline nobody updated. Fix capture first — automate what the seller does between 8am and 6pm — and the forecasting AI gets clean data for free. Dashboards are the *last* thing to automate, not the first.
+> Teams buy AI that summarizes a pipeline nobody updated. Fix capture first — automate what the seller does between 8am and 6pm — and the forecasting AI gets clean data for free. Dashboards are the _last_ thing to automate, not the first.
 
 Why this thesis: it's true, it's checkable, it's the opposite of what platform vendors say (they sell the dashboard), and only someone who has actually carried a bag would lead with it. It generates infinite content, it disqualifies bad-fit clients, and it's quotable — which matters enormously now that buyers shortlist vendors through LLMs.
 
-**Three-year proof of leadership**: when someone asks ChatGPT, Claude, Perplexity, or Google AI Overviews *"who should I hire to automate my CRM with AI?"* or *"why do AI CRM projects fail?"*, your name and your framework come back.
+**Three-year proof of leadership**: when someone asks ChatGPT, Claude, Perplexity, or Google AI Overviews _"who should I hire to automate my CRM with AI?"_ or _"why do AI CRM projects fail?"_, your name and your framework come back.
 
-**The strategic cost you must accept**: this narrows the site. Today danpearson.net sells "AI business automation" generally, plus NFT development, plus seven unrelated SaaS platforms. Category leadership is bought with focus. The other work does not disappear — it becomes *evidence* underneath the CRM story rather than a parallel pitch.
+**The strategic cost you must accept**: this narrows the site. Today danpearson.net sells "AI business automation" generally, plus NFT development, plus seven unrelated SaaS platforms. Category leadership is bought with focus. The other work does not disappear — it becomes _evidence_ underneath the CRM story rather than a parallel pitch.
 
 ---
 
@@ -56,28 +56,28 @@ Findings from reading the codebase, not assumptions.
 
 ### What's already strong
 
-| Asset | Location | Why it matters |
-|---|---|---|
-| Topic hub system (pillar/cluster machinery) | `src/pages/TopicHub.tsx` + `src/pages/Topics.tsx` | Hub pages already build themselves from article categories/tags. Adding a CRM hub is a config change, not a build. |
-| Rich structured-data component | `src/components/SEO/StructuredData.tsx` | 12 schema types supported: `website`, `person`, `article`, `project`, `organization`, `faq`, `howto`, `product`, `breadcrumb`, `review`, `localbusiness`, `sitenavigation`. |
-| GEO-aware SEO component | `src/components/SEO.tsx` | Already accepts `contentSummary` and `citationSource` props — purpose-built for LLM citation. Under-used across the site. |
-| DB-driven content | Supabase tables: `case_studies`, `faqs`, `ventures`, `achievements`, `work_experience`, `certifications`, `articles`, `ai_tools`, `profile_settings` | Most repositioning is *content edits through the admin*, not code. Cheap and fast. |
-| Auto-generated sitemap | `src/pages/SitemapXML.tsx` | New static routes need one line in the `staticPages` array. |
-| One real CRM proof point | `src/components/homepage/AuthoritySection.tsx:28` — "83% retention improvement through AI-powered CRM systems" | This is the *only* CRM claim on the site today. It's the seed of the whole category story. |
+| Asset                                       | Location                                                                                                                                             | Why it matters                                                                                                                                                              |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic hub system (pillar/cluster machinery) | `src/pages/TopicHub.tsx` + `src/pages/Topics.tsx`                                                                                                    | Hub pages already build themselves from article categories/tags. Adding a CRM hub is a config change, not a build.                                                          |
+| Rich structured-data component              | `src/components/SEO/StructuredData.tsx`                                                                                                              | 12 schema types supported: `website`, `person`, `article`, `project`, `organization`, `faq`, `howto`, `product`, `breadcrumb`, `review`, `localbusiness`, `sitenavigation`. |
+| GEO-aware SEO component                     | `src/components/SEO.tsx`                                                                                                                             | Already accepts `contentSummary` and `citationSource` props — purpose-built for LLM citation. Under-used across the site.                                                   |
+| DB-driven content                           | Supabase tables: `case_studies`, `faqs`, `ventures`, `achievements`, `work_experience`, `certifications`, `articles`, `ai_tools`, `profile_settings` | Most repositioning is _content edits through the admin_, not code. Cheap and fast.                                                                                          |
+| Auto-generated sitemap                      | `src/pages/SitemapXML.tsx`                                                                                                                           | New static routes need one line in the `staticPages` array.                                                                                                                 |
+| One real CRM proof point                    | `src/components/homepage/AuthoritySection.tsx:28` — "83% retention improvement through AI-powered CRM systems"                                       | This is the _only_ CRM claim on the site today. It's the seed of the whole category story.                                                                                  |
 
 ### What's working against the positioning
 
-| Problem | Location | Impact |
-|---|---|---|
-| Hero says nothing about CRM | `src/components/HeroSection.tsx:280` — "Bridging the gap between sales and technology" | True but abstract. It's a description, not a position. No buyer searches for this. |
-| Homepage sells NFT development | `src/pages/Index.tsx:354` — first of three service cards | Actively dilutes. An AI CRM buyer sees NFTs and leaves. |
-| Homepage service cards are generic | `src/pages/Index.tsx:347-391` — "NFT Development / AI Integration / Sales Leadership" | Three same-size icon-tile cards, no CRM anywhere. Also hits the anti-pattern floor in `CLAUDE.md`. |
-| SEO defaults are category-less | `src/lib/seo.ts:9-10`, `src/pages/Index.tsx:177-179` | Targets "AI business automation consultant" — a crowded, undifferentiated term where you compete with Accenture. |
-| Topic hubs miss the category | `src/pages/TopicHub.tsx:22-58` | Four hubs: ai-automation, business-optimization, machine-learning, digital-transformation. No CRM. Generic, not ownable. |
-| No commercial money page | `src/App.tsx:120-141` | There is no `/services` or category page. `/connect` is a contact form. Nothing converts commercial-intent traffic. |
-| Nav has no category entry | `src/components/Navigation.tsx:96-103` | Home / About Me / Projects / News / AI Tools / Connect. Nothing says what you sell. |
-| Unsubstantiated headline numbers | `AuthoritySection.tsx` (`$2.8M+`, `10,000+`, `40%`, `83%`) | Powerful *if* defensible. Right now they have no source, no client, no methodology. LLMs and serious buyers both discount unsourced numbers — and unbacked claims are a real liability. |
-| Existing UI anti-patterns | `src/pages/Topics.tsx:77` (gradient clipped text), `Index.tsx:347+` (icon-tile card grid) | Violates the craft floor in `CLAUDE.md`. New CRM pages must not repeat these. |
+| Problem                            | Location                                                                                  | Impact                                                                                                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hero says nothing about CRM        | `src/components/HeroSection.tsx:280` — "Bridging the gap between sales and technology"    | True but abstract. It's a description, not a position. No buyer searches for this.                                                                                                      |
+| Homepage sells NFT development     | `src/pages/Index.tsx:354` — first of three service cards                                  | Actively dilutes. An AI CRM buyer sees NFTs and leaves.                                                                                                                                 |
+| Homepage service cards are generic | `src/pages/Index.tsx:347-391` — "NFT Development / AI Integration / Sales Leadership"     | Three same-size icon-tile cards, no CRM anywhere. Also hits the anti-pattern floor in `CLAUDE.md`.                                                                                      |
+| SEO defaults are category-less     | `src/lib/seo.ts:9-10`, `src/pages/Index.tsx:177-179`                                      | Targets "AI business automation consultant" — a crowded, undifferentiated term where you compete with Accenture.                                                                        |
+| Topic hubs miss the category       | `src/pages/TopicHub.tsx:22-58`                                                            | Four hubs: ai-automation, business-optimization, machine-learning, digital-transformation. No CRM. Generic, not ownable.                                                                |
+| No commercial money page           | `src/App.tsx:120-141`                                                                     | There is no `/services` or category page. `/connect` is a contact form. Nothing converts commercial-intent traffic.                                                                     |
+| Nav has no category entry          | `src/components/Navigation.tsx:96-103`                                                    | Home / About Me / Projects / News / AI Tools / Connect. Nothing says what you sell.                                                                                                     |
+| Unsubstantiated headline numbers   | `AuthoritySection.tsx` (`$2.8M+`, `10,000+`, `40%`, `83%`)                                | Powerful _if_ defensible. Right now they have no source, no client, no methodology. LLMs and serious buyers both discount unsourced numbers — and unbacked claims are a real liability. |
+| Existing UI anti-patterns          | `src/pages/Topics.tsx:77` (gradient clipped text), `Index.tsx:347+` (icon-tile card grid) | Violates the craft floor in `CLAUDE.md`. New CRM pages must not repeat these.                                                                                                           |
 
 **Net read**: the machinery is good, the content strategy is unfocused. This is a positioning and content problem with a small amount of code attached — roughly 20% engineering, 80% content and copy. That's the good version of this problem.
 
@@ -87,12 +87,12 @@ Findings from reading the codebase, not assumptions.
 
 ### The shift that creates the opening
 
-2026 is the year CRM AI moved from *assistive* to *agentic* — from software that recommends to software that executes. HubSpot's Spring 2026 agentic release put it in direct contention with Salesforce; Futurum's Q1 2026 survey found 39% of enterprises expect GenAI to arrive as task-automating agents rather than chat interfaces. The global CRM market is tracking toward roughly $126B in 2026, and AI-in-CRM specifically is projected on a ~28% CAGR into the 2030s.
+2026 is the year CRM AI moved from _assistive_ to _agentic_ — from software that recommends to software that executes. HubSpot's Spring 2026 agentic release put it in direct contention with Salesforce; Futurum's Q1 2026 survey found 39% of enterprises expect GenAI to arrive as task-automating agents rather than chat interfaces. The global CRM market is tracking toward roughly $126B in 2026, and AI-in-CRM specifically is projected on a ~28% CAGR into the 2030s.
 
 Three consequences matter for your positioning:
 
 **1. The bottleneck moved to data, and everyone now admits it.**
-CX Today's 2026 trend analysis said it bluntly: *"If your data is messy, AI will scale the mess."* Data quality and governance moved from IT chore to board agenda because they gate every AI initiative. Meanwhile the most-repeated diagnosis of failed RevOps projects is teams buying tools that add dashboards without fixing the underlying data.
+CX Today's 2026 trend analysis said it bluntly: _"If your data is messy, AI will scale the mess."_ Data quality and governance moved from IT chore to board agenda because they gate every AI initiative. Meanwhile the most-repeated diagnosis of failed RevOps projects is teams buying tools that add dashboards without fixing the underlying data.
 
 > **This is your thesis validated by the market — and almost nobody is selling the fix.** Vendors sell agents. Agencies sell implementations. Very few people sell "we fix what the seller enters, then the AI works." That's the gap.
 
@@ -104,12 +104,12 @@ Two clusters exist today: enterprise platform partners (elite HubSpot/Salesforce
 
 ### The competitive reality, honestly stated
 
-| Competitor type | Their strength | Where you win |
-|---|---|---|
-| Platform partners (elite HubSpot/Salesforce agencies) | Certifications, enterprise trust, staff | Price, speed, and no platform allegiance. You'll build custom where they'd sell a license. |
-| RevOps-as-a-service firms | Recurring model, ops depth | You've actually sold. They're ops people; you're a closer who codes. |
-| Automation freelancers (Zapier/Make) | Cheap | You ship production software with security, auth, and RLS — see this repo. They ship brittle zaps. |
-| Vendor content marketing (HubSpot blog, Salesforce, Creatio, monday) | Enormous domain authority | You cannot out-rank them on "what is AI CRM." Don't try. Win on the queries they *can't* answer honestly — failure modes, vendor-neutral comparisons, real costs, what to do when the CRM is already a mess. |
+| Competitor type                                                      | Their strength                          | Where you win                                                                                                                                                                                                |
+| -------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Platform partners (elite HubSpot/Salesforce agencies)                | Certifications, enterprise trust, staff | Price, speed, and no platform allegiance. You'll build custom where they'd sell a license.                                                                                                                   |
+| RevOps-as-a-service firms                                            | Recurring model, ops depth              | You've actually sold. They're ops people; you're a closer who codes.                                                                                                                                         |
+| Automation freelancers (Zapier/Make)                                 | Cheap                                   | You ship production software with security, auth, and RLS — see this repo. They ship brittle zaps.                                                                                                           |
+| Vendor content marketing (HubSpot blog, Salesforce, Creatio, monday) | Enormous domain authority               | You cannot out-rank them on "what is AI CRM." Don't try. Win on the queries they _can't_ answer honestly — failure modes, vendor-neutral comparisons, real costs, what to do when the CRM is already a mess. |
 
 **Strategic conclusion**: do not fight for head terms. Own the **problem-aware and failure-mode** queries, the **vendor-neutral comparison** queries, and the **"consultant for X" commercial** queries. That is where a single credible operator can beat a $30B company, because the $30B company is structurally unable to say "don't buy the AI add-on yet."
 
@@ -140,29 +140,31 @@ Positioning fails when it's a claim anyone could make. Here is the part only you
 **The Ideal Customer Profile** (write it down, then say no to everything else):
 
 - 5–50 seat revenue team, $2M–$50M revenue
-- Already on HubSpot, Salesforce (SMB tiers), Pipedrive, GoHighLevel, or Zoho — *and unhappy with the data in it*
+- Already on HubSpot, Salesforce (SMB tiers), Pipedrive, GoHighLevel, or Zoho — _and unhappy with the data in it_
 - Sales-led, with a founder or VP Sales who still looks at the pipeline personally
 - Has bought at least one AI add-on that didn't stick
 - Industries where you already have context: construction, real estate, home services, fitness, professional services
 
 **The offer ladder** (the site must make all four visible):
 
-| Tier | Offer | Price band | Purpose |
-|---|---|---|---|
-| 0 | CRM Automation Scorecard (self-serve) | Free | Lead capture, link bait, LLM-citable |
-| 1 | CRM Automation Audit — 2 weeks, fixed fee, deliverable is a findings + roadmap doc | $2.5k–$7.5k | Low-risk entry, qualifies the build |
-| 2 | Capture-Layer Build — implementation sprint | $15k–$50k | Core revenue |
-| 3 | Automation retainer / fractional RevOps-engineer | $3k–$8k/mo | Recurring, compounding |
+| Tier | Offer                                                                   | Published price       | Purpose                              |
+| ---- | ----------------------------------------------------------------------- | --------------------- | ------------------------------------ |
+| 0    | CRM Automation Scorecard (self-serve)                                   | Free                  | Lead capture, link bait, LLM-citable |
+| 1    | CRM Automation Audit — 2 weeks, deliverable is a findings + roadmap doc | **$2,500 flat**       | Low-risk entry, qualifies the build  |
+| 2    | Capture-Layer Build — implementation sprint                             | Scoped from the audit | Core revenue                         |
+| 3    | Automation retainer / fractional RevOps-engineer                        | Scoped to the work    | Recurring, compounding               |
 
 The audit-first ladder matters strategically: it's how a solo operator competes with agencies, and it makes every content asset ("here's the 12-point audit") a direct funnel to a paid product.
 
-**Positioning guardrail**: you are *not* "an AI consultant." You are *the person who makes the CRM run itself for revenue teams under 50 seats.* If a sentence on the site would still be true for a generic AI consultancy, rewrite it.
+**Publish one number, not three** (decided 2026-08-11). Only the audit carries a figure on the site, and it is flat rather than a band. The reasoning cuts both ways: the audit is the offer a stranger should be able to buy without talking to anyone, so it has to be legible to an assistant answering _"what does he charge?"_ — while build and retainer scope genuinely cannot be known before the audit runs, and a published $15k–$50k band would anchor the entire page on its ceiling instead of on the $2,500 door. Refusing to quote implementation before seeing the data is also on-thesis: it is the same argument the whole practice is built on.
+
+**Positioning guardrail**: you are _not_ "an AI consultant." You are _the person who makes the CRM run itself for revenue teams under 50 seats._ If a sentence on the site would still be true for a generic AI consultancy, rewrite it.
 
 ---
 
 ## 5. Signature IP: the assets that get cited
 
-Category leaders are known for a *named thing*. Without one, you're a service provider; with one, you're a reference. Three pieces of IP, in priority order.
+Category leaders are known for a _named thing_. Without one, you're a service provider; with one, you're a reference. Three pieces of IP, in priority order.
 
 ### 5.1 The Capture-First Principle (the thesis)
 
@@ -172,15 +174,15 @@ Already stated in §1. This is the sentence-level idea. Every article, talk, and
 
 A five-rung maturity model. Buyers self-locate on it; that's what makes frameworks spread.
 
-| Rung | Name | What's true at this level | The failure that keeps teams stuck |
-|---|---|---|---|
-| 0 | **Manual** | CRM is a reporting obligation. Sellers update it Friday afternoon, from memory. | Data is fiction. Any AI built on it amplifies fiction. |
-| 1 | **Rules** | Workflows, assignment rules, sequences. Deterministic and brittle. | Rules multiply until nobody knows why a record changed. |
-| 2 | **Assisted capture** | AI writes the notes, logs the call, enriches the contact, updates the stage from the conversation. Human confirms. | Most teams skip this rung — it's unglamorous — and that's exactly why rungs 3 and 4 fail. |
-| 3 | **Agentic execution** | Agents act inside the CRM: qualify inbound, chase stalled deals, book meetings, escalate risk. Human supervises. | Deployed on rung-0 data, agents confidently do the wrong thing at scale. |
-| 4 | **Self-maintaining revenue system** | The CRM is a byproduct of work, not a task. Forecasting is trustworthy because capture is automatic. | Reachable only in sequence. There is no shortcut. |
+| Rung | Name                                | What's true at this level                                                                                          | The failure that keeps teams stuck                                                        |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| 0    | **Manual**                          | CRM is a reporting obligation. Sellers update it Friday afternoon, from memory.                                    | Data is fiction. Any AI built on it amplifies fiction.                                    |
+| 1    | **Rules**                           | Workflows, assignment rules, sequences. Deterministic and brittle.                                                 | Rules multiply until nobody knows why a record changed.                                   |
+| 2    | **Assisted capture**                | AI writes the notes, logs the call, enriches the contact, updates the stage from the conversation. Human confirms. | Most teams skip this rung — it's unglamorous — and that's exactly why rungs 3 and 4 fail. |
+| 3    | **Agentic execution**               | Agents act inside the CRM: qualify inbound, chase stalled deals, book meetings, escalate risk. Human supervises.   | Deployed on rung-0 data, agents confidently do the wrong thing at scale.                  |
+| 4    | **Self-maintaining revenue system** | The CRM is a byproduct of work, not a task. Forecasting is trustworthy because capture is automatic.               | Reachable only in sequence. There is no shortcut.                                         |
 
-**The rule that makes it memorable**: *You cannot skip rung 2.* Every failed AI CRM project you'll ever be called to fix jumped from 1 to 3.
+**The rule that makes it memorable**: _You cannot skip rung 2._ Every failed AI CRM project you'll ever be called to fix jumped from 1 to 3.
 
 ### 5.3 The 12-Point CRM Automation Audit (the diagnostic)
 
@@ -191,7 +193,7 @@ The checklist that becomes both a free tool and the spec for the paid Tier-1 aud
 - **Flow** (3): handoff latency, stalled-deal detection, routing accuracy
 - **Trust** (2): forecast-vs-actual variance, seller-reported time in CRM per week
 
-Publish the *methodology* openly. The scoring is the product; the checklist is the marketing. Openly published methodology is precisely what LLMs cite.
+Publish the _methodology_ openly. The scoring is the product; the checklist is the marketing. Openly published methodology is precisely what LLMs cite.
 
 ### 5.4 Naming and consistency rules
 
@@ -206,16 +208,16 @@ Publish the *methodology* openly. The scoring is the product; the checklist is t
 
 ### New routes
 
-| Route | Type | Search intent | Priority |
-|---|---|---|---|
-| `/ai-crm-automation` | **Money page** — pillar + service | Commercial: "AI CRM automation consultant," "automate my CRM with AI" | P0 |
-| `/topics/ai-crm-automation` | Content hub (uses existing machinery) | Informational: browse everything on the topic | P0 |
-| `/ai-crm-automation/audit` | Service detail — the Tier-1 audit offer | Commercial: "CRM automation audit" | P1 |
-| `/tools/crm-automation-scorecard` | Interactive assessment (the 12-point audit, self-serve) | Problem-aware, high lead value | P1 |
-| `/tools/crm-automation-roi-calculator` | Interactive calculator — seller hours reclaimed → dollars | Evaluation stage, extremely linkable | P2 |
-| `/playbooks` + `/playbooks/:slug` | Teardown series (optional — can live under `/news`) | Informational, long-tail | P3 |
+| Route                                  | Type                                                      | Search intent                                                         | Priority |
+| -------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------- | -------- |
+| `/ai-crm-automation`                   | **Money page** — pillar + service                         | Commercial: "AI CRM automation consultant," "automate my CRM with AI" | P0       |
+| `/topics/ai-crm-automation`            | Content hub (uses existing machinery)                     | Informational: browse everything on the topic                         | P0       |
+| `/ai-crm-automation/audit`             | Service detail — the Tier-1 audit offer                   | Commercial: "CRM automation audit"                                    | P1       |
+| `/tools/crm-automation-scorecard`      | Interactive assessment (the 12-point audit, self-serve)   | Problem-aware, high lead value                                        | P1       |
+| `/tools/crm-automation-roi-calculator` | Interactive calculator — seller hours reclaimed → dollars | Evaluation stage, extremely linkable                                  | P2       |
+| `/playbooks` + `/playbooks/:slug`      | Teardown series (optional — can live under `/news`)       | Informational, long-tail                                              | P3       |
 
-**Cannibalization guard**: `/ai-crm-automation` targets commercial intent and carries the offer, pricing bands, and proof. `/topics/ai-crm-automation` is an index of articles with no offer. They cross-link; neither canonicals to the other. Keep the H1s distinct: *"AI CRM Automation Consulting"* vs *"AI CRM Automation: Guides & Research."*
+**Cannibalization guard**: `/ai-crm-automation` targets commercial intent and carries the offer, pricing bands, and proof. `/topics/ai-crm-automation` is an index of articles with no offer. They cross-link; neither canonicals to the other. Keep the H1s distinct: _"AI CRM Automation Consulting"_ vs _"AI CRM Automation: Guides & Research."_
 
 ### Navigation change
 
@@ -239,15 +241,15 @@ Every item below is a concrete change with a file path. Items marked **(content)
 
 ### 7.1 `/` — Homepage (`src/pages/Index.tsx`)
 
-| # | Change | Detail |
-|---|---|---|
-| 1 | Replace the three service cards (lines 347–391) | New trio: **CRM Automation Audit** / **Capture-Layer Builds** / **Agentic Workflows**. Remove NFT Development entirely. Rebuild as an offer ladder with differing weights, *not* three identical icon tiles — the current pattern is on the craft-floor list in `CLAUDE.md`. |
-| 2 | Rewrite `<SEO>` (lines 176–184) | Title: `AI CRM Automation Consultant \| Make Your CRM Run Itself \| Dan Pearson`. Description leads with the capture-layer thesis and the ICP. Set `contentSummary` to a 2–3 sentence, quotable summary — this is the text LLMs lift. |
-| 3 | Add a "thesis block" above the fold-adjacent section | 120–160 words stating the capture-vs-reporting layer argument. This is the most-quoted text on the site; it must be prose, not bullets. |
-| 4 | Add the Pipeline Automation Ladder section | Five rungs, rendered as a genuine progression (stepped/vertical), not five cards in a row. Links to the pillar page. |
-| 5 | Update `Person` schema `knowsAbout` (lines 197–210) | Lead with `AI CRM Automation`, `CRM Data Quality`, `Sales Pipeline Automation`, `HubSpot Automation`, `Salesforce Automation`, `Revenue Operations`, `AI Agents for Sales`. Demote React/TypeScript to the tail. |
-| 6 | Update `sitenavigation` schema (lines 251–293) | Add the money page with a description. |
-| 7 | Case studies section | Ensure the CRM case study sorts first (`display_order` in `case_studies`). **(content)** |
+| #   | Change                                               | Detail                                                                                                                                                                                                                                                                       |
+| --- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Replace the three service cards (lines 347–391)      | New trio: **CRM Automation Audit** / **Capture-Layer Builds** / **Agentic Workflows**. Remove NFT Development entirely. Rebuild as an offer ladder with differing weights, _not_ three identical icon tiles — the current pattern is on the craft-floor list in `CLAUDE.md`. |
+| 2   | Rewrite `<SEO>` (lines 176–184)                      | Title: `AI CRM Automation Consultant \| Make Your CRM Run Itself \| Dan Pearson`. Description leads with the capture-layer thesis and the ICP. Set `contentSummary` to a 2–3 sentence, quotable summary — this is the text LLMs lift.                                        |
+| 3   | Add a "thesis block" above the fold-adjacent section | 120–160 words stating the capture-vs-reporting layer argument. This is the most-quoted text on the site; it must be prose, not bullets.                                                                                                                                      |
+| 4   | Add the Pipeline Automation Ladder section           | Five rungs, rendered as a genuine progression (stepped/vertical), not five cards in a row. Links to the pillar page.                                                                                                                                                         |
+| 5   | Update `Person` schema `knowsAbout` (lines 197–210)  | Lead with `AI CRM Automation`, `CRM Data Quality`, `Sales Pipeline Automation`, `HubSpot Automation`, `Salesforce Automation`, `Revenue Operations`, `AI Agents for Sales`. Demote React/TypeScript to the tail.                                                             |
+| 6   | Update `sitenavigation` schema (lines 251–293)       | Add the money page with a description.                                                                                                                                                                                                                                       |
+| 7   | Case studies section                                 | Ensure the CRM case study sorts first (`display_order` in `case_studies`). **(content)**                                                                                                                                                                                     |
 
 ### 7.2 `/ai-crm-automation` — the money page (new: `src/pages/AICrmAutomation.tsx`)
 
@@ -258,13 +260,14 @@ The single most important new page. Target length 2,500–3,500 words. Section o
 3. **The Pipeline Automation Ladder** — full five rungs with the "you cannot skip rung 2" rule
 4. **Where teams get stuck** — the five failure modes, each with a concrete symptom a reader will recognize
 5. **The 12-Point Audit** — the methodology, published openly, with the scorecard CTA
-6. **How I work** — the four-tier offer ladder with price bands. *Publish the bands.* LLM-mediated shortlisting rewards published pricing; hiding it removes you from consideration.
+6. **How I work** — the offer ladder, with the audit's flat $2,500 published and the rest scoped from it (see §4). LLM-mediated shortlisting rewards a published entry price; publishing nothing removes you from consideration entirely.
 7. **Proof** — the 83% retention case study in Challenge/Solution/Results form, plus platform experience
 8. **Who this is for / who it isn't** — the ICP, stated as disqualification. Disqualification reads as confidence and improves lead quality.
 9. **FAQ** — 8–10 questions (see §10 for the list), each answered in 80–150 words
 10. **CTA** — book the audit
 
 Wire-up checklist:
+
 - `src/App.tsx` — lazy import + `<Route path="/ai-crm-automation" element={<AICrmAutomation />} />`
 - `src/pages/SitemapXML.tsx:59` — add `{ path: '/ai-crm-automation', priority: '0.9', changefreq: 'weekly' }`
 - `src/components/Navigation.tsx:96` — add nav item
@@ -333,7 +336,7 @@ New pages must not reach for the category defaults. Specifically for this build:
 
 - No gradient clipped text (existing violation at `src/pages/Topics.tsx:77` — fix while you're in there)
 - The Ladder is a **progression**, not five equal cards; the offer ladder is a **table or stepped list**, not four tiles
-- Declare elevation once — border *or* shadow, not a 1px border under a wide soft shadow
+- Declare elevation once — border _or_ shadow, not a 1px border under a wide soft shadow
 - No colored left-borders on the callouts (the most recognizable tell of all)
 - Run `npx impeccable detect src/pages/AICrmAutomation.tsx` before committing, then `/impeccable critique` for the judgment calls
 
@@ -345,13 +348,13 @@ New pages must not reach for the category defaults. Specifically for this build:
 
 ### Cluster A — Commercial intent (money page targets)
 
-| Query pattern | Intent | Target page |
-|---|---|---|
-| ai crm automation consultant | Hire | `/ai-crm-automation` |
-| crm automation services / consultant for hire | Hire | `/ai-crm-automation` |
-| crm automation audit | Hire, high intent | `/ai-crm-automation/audit` |
-| hubspot automation consultant (SMB) | Hire | Money page + platform section |
-| fractional revops engineer | Hire | Money page, retainer tier |
+| Query pattern                                 | Intent            | Target page                   |
+| --------------------------------------------- | ----------------- | ----------------------------- |
+| ai crm automation consultant                  | Hire              | `/ai-crm-automation`          |
+| crm automation services / consultant for hire | Hire              | `/ai-crm-automation`          |
+| crm automation audit                          | Hire, high intent | `/ai-crm-automation/audit`    |
+| hubspot automation consultant (SMB)           | Hire              | Money page + platform section |
+| fractional revops engineer                    | Hire              | Money page, retainer tier     |
 
 **Reality check**: these are low-volume, high-value. A handful of monthly visitors converting at 5–10% beats thousands of readers. Don't judge this cluster by traffic.
 
@@ -380,7 +383,7 @@ This is where you win, because vendors structurally cannot compete here.
 - automate call logging in hubspot
 - ai lead scoring setup
 - automate stalled deal follow-up
-- crm automation for construction / real estate / home services *(your industry advantage — genuinely under-served)*
+- crm automation for construction / real estate / home services _(your industry advantage — genuinely under-served)_
 
 ### Cluster E — Framework and brand queries (the long game)
 
@@ -390,7 +393,7 @@ This is where you win, because vendors structurally cannot compete here.
 - 12 point crm automation audit
 - dan pearson crm automation
 
-Cluster E starts at zero volume by definition. Creating it *is* the leadership goal.
+Cluster E starts at zero volume by definition. Creating it _is_ the leadership goal.
 
 ### Priority sequencing
 
@@ -405,20 +408,20 @@ Cluster E starts at zero volume by definition. Creating it *is* the leadership g
 
 Cadence: **one pillar (2,500–4,000 words) or two clusters (1,200–1,800 words) per week.** Every piece cites the Ladder and links to the money page.
 
-| Week | Piece | Type | Cluster | Purpose |
-|---|---|---|---|---|
-| 1 | AI CRM Automation: The Complete 2026 Guide | Pillar, 4,000w | A/B | Hub anchor, `pillarContent` target |
-| 2 | Why AI CRM Projects Fail: 5 Failure Modes | Pillar, 3,000w | B | The flagship thesis piece |
-| 3 | The Pipeline Automation Ladder (framework doc) | Pillar, 2,500w | E | The citable framework |
-| 4 | The 12-Point CRM Automation Audit (methodology) | Pillar, 2,500w | E/A | Feeds the scorecard tool |
-| 5 | Getting Reps to Actually Use the CRM (without nagging) | Cluster ×2 | B/D | Emotional, highly shareable |
-| 6 | HubSpot AI vs Salesforce Einstein for Teams Under 50 | Pillar, 3,000w | C | Comparison — top link magnet |
-| 7 | What CRM Automation Actually Costs in 2026 | Cluster ×2 | C | Published-pricing transparency play |
-| 8 | Zapier vs Make vs n8n for CRM Work | Pillar, 2,500w | C | High-traffic comparison |
-| 9 | Automating Call Logging and Note Capture (teardown) | Cluster ×2 | D | Rung-2 proof, screenshots |
-| 10 | CRM Automation for Construction Companies | Pillar, 2,500w | D | Your industry moat |
-| 11 | CRM Automation for Real Estate Teams | Pillar, 2,500w | D | Your industry moat |
-| 12 | Agentic CRM: What Actually Works Today | Pillar, 3,000w | B/C | Timely, positions you ahead |
+| Week | Piece                                                  | Type           | Cluster | Purpose                             |
+| ---- | ------------------------------------------------------ | -------------- | ------- | ----------------------------------- |
+| 1    | AI CRM Automation: The Complete 2026 Guide             | Pillar, 4,000w | A/B     | Hub anchor, `pillarContent` target  |
+| 2    | Why AI CRM Projects Fail: 5 Failure Modes              | Pillar, 3,000w | B       | The flagship thesis piece           |
+| 3    | The Pipeline Automation Ladder (framework doc)         | Pillar, 2,500w | E       | The citable framework               |
+| 4    | The 12-Point CRM Automation Audit (methodology)        | Pillar, 2,500w | E/A     | Feeds the scorecard tool            |
+| 5    | Getting Reps to Actually Use the CRM (without nagging) | Cluster ×2     | B/D     | Emotional, highly shareable         |
+| 6    | HubSpot AI vs Salesforce Einstein for Teams Under 50   | Pillar, 3,000w | C       | Comparison — top link magnet        |
+| 7    | What CRM Automation Actually Costs in 2026             | Cluster ×2     | C       | Published-pricing transparency play |
+| 8    | Zapier vs Make vs n8n for CRM Work                     | Pillar, 2,500w | C       | High-traffic comparison             |
+| 9    | Automating Call Logging and Note Capture (teardown)    | Cluster ×2     | D       | Rung-2 proof, screenshots           |
+| 10   | CRM Automation for Construction Companies              | Pillar, 2,500w | D       | Your industry moat                  |
+| 11   | CRM Automation for Real Estate Teams                   | Pillar, 2,500w | D       | Your industry moat                  |
+| 12   | Agentic CRM: What Actually Works Today                 | Pillar, 3,000w | B/C     | Timely, positions you ahead         |
 
 ### Article production standards
 
@@ -454,11 +457,11 @@ Existing `howto` already fits the 12-point audit. Existing `faq` covers the FAQ 
 ### GEO tactics specific to this category
 
 1. **Set `contentSummary` on every CRM page.** It's already a prop on `src/components/SEO.tsx:26` and it's the field an LLM is most likely to lift. Write it as a standalone quotable claim, not a page description.
-2. **Publish the price bands.** Buyers shortlist through assistants; assistants can only relay what's on the page. Vagueness removes you from the list.
+2. **Publish the entry price.** Buyers shortlist through assistants, and assistants can only relay what's on the page — publishing nothing removes you from the list. One flat, unambiguous number for the audit does this job better than three wide bands, which are harder to relay and lead with a ceiling.
 3. **Publish the methodology, not just the outcome.** "Here are the 12 checks and how we score them" is citable; "we do a thorough audit" is not.
 4. **Date and version the frameworks.** "Pipeline Automation Ladder v1.0, published August 2026." Freshness signals and version numbers both get picked up.
 5. **Comparison tables with an explicit verdict column.** Generative answers extract verdicts. A table with no conclusion is unusable to them.
-6. **Never make an unsourced statistic the headline claim.** See §15 — this is a liability *and* an LLM-trust problem.
+6. **Never make an unsourced statistic the headline claim.** See §15 — this is a liability _and_ an LLM-trust problem.
 
 ### The FAQ set for the money page
 
@@ -511,15 +514,15 @@ Before any of the above ships, the four headline numbers in `AuthoritySection.ts
 
 The site is the asset; it is not the distribution.
 
-| Channel | Cadence | Angle |
-|---|---|---|
-| **LinkedIn** | 3–4×/week | Your buyers live here. Failure modes and rung diagnoses, not motivation. Every post is a repurposed article fragment. |
-| **Newsletter** | Weekly | `NewsletterSignup` component already exists. One rung-level tip per issue. |
-| **Podcasts** | 1–2/month as guest | Sales/RevOps/SMB-ops shows. The "quota-carrier who codes" angle books easily. |
-| **HubSpot / GoHighLevel partner directories** | One-time | Cheap, category-relevant backlinks and buyer-intent listings. |
-| **Communities** | Ongoing | RevOps Co-op, Pavilion, r/sales, r/CRM. Answer failure-mode questions with substance, never with a link-drop. |
-| **GitHub** | Ongoing | Open-source one small CRM automation utility. Developer-credible proof, and it ranks. |
-| **Guest posts** | 1/month | RevOps and sales-ops publications. Always the capture-layer thesis. |
+| Channel                                       | Cadence            | Angle                                                                                                                 |
+| --------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| **LinkedIn**                                  | 3–4×/week          | Your buyers live here. Failure modes and rung diagnoses, not motivation. Every post is a repurposed article fragment. |
+| **Newsletter**                                | Weekly             | `NewsletterSignup` component already exists. One rung-level tip per issue.                                            |
+| **Podcasts**                                  | 1–2/month as guest | Sales/RevOps/SMB-ops shows. The "quota-carrier who codes" angle books easily.                                         |
+| **HubSpot / GoHighLevel partner directories** | One-time           | Cheap, category-relevant backlinks and buyer-intent listings.                                                         |
+| **Communities**                               | Ongoing            | RevOps Co-op, Pavilion, r/sales, r/CRM. Answer failure-mode questions with substance, never with a link-drop.         |
+| **GitHub**                                    | Ongoing            | Open-source one small CRM automation utility. Developer-credible proof, and it ranks.                                 |
+| **Guest posts**                               | 1/month            | RevOps and sales-ops publications. Always the capture-layer thesis.                                                   |
 
 ---
 
@@ -541,9 +544,9 @@ The site is the asset; it is not the distribution.
 
 ### The AI-citation panel (monthly, manual — 30 minutes)
 
-Run the same 10 prompts across ChatGPT, Claude, Perplexity, Gemini, and Google AI Overviews. Record whether you're mentioned, and whether the *framework* is mentioned even when you aren't (that's leading-edge category adoption).
+Run the same 10 prompts across ChatGPT, Claude, Perplexity, Gemini, and Google AI Overviews. Record whether you're mentioned, and whether the _framework_ is mentioned even when you aren't (that's leading-edge category adoption).
 
-Prompts: *who should I hire to automate my CRM with AI* · *why do AI CRM projects fail* · *what does CRM automation cost* · *best AI CRM consultant for small business* · *how do I get sales reps to update the CRM* · *CRM automation maturity model* · *should I buy my CRM's AI add-on* · *HubSpot AI vs Salesforce Einstein small team* · *fractional RevOps engineer* · *AI CRM automation consultant Des Moines*
+Prompts: _who should I hire to automate my CRM with AI_ · _why do AI CRM projects fail_ · _what does CRM automation cost_ · _best AI CRM consultant for small business_ · _how do I get sales reps to update the CRM_ · _CRM automation maturity model_ · _should I buy my CRM's AI add-on_ · _HubSpot AI vs Salesforce Einstein small team_ · _fractional RevOps engineer_ · _AI CRM automation consultant Des Moines_
 
 Log to a simple table; the trend over six months is the real scoreboard.
 
@@ -610,16 +613,16 @@ Roughly **12–17 dev-days** of code across Phases 1–3. The larger investment 
 
 ## 15. Risks, guardrails, and what to say no to
 
-| Risk | Severity | Mitigation |
-|---|---|---|
+| Risk                                                       | Severity | Mitigation                                                                                                                                                                                        |
+| ---------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Unsubstantiated claims** ($2.8M, 83%, 40%, 10,000 users) | **High** | Source each or soften it. A category leader gets fact-checked. Overstated numbers are both a legal and a credibility exposure, and LLMs increasingly discount unsourced figures. Phase-0 blocker. |
-| Narrowing costs non-CRM leads | Medium | Real, and worth it. Keep `/projects` and `/ai-tools` intact as secondary surfaces; the homepage and money page carry the focus. |
-| The other six SaaS platforms look scattered | Medium | Reframe them as multi-industry revenue-data evidence, not as separate offerings. |
-| Vendor blogs out-rank you on head terms | Medium | Don't contest them. Clusters B and C are the ground you can hold. |
-| Slow results (SEO is 6–12 months) | Medium | LinkedIn and the newsletter carry months 1–3 while the site compounds. |
-| Content quality drops under cadence | Medium | Halve the cadence before halving the standard. One excellent pillar beats four thin posts, especially for citation. |
-| New pages ship generic AI-template UI | Low | `CLAUDE.md` craft floor + `npx impeccable detect` before every commit. |
-| Framework doesn't catch on | Low | Even unadopted, it structures your content and improves conversion. No downside. |
+| Narrowing costs non-CRM leads                              | Medium   | Real, and worth it. Keep `/projects` and `/ai-tools` intact as secondary surfaces; the homepage and money page carry the focus.                                                                   |
+| The other six SaaS platforms look scattered                | Medium   | Reframe them as multi-industry revenue-data evidence, not as separate offerings.                                                                                                                  |
+| Vendor blogs out-rank you on head terms                    | Medium   | Don't contest them. Clusters B and C are the ground you can hold.                                                                                                                                 |
+| Slow results (SEO is 6–12 months)                          | Medium   | LinkedIn and the newsletter carry months 1–3 while the site compounds.                                                                                                                            |
+| Content quality drops under cadence                        | Medium   | Halve the cadence before halving the standard. One excellent pillar beats four thin posts, especially for citation.                                                                               |
+| New pages ship generic AI-template UI                      | Low      | `CLAUDE.md` craft floor + `npx impeccable detect` before every commit.                                                                                                                            |
+| Framework doesn't catch on                                 | Low      | Even unadopted, it structures your content and improves conversion. No downside.                                                                                                                  |
 
 ### Say no to
 
