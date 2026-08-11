@@ -10,6 +10,14 @@ import {
 
 const resend = new Resend(Deno.env.get('RESEND_API'));
 
+// Where contact form submissions are delivered. Overridable per environment;
+// the fallback matches the owner address send-notification-email defaults to.
+const CONTACT_RECIPIENT = Deno.env.get('CONTACT_EMAIL') || 'pearsonperformance@gmail.com';
+
+// Verified sending identity. resend.dev senders only deliver to the Resend
+// account owner, which silently drops the confirmation to the submitter.
+const CONTACT_FROM = Deno.env.get('CONTACT_FROM') || 'Dan Pearson <noreply@danpearson.net>';
+
 // Initialize rate limiter
 initRateLimiter();
 
@@ -100,8 +108,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email to site owner
     const emailResponse = await resend.emails.send({
-      from: 'Build Desk Contact <onboarding@resend.dev>',
-      to: ['your-email@example.com'], // Replace with actual recipient email
+      from: CONTACT_FROM,
+      to: [CONTACT_RECIPIENT],
       replyTo: email,
       subject: `Contact Form: ${subject}`,
       html: `
@@ -118,7 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send confirmation email to sender
     await resend.emails.send({
-      from: 'Build Desk <onboarding@resend.dev>',
+      from: CONTACT_FROM,
       to: [email],
       subject: 'Thank you for contacting us!',
       html: `
@@ -127,7 +135,7 @@ const handler = async (req: Request): Promise<Response> => {
         <p><strong>Your message:</strong></p>
         <p>${message.replace(/\n/g, '<br>')}</p>
         <hr />
-        <p>Best regards,<br>The Build Desk Team</p>
+        <p>Best regards,<br>Dan Pearson</p>
       `,
     });
 

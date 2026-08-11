@@ -19,14 +19,14 @@ export type AlertSeverity = 'warning' | 'critical' | 'resolved';
 
 // Alert configuration
 export interface AlertConfig {
-  errorRateWarningThreshold: number;  // Errors per minute to trigger warning
+  errorRateWarningThreshold: number; // Errors per minute to trigger warning
   errorRateCriticalThreshold: number; // Errors per minute to trigger critical
-  cooldownMinutes: number;            // Minutes between alerts
-  windowMinutes: number;              // Sliding window for rate calculation
-  enableEmail: boolean;               // Send email alerts
-  enableWebhook: boolean;             // Send webhook alerts
-  webhookUrl?: string;                // Webhook endpoint
-  alertEmails?: string[];             // Email recipients
+  cooldownMinutes: number; // Minutes between alerts
+  windowMinutes: number; // Sliding window for rate calculation
+  enableEmail: boolean; // Send email alerts
+  enableWebhook: boolean; // Send webhook alerts
+  webhookUrl?: string; // Webhook endpoint
+  alertEmails?: string[]; // Email recipients
 }
 
 // Default configuration
@@ -82,8 +82,8 @@ export function initErrorAlerting(customConfig?: Partial<AlertConfig>): void {
  * Clean up old error counts outside the window
  */
 function cleanupOldCounts(): void {
-  const cutoff = Date.now() - (config.windowMinutes * 60 * 1000);
-  state.errorCounts = state.errorCounts.filter(ec => ec.timestamp > cutoff);
+  const cutoff = Date.now() - config.windowMinutes * 60 * 1000;
+  state.errorCounts = state.errorCounts.filter((ec) => ec.timestamp > cutoff);
 }
 
 /**
@@ -91,11 +91,11 @@ function cleanupOldCounts(): void {
  */
 function calculateErrorRate(): number {
   const now = Date.now();
-  const windowStart = now - (config.windowMinutes * 60 * 1000);
+  const windowStart = now - config.windowMinutes * 60 * 1000;
 
   // Count errors in window
   const errorsInWindow = state.errorCounts
-    .filter(ec => ec.timestamp > windowStart)
+    .filter((ec) => ec.timestamp > windowStart)
     .reduce((sum, ec) => sum + ec.count, 0);
 
   // Calculate rate per minute
@@ -146,11 +146,10 @@ function checkAndAlert(): void {
   const previousSeverity = state.currentSeverity;
 
   // Check for severity escalation or initial alert
-  const shouldAlert = (
+  const shouldAlert =
     newSeverity !== null &&
     !isOnCooldown() &&
-    (previousSeverity === null || severityOrder(newSeverity) > severityOrder(previousSeverity))
-  );
+    (previousSeverity === null || severityOrder(newSeverity) > severityOrder(previousSeverity));
 
   // Check for resolution
   const isResolved = previousSeverity !== null && newSeverity === null;
@@ -172,10 +171,14 @@ function checkAndAlert(): void {
  */
 function severityOrder(severity: AlertSeverity): number {
   switch (severity) {
-    case 'resolved': return 0;
-    case 'warning': return 1;
-    case 'critical': return 2;
-    default: return -1;
+    case 'resolved':
+      return 0;
+    case 'warning':
+      return 1;
+    case 'critical':
+      return 2;
+    default:
+      return -1;
   }
 }
 
@@ -257,6 +260,16 @@ function createAlertPayload(severity: AlertSeverity, errorRate: number): AlertPa
  */
 async function sendEmailAlert(alert: AlertPayload): Promise<void> {
   if (!config.alertEmails?.length) return;
+
+  // send-notification-email requires an admin caller, since the subject and
+  // body come from the client and would otherwise make it an open relay.
+  // Anonymous visitors are covered by Sentry, so skip rather than 401 on every
+  // error-rate spike on the public site.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session) {
+    logger.debug('[ErrorAlerting] No session; skipping email alert (Sentry still records it)');
+    return;
+  }
 
   try {
     const { error } = await invokeEdgeFunction('send-notification-email', {
@@ -365,10 +378,12 @@ function consoleAlert(alert: AlertPayload): void {
   const color = colors[alert.severity];
 
   if (isProduction) {
-    console.error(JSON.stringify({
-      type: 'ERROR_ALERT',
-      ...alert,
-    }));
+    console.error(
+      JSON.stringify({
+        type: 'ERROR_ALERT',
+        ...alert,
+      })
+    );
   } else {
     console.error(`${color}
 ╔══════════════════════════════════════════════════════════════╗
@@ -432,10 +447,7 @@ export function resetAlertState(): void {
 /**
  * Manual alert trigger (for testing or manual alerts)
  */
-export async function triggerManualAlert(
-  severity: AlertSeverity,
-  message: string
-): Promise<void> {
+export async function triggerManualAlert(severity: AlertSeverity, message: string): Promise<void> {
   const alert: AlertPayload = {
     severity,
     timestamp: new Date().toISOString(),

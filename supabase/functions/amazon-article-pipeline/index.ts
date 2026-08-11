@@ -9,6 +9,7 @@ import {
   createRateLimitResponse,
   type RateLimitConfig,
 } from '../_shared/rate-limiter.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 // Rate limit: 2 requests per hour per IP (expensive AI operation)
 const PIPELINE_RATE_LIMIT: RateLimitConfig = {
@@ -442,12 +443,18 @@ serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
-  // Rate limit: 2 requests per hour per IP
+  // Rate limit: 2 requests per hour per IP. Checked before auth because it is
+  // an in-memory lookup, where the admin check costs two round trips.
   const clientIp = getClientIdentifier(req);
   const rateLimitResult = checkRateLimit(clientIp, PIPELINE_RATE_LIMIT);
   if (!rateLimitResult.allowed) {
     return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
+
+  // Spends SerpAPI and Claude credits and publishes articles; admins only.
+  // The IP rate limit alone does not stop an attacker rotating addresses.
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
