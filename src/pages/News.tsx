@@ -210,8 +210,8 @@ const News = () => {
               News & Insights
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto px-2 leading-relaxed">
-              Stay updated with the latest trends in AI, NFTs, blockchain technology, and business
-              strategy insights.
+              Field notes and teardowns on AI CRM automation — what actually works inside the CRM,
+              and why so much of it does not.
             </p>
           </div>
 

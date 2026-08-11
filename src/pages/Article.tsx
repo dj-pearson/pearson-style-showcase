@@ -21,14 +21,18 @@ import RelatedArticles from '../components/article/RelatedArticles';
 import KeyTakeaways, { extractKeyTakeaways } from '../components/article/KeyTakeaways';
 import OptimizedImage from '../components/OptimizedImage';
 
-type Article = Tables<"articles">;
+type Article = Tables<'articles'>;
 
 const Article = () => {
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const { toast } = useToast();
   const slug = rawSlug ? validateUrlParam(rawSlug) : null;
 
-  const { data: article, isLoading, error } = useQuery({
+  const {
+    data: article,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['article', slug],
     queryFn: async () => {
       if (!slug) throw new Error('No slug provided');
@@ -58,19 +62,28 @@ const Article = () => {
 
     switch (platform) {
       case 'twitter':
-        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`, '_blank');
+        window.open(
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`,
+          '_blank'
+        );
         break;
       case 'facebook':
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+        window.open(
+          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+          '_blank'
+        );
         break;
       case 'linkedin':
-        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+        window.open(
+          `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+          '_blank'
+        );
         break;
       case 'copy':
         await navigator.clipboard.writeText(url);
         toast({
-          title: "Link copied!",
-          description: "Article link copied to clipboard",
+          title: 'Link copied!',
+          description: 'Article link copied to clipboard',
         });
         break;
     }
@@ -80,7 +93,7 @@ const Article = () => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -100,7 +113,12 @@ const Article = () => {
           type="article"
         />
         <Navigation />
-        <main id="main-content" className="flex-1 pt-20 px-4 md:px-6" role="status" aria-label="Loading article">
+        <main
+          id="main-content"
+          className="flex-1 pt-20 px-4 md:px-6"
+          role="status"
+          aria-label="Loading article"
+        >
           <div className="container mx-auto max-w-4xl">
             <div className="animate-pulse space-y-8">
               {/* Breadcrumb skeleton */}
@@ -173,7 +191,7 @@ const Article = () => {
   const breadcrumbItems = [
     { label: 'Home', path: '/' },
     { label: 'News', path: '/news' },
-    { label: article.title, path: `/news/${article.slug}` }
+    { label: article.title, path: `/news/${article.slug}` },
   ];
 
   return (
@@ -182,16 +200,34 @@ const Article = () => {
       <SEO
         title={`${article.seo_title || article.title} | Dan Pearson`}
         description={article.seo_description || article.excerpt}
-        keywords={article.seo_keywords ? article.seo_keywords.join(', ') : `${article.title}, AI automation, business automation, ${article.category}`}
+        keywords={
+          article.seo_keywords
+            ? article.seo_keywords.join(', ')
+            : `${article.title}, AI automation, business automation, ${article.category}`
+        }
         url={`https://danpearson.net/news/${article.slug}`}
         type="article"
-        image={(article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg'))}
+        image={
+          article.social_image_url && article.social_image_url.startsWith('http')
+            ? article.social_image_url
+            : article.social_image_url
+              ? `https://danpearson.net${article.social_image_url}`
+              : article.image_url && article.image_url.startsWith('http')
+                ? article.image_url
+                : article.image_url
+                  ? `https://danpearson.net${article.image_url}`
+                  : 'https://danpearson.net/placeholder.svg'
+        }
         publishedTime={article.created_at || undefined}
         modifiedTime={article.updated_at || undefined}
         section={article.category}
         tags={article.tags || []}
         citationSource={`Dan Pearson - ${article.category}`}
-        contentSummary={keyTakeaways.length > 0 ? keyTakeaways.slice(0, 3).join('. ') : article.excerpt || undefined}
+        contentSummary={
+          keyTakeaways.length > 0
+            ? keyTakeaways.slice(0, 3).join('. ')
+            : article.excerpt || undefined
+        }
       />
 
       {/* Enhanced Article Schema with Author Authority & AI Search Optimization */}
@@ -200,20 +236,26 @@ const Article = () => {
         data={{
           headline: article.title,
           description: article.excerpt,
-          image: (article.social_image_url && article.social_image_url.startsWith('http') ? article.social_image_url : article.social_image_url ? `https://danpearson.net${article.social_image_url}` : (article.image_url && article.image_url.startsWith('http') ? article.image_url : article.image_url ? `https://danpearson.net${article.image_url}` : 'https://danpearson.net/placeholder.svg')),
+          image:
+            article.social_image_url && article.social_image_url.startsWith('http')
+              ? article.social_image_url
+              : article.social_image_url
+                ? `https://danpearson.net${article.social_image_url}`
+                : article.image_url && article.image_url.startsWith('http')
+                  ? article.image_url
+                  : article.image_url
+                    ? `https://danpearson.net${article.image_url}`
+                    : 'https://danpearson.net/placeholder.svg',
           author: {
             '@type': 'Person',
             name: article.author || 'Dan Pearson',
             url: 'https://danpearson.net/about',
-            jobTitle: 'AI Solutions Consultant',
+            jobTitle: 'AI CRM Automation Consultant',
             worksFor: {
               '@type': 'Organization',
-              name: 'Pearson Media LLC'
+              name: 'Pearson Media LLC',
             },
-            sameAs: [
-              'https://linkedin.com/in/danpearson',
-              'https://github.com/dj-pearson'
-            ]
+            sameAs: ['https://linkedin.com/in/danpearson', 'https://github.com/dj-pearson'],
           },
           publisher: {
             '@type': 'Person',
@@ -221,14 +263,14 @@ const Article = () => {
             url: 'https://danpearson.net',
             logo: {
               '@type': 'ImageObject',
-              url: 'https://danpearson.net/placeholder.svg'
-            }
+              url: 'https://danpearson.net/placeholder.svg',
+            },
           },
           datePublished: article.created_at,
           dateModified: article.updated_at || article.created_at,
           mainEntityOfPage: {
             '@type': 'WebPage',
-            '@id': `https://danpearson.net/news/${article.slug}`
+            '@id': `https://danpearson.net/news/${article.slug}`,
           },
           keywords: (article.tags || []).join(', '),
           articleSection: article.category,
@@ -243,12 +285,17 @@ const Article = () => {
           mentions: article.tags || [],
 
           // Speakable: CSS selectors for content suitable for voice search
-          speakable: ['#key-takeaways-heading', '[itemprop="headline"]', '[itemprop="description"]'],
+          speakable: [
+            '#key-takeaways-heading',
+            '[itemprop="headline"]',
+            '[itemprop="description"]',
+          ],
 
           // Abstract: Key takeaways summary for AI engines
-          abstract: keyTakeaways.length > 0
-            ? `Key points: ${keyTakeaways.slice(0, 3).join('. ')}`
-            : article.excerpt
+          abstract:
+            keyTakeaways.length > 0
+              ? `Key points: ${keyTakeaways.slice(0, 3).join('. ')}`
+              : article.excerpt,
         }}
       />
 
@@ -258,8 +305,8 @@ const Article = () => {
         data={{
           items: breadcrumbItems.map((item, index) => ({
             name: item.label,
-            url: `https://danpearson.net${item.path}`
-          }))
+            url: `https://danpearson.net${item.path}`,
+          })),
         }}
       />
 
@@ -275,11 +322,17 @@ const Article = () => {
           <article className="space-y-8" itemScope itemType="https://schema.org/Article">
             <header className="space-y-6">
               <div className="flex flex-wrap gap-2">
-                <Badge className="bg-primary/10 text-primary border-primary/20" itemProp="articleSection">
+                <Badge
+                  className="bg-primary/10 text-primary border-primary/20"
+                  itemProp="articleSection"
+                >
                   {article.category}
                 </Badge>
                 {article.featured && (
-                  <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                  <Badge
+                    variant="secondary"
+                    className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                  >
                     Featured
                   </Badge>
                 )}
@@ -324,16 +377,18 @@ const Article = () => {
                   </span>
                 </div>
                 <div itemProp="author" itemScope itemType="https://schema.org/Person">
-                  <span>By <span itemProp="name">{article.author || 'Dan Pearson'}</span></span>
+                  <span>
+                    By <span itemProp="name">{article.author || 'Dan Pearson'}</span>
+                  </span>
                 </div>
               </div>
 
               {article.tags && article.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {article.tags.map((tag, index) => (
-                    <Badge 
-                      key={index} 
-                      variant="outline" 
+                    <Badge
+                      key={index}
+                      variant="outline"
                       className="border-border/50 text-muted-foreground hover:border-primary/50"
                     >
                       {tag}
@@ -356,19 +411,14 @@ const Article = () => {
                   sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 896px"
                 />
                 {article.image_url && (
-                  <figcaption className="sr-only">
-                    Featured image for {article.title}
-                  </figcaption>
+                  <figcaption className="sr-only">Featured image for {article.title}</figcaption>
                 )}
               </figure>
             )}
 
             {/* Key Takeaways - AI Search Optimization */}
             {keyTakeaways.length > 0 && (
-              <KeyTakeaways
-                takeaways={keyTakeaways}
-                articleTitle={article.title}
-              />
+              <KeyTakeaways takeaways={keyTakeaways} articleTitle={article.title} />
             )}
 
             {/* Article Content */}
@@ -385,10 +435,14 @@ const Article = () => {
                       aria-label="Affiliate disclosure"
                     >
                       <div className="flex items-start gap-3">
-                        <ExternalLink className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                        <ExternalLink
+                          className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0"
+                          aria-hidden="true"
+                        />
                         <div className="text-sm text-gray-300">
-                          <strong className="text-cyan-400">Affiliate Disclosure:</strong> This article contains Amazon affiliate links.
-                          As an Amazon Associate, I earn from qualifying purchases at no extra cost to you.
+                          <strong className="text-cyan-400">Affiliate Disclosure:</strong> This
+                          article contains Amazon affiliate links. As an Amazon Associate, I earn
+                          from qualifying purchases at no extra cost to you.
                         </div>
                       </div>
                     </aside>
@@ -407,10 +461,7 @@ const Article = () => {
             </div>
 
             {/* Share Section - Accessible with proper ARIA labels */}
-            <aside
-              className="mt-12 pt-8 border-t border-border"
-              aria-label="Share article"
-            >
+            <aside className="mt-12 pt-8 border-t border-border" aria-label="Share article">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p id="share-heading" className="text-lg font-semibold text-gray-300">
                   Share this article
@@ -474,10 +525,7 @@ const Article = () => {
           />
 
           {/* Article Footer */}
-          <nav
-            className="mt-16 pt-8 border-t border-border"
-            aria-label="Article navigation"
-          >
+          <nav className="mt-16 pt-8 border-t border-border" aria-label="Article navigation">
             <div className="text-center">
               <Link to="/news" aria-label="Return to all articles">
                 <Button size="lg" className="mobile-button">

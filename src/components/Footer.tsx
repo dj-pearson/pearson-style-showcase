@@ -64,10 +64,11 @@ const Footer = () => {
           <div className="space-y-4 text-center sm:text-left">
             <h3 className="text-xl sm:text-xl font-bold hero-gradient-text">Dan Pearson</h3>
             <p className="text-base sm:text-base text-primary font-semibold mb-2">
-              Sales Leader • NFT Developer • AI Enthusiast
+              AI CRM Automation Consultant
             </p>
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-sm mx-auto sm:mx-0">
-              Driving innovation through technology and building lasting client relationships.
+              Capture-layer automation for revenue teams under 50 seats — so sellers stop doing data
+              entry and the pipeline stops lying.
             </p>
           </div>
 

@@ -209,11 +209,11 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
             name: 'Dan Pearson',
           },
           serviceType: [
-            'AI Development',
-            'Business Development',
-            'NFT Development',
-            'Sales Consulting',
-            'React Development',
+            'AI CRM Automation',
+            'CRM Data Quality',
+            'Sales Pipeline Automation',
+            'Revenue Operations',
+            'SaaS Development',
           ],
           areaServed: 'Worldwide',
           contactPoint: {
@@ -518,16 +518,16 @@ const StructuredData = ({ type, data }: StructuredDataProps) => {
           founder: {
             '@type': 'Person',
             name: 'Dan Pearson',
-            jobTitle: 'AI Solutions Consultant',
+            jobTitle: 'AI CRM Automation Consultant',
             url: 'https://danpearson.net/about',
           },
-          aggregateRating: data?.aggregateRating || {
-            '@type': 'AggregateRating',
-            ratingValue: '5',
-            reviewCount: '50',
-            bestRating: '5',
-            worstRating: '1',
-          },
+          // Emitted only when the caller supplies real, attributable review
+          // data. This used to default to a hardcoded 5.0 from 50 reviews with
+          // nothing behind it — a fabricated review claim in structured data,
+          // which is both a Google structured-data policy violation (self-
+          // serving aggregate ratings) and precisely the kind of unsourced
+          // assertion retired in AI_CRM_AUTOMATION_STRATEGY.md §11.4.
+          ...(data?.aggregateRating ? { aggregateRating: data.aggregateRating } : {}),
           sameAs: ['https://linkedin.com/in/danpearson', 'https://github.com/dj-pearson'],
           knowsAbout: [
             'AI CRM Automation',

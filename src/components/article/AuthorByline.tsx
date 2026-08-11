@@ -46,7 +46,7 @@ const AuthorByline = ({ authorName = 'Dan Pearson', showFullBio = true }: Author
 
   const authorInfo = {
     name: 'Dan Pearson',
-    title: profile?.bio_headline || 'AI Solutions Consultant & SaaS Developer',
+    title: profile?.bio_headline || 'AI CRM Automation Consultant',
     bio: profile?.bio_subheadline || DEFAULT_BIO,
     credentials: DEFAULT_CREDENTIALS,
     email: profile?.email || 'dan@danpearson.net',

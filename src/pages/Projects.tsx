@@ -7,13 +7,19 @@ import { ProjectCard } from '../components/ProjectCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Search, Filter, X, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ProjectListSkeleton } from '@/components/skeletons';
 
-type Project = Tables<"projects">;
+type Project = Tables<'projects'>;
 
 const STORAGE_KEY_PREFIX = 'projectsFilters';
 
@@ -45,7 +51,11 @@ const Projects = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 9;
 
-  const { data: projectsData, isLoading, error } = useQuery({
+  const {
+    data: projectsData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['projects', currentPage],
     queryFn: async () => {
       const from = (currentPage - 1) * PAGE_SIZE;
@@ -82,7 +92,9 @@ const Projects = () => {
 
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, description, image_url, live_link, github_link, tags, featured, sort_order, created_at, status, updated_at')
+        .select(
+          'id, title, description, image_url, live_link, github_link, tags, featured, sort_order, created_at, status, updated_at'
+        )
         .or(VISIBLE)
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
@@ -102,7 +114,7 @@ const Projects = () => {
   // Get unique tags for filtering - memoized
   const allTags = useMemo(() => {
     if (!projects) return [];
-    return Array.from(new Set(projects.flatMap(p => p.tags || []))).sort();
+    return Array.from(new Set(projects.flatMap((p) => p.tags || []))).sort();
   }, [projects]);
 
   // Filter projects - memoized to prevent recalculation on every render
@@ -111,9 +123,10 @@ const Projects = () => {
 
     const searchLower = searchTerm.toLowerCase();
 
-    return projects.filter(project => {
-      const matchesSearch = project.title?.toLowerCase().includes(searchLower) ||
-                           project.description?.toLowerCase().includes(searchLower);
+    return projects.filter((project) => {
+      const matchesSearch =
+        project.title?.toLowerCase().includes(searchLower) ||
+        project.description?.toLowerCase().includes(searchLower);
       const matchesTag = selectedTag === 'all' || project.tags?.includes(selectedTag);
       return matchesSearch && matchesTag;
     });
@@ -149,25 +162,26 @@ const Projects = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SEO 
-        title="AI & Tech Projects Portfolio | NFT Development & Business Solutions"
-        description="Explore Dan Pearson's portfolio of AI projects, NFT developments, and innovative business solutions. See case studies of successful AI integrations, blockchain projects, and tech innovations."
-        keywords="AI projects portfolio, NFT development projects, business solutions, AI case studies, blockchain development, tech innovation portfolio, React projects, AI integration examples"
+      <SEO
+        title="Projects & Case Studies | AI CRM Automation | Dan Pearson"
+        description="Seven production SaaS platforms and the CRM automation case studies behind them. Construction, real estate, fitness and meal planning — four industries of real revenue data."
+        keywords="AI CRM automation case studies, CRM automation projects, SaaS portfolio, revenue operations case studies, sales automation examples, Pearson Media platforms"
         url="https://danpearson.net/projects"
         type="website"
         structuredData={{
           type: 'website',
           data: {
             name: 'Projects Portfolio',
-            description: 'Portfolio of AI projects, NFT developments, and innovative business solutions by Dan Pearson',
+            description:
+              'Portfolio of AI CRM automation work and the SaaS platforms built by Dan Pearson',
             url: 'https://danpearson.net/projects',
             mainEntity: {
               '@type': 'ItemList',
               name: 'Tech Projects',
-              description: 'Collection of AI, NFT, and business technology projects',
-              numberOfItems: projects?.length || 0
-            }
-          }
+              description: 'Collection of CRM automation, AI and revenue-systems projects',
+              numberOfItems: projects?.length || 0,
+            },
+          },
         }}
       />
       <Navigation />
@@ -175,11 +189,11 @@ const Projects = () => {
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center mobile-section">
-            <h1 className="mobile-heading-lg hero-gradient-text mb-4">
-              My Projects
-            </h1>
+            <h1 className="mobile-heading-lg hero-gradient-text mb-4">My Projects</h1>
             <p className="mobile-body text-gray-400 max-w-2xl mx-auto">
-              Explore my portfolio of innovative projects spanning NFT development, AI integration, and cutting-edge web solutions.
+              Seven SaaS platforms across construction, real estate, fitness and meal planning —
+              four industries’ worth of real, messy revenue data, and where the CRM automation
+              thinking came from.
             </p>
           </div>
 
@@ -188,8 +202,13 @@ const Projects = () => {
             <div className="flex flex-col gap-4">
               {/* Search */}
               <div className="relative w-full">
-                <label htmlFor="project-search" className="sr-only">Search projects</label>
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" aria-hidden="true" />
+                <label htmlFor="project-search" className="sr-only">
+                  Search projects
+                </label>
+                <Search
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none"
+                  aria-hidden="true"
+                />
                 <Input
                   id="project-search"
                   placeholder="Search projects..."
@@ -205,14 +224,19 @@ const Projects = () => {
                 {/* Tag Filter */}
                 <div className="flex-1 sm:flex-initial">
                   <Select value={selectedTag} onValueChange={setSelectedTag}>
-                    <SelectTrigger aria-label="Filter projects by tag" className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger
+                      aria-label="Filter projects by tag"
+                      className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600"
+                    >
                       <Filter className="h-5 w-5 mr-2" />
                       <SelectValue placeholder="Filter by tag" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
                       <SelectItem value="all">All Tags</SelectItem>
-                      {allTags.map(tag => (
-                        <SelectItem key={tag} value={tag} className="touch-target">{tag}</SelectItem>
+                      {allTags.map((tag) => (
+                        <SelectItem key={tag} value={tag} className="touch-target">
+                          {tag}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -221,14 +245,25 @@ const Projects = () => {
                 {/* Sort */}
                 <div className="flex-1 sm:flex-initial">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger aria-label="Sort projects" className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600">
+                    <SelectTrigger
+                      aria-label="Sort projects"
+                      className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600"
+                    >
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent className="mobile-modal">
-                      <SelectItem value="newest" className="touch-target">Newest</SelectItem>
-                      <SelectItem value="oldest" className="touch-target">Oldest</SelectItem>
-                      <SelectItem value="title" className="touch-target">Title A-Z</SelectItem>
-                      <SelectItem value="featured" className="touch-target">Featured</SelectItem>
+                      <SelectItem value="newest" className="touch-target">
+                        Newest
+                      </SelectItem>
+                      <SelectItem value="oldest" className="touch-target">
+                        Oldest
+                      </SelectItem>
+                      <SelectItem value="title" className="touch-target">
+                        Title A-Z
+                      </SelectItem>
+                      <SelectItem value="featured" className="touch-target">
+                        Featured
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -252,12 +287,18 @@ const Projects = () => {
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700">
                 <span className="text-sm text-gray-400 font-medium">Active filters:</span>
                 {searchTerm && (
-                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
+                  <Badge
+                    variant="secondary"
+                    className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1"
+                  >
                     Search: "{searchTerm}"
                   </Badge>
                 )}
                 {selectedTag !== 'all' && (
-                  <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1">
+                  <Badge
+                    variant="secondary"
+                    className="bg-cyan-500/20 text-cyan-400 text-sm px-3 py-1"
+                  >
                     Tag: {selectedTag}
                   </Badge>
                 )}
@@ -278,7 +319,9 @@ const Projects = () => {
             ) : error ? (
               <div className="text-center mobile-section">
                 <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
-                  <p className="text-base text-destructive mb-4">Error loading projects. Please check your connection and try again.</p>
+                  <p className="text-base text-destructive mb-4">
+                    Error loading projects. Please check your connection and try again.
+                  </p>
                   <Button
                     variant="outline"
                     onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}
@@ -301,7 +344,9 @@ const Projects = () => {
               ) : (
                 <div className="text-center mobile-section">
                   <div className="mobile-card bg-muted/30 max-w-md mx-auto">
-                    <p className="text-base text-gray-400 mb-4">No projects match your current filters.</p>
+                    <p className="text-base text-gray-400 mb-4">
+                      No projects match your current filters.
+                    </p>
                     <Button
                       variant="outline"
                       onClick={clearFilters}
@@ -324,20 +369,20 @@ const Projects = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage <= 1 || isLoading}
                   className="border-gray-600"
                 >
                   Previous
                 </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Button
                     key={page}
-                    variant={page === currentPage ? "default" : "outline"}
+                    variant={page === currentPage ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setCurrentPage(page)}
                     disabled={isLoading}
-                    className={page === currentPage ? "bg-cyan-600" : "border-gray-600"}
+                    className={page === currentPage ? 'bg-cyan-600' : 'border-gray-600'}
                   >
                     {page}
                   </Button>
@@ -345,7 +390,7 @@ const Projects = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages || isLoading}
                   className="border-gray-600"
                 >
@@ -360,12 +405,13 @@ const Projects = () => {
             <div className="mobile-card bg-gray-800/50 border border-cyan-500/20 max-w-2xl mx-auto">
               <h2 className="mobile-heading-md text-white mb-4">Ready to Start Your Project?</h2>
               <p className="text-base sm:text-lg text-gray-400 mb-6 leading-relaxed">
-                Let's discuss how I can help bring your vision to life with innovative technology solutions.
+                Let's discuss how I can help bring your vision to life with innovative technology
+                solutions.
               </p>
               <Button
                 size="lg"
                 className="mobile-button bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-base sm:text-lg font-bold"
-                onClick={() => window.location.href = '/connect'}
+                onClick={() => (window.location.href = '/connect')}
               >
                 Get In Touch
               </Button>

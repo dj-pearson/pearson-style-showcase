@@ -24,10 +24,7 @@ const ProfileSettingsManager = () => {
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile-settings-admin'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_settings')
-        .select('*')
-        .maybeSingle();
+      const { data, error } = await supabase.from('profile_settings').select('*').maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -45,10 +42,7 @@ const ProfileSettingsManager = () => {
   const updateProfile = useMutation({
     mutationFn: async (data: any) => {
       if (!profile?.id) throw new Error('Profile not found');
-      const { error } = await supabase
-        .from('profile_settings')
-        .update(data)
-        .eq('id', profile.id);
+      const { error } = await supabase.from('profile_settings').update(data).eq('id', profile.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -94,13 +88,17 @@ const ProfileSettingsManager = () => {
       return;
     }
 
-    const validatedBioHeadline = formData.bio_headline ? validateTextInput(formData.bio_headline, 200) : '';
+    const validatedBioHeadline = formData.bio_headline
+      ? validateTextInput(formData.bio_headline, 200)
+      : '';
     if (formData.bio_headline && !validatedBioHeadline) {
       toast.error('Invalid bio headline. Please enter valid text (max 200 characters).');
       return;
     }
 
-    const validatedBioSubheadline = formData.bio_subheadline ? validateTextInput(formData.bio_subheadline, 500) : '';
+    const validatedBioSubheadline = formData.bio_subheadline
+      ? validateTextInput(formData.bio_subheadline, 500)
+      : '';
     if (formData.bio_subheadline && !validatedBioSubheadline) {
       toast.error('Invalid bio subheadline. Please enter valid text (max 500 characters).');
       return;
@@ -111,7 +109,7 @@ const ProfileSettingsManager = () => {
       ...formData,
       location: validatedLocation || formData.location,
       bio_headline: validatedBioHeadline || formData.bio_headline,
-      bio_subheadline: validatedBioSubheadline || formData.bio_subheadline
+      bio_subheadline: validatedBioSubheadline || formData.bio_subheadline,
     };
 
     updateProfile.mutate(sanitizedFormData);
@@ -157,7 +155,7 @@ const ProfileSettingsManager = () => {
               id="bio_headline"
               value={formData.bio_headline || ''}
               onChange={(e) => setFormData({ ...formData, bio_headline: e.target.value })}
-              placeholder="Bridging the gap between sales and technology"
+              placeholder="AI CRM automation for revenue teams under 50 seats"
               disabled={!isEditing}
             />
           </div>
@@ -225,7 +223,9 @@ const ProfileSettingsManager = () => {
               id="years_experience"
               type="number"
               value={formData.years_experience || 15}
-              onChange={(e) => setFormData({ ...formData, years_experience: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFormData({ ...formData, years_experience: parseInt(e.target.value) })
+              }
               disabled={!isEditing}
             />
           </div>
