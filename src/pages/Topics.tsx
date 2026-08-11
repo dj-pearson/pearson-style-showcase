@@ -5,13 +5,14 @@ import SEO from '../components/SEO';
 import StructuredData from '../components/SEO/StructuredData';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Layers, Sparkles, TrendingUp, Cpu, RefreshCw } from 'lucide-react';
+import { ArrowRight, Layers, Sparkles, TrendingUp, Cpu, RefreshCw, Workflow } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { SEO_CONFIG, getCanonicalUrl } from '@/lib/seo';
 import { TOPIC_HUBS } from './TopicHub';
 
 // Icon mapping for topics
 const TOPIC_ICONS: Record<string, React.ReactNode> = {
+  'ai-crm-automation': <Workflow className="w-8 h-8" />,
   'ai-automation': <Cpu className="w-8 h-8" />,
   'business-optimization': <TrendingUp className="w-8 h-8" />,
   'machine-learning': <Sparkles className="w-8 h-8" />,
@@ -20,14 +21,12 @@ const TOPIC_ICONS: Record<string, React.ReactNode> = {
 
 const Topics = () => {
   // Breadcrumb items for visual component (label/path format)
-  const breadcrumbItems = [
-    { label: 'Topics', path: '/topics' }
-  ];
+  const breadcrumbItems = [{ label: 'Topics', path: '/topics' }];
 
   // Breadcrumb items for structured data (name/url format)
   const structuredBreadcrumbs = [
     { name: 'Home', url: getCanonicalUrl('/') },
-    { name: 'Topics', url: getCanonicalUrl('/topics') }
+    { name: 'Topics', url: getCanonicalUrl('/topics') },
   ];
 
   return (
@@ -41,17 +40,15 @@ const Topics = () => {
       />
 
       {/* Breadcrumb Schema */}
-      <StructuredData
-        type="breadcrumb"
-        data={{ items: structuredBreadcrumbs }}
-      />
+      <StructuredData type="breadcrumb" data={{ items: structuredBreadcrumbs }} />
 
       {/* Website Schema with SearchAction */}
       <StructuredData
         type="website"
         data={{
           name: 'Dan Pearson - Topics Hub',
-          description: 'Explore comprehensive guides and resources on AI automation and business optimization.',
+          description:
+            'Explore comprehensive guides and resources on AI automation and business optimization.',
           url: getCanonicalUrl('/topics'),
           author: {
             '@type': 'Person',
@@ -74,7 +71,7 @@ const Topics = () => {
               <Layers className="w-10 h-10 text-tech-cyan" />
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent mb-4">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
               Topics & Resources
             </h1>
 
@@ -101,12 +98,10 @@ const Topics = () => {
                     <ArrowRight className="w-6 h-6 text-gray-600 group-hover:text-tech-cyan group-hover:translate-x-1 transition-all" />
                   </div>
 
-                  <p className="text-gray-400 mb-6 line-clamp-3">
-                    {config.description}
-                  </p>
+                  <p className="text-gray-400 mb-6 line-clamp-3">{config.description}</p>
 
                   <div className="flex flex-wrap gap-2">
-                    {config.keywords.slice(0, 4).map(keyword => (
+                    {config.keywords.slice(0, 4).map((keyword) => (
                       <Badge key={keyword} variant="outline" className="text-xs">
                         {keyword}
                       </Badge>

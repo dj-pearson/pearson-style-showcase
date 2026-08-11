@@ -6,12 +6,13 @@
 export const SEO_CONFIG = {
   siteName: 'Dan Pearson',
   siteUrl: 'https://danpearson.net',
-  defaultTitle: 'Dan Pearson - AI Engineer & Business Development Expert',
-  defaultDescription: 'Experienced AI engineer and business development leader specializing in AI automation, workflow optimization, and sales leadership. Building innovative solutions for the future.',
+  defaultTitle: 'Dan Pearson - AI CRM Automation Consultant',
+  defaultDescription:
+    'AI CRM automation for revenue teams under 50 seats. Most AI CRM projects fail because they automate the reporting layer instead of the capture layer — I fix capture first, so the pipeline stops lying.',
   defaultImage: 'https://danpearson.net/android-chrome-512x512.png',
   author: {
     name: 'Dan Pearson',
-    jobTitle: 'AI Solutions Consultant',
+    jobTitle: 'AI CRM Automation Consultant',
     company: 'Pearson Media LLC',
     url: 'https://danpearson.net/about',
     linkedin: 'https://linkedin.com/in/danpearson',
@@ -87,9 +88,7 @@ export function truncateDescription(text: string, maxLength = 160): string {
   const truncated = text.slice(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
 
-  return lastSpace > maxLength * 0.8
-    ? truncated.slice(0, lastSpace) + '...'
-    : truncated + '...';
+  return lastSpace > maxLength * 0.8 ? truncated.slice(0, lastSpace) + '...' : truncated + '...';
 }
 
 /**
@@ -104,8 +103,8 @@ export function generateKeywords(
     ...tags,
     category,
     ...additionalKeywords,
-    'AI automation',
-    'business automation',
+    'AI CRM automation',
+    'CRM automation',
     SEO_CONFIG.author.name,
   ].filter(Boolean) as string[];
 
@@ -128,8 +127,10 @@ export interface BreadcrumbItem {
   url: string;
 }
 
-export function generateBreadcrumbs(items: Array<{ label: string; path: string }>): BreadcrumbItem[] {
-  return items.map(item => ({
+export function generateBreadcrumbs(
+  items: Array<{ label: string; path: string }>
+): BreadcrumbItem[] {
+  return items.map((item) => ({
     name: item.label,
     url: getCanonicalUrl(item.path),
   }));
@@ -179,11 +180,7 @@ export function getArticleSeoData(article: {
   return {
     title: getPageTitle(article.seo_title || article.title),
     description: truncateDescription(article.seo_description || article.excerpt || ''),
-    keywords: generateKeywords(
-      article.tags || [],
-      article.category,
-      article.seo_keywords
-    ),
+    keywords: generateKeywords(article.tags || [], article.category, article.seo_keywords),
     image: fullImageUrl,
     url: getCanonicalUrl(`/news/${article.slug}`),
     publishedDate: article.created_at || new Date().toISOString(),
@@ -207,10 +204,7 @@ export function getAuthorSchema() {
       '@type': 'Organization',
       name: SEO_CONFIG.author.company,
     },
-    sameAs: [
-      SEO_CONFIG.author.linkedin,
-      SEO_CONFIG.author.github,
-    ],
+    sameAs: [SEO_CONFIG.author.linkedin, SEO_CONFIG.author.github],
   };
 }
 
@@ -256,7 +250,7 @@ export function getArchiveMetadata(
 ): { title: string; description: string; keywords: string } {
   const formattedValue = value
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
   const configs: Record<ArchiveType, { title: string; description: string }> = {
@@ -287,11 +281,10 @@ export function getArchiveMetadata(
   return {
     title: getPageTitle(config.title),
     description: config.description,
-    keywords: generateKeywords(
-      [formattedValue, type, 'articles', 'guides'],
-      undefined,
-      ['archive', 'collection']
-    ),
+    keywords: generateKeywords([formattedValue, type, 'articles', 'guides'], undefined, [
+      'archive',
+      'collection',
+    ]),
   };
 }
 
@@ -326,9 +319,9 @@ export function generateInternalLinks(
 
   // Related category links
   allCategories
-    .filter(cat => cat !== currentCategory)
+    .filter((cat) => cat !== currentCategory)
     .slice(0, 3)
-    .forEach(cat => {
+    .forEach((cat) => {
       suggestions.push({
         text: `Explore ${cat}`,
         url: `/news/category/${cat}`,
@@ -337,7 +330,7 @@ export function generateInternalLinks(
     });
 
   // Tag archive links
-  currentTags.slice(0, 5).forEach(tag => {
+  currentTags.slice(0, 5).forEach((tag) => {
     const tagSlug = generateSlug(tag);
     suggestions.push({
       text: `More on ${tag}`,

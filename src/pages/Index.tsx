@@ -2,16 +2,17 @@ import { lazy, Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import HeroErrorBoundary from '../components/HeroErrorBoundary';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
 import StructuredData from '../components/SEO/StructuredData';
-import { Code, Zap, Globe, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { PIPELINE_AUTOMATION_LADDER, SERVICE_TIERS, THESIS } from '@/lib/crm-automation';
 import { useAnalytics } from '../components/Analytics';
 import { shouldSuppressForOddTraffic } from '@/lib/traffic-detection';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
@@ -174,13 +175,13 @@ const Index = () => {
         )}
       </div>
       <SEO
-        title="AI Business Automation Consultant | Reduce Costs 40% | Dan Pearson"
-        description="AI automation consultant helping businesses implement intelligent solutions that reduce operational costs by 40% on average. Serving 50+ clients with proven results. Get expert guidance on AI integration, workflow automation, and digital transformation. Based in Des Moines, serving businesses nationwide."
-        keywords="AI business automation, AI automation consultant, business process automation, AI integration services, AI consultant Des Moines, AI tools for business, business automation Iowa, digital transformation consultant, AI implementation, reduce business costs with AI"
+        title="AI CRM Automation Consultant | Make Your CRM Run Itself | Dan Pearson"
+        description="AI CRM automation for revenue teams under 50 seats. Most AI CRM projects fail because they automate the reporting layer instead of the capture layer — I fix capture first, so sellers stop doing data entry and the pipeline stops lying. Based in Des Moines, working nationwide."
+        keywords="AI CRM automation, CRM automation consultant, AI CRM consultant, CRM automation audit, HubSpot automation consultant, Salesforce automation, agentic CRM, sales pipeline automation, CRM data quality, fractional RevOps engineer, AI consultant Des Moines"
         url="https://danpearson.net"
         type="website"
-        contentSummary="Dan Pearson is an AI automation consultant who helps businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Based in Des Moines, Iowa, serving businesses nationwide."
-        citationSource="Dan Pearson - AI Business Automation Consultant"
+        contentSummary="Dan Pearson is an AI CRM automation consultant based in Des Moines, Iowa, working with sales-led revenue teams of 5-50 seats nationwide. His central argument is that most AI CRM projects fail because they automate the reporting layer instead of the capture layer. He publishes the Pipeline Automation Ladder, a five-rung CRM automation maturity model, and a 12-point CRM automation audit methodology. He has 15+ years in sales leadership and has shipped seven SaaS platforms under Pearson Media LLC."
+        citationSource="Dan Pearson - AI CRM Automation Consultant"
       />
 
       {/* Enhanced Person Schema for AI Citation */}
@@ -188,25 +189,25 @@ const Index = () => {
         type="person"
         data={{
           name: 'Dan Pearson',
-          jobTitle: 'AI Solutions Consultant & SaaS Developer',
+          jobTitle: 'AI CRM Automation Consultant',
           description:
-            'AI Solutions Consultant with 15+ years of experience helping businesses implement automation that reduces costs by an average of 40%. Built 7 SaaS platforms serving 10,000+ users and generated $2.8M+ in revenue for clients through digital transformation.',
+            'AI CRM automation consultant working with sales-led revenue teams of 5-50 seats. Automates the capture layer of the CRM — call logging, note generation, enrichment, routing and stage-change evidence — so pipeline data stays trustworthy. 15+ years in sales leadership and seven SaaS platforms shipped under Pearson Media LLC.',
           url: 'https://danpearson.net',
           email: 'dan@danpearson.net',
           sameAs: ['https://linkedin.com/in/danpearson', 'https://github.com/dj-pearson'],
           knowsAbout: [
-            'AI Business Automation',
-            'Artificial Intelligence Integration',
+            'AI CRM Automation',
+            'CRM Data Quality',
+            'Sales Pipeline Automation',
+            'Revenue Operations',
+            'AI Agents for Sales',
+            'HubSpot Automation',
+            'Salesforce Automation',
             'Business Process Automation',
             'SaaS Development',
-            'Digital Transformation',
             'OpenAI Integration',
             'Claude AI Integration',
             'React Development',
-            'TypeScript',
-            'Cloud Architecture',
-            'Business Intelligence',
-            'Workflow Automation',
           ],
           worksFor: {
             '@type': 'Organization',
@@ -219,10 +220,13 @@ const Index = () => {
             addressCountry: 'US',
           },
           alumniOf: [],
+          // Kept to structural facts. The revenue and client-count figures that
+          // used to sit here are not awards, and they are pending substantiation
+          // (see AI_CRM_AUTOMATION_STRATEGY.md §11.4) — putting unsourced
+          // numbers in markup is exactly what makes an entity less citable.
           awards: [
-            'Generated $2.8M+ in client revenue through AI automation',
-            'Built 7 successful SaaS platforms',
-            'Served 50+ businesses with AI implementation',
+            'Built and shipped 7 SaaS platforms under Pearson Media LLC',
+            '15+ years in sales leadership before moving into automation',
           ],
         }}
       />
@@ -231,8 +235,9 @@ const Index = () => {
       <StructuredData
         type="website"
         data={{
-          name: 'Dan Pearson - AI Business Automation',
-          description: 'Expert AI automation consulting and SaaS development services',
+          name: 'Dan Pearson - AI CRM Automation',
+          description:
+            'AI CRM automation consulting for revenue teams under 50 seats: capture-layer automation that keeps pipeline data trustworthy.',
           url: 'https://danpearson.net',
         }}
       />
@@ -259,9 +264,15 @@ const Index = () => {
               description: 'AI Business Automation Consultant',
             },
             {
+              name: 'AI CRM Automation',
+              url: 'https://danpearson.net/ai-crm-automation',
+              description:
+                'AI CRM automation consulting: the capture-layer thesis, the Pipeline Automation Ladder, the 12-point audit, and what engagements cost',
+            },
+            {
               name: 'About',
               url: 'https://danpearson.net/about',
-              description: 'About Dan Pearson - AI Engineer & Business Development Expert',
+              description: 'About Dan Pearson - AI CRM automation consultant and SaaS developer',
             },
             {
               name: 'Projects',
@@ -296,10 +307,10 @@ const Index = () => {
       <StructuredData
         type="localbusiness"
         data={{
-          name: 'Dan Pearson - AI Automation Consulting',
+          name: 'Dan Pearson - AI CRM Automation Consulting',
           alternateName: 'Pearson Media LLC',
           description:
-            'AI automation consulting services helping businesses reduce operational costs by 40% through intelligent automation, workflow optimization, and digital transformation. Serving Des Moines and nationwide.',
+            'AI CRM automation consulting for sales-led revenue teams of 5-50 seats: automated call logging, note capture, enrichment, routing and stage-change evidence inside the CRM you already own. Based in Des Moines, working nationwide.',
           email: 'dan@danpearson.net',
           addressLocality: 'Des Moines',
           addressRegion: 'IA',
@@ -329,67 +340,106 @@ const Index = () => {
           </Suspense>
         </div>
 
-        {/* Services Preview Section */}
-        <section className="mobile-section mobile-container relative animate-section pointer-events-auto">
-          <div className="max-w-6xl mx-auto">
-            {/* Section Title */}
-            <div className="text-center mb-10 sm:mb-12 lg:mb-16">
-              <h2 className="mobile-heading-lg text-primary mb-4">How I Can Help</h2>
-              <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-                Combining cutting-edge technology with proven business strategies to deliver
-                innovative solutions
-              </p>
-            </div>
+        {/* The thesis — the most-quoted text on the site. Deliberately prose,
+            deliberately early, deliberately not in a card. */}
+        <section
+          className="mobile-section mobile-container relative animate-section pointer-events-auto"
+          aria-labelledby="thesis-heading"
+        >
+          <div className="max-w-3xl mx-auto">
+            <h2 id="thesis-heading" className="mobile-heading-lg text-primary mb-6">
+              Why most AI CRM projects fail
+            </h2>
+            <p className="text-xl sm:text-2xl text-foreground font-medium leading-snug mb-6">
+              {THESIS}
+            </p>
+            <p className="mobile-body text-muted-foreground leading-relaxed mb-6">
+              The AI reads a thin record and produces a confident answer about it. People check the
+              first few, find them wrong, and quietly stop looking. That is not a model problem, and
+              no amount of prompt engineering fixes it. It is a capture problem — the least
+              glamorous work in the category, which is exactly why it stays unfixed.
+            </p>
+            <Link
+              to="/ai-crm-automation"
+              onClick={() => trackCTA('Read the full argument', 'Homepage thesis')}
+              className="inline-flex items-center text-base font-semibold text-primary hover:underline"
+            >
+              Read the full argument
+              <ArrowRight className="ml-2 w-4 h-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
 
-            {/* Services Grid - Mobile First */}
-            <div className="mobile-grid">
-              {/* NFT Development */}
-              <Card className="group hover:scale-[1.02] md:hover:scale-105 transition-all duration-300 bg-card/50 border-border hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/20 backdrop-blur-sm">
-                <CardContent className="mobile-card text-center">
-                  <div className="mb-6">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                      <Code className="w-8 h-8 sm:w-10 sm:h-10 text-white" aria-hidden="true" />
-                    </div>
-                  </div>
-                  <h3 className="mobile-heading-sm text-foreground mb-4">NFT Development</h3>
-                  <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                    Unique generative collections with cutting-edge technology and mathematical
-                    precision
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Pipeline Automation Ladder — a progression, rendered as one */}
+        <section
+          className="mobile-section mobile-container relative animate-section pointer-events-auto"
+          aria-labelledby="ladder-heading"
+        >
+          <div className="max-w-3xl mx-auto">
+            <h2 id="ladder-heading" className="mobile-heading-lg text-primary mb-4">
+              The Pipeline Automation Ladder
+            </h2>
+            <p className="mobile-body text-muted-foreground leading-relaxed mb-10">
+              Five rungs. Most teams know which one they are on before I finish describing it — and
+              the rule that matters is that you cannot skip rung 2.
+            </p>
 
-              {/* AI Integration */}
-              <Card className="group hover:scale-[1.02] md:hover:scale-105 transition-all duration-300 bg-card/50 border-border hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/20 backdrop-blur-sm">
-                <CardContent className="mobile-card text-center">
-                  <div className="mb-6">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-                      <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-white" aria-hidden="true" />
-                    </div>
-                  </div>
-                  <h3 className="mobile-heading-sm text-foreground mb-4">AI Integration</h3>
-                  <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                    Leveraging OpenAI, Auto-GPT, and machine learning for innovative business
-                    solutions
-                  </p>
-                </CardContent>
-              </Card>
+            <ol className="relative">
+              {PIPELINE_AUTOMATION_LADDER.map((rung, index) => (
+                <li key={rung.rung} className="relative pl-14 pb-8 last:pb-0">
+                  {index < PIPELINE_AUTOMATION_LADDER.length - 1 && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-5 top-11 bottom-0 w-px bg-border"
+                    />
+                  )}
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0 top-0 flex items-center justify-center w-10 h-10 rounded-full border border-primary/40 bg-primary/10 text-primary font-bold"
+                  >
+                    {rung.rung}
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-1 pt-1">
+                    <span className="sr-only">Rung {rung.rung}: </span>
+                    {rung.name}
+                  </h3>
+                  <p className="text-base text-muted-foreground leading-relaxed">{rung.reality}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
 
-              {/* Sales Leadership */}
-              <Card className="group hover:scale-[1.02] md:hover:scale-105 transition-all duration-300 bg-card/50 border-border hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/20 backdrop-blur-sm">
-                <CardContent className="mobile-card text-center">
-                  <div className="mb-6">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-                      <Globe className="w-8 h-8 sm:w-10 sm:h-10 text-white" aria-hidden="true" />
-                    </div>
-                  </div>
-                  <h3 className="mobile-heading-sm text-foreground mb-4">Sales Leadership</h3>
-                  <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                    15+ years driving growth, building relationships, and delivering results
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+        {/* Offer ladder — weighted by commitment, not three identical tiles */}
+        <section
+          className="mobile-section mobile-container relative animate-section pointer-events-auto"
+          aria-labelledby="work-heading"
+        >
+          <div className="max-w-3xl mx-auto">
+            <h2 id="work-heading" className="mobile-heading-lg text-primary mb-4">
+              How I work
+            </h2>
+            <p className="mobile-body text-muted-foreground leading-relaxed mb-10">
+              Three ways in, in ascending order of commitment. Prices are published on the{' '}
+              <Link to="/ai-crm-automation#how-i-work" className="text-primary hover:underline">
+                services page
+              </Link>{' '}
+              — you should not need a discovery call to find out whether I am in your range.
+            </p>
+
+            <dl className="divide-y divide-border border-y border-border">
+              {SERVICE_TIERS.map((tier) => (
+                <div key={tier.name} className="py-6 sm:flex sm:gap-8">
+                  <dt className="sm:w-56 shrink-0 mb-2 sm:mb-0">
+                    <span className="block text-lg font-semibold text-foreground">{tier.name}</span>
+                    <span className="block text-sm text-primary mt-1">{tier.priceLabel}</span>
+                  </dt>
+                  <dd className="text-base text-muted-foreground leading-relaxed">
+                    {tier.summary}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </section>
 
@@ -399,12 +449,10 @@ const Index = () => {
             <Card className="bg-gradient-to-br from-primary/10 via-background to-accent/10 border-primary/30 relative overflow-hidden hover:shadow-2xl hover:shadow-primary/10 transition-shadow duration-300 backdrop-blur-sm">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
               <CardContent className="relative mobile-card sm:p-10 lg:p-12 text-center">
-                <h2 className="mobile-heading-lg text-foreground mb-6">
-                  Ready to Innovate Together?
-                </h2>
+                <h2 className="mobile-heading-lg text-foreground mb-6">Start with the audit</h2>
                 <p className="mobile-body text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Let's combine cutting-edge technology with proven business strategies to bring
-                  your vision to life.
+                  Two weeks, fixed fee, and you keep the findings whether or not you build with me.
+                  Tell me which CRM you are on and what your pipeline is lying about.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto">
@@ -412,11 +460,11 @@ const Index = () => {
                     size="lg"
                     className="mobile-button btn-futuristic text-base sm:text-lg font-bold"
                     onClick={() => {
-                      trackCTA('View Projects', 'Homepage');
-                      navigate('/projects');
+                      trackCTA('Book an audit', 'Homepage CTA');
+                      navigate('/connect');
                     }}
                   >
-                    View My Projects
+                    Book a CRM automation audit
                     <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
                   </Button>
                   <Button
@@ -424,11 +472,11 @@ const Index = () => {
                     size="lg"
                     className="mobile-button text-base sm:text-lg font-semibold border-primary/50 hover:bg-primary/10 active:bg-primary/20 hover:border-primary"
                     onClick={() => {
-                      trackCTA('Get In Touch', 'Homepage');
-                      navigate('/connect');
+                      trackCTA('See how it works', 'Homepage CTA');
+                      navigate('/ai-crm-automation');
                     }}
                   >
-                    Get In Touch
+                    See how it works
                   </Button>
                 </div>
               </CardContent>

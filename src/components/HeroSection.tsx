@@ -277,7 +277,7 @@ const HeroSection = () => {
               textShadow: '2px 2px 4px rgba(0, 0, 0, 1)',
             }}
           >
-            Bridging the gap between sales and technology
+            I make your CRM run itself
           </p>
         </div>
 
@@ -289,8 +289,8 @@ const HeroSection = () => {
               textShadow: '1px 1px 3px rgba(0, 0, 0, 1)',
             }}
           >
-            With 15+ years closing deals and a passion for AI-powered automation, I build products
-            that actually sell.
+            AI CRM automation for revenue teams under 50 seats. Fifteen years carrying a quota,
+            seven SaaS platforms shipped.
             <br />
             <span
               className="text-primary font-bold"
@@ -298,22 +298,21 @@ const HeroSection = () => {
                 textShadow: '0 0 20px rgba(0, 212, 255, 0.8), 1px 1px 3px rgba(0, 0, 0, 1)',
               }}
             >
-              Currently building 7 SaaS platforms
-            </span>{' '}
-            under Pearson Media LLC.
+              Sellers stop doing data entry. The pipeline stops lying.
+            </span>
           </p>
         </div>
 
         {/* CTA Button - Enhanced with strong glow, mobile optimized, fully functional */}
         <Link
           ref={ctaRef}
-          to="/projects"
+          to="/ai-crm-automation"
           className="relative z-20 btn-futuristic group mobile-button inline-flex items-center justify-center text-base sm:text-lg font-bold active:scale-95"
           style={{
             boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)',
           }}
         >
-          Explore My Work
+          See how it works
           <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
         </Link>
 
