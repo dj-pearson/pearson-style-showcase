@@ -1,6 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 interface SendEmailRequest {
   ticket_id: string;
@@ -23,7 +23,6 @@ async function sendEmailViaSMTP(
   ccEmails?: string[],
   inReplyTo?: string
 ): Promise<{ messageId: string; success: boolean }> {
-
   // Use environment variables as defaults, but allow mailbox config to override
   let smtpPort = mailboxConfig.smtp_port || 587;
   const smtpHost = mailboxConfig.smtp_host || Deno.env.get('AMAZON_SMTP_ENDPOINT');
@@ -37,10 +36,14 @@ async function sendEmailViaSMTP(
   }
 
   if (!smtpHost || !smtpUsername || !smtpPassword) {
-    throw new Error('SMTP configuration missing. Please configure mailbox or set environment variables.');
+    throw new Error(
+      'SMTP configuration missing. Please configure mailbox or set environment variables.'
+    );
   }
 
-  console.log(`Using SMTP: ${smtpHost}:${smtpPort} with username: ${smtpUsername?.substring(0, 4)}***`);
+  console.log(
+    `Using SMTP: ${smtpHost}:${smtpPort} with username: ${smtpUsername?.substring(0, 4)}***`
+  );
 
   const client = new SMTPClient({
     connection: {
@@ -106,8 +109,10 @@ function textToHtml(text: string): string {
     .replace(/  /g, '&nbsp;&nbsp;');
 }
 
-serve(async (req: Request) => {
-  const origin = req.headers.get("origin");
+// server.ts dispatches on the module's default export; `serve` is not imported
+// here and calling it would bind a second listener on the shared port.
+export default async (req: Request): Promise<Response> => {
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -130,7 +135,10 @@ serve(async (req: Request) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -148,18 +156,15 @@ serve(async (req: Request) => {
       message,
       is_internal = false,
       in_reply_to,
-      cc_emails
+      cc_emails,
     } = requestData;
 
     // Validate required fields
     if (!ticket_id || !from_mailbox_id || !to_email || !subject || !message) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get mailbox details
@@ -171,13 +176,10 @@ serve(async (req: Request) => {
       .single();
 
     if (mailboxError || !mailbox) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or inactive mailbox' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid or inactive mailbox' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get ticket details
@@ -188,16 +190,15 @@ serve(async (req: Request) => {
       .single();
 
     if (ticketError || !ticket) {
-      return new Response(
-        JSON.stringify({ error: 'Ticket not found' }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Ticket not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    console.log(`Sending email for ticket ${ticket.ticket_number} from ${mailbox.email_address} to ${to_email}`);
+    console.log(
+      `Sending email for ticket ${ticket.ticket_number} from ${mailbox.email_address} to ${to_email}`
+    );
 
     // Convert message to HTML if needed
     const bodyHtml = message.includes('<') ? message : textToHtml(message);
@@ -216,24 +217,22 @@ serve(async (req: Request) => {
     console.log('Email sent successfully, Message ID:', messageId);
 
     // Create email thread entry
-    const { error: threadError } = await supabase
-      .from('email_threads')
-      .insert({
-        ticket_id: ticket_id,
-        mailbox_id: from_mailbox_id,
-        from_email: mailbox.email_address,
-        to_email: to_email,
-        cc_emails: cc_emails || [],
-        subject: subject,
-        message_id: messageId,
-        in_reply_to: in_reply_to || ticket.email_message_id,
-        email_references: ticket.email_message_id ? [ticket.email_message_id] : [],
-        body_text: message,
-        body_html: bodyHtml,
-        direction: 'outbound',
-        is_read: true,
-        sent_at: new Date().toISOString(),
-      });
+    const { error: threadError } = await supabase.from('email_threads').insert({
+      ticket_id: ticket_id,
+      mailbox_id: from_mailbox_id,
+      from_email: mailbox.email_address,
+      to_email: to_email,
+      cc_emails: cc_emails || [],
+      subject: subject,
+      message_id: messageId,
+      in_reply_to: in_reply_to || ticket.email_message_id,
+      email_references: ticket.email_message_id ? [ticket.email_message_id] : [],
+      body_text: message,
+      body_html: bodyHtml,
+      direction: 'outbound',
+      is_read: true,
+      sent_at: new Date().toISOString(),
+    });
 
     if (threadError) {
       console.error('Error creating email thread:', threadError);
@@ -241,18 +240,16 @@ serve(async (req: Request) => {
     }
 
     // Create ticket response
-    const { error: responseError } = await supabase
-      .from('ticket_responses')
-      .insert({
-        ticket_id: ticket_id,
-        author_id: user.id,
-        author_email: user.email,
-        author_name: user.email?.split('@')[0] || 'Support',
-        author_type: 'agent',
-        message: message,
-        is_internal: is_internal,
-        is_ai_generated: false,
-      });
+    const { error: responseError } = await supabase.from('ticket_responses').insert({
+      ticket_id: ticket_id,
+      author_id: user.id,
+      author_email: user.email,
+      author_name: user.email?.split('@')[0] || 'Support',
+      author_type: 'agent',
+      message: message,
+      is_internal: is_internal,
+      is_ai_generated: false,
+    });
 
     if (responseError) {
       console.error('Error creating ticket response:', responseError);
@@ -280,19 +277,17 @@ serve(async (req: Request) => {
     }
 
     // Log activity
-    await supabase
-      .from('ticket_activity_log')
-      .insert({
-        ticket_id: ticket_id,
-        actor_id: user.id,
-        actor_email: user.email,
-        action: 'email_sent',
-        new_value: to_email,
-        metadata: {
-          subject,
-          message_id: messageId,
-        },
-      });
+    await supabase.from('ticket_activity_log').insert({
+      ticket_id: ticket_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      action: 'email_sent',
+      new_value: to_email,
+      metadata: {
+        subject,
+        message_id: messageId,
+      },
+    });
 
     console.log('Successfully processed email send and updated ticket');
 
@@ -307,8 +302,8 @@ serve(async (req: Request) => {
           from_email: mailbox.email_address,
           from_name: user.email?.split('@')[0] || 'Support Agent',
           message_preview: message,
-        }
-      };
+        },
+      });
       console.log('Notification email sent for agent reply');
     } catch (notifyError) {
       // Don't fail the request if notification fails
@@ -319,20 +314,19 @@ serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         message_id: messageId,
-        ticket_id: ticket_id
+        ticket_id: ticket_id,
       }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-
   } catch (error: any) {
     console.error('Error in send-ticket-email function:', error);
     return new Response(
       JSON.stringify({
         error: error.message || 'Failed to send email',
-        details: error.toString()
+        details: error.toString(),
       }),
       {
         status: 500,

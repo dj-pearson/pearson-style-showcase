@@ -1,9 +1,9 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "npm:resend@2.0.0";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { Resend } from 'npm:resend@2.0.0';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://danpearson.net",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://danpearson.net',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface SubscribeRequest {
@@ -16,72 +16,76 @@ const RATE_LIMIT_MAX = 5; // 5 requests
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
 
 // Disposable email domains to block
-const DISPOSABLE_DOMAINS = ['tempmail.com', 'guerrillamail.com', '10minutemail.com', 'throwaway.email'];
+const DISPOSABLE_DOMAINS = [
+  'tempmail.com',
+  'guerrillamail.com',
+  '10minutemail.com',
+  'throwaway.email',
+];
 
 function validateEmail(email: string): { valid: boolean; error?: string } {
   // Trim and lowercase
   const normalized = email.trim().toLowerCase();
-  
+
   // Length check
   if (normalized.length > 255) {
     return { valid: false, error: 'Email address is too long' };
   }
-  
+
   // Comprehensive email regex
-  const emailRegex = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
-  
+  const emailRegex =
+    /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
   if (!emailRegex.test(normalized)) {
     return { valid: false, error: 'Invalid email format' };
   }
-  
+
   // Check for disposable domains
   const domain = normalized.split('@')[1];
   if (DISPOSABLE_DOMAINS.includes(domain)) {
     return { valid: false, error: 'Disposable email addresses are not allowed' };
   }
-  
+
   return { valid: true };
 }
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const record = rateLimitMap.get(ip);
-  
+
   if (!record || now > record.resetTime) {
     rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     return true;
   }
-  
+
   if (record.count >= RATE_LIMIT_MAX) {
     return false;
   }
-  
+
   record.count++;
   return true;
 }
 
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders };
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     // Get client IP for rate limiting
-    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
-                     req.headers.get('x-real-ip') || 
-                     'unknown';
-    
+    const clientIP =
+      req.headers.get('x-forwarded-for')?.split(',')[0] ||
+      req.headers.get('x-real-ip') ||
+      'unknown';
+
     // Check rate limit
     if (!checkRateLimit(clientIP)) {
       console.warn(`Rate limit exceeded for IP: ${clientIP}`);
-      return new Response(
-        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
-        { 
-          status: 429, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { email: rawEmail }: SubscribeRequest = await req.json();
@@ -90,20 +94,17 @@ const handler = async (req: Request): Promise<Response> => {
     const validation = validateEmail(rawEmail);
     if (!validation.valid) {
       console.warn(`Invalid email submission: ${rawEmail} - ${validation.error}`);
-      return new Response(
-        JSON.stringify({ error: validation.error }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return new Response(JSON.stringify({ error: validation.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-    
+
     const email = rawEmail.trim().toLowerCase();
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Check if email already exists
@@ -115,10 +116,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (existingSubscriber) {
       if (existingSubscriber.active) {
-        return new Response(
-          JSON.stringify({ message: "You're already subscribed!" }),
-          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+        return new Response(JSON.stringify({ message: "You're already subscribed!" }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
       } else {
         // Reactivate subscription
         await supabase
@@ -134,18 +135,18 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (insertError) {
         console.error('Database error:', insertError);
-        return new Response(
-          JSON.stringify({ error: "Failed to subscribe" }),
-          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+        return new Response(JSON.stringify({ error: 'Failed to subscribe' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
       }
     }
 
     // Send welcome email
-    const resend = new Resend(Deno.env.get("RESEND_API"));
-    
+    const resend = new Resend(Deno.env.get('RESEND_API'));
+
     const welcomeEmailResponse = await resend.emails.send({
-      from: "Dan Pearson <noreply@danpearson.net>",
+      from: 'Dan Pearson <noreply@danpearson.net>',
       to: [email],
       subject: "Welcome to Dan Pearson's Newsletter! 🚀",
       html: `
@@ -198,7 +199,7 @@ const handler = async (req: Request): Promise<Response> => {
         </body>
         </html>
       `,
-    };
+    });
 
     console.log('Welcome email sent:', welcomeEmailResponse);
 
@@ -209,20 +210,21 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('email', email);
 
     return new Response(
-      JSON.stringify({ 
-        message: "Successfully subscribed! Check your inbox for a welcome email.",
-        emailSent: true 
+      JSON.stringify({
+        message: 'Successfully subscribed! Check your inbox for a welcome email.',
+        emailSent: true,
       }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
-
   } catch (error) {
-    console.error("Error in newsletter signup:", error);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    console.error('Error in newsletter signup:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
 };
 
-serve(handler);
+// server.ts dispatches on the module's default export; `serve` is not imported
+// here and calling it would bind a second listener on the shared port.
+export default handler;
