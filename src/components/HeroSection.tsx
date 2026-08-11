@@ -200,8 +200,10 @@ const HeroSection = () => {
           y: 0,
           rotationY: 0,
           rotationX: 0,
-          duration: 1.5,
-          ease: 'elastic.out(1, 0.5)',
+          duration: 1.2,
+          // Smooth deceleration rather than an elastic overshoot — real objects
+          // settle, they do not spring back (see the craft floor in CLAUDE.md).
+          ease: 'expo.out',
         });
       };
 
@@ -277,7 +279,7 @@ const HeroSection = () => {
               textShadow: '2px 2px 4px rgba(0, 0, 0, 1)',
             }}
           >
-            Bridging the gap between sales and technology
+            I make your CRM run itself
           </p>
         </div>
 
@@ -289,8 +291,8 @@ const HeroSection = () => {
               textShadow: '1px 1px 3px rgba(0, 0, 0, 1)',
             }}
           >
-            With 15+ years closing deals and a passion for AI-powered automation, I build products
-            that actually sell.
+            AI CRM automation for revenue teams under 50 seats. Fifteen years carrying a quota,
+            seven SaaS platforms shipped.
             <br />
             <span
               className="text-primary font-bold"
@@ -298,27 +300,26 @@ const HeroSection = () => {
                 textShadow: '0 0 20px rgba(0, 212, 255, 0.8), 1px 1px 3px rgba(0, 0, 0, 1)',
               }}
             >
-              Currently building 7 SaaS platforms
-            </span>{' '}
-            under Pearson Media LLC.
+              Sellers stop doing data entry. The pipeline stops lying.
+            </span>
           </p>
         </div>
 
         {/* CTA Button - Enhanced with strong glow, mobile optimized, fully functional */}
         <Link
           ref={ctaRef}
-          to="/projects"
+          to="/ai-crm-automation"
           className="relative z-20 btn-futuristic group mobile-button inline-flex items-center justify-center text-base sm:text-lg font-bold active:scale-95"
           style={{
             boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)',
           }}
         >
-          Explore My Work
+          See how it works
           <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
         </Link>
 
         {/* Scroll indicator for mobile */}
-        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60 animate-bounce">
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60 animate-float">
           <span className="text-xs text-muted-foreground uppercase tracking-wider">Scroll</span>
           <div className="w-0.5 h-8 bg-primary rounded-full"></div>
         </div>

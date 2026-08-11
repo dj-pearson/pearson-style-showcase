@@ -13,7 +13,7 @@ import {
   ExternalLink,
   Linkedin,
   Github,
-  LucideIcon
+  LucideIcon,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,7 +56,9 @@ const About = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_settings')
-        .select('profile_photo_url, bio_headline, bio_subheadline, location, years_experience, linkedin_url, github_url')
+        .select(
+          'profile_photo_url, bio_headline, bio_subheadline, location, years_experience, linkedin_url, github_url'
+        )
         .single();
       if (error) throw error;
       return data;
@@ -112,36 +114,38 @@ const About = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <SEO
-        title="About Dan Pearson | AI Engineer & Business Development Expert Background"
-        description="Learn about Dan Pearson's 15+ years of experience in AI engineering, business development, and NFT development. Discover his expertise in AI integration, sales leadership, and innovative tech solutions."
-        keywords="Dan Pearson bio, AI engineer background, business development expert, NFT developer experience, AI integration specialist, sales leadership, tech innovation career"
+        title="About Dan Pearson | AI CRM Automation Consultant"
+        description="Fifteen years in sales and business development — including managing 29 fitness locations at $600K+ monthly — before building seven SaaS platforms and moving into AI CRM automation. The rare consultant who has carried a quota and written the automation."
+        keywords="Dan Pearson bio, AI CRM automation consultant, CRM automation background, sales leadership, revenue operations, SaaS founder, Pearson Media LLC"
         url="https://danpearson.net/about"
         type="website"
         structuredData={{
           type: 'person',
           data: {
             name: 'Dan Pearson',
-            jobTitle: 'AI Engineer & Business Development Expert',
-            description: 'Experienced AI engineer and business development leader with 15+ years of expertise in AI integration, NFT development, and sales leadership.',
+            jobTitle: 'AI CRM Automation Consultant',
+            description:
+              'AI CRM automation consultant with 15+ years in sales and business development, now building capture-layer automation for revenue teams under 50 seats. Founder of Pearson Media LLC and builder of seven SaaS platforms.',
             url: 'https://danpearson.net/about',
             image: profile?.profile_photo_url || '/placeholder.svg',
             sameAs: [
               profile?.linkedin_url || 'https://linkedin.com/in/danpearson',
-              profile?.github_url || 'https://github.com/danpearson'
+              profile?.github_url || 'https://github.com/danpearson',
             ],
             worksFor: {
               '@type': 'Organization',
-              name: 'Pearson Media LLC'
+              name: 'Pearson Media LLC',
             },
             knowsAbout: [
-              'Artificial Intelligence',
-              'Business Development',
-              'NFT Development',
+              'AI CRM Automation',
+              'CRM Data Quality',
+              'Sales Pipeline Automation',
+              'Revenue Operations',
               'Sales Leadership',
+              'SaaS Development',
               'React Development',
-              'Machine Learning'
-            ]
-          }
+            ],
+          },
         }}
       />
       <Navigation />
@@ -168,9 +172,7 @@ const About = () => {
               </div>
 
               <div className="flex-1 text-center md:text-left">
-                <h1 className="mobile-heading-lg hero-gradient-text mb-4">
-                  Dan Pearson
-                </h1>
+                <h1 className="mobile-heading-lg hero-gradient-text mb-4">Dan Pearson</h1>
                 {isProfileLoading ? (
                   <div className="space-y-4">
                     <Skeleton className="h-8 w-3/4 mx-auto md:mx-0" />
@@ -188,10 +190,11 @@ const About = () => {
                 ) : (
                   <>
                     <p className="text-xl sm:text-2xl text-primary font-semibold mb-4">
-                      {profile?.bio_headline || 'Bridging the gap between sales and technology'}
+                      {profile?.bio_headline || 'AI CRM Automation Consultant'}
                     </p>
                     <p className="mobile-body text-muted-foreground mb-6 max-w-2xl">
-                      {profile?.bio_subheadline || 'With 15+ years closing deals and a passion for AI-powered automation, I build products that actually sell.'}
+                      {profile?.bio_subheadline ||
+                        'Capture-layer automation for revenue teams under 50 seats. Fifteen years carrying a quota came first; seven SaaS platforms came after.'}
                     </p>
 
                     <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center text-muted-foreground">
@@ -210,7 +213,12 @@ const About = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(profile?.linkedin_url || 'https://www.linkedin.com/in/danpearson', '_blank')}
+                        onClick={() =>
+                          window.open(
+                            profile?.linkedin_url || 'https://www.linkedin.com/in/danpearson',
+                            '_blank'
+                          )
+                        }
                         aria-label="Visit LinkedIn profile (opens in new tab)"
                       >
                         <Linkedin className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -219,7 +227,12 @@ const About = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(profile?.github_url || 'https://github.com/danpearson', '_blank')}
+                        onClick={() =>
+                          window.open(
+                            profile?.github_url || 'https://github.com/danpearson',
+                            '_blank'
+                          )
+                        }
                         aria-label="Visit GitHub profile (opens in new tab)"
                       >
                         <Github className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -240,16 +253,34 @@ const About = () => {
                 </h2>
                 <div className="prose prose-gray dark:prose-invert max-w-none space-y-4 text-muted-foreground leading-relaxed">
                   <p>
-                    I've spent <strong className="text-foreground">15+ years in sales and business development</strong>, closing millions in deals and building high-performing teams. But I've always been driven by a deeper question: <em>How can technology make business better?</em>
+                    I've spent{' '}
+                    <strong className="text-foreground">
+                      15+ years in sales and business development
+                    </strong>{' '}
+                    — including managing 29 fitness locations and driving $600K+ in monthly sales.
+                    That is where this work started, and it matters more than it sounds: I have
+                    personally lost deals because the CRM said something that was not true.
                   </p>
                   <p>
-                    That curiosity led me from managing 29 fitness locations and driving $600K+ in monthly sales to teaching myself full-stack development. I didn't just want to sell technology—I wanted to <strong className="text-foreground">build it</strong>.
+                    Rather than keep complaining about the tooling, I taught myself full-stack
+                    development. I didn't just want to sell technology—I wanted to{' '}
+                    <strong className="text-foreground">build it</strong>.
                   </p>
                   <p>
-                    Today, I combine my sales expertise with technical skills to create <strong className="text-foreground">AI-powered solutions that actually drive revenue</strong>. I understand both sides of the equation: what businesses need <em>and</em> how to build it.
+                    Today I build{' '}
+                    <strong className="text-foreground">AI automation inside the CRM</strong> for
+                    revenue teams under 50 seats. The argument I keep making is that most AI CRM
+                    projects fail because they automate the reporting layer — dashboards, forecasts,
+                    scoring — instead of the capture layer that feeds it. Fix capture, and the rest
+                    starts working on its own.
                   </p>
                   <p>
-                    Currently, I'm building <strong className="text-foreground">7 SaaS platforms</strong> under Pearson Media LLC while consulting at Infomax Office Systems. Whether it's generating 10,000 unique NFTs, automating 60% of business tasks with AI, or leading teams to exceed quotas by 20%—I thrive at the intersection of sales and technology.
+                    Alongside that I'm building{' '}
+                    <strong className="text-foreground">7 SaaS platforms</strong> under Pearson
+                    Media LLC while consulting at Infomax Office Systems. Those platforms span
+                    construction, real estate, fitness and meal planning, which is four industries'
+                    worth of genuinely messy real-world sales data — the best education in revenue
+                    systems I could have asked for.
                   </p>
                 </div>
               </CardContent>
@@ -276,37 +307,42 @@ const About = () => {
                   ))}
                 </div>
               </div>
-            ) : achievements.length > 0 && (
-              <div className="mb-10">
-                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
-                  <TrendingUp className="w-6 h-6 text-primary" />
-                  Key Achievements
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {achievements.map((achievement) => {
-                    const IconComponent = iconMap[achievement.icon_name] || TrendingUp;
-                    return (
-                      <Card key={achievement.id} className="border-border bg-card/50 hover:border-primary/30 transition-colors">
-                        <CardContent className="p-4 flex items-start gap-3">
-                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <IconComponent className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground mb-1">
-                              {achievement.label}
-                            </p>
-                            {achievement.company && (
-                              <p className="text-xs text-muted-foreground">
-                                {achievement.company}
+            ) : (
+              achievements.length > 0 && (
+                <div className="mb-10">
+                  <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                    Key Achievements
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {achievements.map((achievement) => {
+                      const IconComponent = iconMap[achievement.icon_name] || TrendingUp;
+                      return (
+                        <Card
+                          key={achievement.id}
+                          className="border-border bg-card/50 hover:border-primary/30 transition-colors"
+                        >
+                          <CardContent className="p-4 flex items-start gap-3">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <IconComponent className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground mb-1">
+                                {achievement.label}
                               </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                              {achievement.company && (
+                                <p className="text-xs text-muted-foreground">
+                                  {achievement.company}
+                                </p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )
             )}
 
             {/* Professional Experience */}
@@ -337,44 +373,48 @@ const About = () => {
                   ))}
                 </div>
               </div>
-            ) : experience.length > 0 && (
-              <div className="mb-10">
-                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
-                  <Briefcase className="w-6 h-6 text-primary" />
-                  Professional Experience
-                </h2>
-                <div className="space-y-6">
-                  {experience.map((job) => (
-                    <Card key={job.id} className="border-border bg-card/50 hover:border-primary/30 transition-colors">
-                      <CardContent className="mobile-card">
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <h3 className="text-lg font-bold text-foreground">
-                              {job.role}
-                            </h3>
-                            <p className="text-base text-primary font-semibold">
-                              {job.company}
-                            </p>
+            ) : (
+              experience.length > 0 && (
+                <div className="mb-10">
+                  <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                    <Briefcase className="w-6 h-6 text-primary" />
+                    Professional Experience
+                  </h2>
+                  <div className="space-y-6">
+                    {experience.map((job) => (
+                      <Card
+                        key={job.id}
+                        className="border-border bg-card/50 hover:border-primary/30 transition-colors"
+                      >
+                        <CardContent className="mobile-card">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h3 className="text-lg font-bold text-foreground">{job.role}</h3>
+                              <p className="text-base text-primary font-semibold">{job.company}</p>
+                            </div>
+                            <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">
+                              {job.duration}
+                            </span>
                           </div>
-                          <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">
-                            {job.duration}
-                          </span>
-                        </div>
-                        {job.highlights && job.highlights.length > 0 && (
-                          <ul className="space-y-2">
-                            {job.highlights.map((highlight, hidx) => (
-                              <li key={hidx} className="text-sm text-muted-foreground flex items-start">
-                                <span className="text-primary mr-2 mt-1 flex-shrink-0">•</span>
-                                <span>{highlight}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+                          {job.highlights && job.highlights.length > 0 && (
+                            <ul className="space-y-2">
+                              {job.highlights.map((highlight, hidx) => (
+                                <li
+                                  key={hidx}
+                                  className="text-sm text-muted-foreground flex items-start"
+                                >
+                                  <span className="text-primary mr-2 mt-1 flex-shrink-0">•</span>
+                                  <span>{highlight}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )
             )}
 
             {/* Education & Certifications */}
@@ -407,23 +447,28 @@ const About = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ) : certifications.length > 0 && (
-                <Card className="border-border bg-card/50 hover:border-primary/30 transition-colors">
-                  <CardContent className="mobile-card">
-                    <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">
-                      <Award className="w-6 h-6 text-primary" />
-                      Certifications
-                    </h2>
-                    <ul className="space-y-2">
-                      {certifications.map((cert) => (
-                        <li key={cert.id} className="text-sm text-muted-foreground flex items-center">
-                          <span className="text-primary mr-2">✓</span>
-                          {cert.name}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
+              ) : (
+                certifications.length > 0 && (
+                  <Card className="border-border bg-card/50 hover:border-primary/30 transition-colors">
+                    <CardContent className="mobile-card">
+                      <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">
+                        <Award className="w-6 h-6 text-primary" />
+                        Certifications
+                      </h2>
+                      <ul className="space-y-2">
+                        {certifications.map((cert) => (
+                          <li
+                            key={cert.id}
+                            className="text-sm text-muted-foreground flex items-center"
+                          >
+                            <span className="text-primary mr-2">✓</span>
+                            {cert.name}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )
               )}
             </div>
 
@@ -433,18 +478,18 @@ const About = () => {
                 <h2 className="mobile-heading-sm mb-4">Technical Expertise</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {[
+                    'CRM Integration & APIs',
+                    'AI/ML Integration',
                     'React & TypeScript',
                     'Node.js & Python',
                     'Supabase & PostgreSQL',
-                    'AI/ML Integration',
-                    'NFT Development',
-                    'Blockchain',
+                    'Workflow Automation',
                     'Full-Stack Development',
                     'Cloud Architecture',
                     'DevOps & CI/CD',
                     'RESTful APIs',
                     'Database Design',
-                    'UI/UX Design'
+                    'UI/UX Design',
                   ].map((skill, idx) => (
                     <div
                       key={idx}
@@ -462,13 +507,15 @@ const About = () => {
               <CardContent className="mobile-card text-center">
                 <h3 className="mobile-heading-sm mb-4">Let's Work Together</h3>
                 <p className="text-base text-muted-foreground mb-6 max-w-2xl mx-auto">
-                  Whether you need AI integration, full-stack development, or sales strategy consulting—I bring a unique perspective that combines technical expertise with proven business results.
+                  Whether you need AI integration, full-stack development, or sales strategy
+                  consulting—I bring a unique perspective that combines technical expertise with
+                  proven business results.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button
                     size="lg"
                     className="btn-futuristic"
-                    onClick={() => window.location.href = '/connect'}
+                    onClick={() => (window.location.href = '/connect')}
                   >
                     Get In Touch
                     <ExternalLink className="w-5 h-5 ml-2" />
@@ -476,7 +523,7 @@ const About = () => {
                   <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => window.location.href = '/projects'}
+                    onClick={() => (window.location.href = '/projects')}
                   >
                     View My Work
                   </Button>

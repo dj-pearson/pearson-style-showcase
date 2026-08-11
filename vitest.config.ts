@@ -11,7 +11,7 @@ export default defineConfig({
     css: true,
     // Only run the app's Vitest suites. Edge-function tests under
     // supabase/functions are Deno tests (run with `deno test`), not Vitest.
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist', 'supabase/**'],
     // Provide dummy Supabase config so the client module (which fails fast on
     // missing env vars) can initialize under test. These are never used to make

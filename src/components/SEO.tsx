@@ -13,7 +13,21 @@ interface SEOProps {
   type?: string;
   noIndex?: boolean; // Set to true for pages that shouldn't be indexed
   structuredData?: {
-    type: 'website' | 'article' | 'person' | 'organization' | 'project' | 'faq' | 'howto' | 'product' | 'breadcrumb' | 'review' | 'localbusiness' | 'sitenavigation';
+    type:
+      | 'website'
+      | 'article'
+      | 'person'
+      | 'organization'
+      | 'project'
+      | 'faq'
+      | 'howto'
+      | 'product'
+      | 'breadcrumb'
+      | 'review'
+      | 'localbusiness'
+      | 'sitenavigation'
+      | 'service'
+      | 'itemlist';
     data?: Record<string, unknown>;
   };
   // Additional SEO props
@@ -180,16 +194,26 @@ const SEO = ({
         removeMetaTag('article:author', true);
       }
     };
-  }, [title, optimizedDescription, keywords, author, absoluteImageUrl, canonicalUrl, type, noIndex, publishedTime, modifiedTime, section, tags, citationSource, contentSummary]);
+  }, [
+    title,
+    optimizedDescription,
+    keywords,
+    author,
+    absoluteImageUrl,
+    canonicalUrl,
+    type,
+    noIndex,
+    publishedTime,
+    modifiedTime,
+    section,
+    tags,
+    citationSource,
+    contentSummary,
+  ]);
 
   return (
     <>
-      {structuredData && (
-        <StructuredData 
-          type={structuredData.type} 
-          data={structuredData.data} 
-        />
-      )}
+      {structuredData && <StructuredData type={structuredData.type} data={structuredData.data} />}
     </>
   );
 };

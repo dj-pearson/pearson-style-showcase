@@ -16,42 +16,98 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import { SEO_CONFIG, getCanonicalUrl, generateSlug } from '@/lib/seo';
 import { validateUrlParam } from '@/lib/security';
 
-type Article = Tables<"articles">;
+type Article = Tables<'articles'>;
 
 // Topic hub configurations for pillar content strategy
-const TOPIC_HUBS: Record<string, {
-  title: string;
-  description: string;
-  keywords: string[];
-  relatedCategories: string[];
-  relatedTags: string[];
-  pillarContent?: string; // Slug of main pillar article if exists
-}> = {
+const TOPIC_HUBS: Record<
+  string,
+  {
+    title: string;
+    description: string;
+    keywords: string[];
+    relatedCategories: string[];
+    relatedTags: string[];
+    pillarContent?: string; // Slug of main pillar article if exists
+  }
+> = {
+  'ai-crm-automation': {
+    title: 'AI CRM Automation',
+    description:
+      'Research, teardowns and field notes on making the CRM run itself — capture-layer automation, agentic workflows, and why most AI CRM projects fail before they start.',
+    keywords: [
+      'AI CRM automation',
+      'CRM automation',
+      'sales automation',
+      'agentic CRM',
+      'CRM data quality',
+      'RevOps',
+    ],
+    relatedCategories: ['CRM', 'Sales', 'AI'],
+    relatedTags: [
+      'CRM',
+      'CRM Automation',
+      'Sales Automation',
+      'HubSpot',
+      'Salesforce',
+      'Pipeline',
+      'RevOps',
+      'AI Agents',
+    ],
+    pillarContent: 'ai-crm-automation-complete-guide',
+  },
   'ai-automation': {
     title: 'AI Automation',
-    description: 'Complete guide to AI automation for business. Learn how to implement AI-powered workflows, reduce manual tasks, and transform your operations.',
-    keywords: ['AI automation', 'business automation', 'workflow automation', 'AI tools', 'automation strategy'],
+    description:
+      'Complete guide to AI automation for business. Learn how to implement AI-powered workflows, reduce manual tasks, and transform your operations.',
+    keywords: [
+      'AI automation',
+      'business automation',
+      'workflow automation',
+      'AI tools',
+      'automation strategy',
+    ],
     relatedCategories: ['AI', 'Technology', 'Business'],
     relatedTags: ['AI', 'Automation', 'Machine Learning', 'Workflow', 'Productivity'],
   },
   'business-optimization': {
     title: 'Business Optimization',
-    description: 'Strategies and insights for optimizing business operations, improving efficiency, and driving growth through technology and AI.',
-    keywords: ['business optimization', 'process improvement', 'efficiency', 'growth strategies', 'business transformation'],
+    description:
+      'Strategies and insights for optimizing business operations, improving efficiency, and driving growth through technology and AI.',
+    keywords: [
+      'business optimization',
+      'process improvement',
+      'efficiency',
+      'growth strategies',
+      'business transformation',
+    ],
     relatedCategories: ['Business', 'Strategy', 'Management'],
     relatedTags: ['Optimization', 'Efficiency', 'Growth', 'Strategy', 'ROI'],
   },
   'machine-learning': {
     title: 'Machine Learning',
-    description: 'Explore machine learning concepts, applications, and implementation strategies for business. From basics to advanced use cases.',
+    description:
+      'Explore machine learning concepts, applications, and implementation strategies for business. From basics to advanced use cases.',
     keywords: ['machine learning', 'ML', 'AI', 'predictive analytics', 'data science'],
     relatedCategories: ['AI', 'Technology', 'Data'],
-    relatedTags: ['Machine Learning', 'AI', 'Data Science', 'Predictive Analytics', 'Neural Networks'],
+    relatedTags: [
+      'Machine Learning',
+      'AI',
+      'Data Science',
+      'Predictive Analytics',
+      'Neural Networks',
+    ],
   },
   'digital-transformation': {
     title: 'Digital Transformation',
-    description: 'Navigate your digital transformation journey with insights on technology adoption, change management, and modernizing business processes.',
-    keywords: ['digital transformation', 'modernization', 'technology adoption', 'change management', 'digital strategy'],
+    description:
+      'Navigate your digital transformation journey with insights on technology adoption, change management, and modernizing business processes.',
+    keywords: [
+      'digital transformation',
+      'modernization',
+      'technology adoption',
+      'change management',
+      'digital strategy',
+    ],
     relatedCategories: ['Technology', 'Business', 'Strategy'],
     relatedTags: ['Digital Transformation', 'Modernization', 'Cloud', 'Innovation'],
   },
@@ -64,7 +120,11 @@ const TopicHub = () => {
   // Get topic configuration
   const topicConfig = topic ? TOPIC_HUBS[topic] : null;
 
-  const { data: articles, isLoading, error } = useQuery({
+  const {
+    data: articles,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['articles', 'topic-hub', topic],
     queryFn: async () => {
       if (!topic || !topicConfig) throw new Error('Invalid topic');
@@ -72,7 +132,9 @@ const TopicHub = () => {
       // Search for articles matching topic categories or tags
       const { data, error } = await supabase
         .from('articles')
-        .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
+        .select(
+          'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'
+        )
         .eq('published', true)
         .order('featured', { ascending: false })
         .order('view_count', { ascending: false })
@@ -81,12 +143,12 @@ const TopicHub = () => {
       if (error) throw error;
 
       // Filter articles that match topic's categories or tags
-      const relevantArticles = (data || []).filter(article => {
+      const relevantArticles = (data || []).filter((article) => {
         const matchesCategory = topicConfig.relatedCategories.some(
-          cat => article.category?.toLowerCase() === cat.toLowerCase()
+          (cat) => article.category?.toLowerCase() === cat.toLowerCase()
         );
-        const matchesTags = topicConfig.relatedTags.some(
-          tag => article.tags?.some((t: string) => t.toLowerCase() === tag.toLowerCase())
+        const matchesTags = topicConfig.relatedTags.some((tag) =>
+          article.tags?.some((t: string) => t.toLowerCase() === tag.toLowerCase())
         );
         return matchesCategory || matchesTags;
       });
@@ -101,33 +163,33 @@ const TopicHub = () => {
   }
 
   // Group articles by type
-  const featuredArticles = articles?.filter(a => a.featured) || [];
-  const recentArticles = articles?.filter(a => !a.featured).slice(0, 6) || [];
+  const featuredArticles = articles?.filter((a) => a.featured) || [];
+  const recentArticles = articles?.filter((a) => !a.featured).slice(0, 6) || [];
   const popularArticles = [...(articles || [])]
     .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
     .slice(0, 3);
 
   // Get unique subtopics (tags) from articles
   const subtopics = articles
-    ? Array.from(new Set(articles.flatMap(a => a.tags || []))).slice(0, 12)
+    ? Array.from(new Set(articles.flatMap((a) => a.tags || []))).slice(0, 12)
     : [];
 
   // Get unique categories
   const categories = articles
-    ? Array.from(new Set(articles.map(a => a.category).filter(Boolean)))
+    ? Array.from(new Set(articles.map((a) => a.category).filter(Boolean)))
     : [];
 
   // Breadcrumb items for visual component (label/path format)
   const breadcrumbItems = [
     { label: 'Topics', path: '/topics' },
-    { label: topicConfig.title, path: `/topics/${topic}` }
+    { label: topicConfig.title, path: `/topics/${topic}` },
   ];
 
   // Breadcrumb items for structured data (name/url format)
   const structuredBreadcrumbs = [
     { name: 'Home', url: getCanonicalUrl('/') },
     { name: 'Topics', url: getCanonicalUrl('/topics') },
-    { name: topicConfig.title, url: getCanonicalUrl(`/topics/${topic}`) }
+    { name: topicConfig.title, url: getCanonicalUrl(`/topics/${topic}`) },
   ];
 
   return (
@@ -141,10 +203,7 @@ const TopicHub = () => {
       />
 
       {/* Breadcrumb Schema */}
-      <StructuredData
-        type="breadcrumb"
-        data={{ items: structuredBreadcrumbs }}
-      />
+      <StructuredData type="breadcrumb" data={{ items: structuredBreadcrumbs }} />
 
       {/* CollectionPage Schema for topic hub */}
       <StructuredData
@@ -180,13 +239,11 @@ const TopicHub = () => {
               </Badge>
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent mb-4">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
               {topicConfig.title}
             </h1>
 
-            <p className="text-xl text-gray-400 max-w-3xl mb-6">
-              {topicConfig.description}
-            </p>
+            <p className="text-xl text-gray-400 max-w-3xl mb-6">{topicConfig.description}</p>
 
             {/* Topic Stats */}
             <div className="flex flex-wrap gap-6 text-sm text-gray-500 mb-6">
@@ -208,12 +265,12 @@ const TopicHub = () => {
             {categories.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 <span className="text-sm text-gray-500">Categories:</span>
-                {categories.map(category => (
-                  <Link
-                    key={category}
-                    to={`/news/category/${category}`}
-                  >
-                    <Badge variant="secondary" className="hover:bg-tech-cyan/10 transition-colors cursor-pointer">
+                {categories.map((category) => (
+                  <Link key={category} to={`/news/category/${category}`}>
+                    <Badge
+                      variant="secondary"
+                      className="hover:bg-tech-cyan/10 transition-colors cursor-pointer"
+                    >
                       {category}
                     </Badge>
                   </Link>
@@ -225,12 +282,12 @@ const TopicHub = () => {
             {subtopics.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 <span className="text-sm text-gray-500">Explore:</span>
-                {subtopics.map(tag => (
-                  <Link
-                    key={tag}
-                    to={`/news/tag/${generateSlug(tag)}`}
-                  >
-                    <Badge variant="outline" className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer">
+                {subtopics.map((tag) => (
+                  <Link key={tag} to={`/news/tag/${generateSlug(tag)}`}>
+                    <Badge
+                      variant="outline"
+                      className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer"
+                    >
                       {tag}
                     </Badge>
                   </Link>
@@ -246,9 +303,7 @@ const TopicHub = () => {
           {error && (
             <div className="text-center py-12">
               <p className="text-red-400 mb-4">Failed to load articles</p>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
+              <Button onClick={() => window.location.reload()}>Try Again</Button>
             </div>
           )}
 
@@ -278,7 +333,10 @@ const TopicHub = () => {
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {popularArticles.map((article, index) => (
-                      <Card key={article.id} className="bg-gray-900/50 border-gray-800 hover:border-tech-cyan/50 transition-colors">
+                      <Card
+                        key={article.id}
+                        className="bg-gray-900/50 border-gray-800 hover:border-tech-cyan/50 transition-colors"
+                      >
                         <Link to={`/news/${article.slug}`} className="block p-4">
                           <div className="flex items-start gap-4">
                             <span className="text-3xl font-bold text-tech-cyan/30">
@@ -308,7 +366,10 @@ const TopicHub = () => {
                       <Clock className="w-5 h-5 text-tech-cyan" />
                       Recent Articles
                     </h2>
-                    <Link to="/news" className="text-tech-cyan hover:underline flex items-center gap-1">
+                    <Link
+                      to="/news"
+                      className="text-tech-cyan hover:underline flex items-center gap-1"
+                    >
                       View all <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>

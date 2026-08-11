@@ -36,6 +36,7 @@ const Projects = lazy(() => import('./pages/Projects'));
 const News = lazy(() => import('./pages/News'));
 const Article = lazy(() => import('./pages/Article'));
 const AITools = lazy(() => import('./pages/AITools'));
+const AICrmAutomation = lazy(() => import('./pages/AICrmAutomation'));
 const Connect = lazy(() => import('./pages/Connect'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
@@ -127,6 +128,7 @@ const App = () => (
                       <Route path="/topics" element={<Topics />} />
                       <Route path="/topics/:topic" element={<TopicHub />} />
                       <Route path="/news/:slug" element={<Article />} />
+                      <Route path="/ai-crm-automation" element={<AICrmAutomation />} />
                       <Route path="/ai-tools" element={<AITools />} />
                       <Route path="/connect" element={<Connect />} />
                       <Route path="/search" element={<Search />} />

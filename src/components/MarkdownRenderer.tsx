@@ -21,10 +21,7 @@ interface MarkdownComponentProps {
   alt?: string;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ 
-  content, 
-  className = '' 
-}) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
   // Allowed style values for custom components (whitelist approach)
   const ALLOWED_BUTTON_STYLES = ['primary', 'secondary', 'outline', 'destructive'];
   const ALLOWED_ALERT_TYPES = ['info', 'warning', 'success', 'error'];
@@ -34,20 +31,23 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const renderCustomHTML = (htmlContent: string) => {
     // Parse custom button syntax: [button:text:url:style]
     const buttonRegex = /\[button:([^:]+):([^:]+):?([^\]]*)\]/g;
-    let processedContent = htmlContent.replace(buttonRegex, (match, text, url, style = 'primary') => {
-      // SECURITY: Validate URL at parse time to prevent XSS via javascript:, data:, vbscript: protocols
-      const validatedUrl = validateUrl(url);
-      if (!validatedUrl) {
-        // Render as plain text if URL is invalid
-        return `<span>${DOMPurify.sanitize(text, { ALLOWED_TAGS: [] })}</span>`;
+    let processedContent = htmlContent.replace(
+      buttonRegex,
+      (match, text, url, style = 'primary') => {
+        // SECURITY: Validate URL at parse time to prevent XSS via javascript:, data:, vbscript: protocols
+        const validatedUrl = validateUrl(url);
+        if (!validatedUrl) {
+          // Render as plain text if URL is invalid
+          return `<span>${DOMPurify.sanitize(text, { ALLOWED_TAGS: [] })}</span>`;
+        }
+        // SECURITY: Whitelist style values to prevent attribute injection
+        const safeStyle = ALLOWED_BUTTON_STYLES.includes(style) ? style : 'primary';
+        const buttonId = `btn-${Math.random().toString(36).substr(2, 9)}`;
+        // Sanitize text content (strip all HTML)
+        const safeText = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
+        return `<span data-custom-btn="${buttonId}" data-url="${validatedUrl}" data-style="${safeStyle}">${safeText}</span>`;
       }
-      // SECURITY: Whitelist style values to prevent attribute injection
-      const safeStyle = ALLOWED_BUTTON_STYLES.includes(style) ? style : 'primary';
-      const buttonId = `btn-${Math.random().toString(36).substr(2, 9)}`;
-      // Sanitize text content (strip all HTML)
-      const safeText = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
-      return `<span data-custom-btn="${buttonId}" data-url="${validatedUrl}" data-style="${safeStyle}">${safeText}</span>`;
-    });
+    );
 
     // Parse custom alert syntax: [alert:type:message]
     const alertRegex = /\[alert:([^:]+):([^\]]+)\]/g;
@@ -93,7 +93,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         </code>
       );
     },
-    
+
     blockquote({ children }: MarkdownComponentProps) {
       return (
         <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground my-4">
@@ -105,27 +105,19 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     table({ children }: MarkdownComponentProps) {
       return (
         <div className="overflow-x-auto my-4">
-          <table className="w-full border-collapse border border-border">
-            {children}
-          </table>
+          <table className="w-full border-collapse border border-border">{children}</table>
         </div>
       );
     },
 
     th({ children }: MarkdownComponentProps) {
       return (
-        <th className="border border-border bg-muted p-2 text-left font-semibold">
-          {children}
-        </th>
+        <th className="border border-border bg-muted p-2 text-left font-semibold">{children}</th>
       );
     },
 
     td({ children }: MarkdownComponentProps) {
-      return (
-        <td className="border border-border p-2">
-          {children}
-        </td>
-      );
+      return <td className="border border-border p-2">{children}</td>;
     },
 
     h1({ children }: MarkdownComponentProps) {
@@ -161,8 +153,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     },
 
     a({ href, children }: MarkdownComponentProps) {
-      // SECURITY: Validate URL to prevent XSS via javascript: protocol
-      const validatedHref = href ? validateUrl(href) : null;
+      // SECURITY: Validate URL to prevent XSS via javascript: protocol.
+      // Relative hrefs are allowed here so in-site links written in article
+      // markdown ("/ai-crm-automation") resolve instead of being downgraded to
+      // plain text — internal linking is load-bearing for the content strategy.
+      const validatedHref = href ? validateUrl(href, { allowRelative: true }) : null;
 
       // If URL validation fails, render as plain text instead of link
       if (!validatedHref) {
@@ -187,9 +182,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       if (src) {
         // Block data: URIs with SVG (can embed JavaScript) and other dangerous protocols
         const lowerSrc = src.toLowerCase().trim();
-        if (lowerSrc.startsWith('data:image/svg') ||
-            lowerSrc.startsWith('javascript:') ||
-            lowerSrc.startsWith('vbscript:')) {
+        if (
+          lowerSrc.startsWith('data:image/svg') ||
+          lowerSrc.startsWith('javascript:') ||
+          lowerSrc.startsWith('vbscript:')
+        ) {
           safeSrc = undefined;
         }
         // For http/https URLs, validate them
@@ -210,33 +207,30 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
       return (
         <div className="my-6">
-          <img
-            src={safeSrc}
-            alt={alt}
-            className="w-full rounded-lg shadow-lg"
-            loading="lazy"
-          />
-          {alt && (
-            <p className="text-sm text-muted-foreground text-center mt-2 italic">
-              {alt}
-            </p>
-          )}
+          <img src={safeSrc} alt={alt} className="w-full rounded-lg shadow-lg" loading="lazy" />
+          {alt && <p className="text-sm text-muted-foreground text-center mt-2 italic">{alt}</p>}
         </div>
       );
     },
 
     hr() {
       return <hr className="my-8 border-border" />;
-    }
+    },
   };
 
   // Process content to handle both Markdown and HTML
   const containsHTML = /<[a-z][\s\S]*>/i.test(content);
-  const containsMarkdown = /[#*`[\]_~-]/.test(content) || content.includes('**') || content.includes('##') || content.includes('###');
-  
+  const containsMarkdown =
+    /[#*`[\]_~-]/.test(content) ||
+    content.includes('**') ||
+    content.includes('##') ||
+    content.includes('###');
+
   // Only process custom HTML syntax if we have HTML content or custom components
-  const hasCustomComponents = content.includes('[button:') || content.includes('[alert:') || content.includes('[badge:');
-  const processedContent = (containsHTML || hasCustomComponents) ? renderCustomHTML(content) : content;
+  const hasCustomComponents =
+    content.includes('[button:') || content.includes('[alert:') || content.includes('[badge:');
+  const processedContent =
+    containsHTML || hasCustomComponents ? renderCustomHTML(content) : content;
 
   // Custom component to handle our special elements with sanitization
   const CustomHTMLRenderer: React.FC<{ html: string }> = ({ html }) => {
@@ -248,15 +242,49 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       // This prevents onclick handler injection via button elements
       const sanitized = DOMPurify.sanitize(html, {
         ALLOWED_TAGS: [
-          'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-          'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
-          'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'
+          'p',
+          'br',
+          'strong',
+          'em',
+          'u',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'a',
+          'ul',
+          'ol',
+          'li',
+          'blockquote',
+          'code',
+          'pre',
+          'img',
+          'div',
+          'span',
+          'table',
+          'thead',
+          'tbody',
+          'tr',
+          'th',
+          'td',
+          'hr',
         ],
         ALLOWED_ATTR: [
-          'href', 'src', 'alt', 'title', 'class', 'id',
-          'data-custom-btn', 'data-url', 'data-style',
-          'data-custom-alert', 'data-type',
-          'data-custom-badge', 'data-variant'
+          'href',
+          'src',
+          'alt',
+          'title',
+          'class',
+          'id',
+          'data-custom-btn',
+          'data-url',
+          'data-style',
+          'data-custom-alert',
+          'data-type',
+          'data-custom-badge',
+          'data-variant',
         ],
         ALLOW_DATA_ATTR: false,
         ALLOW_UNKNOWN_PROTOCOLS: false,
@@ -271,9 +299,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         const src = img.getAttribute('src');
         if (src) {
           const lowerSrc = src.toLowerCase().trim();
-          if (lowerSrc.startsWith('data:image/svg') ||
-              lowerSrc.startsWith('javascript:') ||
-              lowerSrc.startsWith('vbscript:')) {
+          if (
+            lowerSrc.startsWith('data:image/svg') ||
+            lowerSrc.startsWith('javascript:') ||
+            lowerSrc.startsWith('vbscript:')
+          ) {
             img.removeAttribute('src');
             img.setAttribute('alt', 'Image blocked for security');
           }
@@ -299,11 +329,15 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         btn.setAttribute('role', 'button');
         btn.setAttribute('tabindex', '0');
         btn.className = `inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer ring-offset-background h-10 py-2 px-4 ${
-          style === 'primary' ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
-          style === 'secondary' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80' :
-          style === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
-          style === 'destructive' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' :
-          'bg-primary text-primary-foreground hover:bg-primary/90'
+          style === 'primary'
+            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+            : style === 'secondary'
+              ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              : style === 'outline'
+                ? 'border border-input hover:bg-accent hover:text-accent-foreground'
+                : style === 'destructive'
+                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
         } my-2 mx-1`;
 
         if (url) {
@@ -329,14 +363,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       const customAlerts = container.querySelectorAll('[data-custom-alert]');
       customAlerts.forEach((alert) => {
         const type = alert.getAttribute('data-type') || 'info';
-        
+
         const colorMap = {
           info: 'border-blue-500/50 bg-blue-500/10 text-blue-400',
           warning: 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400',
           success: 'border-green-500/50 bg-green-500/10 text-green-400',
-          error: 'border-red-500/50 bg-red-500/10 text-red-400'
+          error: 'border-red-500/50 bg-red-500/10 text-red-400',
         };
-        
+
         alert.className = `flex items-center space-x-2 rounded-md border p-4 my-4 ${colorMap[type as keyof typeof colorMap] || colorMap.info}`;
       });
 
@@ -344,24 +378,27 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       const customBadges = container.querySelectorAll('[data-custom-badge]');
       customBadges.forEach((badge) => {
         const variant = badge.getAttribute('data-variant') || 'default';
-        
+
         const variantMap = {
           default: 'bg-primary text-primary-foreground hover:bg-primary/80',
           secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
           destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/80',
-          outline: 'text-foreground border border-input hover:bg-accent hover:text-accent-foreground'
+          outline:
+            'text-foreground border border-input hover:bg-accent hover:text-accent-foreground',
         };
-        
+
         badge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${variantMap[variant as keyof typeof variantMap] || variantMap.default} mx-1`;
       });
 
       // Style any links in HTML (but preserve amazon-button and other custom classes)
       const htmlLinks = container.querySelectorAll('a:not([data-custom-btn])');
       htmlLinks.forEach((link) => {
-        // SECURITY: Validate href to prevent XSS via javascript: protocol
+        // SECURITY: Validate href to prevent XSS via javascript: protocol.
+        // Relative hrefs allowed for the same reason as the markdown `a`
+        // renderer above — in-site links in embedded HTML must survive.
         const href = link.getAttribute('href');
         if (href) {
-          const validatedHref = validateUrl(href);
+          const validatedHref = validateUrl(href, { allowRelative: true });
           if (!validatedHref) {
             // Remove href if invalid (converts to plain text)
             link.removeAttribute('href');
@@ -375,10 +412,13 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         }
 
         // Don't override amazon-button or other custom styled links
-        if (!link.className.includes('amazon-button') &&
-            !link.className.includes('text-') &&
-            !link.getAttribute('style')?.includes('color')) {
-          link.className = `${link.className} text-primary hover:text-primary/80 underline transition-colors`.trim();
+        if (
+          !link.className.includes('amazon-button') &&
+          !link.className.includes('text-') &&
+          !link.getAttribute('style')?.includes('color')
+        ) {
+          link.className =
+            `${link.className} text-primary hover:text-primary/80 underline transition-colors`.trim();
         }
 
         // Ensure external links open in new tab
@@ -387,13 +427,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           link.setAttribute('rel', 'noopener noreferrer');
         }
       });
-
     }, [sanitizedHtml]);
 
     return (
-      <div 
+      <div
         ref={containerRef}
-        dangerouslySetInnerHTML={{ __html: sanitizedHtml }} 
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         className="space-y-6 text-foreground/90 leading-relaxed"
       />
     );
@@ -411,23 +450,57 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     // SECURITY: 'button' removed from ALLOWED_TAGS - custom buttons use span[data-custom-btn]
     const sanitizedContent = DOMPurify.sanitize(processedContent, {
       ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
-        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'
+        'p',
+        'br',
+        'strong',
+        'em',
+        'u',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'a',
+        'ul',
+        'ol',
+        'li',
+        'blockquote',
+        'code',
+        'pre',
+        'img',
+        'div',
+        'span',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'th',
+        'td',
+        'hr',
       ],
       ALLOWED_ATTR: [
-        'href', 'src', 'alt', 'title', 'class', 'id',
-        'data-custom-btn', 'data-url', 'data-style',
-        'data-custom-alert', 'data-type',
-        'data-custom-badge', 'data-variant'
+        'href',
+        'src',
+        'alt',
+        'title',
+        'class',
+        'id',
+        'data-custom-btn',
+        'data-url',
+        'data-style',
+        'data-custom-alert',
+        'data-type',
+        'data-custom-badge',
+        'data-variant',
       ],
       ALLOW_DATA_ATTR: false,
       ALLOW_UNKNOWN_PROTOCOLS: false,
     });
-    
+
     return (
       <div className={`prose prose-lg prose-invert max-w-none ${className}`}>
-        <div 
+        <div
           dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           className="space-y-6 text-foreground/90 leading-relaxed"
         />
@@ -438,10 +511,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   // Pure Markdown content - render with ReactMarkdown
   return (
     <div className={`prose prose-lg prose-invert max-w-none ${className}`}>
-      <ReactMarkdown 
-        remarkPlugins={[remarkGfm]} 
-        components={components}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {processedContent}
       </ReactMarkdown>
     </div>

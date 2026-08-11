@@ -37,14 +37,20 @@ describe('Index page', () => {
   it('sets SEO meta (document title)', async () => {
     render(<Index />, { initialEntries: ['/'] });
     await waitFor(() => expect(document.title).toMatch(/Dan Pearson/i));
-    expect(document.title).toMatch(/AI Business Automation/i);
+    expect(document.title).toMatch(/AI CRM Automation/i);
   });
 
-  it('renders the featured content / services sections', () => {
+  it('renders the positioning sections', () => {
     render(<Index />, { initialEntries: ['/'] });
-    // Static marketing content (this homepage has no dynamic featured-articles
-    // fetch; the services grid is its highlighted content).
-    expect(screen.getByText('Sales Leadership')).toBeInTheDocument();
+    // Static marketing content: the thesis, the framework and the offer ladder
+    // are the homepage's own content (everything else is lazy or DB-driven).
+    expect(
+      screen.getByRole('heading', { name: /why most ai crm projects fail/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /pipeline automation ladder/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText('CRM Automation Audit')).toBeInTheDocument();
   });
 
   it('renders lazy sections behind Suspense without crashing (loading handled)', () => {

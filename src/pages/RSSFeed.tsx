@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 
 const BASE_URL = 'https://danpearson.net';
@@ -30,7 +30,9 @@ const RSSFeed = () => {
         // Fetch the latest published articles
         const { data: articles, error } = await supabase
           .from('articles')
-          .select('slug, title, excerpt, content, category, tags, image_url, created_at, updated_at, author')
+          .select(
+            'slug, title, excerpt, content, category, tags, image_url, created_at, updated_at, author'
+          )
           .eq('published', true)
           .order('created_at', { ascending: false })
           .limit(50); // Limit to 50 most recent articles
@@ -47,9 +49,9 @@ const RSSFeed = () => {
      xmlns:atom="http://www.w3.org/2005/Atom"
      xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
-    <title>Dan Pearson - AI Engineer &amp; Business Development Expert</title>
+    <title>Dan Pearson - AI CRM Automation</title>
     <link>${BASE_URL}</link>
-    <description>Expert insights on AI engineering, business development, NFT development, and digital innovation. Stay updated with the latest trends and analysis.</description>
+    <description>Field notes and teardowns on AI CRM automation — capture-layer automation for revenue teams, and why most AI CRM projects fail.</description>
     <language>en-us</language>
     <lastBuildDate>${currentDate}</lastBuildDate>
     <pubDate>${currentDate}</pubDate>
@@ -64,12 +66,13 @@ const RSSFeed = () => {
     <category>Technology</category>
     <category>Artificial Intelligence</category>
     <category>Business Development</category>
-${(articles || []).map((article) => {
-  const articleUrl = `${BASE_URL}/news/${article.slug}`;
-  const pubDate = article.created_at ? new Date(article.created_at).toUTCString() : currentDate;
-  const description = escapeXml(stripHtml(article.excerpt || ''));
+${(articles || [])
+  .map((article) => {
+    const articleUrl = `${BASE_URL}/news/${article.slug}`;
+    const pubDate = article.created_at ? new Date(article.created_at).toUTCString() : currentDate;
+    const description = escapeXml(stripHtml(article.excerpt || ''));
 
-  return `    <item>
+    return `    <item>
       <title>${escapeXml(article.title)}</title>
       <link>${articleUrl}</link>
       <guid isPermaLink="true">${articleUrl}</guid>
@@ -79,12 +82,17 @@ ${(articles || []).map((article) => {
       <dc:creator>${escapeXml(article.author || 'Dan Pearson')}</dc:creator>
       ${article.category ? `<category>${escapeXml(article.category)}</category>` : ''}
       ${(article.tags || []).map((tag: string) => `<category>${escapeXml(tag)}</category>`).join('\n      ')}
-      ${article.image_url ? `<media:content url="${escapeXml(article.image_url)}" medium="image">
+      ${
+        article.image_url
+          ? `<media:content url="${escapeXml(article.image_url)}" medium="image">
         <media:title>${escapeXml(article.title)}</media:title>
       </media:content>
-      <enclosure url="${escapeXml(article.image_url)}" type="image/jpeg" />` : ''}
+      <enclosure url="${escapeXml(article.image_url)}" type="image/jpeg" />`
+          : ''
+      }
     </item>`;
-}).join('\n')}
+  })
+  .join('\n')}
   </channel>
 </rss>`;
 
@@ -95,7 +103,7 @@ ${(articles || []).map((article) => {
         setRssXml(`<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>Dan Pearson - AI Engineer &amp; Business Development Expert</title>
+    <title>Dan Pearson - AI CRM Automation</title>
     <link>${BASE_URL}</link>
     <description>Error generating feed</description>
   </channel>
@@ -114,11 +122,7 @@ ${(articles || []).map((article) => {
   }, []);
 
   // Return XML content
-  return (
-    <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
-      {rssXml}
-    </div>
-  );
+  return <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>{rssXml}</div>;
 };
 
 export default RSSFeed;

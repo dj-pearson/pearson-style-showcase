@@ -196,7 +196,7 @@ const News = () => {
     <div className="min-h-screen flex flex-col">
       <SEO
         title="AI Automation & Business Technology Insights | Expert Analysis | Dan Pearson"
-        description="Expert insights on AI automation, business technology, and digital transformation. Learn proven strategies to implement AI, reduce costs, and streamline operations. Real-world case studies and practical guides from an experienced AI consultant serving 50+ businesses."
+        description="Expert insights on AI automation, business technology, and digital transformation. Learn proven strategies to implement AI, reduce costs, and streamline operations. Real-world teardowns and practical guides from a consultant who spent 15 years carrying a quota before building the automation."
         keywords="AI automation guides, business automation insights, AI implementation strategies, digital transformation tips, AI tools comparison, business process automation, AI consultant insights, automation case studies, AI integration tutorials, business technology trends"
         url="https://danpearson.net/news"
         type="website"
@@ -210,8 +210,8 @@ const News = () => {
               News & Insights
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto px-2 leading-relaxed">
-              Stay updated with the latest trends in AI, NFTs, blockchain technology, and business
-              strategy insights.
+              Field notes and teardowns on AI CRM automation — what actually works inside the CRM,
+              and why so much of it does not.
             </p>
           </div>
 

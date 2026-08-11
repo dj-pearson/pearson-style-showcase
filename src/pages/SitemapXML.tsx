@@ -58,6 +58,7 @@ const SitemapXML = () => {
         // 1. Static pages with appropriate priorities
         const staticPages = [
           { path: '', priority: '1.0', changefreq: 'weekly' as const },
+          { path: '/ai-crm-automation', priority: '0.9', changefreq: 'weekly' as const },
           { path: '/about', priority: '0.8', changefreq: 'monthly' as const },
           {
             path: '/projects',

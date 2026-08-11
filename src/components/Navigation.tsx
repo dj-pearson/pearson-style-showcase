@@ -93,12 +93,15 @@ const Navigation = () => {
     }
   }, [isMenuOpen]);
 
+  // Six is the practical ceiling on mobile, so the category entry replaces
+  // "AI Tools" rather than joining it — the affiliate catalogue stays reachable
+  // from the footer's quick links.
   const navItems = [
     { name: 'Home', path: '/' },
-    { name: 'About Me', path: '/about' },
+    { name: 'AI CRM Automation', path: '/ai-crm-automation' },
     { name: 'Projects', path: '/projects' },
     { name: 'News', path: '/news' },
-    { name: 'AI Tools', path: '/ai-tools' },
+    { name: 'About', path: '/about' },
     { name: 'Connect', path: '/connect' },
   ];
 

@@ -26,10 +26,10 @@ const Connect = () => {
   const { trackBookingIntent, trackOutboundLink, trackCTA } = useAnalytics();
   return (
     <div className="min-h-screen flex flex-col">
-      <SEO 
-        title="Connect - Dan Pearson | AI Engineer & Business Development Expert"
-        description="Get in touch for AI engineering projects, business development opportunities, or collaboration. I specialize in NFT development, AI integration, and sales leadership."
-        keywords="contact Dan Pearson, AI engineer hire, business development consultant, NFT developer, AI integration services"
+      <SEO
+        title="Book a CRM Automation Audit | Dan Pearson"
+        description="Book a flat-fee CRM automation audit, or get in touch about capture-layer automation for your revenue team. Two weeks, findings and a roadmap you keep whoever builds it."
+        keywords="CRM automation audit, book AI CRM consultant, contact Dan Pearson, CRM automation consultation, HubSpot automation help, Salesforce automation help"
         url="https://danpearson.net/connect"
       />
       <Navigation />
@@ -37,9 +37,7 @@ const Connect = () => {
         <div className="container mx-auto mobile-section">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <h1 className="mobile-heading-lg hero-gradient-text mb-4">
-                Let's Connect
-              </h1>
+              <h1 className="mobile-heading-lg hero-gradient-text mb-4">Let's Connect</h1>
               <p className="mobile-body text-muted-foreground">
                 Ready to collaborate on your next project? I'd love to hear from you.
               </p>
@@ -76,7 +74,12 @@ const Connect = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-base sm:text-lg text-primary hover:underline touch-target font-medium"
-                    onClick={() => trackOutboundLink('https://www.linkedin.com/in/danpearson', 'LinkedIn Profile - Connect Page')}
+                    onClick={() =>
+                      trackOutboundLink(
+                        'https://www.linkedin.com/in/danpearson',
+                        'LinkedIn Profile - Connect Page'
+                      )
+                    }
                   >
                     View Profile →
                   </a>
@@ -85,8 +88,8 @@ const Connect = () => {
                 <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
                   <h3 className="mobile-heading-sm mb-3">Response Time</h3>
                   <p className="text-base sm:text-base text-muted-foreground leading-relaxed">
-                    I typically respond to messages within 24 hours. For urgent matters,
-                    feel free to reach out directly via email.
+                    I typically respond to messages within 24 hours. For urgent matters, feel free
+                    to reach out directly via email.
                   </p>
                 </div>
 
@@ -155,15 +158,16 @@ const Connect = () => {
                       rel="noopener noreferrer"
                       onClick={() => {
                         trackBookingIntent('linkedin');
-                        trackOutboundLink('https://www.linkedin.com/in/danpearson', 'LinkedIn - Booking');
+                        trackOutboundLink(
+                          'https://www.linkedin.com/in/danpearson',
+                          'LinkedIn - Booking'
+                        );
                       }}
                     >
                       <ExternalLink className="w-5 h-5 text-primary" />
                       <div className="text-left">
                         <div className="font-medium">Connect on LinkedIn</div>
-                        <div className="text-sm text-muted-foreground">
-                          Message me directly
-                        </div>
+                        <div className="text-sm text-muted-foreground">Message me directly</div>
                       </div>
                     </a>
                   </Button>
@@ -194,9 +198,11 @@ const Connect = () => {
                         What services do you offer?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        I specialize in AI integration, full-stack web development (React, TypeScript, Supabase),
-                        NFT development, and sales strategy consulting. I help businesses automate processes with AI,
-                        build custom web applications, and optimize their sales operations.
+                        AI CRM automation for revenue teams under 50 seats: automated call and
+                        meeting logging, AI-drafted notes, enrichment, deduplication, routing and
+                        evidence-backed stage changes — built into the CRM you already own.
+                        Engagements start with a flat-fee two-week audit. I also build custom SaaS
+                        where the job needs it.
                       </AccordionContent>
                     </AccordionItem>
 
@@ -205,9 +211,9 @@ const Connect = () => {
                         What is your availability?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        I'm currently available for select consulting projects and collaborations. While I'm building
-                        my own ventures full-time, I take on interesting projects that align with my expertise.
-                        Reach out to discuss your needs and timeline.
+                        I'm currently available for select consulting projects and collaborations.
+                        While I'm building my own ventures full-time, I take on interesting projects
+                        that align with my expertise. Reach out to discuss your needs and timeline.
                       </AccordionContent>
                     </AccordionItem>
 
@@ -216,9 +222,10 @@ const Connect = () => {
                         Do you work remotely or on-site?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        I work primarily remotely from the Des Moines Metropolitan Area, but I'm open to occasional
-                        on-site meetings or travel for the right projects. My remote setup allows me to collaborate
-                        effectively with teams across different time zones.
+                        I work primarily remotely from the Des Moines Metropolitan Area, but I'm
+                        open to occasional on-site meetings or travel for the right projects. My
+                        remote setup allows me to collaborate effectively with teams across
+                        different time zones.
                       </AccordionContent>
                     </AccordionItem>
 
@@ -227,10 +234,10 @@ const Connect = () => {
                         How do you charge for your services?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        Pricing depends on the scope and complexity of the project. I offer both project-based and
-                        hourly consulting arrangements. For larger projects, I provide detailed proposals with
-                        milestone-based payment structures. Contact me to discuss your specific needs and I'll
-                        provide a custom quote.
+                        Pricing depends on the scope and complexity of the project. I offer both
+                        project-based and hourly consulting arrangements. For larger projects, I
+                        provide detailed proposals with milestone-based payment structures. Contact
+                        me to discuss your specific needs and I'll provide a custom quote.
                       </AccordionContent>
                     </AccordionItem>
 
@@ -239,9 +246,10 @@ const Connect = () => {
                         What is your typical project timeline?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        Project timelines vary based on complexity. A simple AI integration might take 1-2 weeks,
-                        while a full custom web application could take 4-8 weeks. I always provide realistic timelines
-                        during our initial consultation and keep clients updated throughout the development process.
+                        Project timelines vary based on complexity. A simple AI integration might
+                        take 1-2 weeks, while a full custom web application could take 4-8 weeks. I
+                        always provide realistic timelines during our initial consultation and keep
+                        clients updated throughout the development process.
                       </AccordionContent>
                     </AccordionItem>
 
@@ -250,9 +258,10 @@ const Connect = () => {
                         Do you offer ongoing support and maintenance?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        Yes! I offer ongoing support and maintenance packages for projects I build. This includes
-                        bug fixes, updates, feature enhancements, and technical support. We can discuss the best
-                        support arrangement during our initial consultation.
+                        Yes! I offer ongoing support and maintenance packages for projects I build.
+                        This includes bug fixes, updates, feature enhancements, and technical
+                        support. We can discuss the best support arrangement during our initial
+                        consultation.
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>

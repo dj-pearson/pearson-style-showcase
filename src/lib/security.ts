@@ -11,15 +11,37 @@ import type { Config } from 'dompurify';
  * @param options - Optional DOMPurify configuration
  * @returns Sanitized HTML string
  */
-export function sanitizeHtml(
-  dirty: string,
-  options?: Config
-): string {
+export function sanitizeHtml(dirty: string, options?: Config): string {
   const defaultConfig: Config = {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'div', 'span',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'a',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'code',
+      'pre',
+      'img',
+      'div',
+      'span',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
+      'hr',
     ],
     ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id'],
     ALLOW_DATA_ATTR: false,
@@ -35,10 +57,7 @@ export function sanitizeHtml(
  * @param maxLength - Maximum allowed length
  * @returns Sanitized string or null if invalid
  */
-export function validateTextInput(
-  input: string,
-  maxLength: number = 1000
-): string | null {
+export function validateTextInput(input: string, maxLength: number = 1000): string | null {
   if (!input || typeof input !== 'string') {
     return null;
   }
@@ -66,12 +85,32 @@ export function validateTextInput(
  * @param url - The URL string to validate
  * @returns Sanitized URL or null if invalid
  */
-export function validateUrl(url: string): string | null {
+export function validateUrl(url: string, options: { allowRelative?: boolean } = {}): string | null {
   if (!url || typeof url !== 'string') {
     return null;
   }
 
   const trimmed = url.trim();
+
+  // Root-relative in-site links ("/ai-crm-automation", "/news/some-slug#faq").
+  // Opt-in, because most callers here validate genuinely external URLs —
+  // webhook endpoints, profile links, image sources — where a relative path
+  // would be a bug. Article markdown is the case that needs it: without this
+  // every internal link in published content fails `new URL()` and renders as
+  // plain text, silently breaking internal linking across the whole blog.
+  if (options.allowRelative && trimmed.startsWith('/')) {
+    // Reject protocol-relative ("//evil.com") and backslash variants, which
+    // navigate off-site while looking like a path.
+    if (/^[/\\]{2}/.test(trimmed)) {
+      return null;
+    }
+    // Reject control characters, which can smuggle a scheme past this check.
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001F\u007F]/.test(trimmed)) {
+      return null;
+    }
+    return trimmed;
+  }
 
   // Basic URL validation
   try {
@@ -101,7 +140,8 @@ export function validateEmail(email: string): string | null {
   const trimmed = email.trim().toLowerCase();
 
   // Comprehensive email regex
-  const emailRegex = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+  const emailRegex =
+    /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
   if (!emailRegex.test(trimmed) || trimmed.length > 255) {
     return null;
@@ -140,10 +180,7 @@ export function validateSlug(slug: string): string | null {
  * @param maxLength - Maximum allowed length (default 200)
  * @returns Sanitized parameter or null if invalid
  */
-export function validateUrlParam(
-  param: string,
-  maxLength: number = 200
-): string | null {
+export function validateUrlParam(param: string, maxLength: number = 200): string | null {
   if (!param || typeof param !== 'string') {
     return null;
   }
@@ -180,10 +217,7 @@ export function validateUrlParam(
  * @param maxLength - Maximum allowed length (default 200)
  * @returns Sanitized string safe for PostgREST filters, or null if empty
  */
-export function sanitizeSearchQuery(
-  input: string,
-  maxLength: number = 200
-): string | null {
+export function sanitizeSearchQuery(input: string, maxLength: number = 200): string | null {
   if (!input || typeof input !== 'string') {
     return null;
   }
@@ -219,17 +253,14 @@ export function sanitizeSearchQuery(
  * @param maxLength - Maximum length per string
  * @returns Array of sanitized strings
  */
-export function sanitizeStringArray(
-  arr: string[],
-  maxLength: number = 100
-): string[] {
+export function sanitizeStringArray(arr: string[], maxLength: number = 100): string[] {
   if (!Array.isArray(arr)) {
     return [];
   }
 
   return arr
-    .filter(item => typeof item === 'string')
-    .map(item => validateTextInput(item, maxLength))
+    .filter((item) => typeof item === 'string')
+    .map((item) => validateTextInput(item, maxLength))
     .filter((item): item is string => item !== null);
 }
 
@@ -309,15 +340,63 @@ export const DEFAULT_PASSWORD_REQUIREMENTS: PasswordRequirements = {
  * Common passwords to reject (top 100 most common)
  */
 const COMMON_PASSWORDS = new Set([
-  'password', 'password1', 'password123', '123456', '12345678', '123456789',
-  'qwerty', 'abc123', 'monkey', 'master', 'dragon', 'letmein', 'login',
-  'admin', 'welcome', 'passw0rd', 'p@ssword', 'p@ssw0rd', 'iloveyou',
-  'sunshine', 'princess', 'football', 'baseball', 'shadow', 'superman',
-  'michael', 'ashley', 'jessica', 'charlie', 'thomas', 'jennifer',
-  'trustno1', 'hello', '123123', '654321', '1234567', '12345', '1234',
-  'qwertyuiop', 'asdfgh', 'zxcvbn', 'qazwsx', 'password!', 'password1!',
-  'changeme', 'default', 'guest', 'root', 'administrator', 'test',
-  'demo', 'access', 'secret', 'pass', 'user', 'account', 'password12',
+  'password',
+  'password1',
+  'password123',
+  '123456',
+  '12345678',
+  '123456789',
+  'qwerty',
+  'abc123',
+  'monkey',
+  'master',
+  'dragon',
+  'letmein',
+  'login',
+  'admin',
+  'welcome',
+  'passw0rd',
+  'p@ssword',
+  'p@ssw0rd',
+  'iloveyou',
+  'sunshine',
+  'princess',
+  'football',
+  'baseball',
+  'shadow',
+  'superman',
+  'michael',
+  'ashley',
+  'jessica',
+  'charlie',
+  'thomas',
+  'jennifer',
+  'trustno1',
+  'hello',
+  '123123',
+  '654321',
+  '1234567',
+  '12345',
+  '1234',
+  'qwertyuiop',
+  'asdfgh',
+  'zxcvbn',
+  'qazwsx',
+  'password!',
+  'password1!',
+  'changeme',
+  'default',
+  'guest',
+  'root',
+  'administrator',
+  'test',
+  'demo',
+  'access',
+  'secret',
+  'pass',
+  'user',
+  'account',
+  'password12',
 ]);
 
 /**
@@ -408,7 +487,11 @@ export function validatePasswordStrength(
   }
 
   // Check for sequential characters
-  if (/(?:abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i.test(password)) {
+  if (
+    /(?:abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i.test(
+      password
+    )
+  ) {
     suggestions.push('Avoid sequential characters like "abc" or "123"');
     score = Math.max(0, score - 10);
   }
@@ -476,7 +559,10 @@ export async function checkPasswordBreach(
     const data = encoder.encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-1', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const hashHex = hashArray
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
 
     // Use k-anonymity: send only first 5 characters
     const prefix = hashHex.substring(0, 5);
@@ -538,12 +624,7 @@ export function validateImageAltText(
     isDecorativeImage?: boolean;
   } = {}
 ): AltTextValidationResult {
-  const {
-    minLength = 5,
-    maxLength = 125,
-    allowEmpty = false,
-    isDecorativeImage = false,
-  } = options;
+  const { minLength = 5, maxLength = 125, allowEmpty = false, isDecorativeImage = false } = options;
 
   const errors: string[] = [];
   const suggestions: string[] = [];
