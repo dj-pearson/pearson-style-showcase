@@ -26,25 +26,25 @@ The catch is sequence. Most teams automate in exactly the wrong order, and this 
 
 Every CRM has two layers, and almost all confusion in this category comes from conflating them.
 
-The **capture layer** is everything that puts information *into* the system: call logging, note-taking, email sync, contact and account enrichment, stage changes, activity history. It is where nearly all the manual effort lives and where nearly all the data loss happens.
+The **capture layer** is everything that puts information _into_ the system: call logging, note-taking, email sync, contact and account enrichment, stage changes, activity history. It is where nearly all the manual effort lives and where nearly all the data loss happens.
 
-The **reporting layer** is everything that reads information back *out*: dashboards, forecasts, lead scores, deal summaries, risk alerts, pipeline reviews. It is what executives see, which is why it gets the budget.
+The **reporting layer** is everything that reads information back _out_: dashboards, forecasts, lead scores, deal summaries, risk alerts, pipeline reviews. It is what executives see, which is why it gets the budget.
 
 Here is the problem in one sentence: **the reporting layer can only ever be as good as the capture layer feeding it.** A forecast model reading records that a rep reconstructed from memory on Friday afternoon is not modelling your pipeline. It is modelling that rep''s memory.
 
-CX Today''s 2026 trends analysis put the same point more bluntly: *"If your data is messy, AI will scale the mess."* Data quality moved from an IT chore to a board-level concern precisely because it gates every AI initiative downstream of it.
+CX Today''s 2026 trends analysis put the same point more bluntly: _"If your data is messy, AI will scale the mess."_ Data quality moved from an IT chore to a board-level concern precisely because it gates every AI initiative downstream of it.
 
 ## The Pipeline Automation Ladder
 
 Teams sit on one of five rungs. Most know which one before they finish reading the descriptions.
 
-| Rung | Name | What''s true at this level | Where it breaks |
-|---|---|---|---|
-| 0 | Manual | The CRM is a reporting obligation. Reps update it Friday afternoon, from memory. | The data is fiction. Any AI built on it amplifies that fiction. |
-| 1 | Rules | Workflows, assignment rules and sequences run. Deterministic and brittle. | Rules multiply until nobody can say why a record changed, and nobody dares delete one. |
-| 2 | Assisted capture | AI writes the notes, logs the call, enriches the contact and proposes stage changes from the actual conversation. A human confirms. | Most teams skip this rung because it is unglamorous — which is exactly why rungs 3 and 4 collapse for them. |
-| 3 | Agentic execution | Agents act inside the CRM: qualifying inbound, chasing stalled deals, booking meetings, escalating risk. A human supervises. | Deployed on rung-0 data, agents do the wrong thing quickly and at scale. |
-| 4 | Self-maintaining revenue system | The CRM is a byproduct of doing the work rather than a task on top of it. The forecast is trustworthy because capture is automatic. | Only reachable in sequence. |
+| Rung | Name                            | What''s true at this level                                                                                                           | Where it breaks                                                                                             |
+| ---- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 0    | Manual                          | The CRM is a reporting obligation. Reps update it Friday afternoon, from memory.                                                    | The data is fiction. Any AI built on it amplifies that fiction.                                             |
+| 1    | Rules                           | Workflows, assignment rules and sequences run. Deterministic and brittle.                                                           | Rules multiply until nobody can say why a record changed, and nobody dares delete one.                      |
+| 2    | Assisted capture                | AI writes the notes, logs the call, enriches the contact and proposes stage changes from the actual conversation. A human confirms. | Most teams skip this rung because it is unglamorous — which is exactly why rungs 3 and 4 collapse for them. |
+| 3    | Agentic execution               | Agents act inside the CRM: qualifying inbound, chasing stalled deals, booking meetings, escalating risk. A human supervises.        | Deployed on rung-0 data, agents do the wrong thing quickly and at scale.                                    |
+| 4    | Self-maintaining revenue system | The CRM is a byproduct of doing the work rather than a task on top of it. The forecast is trustworthy because capture is automatic. | Only reachable in sequence.                                                                                 |
 
 **The rule that matters: you cannot skip rung 2.** Every failed AI CRM project I have been asked to look at jumped from 1 straight to 3. The pattern is consistent enough to be diagnostic.
 
@@ -81,13 +81,13 @@ The end state is a CRM that is a byproduct of doing the work. Reps stop feeding 
 
 Vendor-neutral, because I do not resell any of these.
 
-| Platform | Native AI in 2026 | Honest read |
-|---|---|---|
-| **HubSpot** | Strongest SMB agentic story; Breeze agents across sales and marketing | The most complete out-of-the-box option under 50 seats. Native features cover a real share of rung 2 if you configure them properly, which most teams do not. |
-| **Salesforce** | Einstein / Agentforce, deep but expensive | Enormous ceiling, meaningful floor. Below ~50 seats the licence and admin overhead rarely pays back against a smaller platform plus custom capture automation. |
-| **Pipedrive** | Lighter AI, excellent API | Good bones for custom automation. You will build more yourself, but you will fight the platform less. |
-| **GoHighLevel** | Agency-oriented, broad automation | Strong for services businesses. Data model gets strained when the sales process is genuinely complex. |
-| **Zoho** | Zia, broad and inexpensive | Underrated on price. Integration depth is the constraint, not capability. |
+| Platform        | Native AI in 2026                                                     | Honest read                                                                                                                                                    |
+| --------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **HubSpot**     | Strongest SMB agentic story; Breeze agents across sales and marketing | The most complete out-of-the-box option under 50 seats. Native features cover a real share of rung 2 if you configure them properly, which most teams do not.  |
+| **Salesforce**  | Einstein / Agentforce, deep but expensive                             | Enormous ceiling, meaningful floor. Below ~50 seats the licence and admin overhead rarely pays back against a smaller platform plus custom capture automation. |
+| **Pipedrive**   | Lighter AI, excellent API                                             | Good bones for custom automation. You will build more yourself, but you will fight the platform less.                                                          |
+| **GoHighLevel** | Agency-oriented, broad automation                                     | Strong for services businesses. Data model gets strained when the sales process is genuinely complex.                                                          |
+| **Zoho**        | Zia, broad and inexpensive                                            | Underrated on price. Integration depth is the constraint, not capability.                                                                                      |
 
 **You almost certainly do not need to switch.** Being told to migrate early is a warning sign — the cost of switching nearly always exceeds the cost of fixing what you have. A platform change is worth considering only when the current system genuinely cannot represent how you sell, which is a much rarer diagnosis than the people selling migrations suggest.
 
@@ -136,7 +136,7 @@ Automate the capture layer first. Fix what enters the CRM before you improve wha
 
 ---
 
-*Next: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five failure modes, and how to tell which one you are in.*
+_Next: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five failure modes, and how to tell which one you are in._
 
 ## Sources
 
@@ -201,7 +201,7 @@ That single root cause shows up as five distinct failure modes. They look differ
 
 **How to tell.** Sort any required field by frequency of value. If the top three values are junk, you are in the spiral.
 
-**The fix.** Reverse it. Remove required fields, then automate their population from the conversation instead. Capture has to get *easier*, not more obligatory. Teams find this counterintuitive right up until the data improves.
+**The fix.** Reverse it. Remove required fields, then automate their population from the conversation instead. Capture has to get _easier_, not more obligatory. Teams find this counterintuitive right up until the data improves.
 
 ## 5. The agent with no supervision surface
 
@@ -215,13 +215,13 @@ That single root cause shows up as five distinct failure modes. They look differ
 
 ## The pattern underneath all five
 
-| Failure mode | Rung attempted | Rung actually needed |
-|---|---|---|
-| Dashboard nobody trusts | 3 – 4 | 2 |
-| AI add-on switched off | 3 | 2 |
-| Workflow thicket | 1, repeatedly | 2, plus instrumentation |
-| Compliance spiral | 0, harder | 2 |
-| Agent without supervision | 3 | 2 |
+| Failure mode              | Rung attempted | Rung actually needed    |
+| ------------------------- | -------------- | ----------------------- |
+| Dashboard nobody trusts   | 3 – 4          | 2                       |
+| AI add-on switched off    | 3              | 2                       |
+| Workflow thicket          | 1, repeatedly  | 2, plus instrumentation |
+| Compliance spiral         | 0, harder      | 2                       |
+| Agent without supervision | 3              | 2                       |
 
 Every row says the same thing. This is why [the Pipeline Automation Ladder](/ai-crm-automation) has one load-bearing rule: **you cannot skip rung 2.** Assisted capture — AI writing the notes, logging the call, enriching the contact, proposing the stage change from the actual conversation, with a human confirming — is the rung that changes the input to every system downstream. It is also the rung with no demo, no dashboard and no screenshot, which is precisely why it gets skipped.
 
@@ -231,7 +231,7 @@ It is worth being fair about the incentives, because none of this is stupidity.
 
 Platform vendors sell the reporting layer because it demos well and it is what buyers ask to see. Agencies sell implementations scoped to what the buyer requested. Nobody in the transaction is rewarded for saying "before we build any of this, your capture is broken and that is the whole project." The one party with an incentive to say it is the person who has to live with the result.
 
-The market has started catching up. The most-repeated diagnosis of failed RevOps programmes in 2026 is teams buying tools that add dashboards without fixing the underlying data, and CX Today''s trends analysis reduced it to a sentence: *"If your data is messy, AI will scale the mess."* The diagnosis is now consensus. The sequencing implied by it still is not.
+The market has started catching up. The most-repeated diagnosis of failed RevOps programmes in 2026 is teams buying tools that add dashboards without fixing the underlying data, and CX Today''s trends analysis reduced it to a sentence: _"If your data is messy, AI will scale the mess."_ The diagnosis is now consensus. The sequencing implied by it still is not.
 
 ## What to do this week
 
@@ -245,7 +245,7 @@ Three questions, an afternoon, no budget. If the answers are uncomfortable, [the
 
 ---
 
-*Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automation-complete-guide).*
+_Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automation-complete-guide)._
 
 ## Sources
 

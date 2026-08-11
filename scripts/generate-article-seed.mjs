@@ -14,32 +14,116 @@ import { join } from 'node:path';
 
 const CONTENT_DIR = 'content/crm';
 
+const REQUIRED_FIELDS = [
+  'slug',
+  'title',
+  'excerpt',
+  'category',
+  'tags',
+  'author',
+  'read_time',
+  'featured',
+  'published',
+  'seo_title',
+  'seo_description',
+  'seo_keywords',
+  'target_keyword',
+];
+
+/**
+ * Splits a frontmatter block into logical entries, keeping bracketed arrays
+ * together when they span multiple lines.
+ *
+ * This matters because Prettier runs over content/ on commit and reflows any
+ * array longer than the print width onto separate lines. A naive line-by-line
+ * parser silently stops seeing those fields after the first format pass.
+ */
+function splitEntries(block) {
+  const entries = [];
+  let current = '';
+  let depth = 0;
+
+  for (const line of block.split('\n')) {
+    current = current ? `${current} ${line.trim()}` : line;
+    depth += (line.match(/\[/g) || []).length - (line.match(/\]/g) || []).length;
+
+    // A line ending in ":" is a key whose value Prettier pushed onto the next
+    // line, so keep accumulating even though no bracket is open yet.
+    if (depth === 0 && !current.trim().endsWith(':')) {
+      entries.push(current);
+      current = '';
+    }
+  }
+  if (current) entries.push(current);
+
+  return entries;
+}
+
+/** Strips one layer of matching single or double quotes. */
+const unquote = (value) => value.trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
+
+/**
+ * Parses an inline array. Written by hand rather than with JSON.parse because
+ * Prettier normalises the quotes to single, which is not valid JSON, and adds
+ * trailing commas.
+ */
+function parseArray(value) {
+  const inner = value.trim().replace(/^\[/, '').replace(/\]$/, '');
+  const items = [];
+  let current = '';
+  let quote = null;
+
+  for (const char of inner) {
+    if (quote) {
+      if (char === quote) quote = null;
+      else current += char;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+    } else if (char === ',') {
+      items.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim()) items.push(current.trim());
+
+  return items.filter(Boolean);
+}
+
 /**
  * Minimal frontmatter parser. Deliberately not a YAML dependency: the format
- * here is `key: value` with JSON arrays, and a real parser would be more
+ * here is `key: value` with inline arrays, and a real parser would be more
  * surface area than the job needs.
  */
-function parseFrontmatter(raw) {
+function parseFrontmatter(raw, file) {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!match) throw new Error('missing frontmatter');
+  if (!match) throw new Error(`${file}: missing frontmatter`);
 
   const [, block, body] = match;
   const meta = {};
 
-  for (const line of block.split('\n')) {
-    const kv = line.match(/^(\w+):\s*(.*)$/);
+  for (const entry of splitEntries(block)) {
+    const kv = entry.match(/^(\w+):\s*([\s\S]*)$/);
     if (!kv) continue;
     const [, key, rawValue] = kv;
-    let value = rawValue.trim();
+    const value = rawValue.trim();
 
     if (value.startsWith('[')) {
-      value = JSON.parse(value);
+      meta[key] = parseArray(value);
     } else if (value === 'true' || value === 'false') {
-      value = value === 'true';
+      meta[key] = value === 'true';
     } else {
-      value = value.replace(/^['"]|['"]$/g, '');
+      meta[key] = unquote(value);
     }
-    meta[key] = value;
+  }
+
+  const missing = REQUIRED_FIELDS.filter((field) => meta[field] === undefined);
+  if (missing.length) {
+    throw new Error(`${file}: missing frontmatter fields: ${missing.join(', ')}`);
+  }
+  if (!body.trim()) {
+    throw new Error(`${file}: empty body`);
   }
 
   return { meta, body: body.trim() };
@@ -53,7 +137,7 @@ const files = readdirSync(CONTENT_DIR)
   .sort();
 
 const rows = files.map((file) => {
-  const { meta, body } = parseFrontmatter(readFileSync(join(CONTENT_DIR, file), 'utf8'));
+  const { meta, body } = parseFrontmatter(readFileSync(join(CONTENT_DIR, file), 'utf8'), file);
 
   return `  (
     ${sqlString(meta.slug)},
