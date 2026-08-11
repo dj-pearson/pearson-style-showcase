@@ -200,8 +200,10 @@ const HeroSection = () => {
           y: 0,
           rotationY: 0,
           rotationX: 0,
-          duration: 1.5,
-          ease: 'elastic.out(1, 0.5)',
+          duration: 1.2,
+          // Smooth deceleration rather than an elastic overshoot — real objects
+          // settle, they do not spring back (see the craft floor in CLAUDE.md).
+          ease: 'expo.out',
         });
       };
 
@@ -317,7 +319,7 @@ const HeroSection = () => {
         </Link>
 
         {/* Scroll indicator for mobile */}
-        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60 animate-bounce">
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60 animate-float">
           <span className="text-xs text-muted-foreground uppercase tracking-wider">Scroll</span>
           <div className="w-0.5 h-8 bg-primary rounded-full"></div>
         </div>
