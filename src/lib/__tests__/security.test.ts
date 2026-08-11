@@ -109,6 +109,37 @@ describe('Security Utilities', () => {
       expect(result).toBeNull();
     });
 
+    it('should reject relative URLs by default', () => {
+      // Callers validating webhooks, profile links and image sources want an
+      // absolute URL; a relative path there would be a bug.
+      expect(validateUrl('/ai-crm-automation')).toBeNull();
+    });
+
+    it('should accept root-relative URLs when allowRelative is set', () => {
+      expect(validateUrl('/ai-crm-automation', { allowRelative: true })).toBe('/ai-crm-automation');
+      expect(validateUrl('/news/some-slug#faq', { allowRelative: true })).toBe(
+        '/news/some-slug#faq'
+      );
+    });
+
+    it('should reject protocol-relative URLs even when allowRelative is set', () => {
+      // "//evil.com" navigates off-site while looking like a path.
+      expect(validateUrl('//evil.com/steal', { allowRelative: true })).toBeNull();
+      expect(validateUrl('/\\evil.com', { allowRelative: true })).toBeNull();
+      expect(validateUrl('\\\\evil.com', { allowRelative: true })).toBeNull();
+    });
+
+    it('should reject control characters in relative URLs', () => {
+      expect(validateUrl('/path\u0000/x', { allowRelative: true })).toBeNull();
+      expect(validateUrl('/path\u000A/x', { allowRelative: true })).toBeNull();
+      expect(validateUrl('/path\u007F/x', { allowRelative: true })).toBeNull();
+    });
+
+    it('should still reject dangerous protocols when allowRelative is set', () => {
+      expect(validateUrl('javascript:alert(1)', { allowRelative: true })).toBeNull();
+      expect(validateUrl('data:text/html,<script>', { allowRelative: true })).toBeNull();
+    });
+
     it('should trim whitespace', () => {
       const url = '  https://example.com  ';
       const result = validateUrl(url);
@@ -125,7 +156,7 @@ describe('Security Utilities', () => {
         'user_name@example.com',
       ];
 
-      validEmails.forEach(email => {
+      validEmails.forEach((email) => {
         const result = validateEmail(email);
         expect(result).toBe(email.toLowerCase());
       });
@@ -140,7 +171,7 @@ describe('Security Utilities', () => {
         'user@example',
       ];
 
-      invalidEmails.forEach(email => {
+      invalidEmails.forEach((email) => {
         const result = validateEmail(email);
         expect(result).toBeNull();
       });
@@ -167,13 +198,9 @@ describe('Security Utilities', () => {
 
   describe('validateSlug', () => {
     it('should accept valid slugs', () => {
-      const validSlugs = [
-        'hello-world',
-        'my-awesome-post',
-        'react-2024',
-      ];
+      const validSlugs = ['hello-world', 'my-awesome-post', 'react-2024'];
 
-      validSlugs.forEach(slug => {
+      validSlugs.forEach((slug) => {
         const result = validateSlug(slug);
         expect(result).toBe(slug);
       });
@@ -189,7 +216,7 @@ describe('Security Utilities', () => {
         'hello@world',
       ];
 
-      invalidSlugs.forEach(slug => {
+      invalidSlugs.forEach((slug) => {
         const result = validateSlug(slug);
         expect(result).toBeNull();
       });
@@ -331,7 +358,9 @@ describe('Security Utilities', () => {
     it('should require special characters', () => {
       const result = validatePasswordStrength('NoSpecialChars123');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one special character (!@#$%^&*...)');
+      expect(result.errors).toContain(
+        'Password must contain at least one special character (!@#$%^&*...)'
+      );
     });
 
     it('should reject common passwords', () => {
@@ -342,12 +371,12 @@ describe('Security Utilities', () => {
 
     it('should detect sequential characters', () => {
       const result = validatePasswordStrength('MyP@ss123456word');
-      expect(result.suggestions.some(s => s.includes('sequential'))).toBe(true);
+      expect(result.suggestions.some((s) => s.includes('sequential'))).toBe(true);
     });
 
     it('should detect keyboard patterns', () => {
       const result = validatePasswordStrength('Qwerty123456!@');
-      expect(result.suggestions.some(s => s.includes('keyboard'))).toBe(true);
+      expect(result.suggestions.some((s) => s.includes('keyboard'))).toBe(true);
     });
 
     it('should handle empty input', () => {
@@ -373,7 +402,7 @@ describe('Security Utilities', () => {
 
     it('should detect repeated characters', () => {
       const result = validatePasswordStrength('MyStr0ng!!!Pass');
-      expect(result.suggestions.some(s => s.includes('repeat'))).toBe(true);
+      expect(result.suggestions.some((s) => s.includes('repeat'))).toBe(true);
     });
   });
 
@@ -425,12 +454,12 @@ describe('Security Utilities', () => {
     it('should allow empty alt text for decorative images', () => {
       const result = validateImageAltText('Has text but decorative', { isDecorativeImage: true });
       expect(result.isValid).toBe(true);
-      expect(result.suggestions.some(s => s.includes('Decorative images'))).toBe(true);
+      expect(result.suggestions.some((s) => s.includes('Decorative images'))).toBe(true);
     });
 
     it('should reject generic alt text', () => {
       const genericTexts = ['image', 'photo', 'picture', 'Image 1', 'photo 2'];
-      genericTexts.forEach(text => {
+      genericTexts.forEach((text) => {
         const result = validateImageAltText(text);
         expect(result.isValid).toBe(false);
         expect(result.errors).toContain('Alt text should be descriptive, not generic');
@@ -445,7 +474,7 @@ describe('Security Utilities', () => {
 
     it('should suggest removing redundant image prefixes', () => {
       const result = validateImageAltText('Image of a beautiful sunset');
-      expect(result.suggestions.some(s => s.includes('redundant'))).toBe(true);
+      expect(result.suggestions.some((s) => s.includes('redundant'))).toBe(true);
     });
 
     it('should reject alt text shorter than minLength', () => {

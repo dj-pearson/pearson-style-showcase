@@ -410,8 +410,8 @@ Cadence: **one pillar (2,500–4,000 words) or two clusters (1,200–1,800 words
 
 | Week | Piece                                                  | Type           | Cluster | Purpose                             |
 | ---- | ------------------------------------------------------ | -------------- | ------- | ----------------------------------- |
-| 1    | AI CRM Automation: The Complete 2026 Guide             | Pillar, 4,000w | A/B     | Hub anchor, `pillarContent` target  |
-| 2    | Why AI CRM Projects Fail: 5 Failure Modes              | Pillar, 3,000w | B       | The flagship thesis piece           |
+| 1 ✅ | AI CRM Automation: The Complete 2026 Guide             | Pillar, 4,000w | A/B     | Hub anchor, `pillarContent` target  |
+| 2 ✅ | Why AI CRM Projects Fail: 5 Failure Modes              | Pillar, 3,000w | B       | The flagship thesis piece           |
 | 3    | The Pipeline Automation Ladder (framework doc)         | Pillar, 2,500w | E       | The citable framework               |
 | 4    | The 12-Point CRM Automation Audit (methodology)        | Pillar, 2,500w | E/A     | Feeds the scorecard tool            |
 | 5    | Getting Reps to Actually Use the CRM (without nagging) | Cluster ×2     | B/D     | Emotional, highly shareable         |
@@ -422,6 +422,10 @@ Cadence: **one pillar (2,500–4,000 words) or two clusters (1,200–1,800 words
 | 10   | CRM Automation for Construction Companies              | Pillar, 2,500w | D       | Your industry moat                  |
 | 11   | CRM Automation for Real Estate Teams                   | Pillar, 2,500w | D       | Your industry moat                  |
 | 12   | Agentic CRM: What Actually Works Today                 | Pillar, 3,000w | B/C     | Timely, positions you ahead         |
+
+**Shipped 2026-08-11**: weeks 1 and 2. Source markdown lives in `content/crm/`, which is the editable original; `scripts/generate-article-seed.mjs` regenerates the seed migration from it. Both carry `category: 'CRM'` and the CRM tags, so `/topics/ai-crm-automation` picks them up automatically, and the guide's slug is the hub's configured `pillarContent` target.
+
+Note on weeks 3 and 4: the Ladder and the 12-point audit are already published on `/ai-crm-automation`. The standalone articles should go deeper than that page rather than restate it — the framework piece needs worked examples of teams at each rung, and the audit piece needs scoring guidance and what a good answer looks like per check. If they end up as summaries of the money page, cut them and move to week 5.
 
 ### Article production standards
 
