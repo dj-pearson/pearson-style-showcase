@@ -125,11 +125,10 @@ export function useSecureQuery<TData, TError = Error>(
   } = options;
 
   const { isAuthenticated, isAdminVerified, adminUser } = useAuth();
-  const {
-    getOwnershipFilter,
-    hasAdminBypass,
-    hasRoleBypass,
-  } = useResourceOwnership({ resourceType, autoFilter: applyOwnershipFilter });
+  const { getOwnershipFilter, hasAdminBypass, hasRoleBypass } = useResourceOwnership({
+    resourceType,
+    autoFilter: applyOwnershipFilter,
+  });
 
   // Get ownership filter
   const ownershipFilter = useMemo(() => {
@@ -383,18 +382,19 @@ export function useSecureResourceMutation<TData extends Record<string, unknown>>
           [ownerField]: userId,
         };
 
-        result = await supabase
-          .from(table)
-          .insert(dataWithOwner)
-          .select()
-          .single();
+        result = await supabase.from(table).insert(dataWithOwner).select().single();
       } else if (action === 'update') {
         const { id, ...updateData } = variables;
         if (!id) throw new Error('ID required for update');
 
         result = await supabase
           .from(table)
-          .update(updateData)
+          // `table` is a runtime string, so the client cannot resolve a concrete
+          // row type to check `updateData` against, and TData is supplied by the
+          // caller — the relationship is genuinely unprovable at compile time
+          // rather than wrong. Narrow cast at the call site keeps the hook's
+          // public generics honest instead of loosening them.
+          .update(updateData as Record<string, unknown>)
           .eq('id', id)
           .select()
           .single();
@@ -403,11 +403,7 @@ export function useSecureResourceMutation<TData extends Record<string, unknown>>
         if (!id) throw new Error('ID required for delete');
 
         // First get the record to return it
-        const { data: existing } = await supabase
-          .from(table)
-          .select()
-          .eq('id', id)
-          .single();
+        const { data: existing } = await supabase.from(table).select().eq('id', id).single();
 
         await supabase.from(table).delete().eq('id', id);
 
