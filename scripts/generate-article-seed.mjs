@@ -157,15 +157,15 @@ const rows = files.map((file) => {
   )`;
 });
 
-process.stdout.write(`-- Seed the AI CRM automation pillar articles.
+process.stdout.write(`-- Seed the AI CRM automation articles.
 --
 -- Generated from content/crm/*.md by scripts/generate-article-seed.mjs. Edit the
 -- markdown and regenerate rather than editing this file; the markdown is what a
 -- human reviews. Idempotent on slug, so re-running will not duplicate rows or
 -- overwrite edits made in the admin afterwards.
 --
--- Both articles carry category 'CRM' and CRM tags, so /topics/ai-crm-automation
--- picks them up with no further wiring, and the guide's slug is the
+-- Every article carries category 'CRM' and CRM tags, so /topics/ai-crm-automation
+-- picks them up with no further wiring, and the complete guide's slug is the
 -- \`pillarContent\` target configured in src/pages/TopicHub.tsx.
 
 INSERT INTO articles (

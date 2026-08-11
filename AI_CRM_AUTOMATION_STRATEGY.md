@@ -412,10 +412,10 @@ Cadence: **one pillar (2,500–4,000 words) or two clusters (1,200–1,800 words
 | ---- | ------------------------------------------------------ | -------------- | ------- | ----------------------------------- |
 | 1 ✅ | AI CRM Automation: The Complete 2026 Guide             | Pillar, 4,000w | A/B     | Hub anchor, `pillarContent` target  |
 | 2 ✅ | Why AI CRM Projects Fail: 5 Failure Modes              | Pillar, 3,000w | B       | The flagship thesis piece           |
-| 3    | The Pipeline Automation Ladder (framework doc)         | Pillar, 2,500w | E       | The citable framework               |
-| 4    | The 12-Point CRM Automation Audit (methodology)        | Pillar, 2,500w | E/A     | Feeds the scorecard tool            |
-| 5    | Getting Reps to Actually Use the CRM (without nagging) | Cluster ×2     | B/D     | Emotional, highly shareable         |
-| 6    | HubSpot AI vs Salesforce Einstein for Teams Under 50   | Pillar, 3,000w | C       | Comparison — top link magnet        |
+| 3 ⏸  | The Pipeline Automation Ladder (framework doc)         | Pillar, 2,500w | E       | The citable framework               |
+| 4 ⏸  | The 12-Point CRM Automation Audit (methodology)        | Pillar, 2,500w | E/A     | Feeds the scorecard tool            |
+| 5 ✅ | Getting Reps to Actually Use the CRM (without nagging) | Cluster ×2     | B/D     | Emotional, highly shareable         |
+| 6 ✅ | HubSpot AI vs Salesforce Einstein for Teams Under 50   | Pillar, 3,000w | C       | Comparison — top link magnet        |
 | 7    | What CRM Automation Actually Costs in 2026             | Cluster ×2     | C       | Published-pricing transparency play |
 | 8    | Zapier vs Make vs n8n for CRM Work                     | Pillar, 2,500w | C       | High-traffic comparison             |
 | 9    | Automating Call Logging and Note Capture (teardown)    | Cluster ×2     | D       | Rung-2 proof, screenshots           |
@@ -424,6 +424,8 @@ Cadence: **one pillar (2,500–4,000 words) or two clusters (1,200–1,800 words
 | 12   | Agentic CRM: What Actually Works Today                 | Pillar, 3,000w | B/C     | Timely, positions you ahead         |
 
 **Shipped 2026-08-11**: weeks 1 and 2. Source markdown lives in `content/crm/`, which is the editable original; `scripts/generate-article-seed.mjs` regenerates the seed migration from it. Both carry `category: 'CRM'` and the CRM tags, so `/topics/ai-crm-automation` picks them up automatically, and the guide's slug is the hub's configured `pillarContent` target.
+
+**Shipped 2026-08-11**: weeks 5 and 6 as well, taken ahead of weeks 3 and 4 (⏸ above). Week 6 is the strongest link magnet on the calendar and its pricing arithmetic is time-sensitive, so it was worth pulling forward.
 
 Note on weeks 3 and 4: the Ladder and the 12-point audit are already published on `/ai-crm-automation`. The standalone articles should go deeper than that page rather than restate it — the framework piece needs worked examples of teams at each rung, and the audit piece needs scoring guidance and what a good answer looks like per check. If they end up as summaries of the money page, cut them and move to week 5.
 

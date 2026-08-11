@@ -1,12 +1,12 @@
--- Seed the AI CRM automation pillar articles.
+-- Seed the AI CRM automation articles.
 --
 -- Generated from content/crm/*.md by scripts/generate-article-seed.mjs. Edit the
 -- markdown and regenerate rather than editing this file; the markdown is what a
 -- human reviews. Idempotent on slug, so re-running will not duplicate rows or
 -- overwrite edits made in the admin afterwards.
 --
--- Both articles carry category 'CRM' and CRM tags, so /topics/ai-crm-automation
--- picks them up with no further wiring, and the guide's slug is the
+-- Every article carries category 'CRM' and CRM tags, so /topics/ai-crm-automation
+-- picks them up with no further wiring, and the complete guide's slug is the
 -- `pillarContent` target configured in src/pages/TopicHub.tsx.
 
 INSERT INTO articles (
@@ -154,6 +154,254 @@ _Next: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five f
     'What AI CRM automation actually is in 2026, what is genuinely automatable today, and the order to do it in. Includes the Pipeline Automation Ladder and a vendor-neutral platform assessment.',
     ARRAY['AI CRM automation', 'CRM automation guide', 'agentic CRM', 'CRM data quality', 'sales pipeline automation', 'HubSpot automation', 'Salesforce automation']::text[],
     'AI CRM automation'
+  ),
+  (
+    'get-sales-reps-to-use-the-crm',
+    'How to Get Sales Reps to Actually Use the CRM',
+    'You do not get reps to use the CRM by asking harder. Every lever most teams reach for — mandatory fields, adoption dashboards, tying it to comp — reliably makes the data worse, because none of them address the actual reason. Here is what does.',
+    '**You do not get sales reps to use the CRM by asking harder.** Every lever most teams reach for — mandatory fields, adoption dashboards, naming and shaming in the pipeline meeting, tying CRM hygiene to commission — reliably makes the data worse rather than better. Not because reps are lazy, but because none of those levers touch the actual reason the CRM is empty.
+
+I spent fifteen years on the other side of this. I have been the rep filling in the fields on Friday afternoon, and I know exactly what I typed when I could not remember what happened on a call from Tuesday. It was not a lie. It was a reconstruction, which is worse, because it looks like data.
+
+## The actual reason
+
+Updating the CRM is unpaid work that happens after the paid work is done.
+
+That is the whole problem in one sentence. A rep''s day is calls, demos, follow-ups, negotiations — the things they are measured and compensated on. CRM entry is a tax levied on top of it, payable in the tired part of the day, in a system that gives them nothing back.
+
+Every rep does this arithmetic, consciously or not: *what do I get for the next twenty minutes of typing?* And the honest answer, in most organisations, is "my manager gets a report." That is not a motivation problem. That is a correctly-solved arithmetic problem.
+
+So the question is not how to make reps comply. It is how to change the arithmetic.
+
+## Why the usual fixes backfire
+
+**Mandatory fields.** The intuition is that if the field must be filled, it will be filled with something true. What actually happens is that it gets filled with "N/A", "TBD", a single space, or whatever value clears validation fastest. This is worse than blank, because a blank field is honest about being empty while "TBD" looks like data to every system reading it downstream. If you have ever sorted a required field by most common value and found junk in the top three, you have seen this.
+
+**Adoption dashboards.** Measuring logins and record-touches produces logins and record-touches. Reps will open records and close them. You have created a metric, not information.
+
+**Tying hygiene to comp.** This one works, in the narrow sense that the fields do get filled. It also teaches the team that the CRM is a compliance instrument rather than a tool, and it quietly incentivises optimistic stage-setting at exactly the moment you most need honesty. You will get better-looking data and a worse forecast.
+
+**The training refresh.** Reps rarely fail to update the CRM because they cannot find the button.
+
+Notice what all four have in common: they attack the symptom while leaving the arithmetic untouched. The rep still pays the tax; you have just raised the penalty for non-payment.
+
+## What actually works
+
+### 1. Make capture automatic rather than obligatory
+
+The single highest-leverage change: stop asking a human to record what happened, and let the system observe it. Call recording with transcription and structured summary. Meeting notes drafted from the actual conversation. Email threads attached to the right deal without anyone dragging anything.
+
+The rep''s job shifts from *writing* to *confirming* — twenty minutes becomes twenty seconds. That is not a productivity improvement, it is a change of category. This is rung 2 on [the Pipeline Automation Ladder](/ai-crm-automation), and it is the rung that fixes adoption as a side effect of fixing something else.
+
+### 2. Remove fields, do not add them
+
+Go through every required field and ask what decision it actually informs. Most fail the test. Fields survive in CRMs for years past the death of the report that justified them, and each one adds friction to every single record.
+
+Cutting required fields feels like giving up on data quality. It reliably improves it, because the remaining fields get real answers.
+
+### 3. Give the rep something back
+
+The CRM should return value to the person feeding it, not just to their manager. Concretely: the pre-call brief that assembles itself from the last three interactions. The follow-up that drafts itself after the call. The alert that tells the rep a deal has gone quiet before the forecast meeting does.
+
+The moment a rep opens the CRM because it helps them close, adoption stops being a project.
+
+### 4. Make stage changes evidence-based
+
+Instead of asking a rep to assert that a deal is at Proposal, let the system propose the stage from what actually happened, and have the rep confirm or correct it. You get two things: a stage you can trust, and a record of *why* it moved, which is what makes a forecast auditable three months later when nobody remembers.
+
+### 5. Fix the worst path first, publicly
+
+Do not run a "CRM improvement initiative." Pick the single most-hated piece of manual entry — usually call logging — automate it, and let the team feel it. Credibility for everything else comes from that first thing working.
+
+## What to measure instead of adoption
+
+Three numbers, none of which a rep can game by opening records:
+
+| Metric | What it tells you | How to get it |
+|---|---|---|
+| **Capture coverage** | Share of customer conversations reaching the CRM without a human typing them in | Compare calendar and call-system events against logged activity |
+| **Seller time in CRM** | Hours per week spent feeding the system rather than selling | Ask the team. Their number is usually higher than management assumes |
+| **Stage-change provenance** | Share of stage changes with evidence attached | Audit a sample of 20 recent moves and see if you can tell why each happened |
+
+Adoption rate measures whether people complied. These measure whether the system is earning its place.
+
+## A 30-day sequence
+
+**Week 1 — measure.** Ask reps how many hours a week they spend on CRM admin, then pull a sample of 20 recent stage changes and see how many you can explain from the record alone. Both answers will be worse than you expect. Write them down; they are your baseline.
+
+**Week 2 — subtract.** Remove every required field that does not inform a decision someone actually makes. Announce it. This buys goodwill you will spend later.
+
+**Week 3 — automate the worst path.** Usually call and meeting capture. Recording, transcription, structured summary written back to the right record, rep confirms in seconds.
+
+**Week 4 — give something back.** Turn on one thing that helps the rep directly: a pre-call brief, a drafted follow-up, a stalled-deal nudge that arrives before the pipeline review rather than during it.
+
+Then re-measure. If seller hours have not moved, you automated the wrong path — which is useful information, and cheaper to discover in a month than in a year.
+
+## Frequently asked questions
+
+**Our reps say the CRM is fine and they just forget. Is this still the problem?**
+Usually, yes. "I forget" is what people say about work that has no immediate payoff. Nobody forgets to submit an expense claim.
+
+**We are on HubSpot and it has AI features. Do we need more?**
+Possibly not. Most teams have native capture features they have never configured properly. Turn on what you already own before buying anything — [the audit checklist](/ai-crm-automation) covers what to look for.
+
+**What if leadership insists on the adoption dashboard?**
+Keep it, and add capture coverage next to it. When automated capture lands, the two diverge visibly — adoption stays flat while coverage jumps — and that gap is the most persuasive argument available to you.
+
+**Does this work with a team that has already given up on the CRM?**
+It works better, because expectations are on the floor. The first automation that removes real work is disproportionately convincing to a team that has been asked to try harder several times.
+
+---
+
+*Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five failure modes, including the compliance spiral this article describes.*',
+    'CRM',
+    ARRAY['CRM', 'CRM Automation', 'Sales Automation', 'Pipeline', 'RevOps']::text[],
+    'Dan Pearson',
+    '9 min read',
+    false,
+    true,
+    'How to Get Sales Reps to Actually Use the CRM (Without Nagging)',
+    'You do not get reps to use the CRM by asking harder. Every lever most teams reach for — mandatory fields, adoption dashboards, tying it to comp — makes the data worse. Here is what actually works.',
+    ARRAY['how to get sales reps to use the CRM', 'CRM adoption', 'sales reps not updating CRM', 'CRM data quality', 'CRM compliance']::text[],
+    'how to get sales reps to use the CRM'
+  ),
+  (
+    'hubspot-breeze-vs-salesforce-agentforce',
+    'HubSpot Breeze vs Salesforce Agentforce for Teams Under 50 Seats',
+    'For most teams under 50 seats, HubSpot Breeze is the better buy — but the more useful answer is that a third of the teams asking this question should not buy either one yet. Here is the real pricing arithmetic and the honest verdict on each.',
+    '**For most revenue teams under 50 seats, HubSpot Breeze is the better buy** — lower floor, simpler pricing, and agent capability that reaches useful depth without a specialist administrator. Salesforce Agentforce is the more powerful system and the more expensive one, and below about 50 seats the licence plus admin overhead rarely pays back.
+
+The more useful answer is that a good share of the teams asking this question should not buy either one yet. I will come back to that, because it is the part neither vendor''s comparison page will tell you.
+
+*Pricing below is as published in August 2026 and changes often — verify current numbers before budgeting.*
+
+## The short verdict
+
+| | HubSpot Breeze | Salesforce Agentforce |
+|---|---|---|
+| **Best for** | Sales-led teams of 5–50 seats without a dedicated admin | Complex sales processes, 50+ seats, existing Salesforce estate |
+| **Pricing model** | Per-seat licence plus credits; outcome pricing on some agents | Per-conversation or Flex Credits, on top of licence |
+| **Time to first value** | Days | Weeks to months |
+| **Admin burden** | Low — configurable by an ops-minded seller | High — realistically needs an admin or partner |
+| **Ceiling** | Reaches a wall on genuinely complex processes | Very high; you will not outgrow it |
+| **Verdict** | **The default choice under 50 seats** | **Right when the process is complex or you are already invested** |
+
+## The pricing arithmetic, worked
+
+Vendors publish per-unit prices. What matters is what a real team pays in a year, so here is the arithmetic for a 20-seat sales team.
+
+### HubSpot
+
+Sales Hub runs $15/seat (Starter), $90/seat (Professional) and $150/seat (Enterprise). The Prospecting Agent — the one most sales teams actually want — requires Professional.
+
+At 20 seats on Professional: **$1,800/month**, or $21,600/year.
+
+On top of that, agent usage is outcome-priced, which is genuinely unusual and worth understanding: the Customer Agent bills $0.50 per resolution, the Prospecting Agent $1.00 per qualified lead, and the Data Agent $0.10 per answer. Credits run $10 per 1,000 per month, with the Professional Customer Platform including 5,000 and Enterprise 10,000. Unused credits expire monthly rather than rolling over.
+
+Then the part that surprises people: **onboarding is mandatory and separately billed** — roughly $1,500–$3,000 on Professional, $3,600–$7,000 on Enterprise.
+
+**Year one, 20 seats, Professional, moderate agent usage: roughly $24,000–$28,000.**
+
+### Salesforce
+
+Agentforce sits on top of your Sales Cloud licence rather than replacing it, so the AI layer is an addition to whatever you already pay per seat.
+
+The AI layer itself offers three routes: **$2 per conversation** for customer-facing agents, **Flex Credits at $500 per 100,000 credits** (about $0.10 per standard action, $0.15 for voice), or add-ons **from $125/user/month**. Customers on Enterprise Edition and above can get 100,000 Flex Credits at no cost through Salesforce Foundations, which materially changes the maths — but Enterprise Edition is itself the expensive tier.
+
+Salesforce''s own worked example is instructive: 100 users, 3 cases/day, 20 working days, 3 actions per case at 60 credits per case comes to 360,000 credits — **$1,800/month for the AI layer alone**, on top of licences.
+
+**The honest read at 20 seats:** the per-conversation model is the sane starting point, the add-on model is hard to justify, and the free Foundations credits are only available at a licence tier most 20-seat teams are not on.
+
+### The comparison that matters
+
+| | HubSpot (20 seats, Pro) | Salesforce (20 seats) |
+|---|---|---|
+| Base licence | $1,800/mo | Sales Cloud licence, tier-dependent |
+| AI layer | Outcome-priced; usage-dependent | $2/conversation, or $500/100k credits, or $125/user/mo |
+| Mandatory onboarding | $1,500–$3,000 one-off | Partner implementation typically required |
+| Realistic year one | ~$24k–$28k | Meaningfully higher at this size |
+
+**Verdict on cost:** HubSpot is cheaper at this size and — more importantly — its costs are legible in advance. Salesforce''s Flex Credits are the more flexible model at scale and the harder one to forecast when you are small.
+
+## Where each actually wins
+
+### HubSpot Breeze wins on
+
+- **Floor, not ceiling.** You can get real value without an administrator, which at 20 seats is usually the binding constraint rather than budget.
+- **Outcome pricing.** Paying $1.00 per qualified lead rather than a flat platform fee is genuinely aligned, and rare.
+- **Coherence.** Marketing, sales and service sharing one data model removes an entire category of integration work.
+- **Speed.** Days to first value, not a quarter.
+
+### Salesforce Agentforce wins on
+
+- **Genuinely complex processes.** Multi-entity deals, heavy approval chains, territory and quota structures that a simpler platform cannot represent.
+- **Depth of agent orchestration.** Agentforce goes further than Breeze when you have the capacity to configure and supervise it.
+- **Existing estate.** If Salesforce is already the system of record, moving is almost never the right answer.
+- **Ceiling.** You will not outgrow it, which matters if you plausibly triple headcount in two years.
+
+### Where both disappoint
+
+Both are downstream of your data. Neither vendor''s agent layer can compensate for a pipeline where deals move stage without evidence and half the calls were never logged. Ask either vendor''s AI to summarise a deal whose record is four log lines and an optimistic stage, and you will get a fluent, confident, useless paragraph.
+
+This is not a criticism of either product. It is the constraint both share, and it is why the third option exists.
+
+## The third option: neither, yet
+
+A meaningful share of teams comparing these two should spend the money on capture instead, and it will make whichever platform they eventually choose work better.
+
+The test is simple. Pick your three largest open deals, read what the CRM says about them, then ask the reps what actually happened. If the second account contains substance the first does not, you have a capture problem, and buying an agent layer to sit on top of it converts a data problem into an expensive data problem.
+
+Teams on **rung 0 or 1** of [the Pipeline Automation Ladder](/ai-crm-automation) get very little from either product. Teams solid on **rung 2** — automated call logging, AI-drafted notes, enrichment, evidence-backed stage changes — often find that the native AI they already pay for starts working without any additional purchase. That is the cheapest outcome available in this comparison, and it is the one neither vendor is incentivised to mention.
+
+The order that works: fix capture, then turn on the agents you already own, then buy more only where a specific gap remains.
+
+## Should you switch platforms?
+
+Almost certainly not, and being told to migrate early is a warning sign.
+
+Migration costs — data, process, retraining, the productivity trough — nearly always exceed the cost of fixing what you have. A platform change is worth considering only when the current system genuinely cannot represent how you sell. That is a real diagnosis, and a much rarer one than the people selling migrations suggest.
+
+If you are on Pipedrive, Zoho or GoHighLevel and wondering whether to jump to one of these two: run the capture audit first. Most teams discover their problem was never the platform.
+
+## Frequently asked questions
+
+**Is Breeze the same as the old HubSpot AI features?**
+Breeze is the umbrella for HubSpot''s agent layer — Prospecting, Customer and Data agents, alongside AI features embedded across the hubs. The outcome-based pricing on the agents is the genuinely new part.
+
+**Do I need Enterprise for either?**
+For HubSpot, the Prospecting Agent requires Sales Hub Professional. For Salesforce, the free 100,000 Foundations Flex Credits require Enterprise Edition or above, which is a significant qualifier for smaller teams.
+
+**Which is better for AI lead scoring specifically?**
+Salesforce, on capability. Neither, on sparse data — lead scoring is the single most data-hungry feature in either product and the fastest to lose the team''s trust when it is wrong.
+
+**We are 15 seats and growing fast. Should we buy for where we will be?**
+No. Buy for where you are, fix capture now, and revisit at the point the process actually becomes complex. Teams that buy two years ahead spend two years administering a system built for a company they are not yet.
+
+**How do I know if the AI is working?**
+Forecast variance quarter over quarter, and seller hours per week on CRM admin. Not seat adoption, and not agent invocation counts — both go up whether or not anything improved.
+
+---
+
+*Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automation-complete-guide). Or read [why most AI CRM projects fail](/news/why-ai-crm-projects-fail).*
+
+## Sources
+
+- [A complete guide to HubSpot AI pricing in 2026 — eesel AI](https://www.eesel.ai/blog/hubspot-ai-pricing)
+- [HubSpot Breeze AI: Features, Pricing & Limitations (2026) — MyAskAI](https://myaskai.com/blog/hubspot-breeze-ai-agent-complete-guide-2026)
+- [Agentforce Pricing Explained: Flex Credits, Real Costs & Hidden Fees (2026) — Clientell](https://www.getclientell.com/guides/agentforce-pricing-explained)
+- [Salesforce revamps Agentforce pricing with Flex Credits — Constellation Research](https://www.constellationr.com/insights/news/salesforce-revamps-agentforce-pricing-flex-credits-what-you-need-know)
+- [Salesforce Agentforce Pricing — Salesforce](https://www.salesforce.com/agentforce/pricing/)
+- [Can HubSpot''s Agentic AI Bet Disrupt Enterprise CRM''s Old Guard? — Futurum Group](https://futurumgroup.com/insights/can-hubspots-agentic-ai-bet-disrupt-enterprise-crms-old-guard/)',
+    'CRM',
+    ARRAY['CRM', 'CRM Automation', 'HubSpot', 'Salesforce', 'AI Agents', 'RevOps']::text[],
+    'Dan Pearson',
+    '12 min read',
+    true,
+    true,
+    'HubSpot Breeze vs Salesforce Agentforce: Honest 2026 Comparison',
+    'A vendor-neutral comparison of HubSpot Breeze and Salesforce Agentforce for revenue teams under 50 seats, with real 2026 pricing arithmetic — and the third option neither vendor will mention.',
+    ARRAY['HubSpot AI vs Salesforce Einstein', 'HubSpot Breeze vs Agentforce', 'Agentforce pricing', 'Breeze AI pricing', 'best AI CRM for small business', 'agentic CRM comparison']::text[],
+    'HubSpot AI vs Salesforce Einstein'
   ),
   (
     'why-ai-crm-projects-fail',
