@@ -1,0 +1,18 @@
+# Build context for danpearson-edge-functions/Dockerfile.
+#
+# The edge-function image needs exactly two things out of this repository: the
+# canonical function source and the server that dispatches to it. Everything
+# else is excluded by default rather than listed as a denial, so a new
+# top-level directory cannot silently enter the image, and neither can .env,
+# which sits in the repo root, nor backup/, which holds a database dump.
+
+# Exclude everything...
+*
+
+# ...then re-include only what the image actually needs.
+!supabase/functions
+!danpearson-edge-functions/server.ts
+
+# Tests are part of the source tree but have no business in a runtime image.
+supabase/functions/**/__tests__
+supabase/functions/**/*.test.ts

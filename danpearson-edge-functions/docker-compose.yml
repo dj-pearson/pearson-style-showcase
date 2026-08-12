@@ -3,8 +3,10 @@ version: '3.8'
 services:
   edge-functions:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # Context is the repository root so the build can reach supabase/functions,
+      # which is the single source of truth for function code.
+      context: ..
+      dockerfile: danpearson-edge-functions/Dockerfile
     container_name: danpearson-edge-functions
     ports:
       - "8000:8000"
@@ -18,8 +20,8 @@ services:
       - DOMAIN=functions.danpearson.net
       - API_GATEWAY_URL=https://api.danpearson.net
     volumes:
-      # Mount functions directory for hot reload during development
-      - ./functions:/app/functions:ro
+      # Mount the canonical functions directory for hot reload during development
+      - ../supabase/functions:/app/functions:ro
       # Mount server.ts for development
       - ./server.ts:/app/server.ts:ro
     restart: unless-stopped

@@ -1,7 +1,13 @@
 #!/bin/bash
 # Deployment script for danpearson.net Edge Functions to Coolify
-# Usage: ./deploy-coolify.sh [environment]
+# Usage: ./deploy-coolify.sh [environment] [--build|--test-local]
 # Example: ./deploy-coolify.sh production
+#
+# Function code lives in supabase/functions at the repository root, not in
+# danpearson-edge-functions. Local builds therefore use the repository root as
+# the build context:
+#   docker build -f danpearson-edge-functions/Dockerfile .
+# Env files (.env, .env.<environment>) are still read from danpearson-edge-functions.
 
 set -e
 
@@ -15,7 +21,12 @@ NC='\033[0m' # No Color
 # Configuration
 ENVIRONMENT=${1:-production}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# Runtime directory (danpearson-edge-functions): holds .env files and the Dockerfile.
+RUNTIME_DIR="$(dirname "$SCRIPT_DIR")"
+# Repository root: the Docker build context, because the Dockerfile copies
+# supabase/functions, which is the single source of truth for function code.
+REPO_ROOT="$(dirname "$RUNTIME_DIR")"
+DOCKERFILE="$RUNTIME_DIR/Dockerfile"
 
 echo -e "${BLUE}======================================${NC}"
 echo -e "${BLUE}danpearson.net Edge Functions Deployment${NC}"
@@ -25,14 +36,14 @@ echo -e "${BLUE}======================================${NC}"
 echo ""
 
 # Load environment-specific configuration
-ENV_FILE="$PROJECT_ROOT/.env.$ENVIRONMENT"
+ENV_FILE="$RUNTIME_DIR/.env.$ENVIRONMENT"
 if [ -f "$ENV_FILE" ]; then
     echo -e "${GREEN}✓ Loading environment from: $ENV_FILE${NC}"
     export $(cat "$ENV_FILE" | grep -v '^#' | xargs)
 else
     echo -e "${YELLOW}⚠ No environment file found at: $ENV_FILE${NC}"
     echo -e "${YELLOW}⚠ Using .env file${NC}"
-    ENV_FILE="$PROJECT_ROOT/.env"
+    ENV_FILE="$RUNTIME_DIR/.env"
     if [ -f "$ENV_FILE" ]; then
         export $(cat "$ENV_FILE" | grep -v '^#' | xargs)
     else
@@ -69,8 +80,10 @@ fi
 # Build Docker image locally (optional, for testing)
 if [ "$2" == "--build" ]; then
     echo -e "${BLUE}Building Docker image locally...${NC}"
-    cd "$PROJECT_ROOT"
-    docker build -t danpearson-edge-functions:test .
+    # Build context is the repository root; the Dockerfile copies both
+    # supabase/functions and danpearson-edge-functions/server.ts.
+    cd "$REPO_ROOT"
+    docker build -f "$DOCKERFILE" -t danpearson-edge-functions:test .
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Docker image built successfully${NC}"
     else
@@ -82,8 +95,11 @@ fi
 # Test locally (optional)
 if [ "$2" == "--test-local" ]; then
     echo -e "${BLUE}Testing locally...${NC}"
-    cd "$PROJECT_ROOT"
-    
+    cd "$REPO_ROOT"
+
+    # Build first so the tag exists even when --build was not passed.
+    docker build -f "$DOCKERFILE" -t danpearson-edge-functions:test .
+
     # Start container
     docker run -d \
         --name danpearson-functions-test \
@@ -181,8 +197,10 @@ else
     echo ""
     echo "1. Go to your Coolify dashboard"
     echo "2. Navigate to the danpearson-edge-functions service"
-    echo "3. Click 'Deploy' or 'Redeploy'"
-    echo "4. Wait for the deployment to complete"
-    echo "5. Verify: https://functions.danpearson.net/_health"
+    echo "3. Confirm Build Context is the repository root and Dockerfile Location"
+    echo "   is danpearson-edge-functions/Dockerfile"
+    echo "4. Click 'Deploy' or 'Redeploy'"
+    echo "5. Wait for the deployment to complete"
+    echo "6. Verify: https://functions.danpearson.net/_health"
     echo ""
 fi

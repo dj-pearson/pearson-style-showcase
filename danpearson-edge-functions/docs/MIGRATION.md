@@ -5,6 +5,7 @@ Complete guide for migrating from cloud Supabase to self-hosted danpearson.net i
 ## 🎯 Migration Overview
 
 This guide covers migrating from:
+
 - **From**: Cloud Supabase (`qazhdcqvjppbbjxzvisp.supabase.co`)
 - **To**: Self-hosted Supabase (`api.danpearson.net`) + Edge Functions (`functions.danpearson.net`)
 
@@ -78,6 +79,7 @@ supabase functions list > functions-list.txt
 ### 1.4 Inventory Assets
 
 Create checklist:
+
 - [ ] Database schema
 - [ ] Database data
 - [ ] Storage buckets and files
@@ -92,6 +94,7 @@ Create checklist:
 ### 2.1 Deploy Supabase to Coolify
 
 **Prerequisites**:
+
 - Coolify instance running
 - Docker support
 - At least 4GB RAM, 2 CPUs
@@ -179,8 +182,9 @@ openssl rand -base64 32
 Follow [DEPLOYMENT.md](./DEPLOYMENT.md) to deploy edge functions to `functions.danpearson.net`.
 
 Quick steps:
+
 1. Create service in Coolify
-2. Point to `danpearson-edge-functions/`
+2. Set build context to the repository root and Dockerfile path to `danpearson-edge-functions/Dockerfile` (the build copies `supabase/functions`, so a narrower context fails)
 3. Set environment variables (SUPABASE_URL, keys)
 4. Set domain: `functions.danpearson.net`
 5. Deploy
@@ -222,11 +226,11 @@ psql "postgresql://postgres:PASSWORD@api.danpearson.net:5432/postgres" \
 psql "postgresql://..." -c "\dt"
 
 # Check row counts
-psql "postgresql://..." -c "SELECT 
-  schemaname, 
-  tablename, 
-  n_live_tup as rows 
-FROM pg_stat_user_tables 
+psql "postgresql://..." -c "SELECT
+  schemaname,
+  tablename,
+  n_live_tup as rows
+FROM pg_stat_user_tables
 ORDER BY n_live_tup DESC;"
 
 # Check extensions
@@ -273,8 +277,8 @@ Ensure RLS policies are active:
 
 ```sql
 -- Check RLS is enabled on tables
-SELECT tablename, rowsecurity 
-FROM pg_tables 
+SELECT tablename, rowsecurity
+FROM pg_tables
 WHERE schemaname = 'public';
 
 -- Re-enable if needed
@@ -289,6 +293,7 @@ SELECT * FROM pg_policies WHERE schemaname = 'public';
 ### 5.1 Update Frontend Configuration
 
 **Before**:
+
 ```typescript
 // Old cloud Supabase
 const supabase = createClient(
@@ -298,6 +303,7 @@ const supabase = createClient(
 ```
 
 **After**:
+
 ```typescript
 // Self-hosted
 const supabase = createClient(
@@ -321,6 +327,7 @@ VITE_SUPABASE_ANON_KEY=new-anon-key
 ```
 
 Update production environment (Cloudflare Pages):
+
 1. Go to Cloudflare Pages → Your project → Settings → Environment variables
 2. Update `VITE_SUPABASE_URL` to `https://api.danpearson.net`
 3. Update `VITE_SUPABASE_ANON_KEY` to your new anon key
@@ -329,20 +336,22 @@ Update production environment (Cloudflare Pages):
 ### 5.3 Update Edge Function Calls
 
 **Before**:
+
 ```typescript
 const { data } = await supabase.functions.invoke('my-function', {
-  body: { data: 'test' }
+  body: { data: 'test' },
 });
 ```
 
 **After**:
+
 ```typescript
 // Functions are at functions.danpearson.net
 const response = await fetch('https://functions.danpearson.net/my-function', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`,
+    Authorization: `Bearer ${session.access_token}`,
   },
   body: JSON.stringify({ data: 'test' }),
 });
@@ -350,29 +359,23 @@ const data = await response.json();
 ```
 
 Or create a helper:
+
 ```typescript
 // lib/functions.ts
-export async function invokeFunction(
-  name: string, 
-  body: any, 
-  token?: string
-) {
-  const response = await fetch(
-    `https://functions.danpearson.net/${name}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-      body: JSON.stringify(body),
-    }
-  );
-  
+export async function invokeFunction(name: string, body: any, token?: string) {
+  const response = await fetch(`https://functions.danpearson.net/${name}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+    body: JSON.stringify(body),
+  });
+
   if (!response.ok) {
     throw new Error(`Function ${name} failed: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 ```
@@ -473,6 +476,7 @@ curl https://api.danpearson.net/auth/v1/user \
 ### 7.1 DNS Updates
 
 If you're using custom domain for the old setup:
+
 1. Update DNS records to point to self-hosted
 2. Wait for DNS propagation (can take 24-48 hours)
 
@@ -496,11 +500,14 @@ git push
 
 ### 7.4 Cleanup Old References
 
-Run the cleanup script (see Phase 8 below) to remove old references:
+Run the cleanup script to rewrite old cloud Supabase URLs. It rewrites files in
+place across the whole repository, so run it with `-DryRun` first and read the
+list it prints:
 
-```bash
-# From project root
-./danpearson-edge-functions/deployment/cleanup-old-supabase.ps1
+```powershell
+# From the repository root
+pwsh ./danpearson-edge-functions/deployment/cleanup-old-supabase.ps1 -DryRun
+pwsh ./danpearson-edge-functions/deployment/cleanup-old-supabase.ps1
 ```
 
 ### 7.5 Disable Old Cloud Instance
@@ -559,6 +566,7 @@ psql "postgresql://..." < backup-pre-migration.sql
 ### Issue: Database restore fails
 
 **Solution**:
+
 - Check PostgreSQL version compatibility
 - Restore schema first, then data
 - Check for extension conflicts
@@ -566,6 +574,7 @@ psql "postgresql://..." < backup-pre-migration.sql
 ### Issue: Authentication not working
 
 **Solution**:
+
 - Verify JWT secret matches between services
 - Check auth provider configuration
 - Verify email templates
@@ -573,6 +582,7 @@ psql "postgresql://..." < backup-pre-migration.sql
 ### Issue: Functions returning 500 errors
 
 **Solution**:
+
 - Check environment variables
 - Verify Supabase URL is accessible from functions
 - Check function logs
@@ -580,6 +590,7 @@ psql "postgresql://..." < backup-pre-migration.sql
 ### Issue: Storage files not accessible
 
 **Solution**:
+
 - Check bucket policies
 - Verify RLS policies on storage.objects
 - Check CORS configuration

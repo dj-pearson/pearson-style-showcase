@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { getCorsHeaders, handleCors, corsJsonResponse } from "../_shared/cors.ts";
-import { verifyWebhookSignature, verifySecret } from "../_shared/webhook-security.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors, corsJsonResponse } from '../_shared/cors.ts';
+import { verifyWebhookSignature, verifySecret } from '../_shared/webhook-security.ts';
+import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
 
 interface EmailWebhookPayload {
   from: string;
@@ -21,8 +21,8 @@ interface EmailWebhookPayload {
   }>;
 }
 
-serve(async (req: Request) => {
-  const origin = req.headers.get("origin");
+export default async (req: Request): Promise<Response> => {
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -68,10 +68,13 @@ serve(async (req: Request) => {
 
       if (!signatureResult.valid) {
         console.error('Webhook signature verification failed:', signatureResult.error);
-        return new Response(JSON.stringify({ error: 'Unauthorized', message: signatureResult.error }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized', message: signatureResult.error }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
       console.log('Webhook signature verified successfully');
     } else {
@@ -84,7 +87,9 @@ serve(async (req: Request) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      console.warn('Using legacy webhook secret verification - consider upgrading to HMAC signature');
+      console.warn(
+        'Using legacy webhook secret verification - consider upgrading to HMAC signature'
+      );
     }
 
     // Parse the payload
@@ -98,7 +103,11 @@ serve(async (req: Request) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log('Received email webhook:', { from: payload.from, to: payload.to, subject: payload.subject });
+    console.log('Received email webhook:', {
+      from: payload.from,
+      to: payload.to,
+      subject: payload.subject,
+    });
 
     // Validate email format for the 'from' field
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -206,19 +215,17 @@ serve(async (req: Request) => {
 
       ticketId = ticket.id;
       console.log('Created new ticket:', ticketId);
-      
+
       // Send notification for new ticket
       try {
-        await supabase.functions.invoke('send-notification-email', {
-          body: {
-            type: 'new_ticket',
-            ticket_number: ticket.ticket_number,
-            ticket_id: ticket.id,
-            ticket_subject: payload.subject,
-            from_email: senderEmail,
-            from_name: senderEmail.split('@')[0],
-            message_preview: payload.body_text || payload.body_html || ''
-          }
+        await invokeFunctionAndForget('send-notification-email', {
+          type: 'new_ticket',
+          ticket_number: ticket.ticket_number,
+          ticket_id: ticket.id,
+          ticket_subject: payload.subject,
+          from_email: senderEmail,
+          from_name: senderEmail.split('@')[0],
+          message_preview: payload.body_text || payload.body_html || '',
         });
         console.log('Sent new ticket notification');
       } catch (notifError) {
@@ -229,12 +236,12 @@ serve(async (req: Request) => {
       // Update ticket with new activity
       await supabase
         .from('support_tickets')
-        .update({ 
+        .update({
           last_activity_at: new Date().toISOString(),
-          status: 'waiting_for_agent'
+          status: 'waiting_for_agent',
         })
         .eq('id', ticketId);
-      
+
       // Send notification for new response
       try {
         const { data: ticket } = await supabase
@@ -242,18 +249,16 @@ serve(async (req: Request) => {
           .select('ticket_number, subject')
           .eq('id', ticketId)
           .single();
-        
+
         if (ticket) {
-          await supabase.functions.invoke('send-notification-email', {
-            body: {
-              type: 'new_response',
-              ticket_number: ticket.ticket_number,
-              ticket_id: ticketId,
-              ticket_subject: ticket.subject,
-              from_email: payload.from,
-              from_name: payload.from.split('@')[0],
-              message_preview: payload.body_text || payload.body_html || ''
-            }
+          await invokeFunctionAndForget('send-notification-email', {
+            type: 'new_response',
+            ticket_number: ticket.ticket_number,
+            ticket_id: ticketId,
+            ticket_subject: ticket.subject,
+            from_email: senderEmail,
+            from_name: senderEmail.split('@')[0],
+            message_preview: payload.body_text || payload.body_html || '',
           });
           console.log('Sent new response notification');
         }
@@ -264,25 +269,23 @@ serve(async (req: Request) => {
     }
 
     // Create email thread entry
-    const { error: threadError } = await supabase
-      .from('email_threads')
-      .insert({
-        ticket_id: ticketId,
-        mailbox_id: targetMailbox.id,
-        from_email: senderEmail,
-        to_email: recipientEmail,
-        cc_emails: payload.cc || [],
-        subject: payload.subject,
-        message_id: payload.message_id,
-        in_reply_to: payload.in_reply_to,
-        email_references: payload.references || [],
-        body_text: payload.body_text,
-        body_html: payload.body_html,
-        attachments: payload.attachments || [],
-        direction: 'inbound',
-        is_read: false,
-        received_at: new Date().toISOString(),
-      });
+    const { error: threadError } = await supabase.from('email_threads').insert({
+      ticket_id: ticketId,
+      mailbox_id: targetMailbox.id,
+      from_email: senderEmail,
+      to_email: recipientEmail,
+      cc_emails: payload.cc || [],
+      subject: payload.subject,
+      message_id: payload.message_id,
+      in_reply_to: payload.in_reply_to,
+      email_references: payload.references || [],
+      body_text: payload.body_text,
+      body_html: payload.body_html,
+      attachments: payload.attachments || [],
+      direction: 'inbound',
+      is_read: false,
+      received_at: new Date().toISOString(),
+    });
 
     if (threadError) {
       console.error('Error creating email thread:', threadError);
@@ -297,22 +300,15 @@ serve(async (req: Request) => {
 
     console.log('Successfully processed email webhook');
 
-    return new Response(
-      JSON.stringify({ success: true, ticket_id: ticketId }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-
+    return new Response(JSON.stringify({ success: true, ticket_id: ticketId }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error: any) {
     console.error('Error processing email webhook:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
-});
+};

@@ -15,31 +15,31 @@
  * Supabase API gateway (api.danpearson.net).
  */
 
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 // The Supabase URL (Kong gateway)
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "https://api.danpearson.net";
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://api.danpearson.net';
 
 // Headers to skip when forwarding (hop-by-hop or browser-only headers)
 const SKIP_REQUEST_HEADERS = new Set([
-  "host",
-  "origin",
-  "referer",
-  "sec-fetch-dest",
-  "sec-fetch-mode",
-  "sec-fetch-site",
-  "sec-ch-ua",
-  "sec-ch-ua-mobile",
-  "sec-ch-ua-platform",
-  "connection",
-  "keep-alive",
-  "transfer-encoding",
-  "upgrade",
-  "te",
+  'host',
+  'origin',
+  'referer',
+  'sec-fetch-dest',
+  'sec-fetch-mode',
+  'sec-fetch-site',
+  'sec-ch-ua',
+  'sec-ch-ua-mobile',
+  'sec-ch-ua-platform',
+  'connection',
+  'keep-alive',
+  'transfer-encoding',
+  'upgrade',
+  'te',
 ]);
 
 export default async (req: Request): Promise<Response> => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -51,7 +51,7 @@ export default async (req: Request): Promise<Response> => {
 
     // Extract the auth path: /auth-proxy/auth/v1/token -> /auth/v1/token
     const fullPath = url.pathname;
-    const authPath = fullPath.replace(/^\/auth-proxy/, "") || "/";
+    const authPath = fullPath.replace(/^\/auth-proxy/, '') || '/';
 
     // Reconstruct the target URL with query parameters
     const targetUrl = `${SUPABASE_URL}${authPath}${url.search}`;
@@ -68,11 +68,11 @@ export default async (req: Request): Promise<Response> => {
 
     // Log forwarded headers for debugging
     const headerKeys = [...forwardHeaders.keys()];
-    console.log(`[auth-proxy] Forwarding headers: ${headerKeys.join(", ")}`);
+    console.log(`[auth-proxy] Forwarding headers: ${headerKeys.join(', ')}`);
 
     // Read request body if present
     let body: string | null = null;
-    if (req.method !== "GET" && req.method !== "HEAD") {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
       try {
         body = await req.text();
       } catch {
@@ -102,10 +102,14 @@ export default async (req: Request): Promise<Response> => {
 
     // Forward all response headers except hop-by-hop
     const skipResponseHeaders = new Set([
-      "connection", "keep-alive", "transfer-encoding",
-      "access-control-allow-origin", "access-control-allow-methods",
-      "access-control-allow-headers", "access-control-allow-credentials",
-      "access-control-max-age",
+      'connection',
+      'keep-alive',
+      'transfer-encoding',
+      'access-control-allow-origin',
+      'access-control-allow-methods',
+      'access-control-allow-headers',
+      'access-control-allow-credentials',
+      'access-control-max-age',
     ]);
 
     for (const [key, value] of proxyResponse.headers.entries()) {
@@ -120,18 +124,18 @@ export default async (req: Request): Promise<Response> => {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error("[auth-proxy] Error:", error);
+    console.error('[auth-proxy] Error:', error);
 
     return new Response(
       JSON.stringify({
-        error: "Auth proxy error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: 'Auth proxy error',
+        message: error instanceof Error ? error.message : 'Unknown error',
       }),
       {
         status: 502,
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
       }
     );

@@ -1,23 +1,23 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { normalizedErrorResponse, classifyError } from "../_shared/error-normalizer.ts";
-import { verifyWebhookSignature, verifySecret } from "../_shared/webhook-security.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
+import { verifyWebhookSignature, verifySecret } from '../_shared/webhook-security.ts';
+import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
 
 interface MakeComEmailPayload {
-  to: string;              // Email address message was sent to
-  from: string;            // Sender name
-  from_email: string;      // Sender email address
-  subject: string;         // Email subject
-  date: string;            // Timestamp (e.g., "Tue, 18 Nov 2025 21:27:33 -0600")
-  body: string;            // Full email body
-  id: string;              // Unique email ID
-  in_reply_to?: string;    // In-Reply-To header (for threading)
-  references?: string;     // References header (for threading)
+  to: string; // Email address message was sent to
+  from: string; // Sender name
+  from_email: string; // Sender email address
+  subject: string; // Email subject
+  date: string; // Timestamp (e.g., "Tue, 18 Nov 2025 21:27:33 -0600")
+  body: string; // Full email body
+  id: string; // Unique email ID
+  in_reply_to?: string; // In-Reply-To header (for threading)
+  references?: string; // References header (for threading)
 }
 
-serve(async (req: Request) => {
-  const origin = req.headers.get("origin");
+export default async (req: Request): Promise<Response> => {
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -33,8 +33,9 @@ serve(async (req: Request) => {
     // Verify webhook secret if configured (optional for Make.com compatibility)
     const webhookSecret = Deno.env.get('MAKE_WEBHOOK_SECRET');
     if (webhookSecret) {
-      const providedSecret = req.headers.get('x-webhook-secret') ||
-                            req.headers.get('authorization')?.replace('Bearer ', '');
+      const providedSecret =
+        req.headers.get('x-webhook-secret') ||
+        req.headers.get('authorization')?.replace('Bearer ', '');
 
       // Check for HMAC signature first
       const signature = req.headers.get('x-webhook-signature');
@@ -47,7 +48,7 @@ serve(async (req: Request) => {
           console.error('Webhook signature verification failed:', result.error);
           return new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
             status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
         console.log('Webhook signature verified');
@@ -57,12 +58,14 @@ serve(async (req: Request) => {
           console.error('Invalid webhook secret');
           return new Response(JSON.stringify({ error: 'Unauthorized' }), {
             status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
         console.log('Webhook secret verified');
       } else {
-        console.warn('No webhook authentication provided - MAKE_WEBHOOK_SECRET is configured but no credentials in request');
+        console.warn(
+          'No webhook authentication provided - MAKE_WEBHOOK_SECRET is configured but no credentials in request'
+        );
         // Optionally reject unauthenticated requests:
         // return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         //   status: 401,
@@ -75,17 +78,13 @@ serve(async (req: Request) => {
     console.log('Content-Type:', contentType);
 
     let payload: MakeComEmailPayload;
-    
+
     // Handle multipart/form-data (e.g. from Make.com sending form-data)
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
 
       const getField = (name: string): string => {
-        const candidates = [
-          name,
-          name.toLowerCase(),
-          name.toUpperCase(),
-        ];
+        const candidates = [name, name.toLowerCase(), name.toUpperCase()];
 
         for (const key of candidates) {
           const value = formData.get(key);
@@ -114,7 +113,7 @@ serve(async (req: Request) => {
       };
 
       const to = getField('to') || getField('To');
-      
+
       // Get the email address from "From Email" field (not "From" which is just the name)
       const fromEmailRaw =
         getField('From Email') ||
@@ -123,7 +122,7 @@ serve(async (req: Request) => {
         getField('fromEmail') ||
         getField('FromEmail');
       const fromEmail = extractEmail(fromEmailRaw);
-      
+
       // Get the sender's name from "From" field
       const fromName = getField('from') || getField('From') || fromEmail.split('@')[0];
 
@@ -160,7 +159,7 @@ serve(async (req: Request) => {
     } else {
       const rawBody = await req.text();
       console.log('Raw body received (first 200 chars):', rawBody.substring(0, 200));
-      
+
       // Handle different content types from Make.com
       if (contentType.includes('application/x-www-form-urlencoded')) {
         // Parse URL-encoded data
@@ -183,15 +182,16 @@ serve(async (req: Request) => {
         } catch (parseError) {
           console.error('Failed to parse payload:', parseError);
           return new Response(
-            JSON.stringify({ 
-              error: 'Invalid payload format. Expected JSON, form-encoded data, or multipart form-data.',
+            JSON.stringify({
+              error:
+                'Invalid payload format. Expected JSON, form-encoded data, or multipart form-data.',
               details: (parseError as Error).message,
               contentType: contentType,
-              bodyPreview: rawBody.substring(0, 100)
+              bodyPreview: rawBody.substring(0, 100),
             }),
             {
               status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             }
           );
         }
@@ -200,7 +200,7 @@ serve(async (req: Request) => {
     console.log('Received email from Make.com:', {
       to: payload.to,
       from: payload.from_email,
-      subject: payload.subject
+      subject: payload.subject,
     });
 
     // Validate and trim email fields
@@ -213,7 +213,7 @@ serve(async (req: Request) => {
         JSON.stringify({ error: 'Missing required fields: to, from_email, subject, body' }),
         {
           status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
@@ -232,20 +232,17 @@ serve(async (req: Request) => {
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
 
     if (!isValidEmail(payload.to) || payload.to.length > 254) {
       console.error('Invalid to email format');
-      return new Response(
-        JSON.stringify({ error: 'Invalid recipient email format.' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid recipient email format.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Validate subject length to prevent abuse
@@ -349,11 +346,23 @@ serve(async (req: Request) => {
       // Auto-categorize based on subject keywords
       let category = 'question';
       const subjectLower = payload.subject.toLowerCase();
-      if (subjectLower.includes('bug') || subjectLower.includes('error') || subjectLower.includes('issue')) {
+      if (
+        subjectLower.includes('bug') ||
+        subjectLower.includes('error') ||
+        subjectLower.includes('issue')
+      ) {
         category = 'bug';
-      } else if (subjectLower.includes('feature') || subjectLower.includes('request') || subjectLower.includes('add')) {
+      } else if (
+        subjectLower.includes('feature') ||
+        subjectLower.includes('request') ||
+        subjectLower.includes('add')
+      ) {
         category = 'feature_request';
-      } else if (subjectLower.includes('billing') || subjectLower.includes('payment') || subjectLower.includes('invoice')) {
+      } else if (
+        subjectLower.includes('billing') ||
+        subjectLower.includes('payment') ||
+        subjectLower.includes('invoice')
+      ) {
         category = 'billing';
       }
 
@@ -388,42 +397,38 @@ serve(async (req: Request) => {
         .from('support_tickets')
         .update({
           last_activity_at: parsedDate,
-          status: 'waiting_for_agent'
+          status: 'waiting_for_agent',
         })
         .eq('id', ticketId);
 
       // Add as a response to the existing ticket
-      await supabase
-        .from('ticket_responses')
-        .insert({
-          ticket_id: ticketId,
-          author_email: payload.from_email,
-          author_name: payload.from || payload.from_email.split('@')[0],
-          author_type: 'user',
-          message: payload.body,
-          is_internal: false,
-          created_at: parsedDate,
-        });
+      await supabase.from('ticket_responses').insert({
+        ticket_id: ticketId,
+        author_email: payload.from_email,
+        author_name: payload.from || payload.from_email.split('@')[0],
+        author_type: 'user',
+        message: payload.body,
+        is_internal: false,
+        created_at: parsedDate,
+      });
 
       console.log(`Added response to existing ticket`);
     }
 
     // Create email thread entry
-    const { error: threadError } = await supabase
-      .from('email_threads')
-      .insert({
-        ticket_id: ticketId,
-        mailbox_id: mailbox.id,
-        from_email: payload.from_email,
-        to_email: payload.to,
-        subject: payload.subject,
-        message_id: payload.id,
-        body_text: payload.body,
-        body_html: payload.body, // Assuming body might contain HTML
-        direction: 'inbound',
-        is_read: false,
-        received_at: parsedDate,
-      });
+    const { error: threadError } = await supabase.from('email_threads').insert({
+      ticket_id: ticketId,
+      mailbox_id: mailbox.id,
+      from_email: payload.from_email,
+      to_email: payload.to,
+      subject: payload.subject,
+      message_id: payload.id,
+      body_text: payload.body,
+      body_html: payload.body, // Assuming body might contain HTML
+      direction: 'inbound',
+      is_read: false,
+      received_at: parsedDate,
+    });
 
     if (threadError) {
       console.error('Error creating email thread:', threadError);
@@ -441,16 +446,14 @@ serve(async (req: Request) => {
         .single();
 
       if (ticketData) {
-        await supabase.functions.invoke('send-notification-email', {
-          body: {
-            type: isReply ? 'new_response' : 'new_ticket',
-            ticket_number: ticketData.ticket_number,
-            ticket_id: ticketId,
-            ticket_subject: ticketData.subject,
-            from_email: payload.from_email,
-            from_name: payload.from,
-            message_preview: payload.body,
-          }
+        await invokeFunctionAndForget('send-notification-email', {
+          type: isReply ? 'new_response' : 'new_ticket',
+          ticket_number: ticketData.ticket_number,
+          ticket_id: ticketId,
+          ticket_subject: ticketData.subject,
+          from_email: payload.from_email,
+          from_name: payload.from,
+          message_preview: payload.body,
         });
         console.log('Notification email sent');
       }
@@ -465,15 +468,14 @@ serve(async (req: Request) => {
         ticket_id: ticketId,
         mailbox_id: mailbox.id,
         is_reply: isReply,
-        message: 'Email received and processed successfully'
+        message: 'Email received and processed successfully',
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-
   } catch (error: any) {
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
-});
+};

@@ -1,5 +1,4 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 import { normalizedErrorResponse } from '../_shared/error-normalizer.ts';
@@ -10,6 +9,12 @@ import {
   initRateLimiter,
 } from '../_shared/rate-limiter.ts';
 import { validateUrl, validateEnum } from '../_shared/validation.ts';
+import {
+  createSupabaseClient,
+  getAIConfigs,
+  callAIWithConfig,
+  parseJSONResponse,
+} from '../_shared/ai-helper.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -46,9 +51,7 @@ function isPrivateUrl(urlStr: string): boolean {
   }
 }
 
-const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
-
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -93,15 +96,13 @@ serve(async (req) => {
       );
     }
 
-    if (!claudeApiKey) {
-      console.error('Claude API key not found');
-      return new Response(JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const supabaseClient = createSupabaseClient();
 
-    console.log(`Extracting content from URL: ${url} for type: ${type}`);
+    // Lightweight tier is enough for structured data extraction
+    const aiConfigs = await getAIConfigs(supabaseClient, 'lightweight', 'url_extraction');
+    console.log(`[Extract] Found ${aiConfigs.length} lightweight AI configs`);
+
+    console.log(`[Extract] Extracting content from URL: ${url} for type: ${type}`);
 
     // Fetch the website content
     let pageContent = '';
@@ -248,55 +249,25 @@ ${pageContent}
 Return ONLY the JSON object, no other text.`;
     }
 
-    // Call Claude API
-    const aiResponse = await fetchWithTimeout(
-      'https://api.anthropic.com/v1/messages',
-      {
-        method: 'POST',
-        headers: {
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2000,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: extractionPrompt }],
-          temperature: 0.3,
-        }),
-      },
-      { timeoutMs: 45_000, maxRetries: 2, label: 'claude-extract' }
+    // Call AI using the configured lightweight models (with fallback)
+    const { response: extractedContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      extractionPrompt,
+      { temperature: 0.3, maxTokens: 2000, jsonMode: true }
     );
 
-    if (!aiResponse.ok) {
-      console.error('Claude API error:', aiResponse.status);
-      const errorText = await aiResponse.text();
-      console.error('Claude API error details:', errorText);
-      return new Response(JSON.stringify({ error: 'Failed to extract content from URL' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const aiData = await aiResponse.json();
-    const extractedContent = aiData.content[0].text;
-
-    console.log('Raw AI response:', extractedContent);
+    console.log(
+      `[Extract] Content extracted using ${usedConfig.provider} - ${usedConfig.model_name}`
+    );
 
     // Parse the JSON response
     let parsedData;
     try {
-      // Remove markdown code blocks if present
-      const cleanedContent = extractedContent
-        .replace(/```json\s*/g, '')
-        .replace(/```\s*/g, '')
-        .trim();
-
-      parsedData = JSON.parse(cleanedContent);
+      parsedData = parseJSONResponse(extractedContent);
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
-      console.error('Content that failed to parse:', extractedContent);
+      console.error('[Extract] Failed to parse AI response as JSON:', parseError);
+      console.error('[Extract] Content that failed to parse:', extractedContent);
       return new Response(
         JSON.stringify({
           error: 'Failed to parse extracted data',
@@ -307,23 +278,24 @@ Return ONLY the JSON object, no other text.`;
       );
     }
 
-    console.log('Successfully extracted and parsed data');
+    console.log('[Extract] Successfully extracted and parsed data');
 
     return new Response(
       JSON.stringify({
         success: true,
         data: parsedData,
         sourceUrl: url,
+        model_used: `${usedConfig.provider} - ${usedConfig.model_name}`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('URL Extraction Error:', error);
+    console.error('[Extract] URL Extraction Error:', error);
     return structuredErrorResponse(
-      error.message || 'An unexpected error occurred',
+      (error instanceof Error ? error.message : '') || 'An unexpected error occurred',
       'URL_EXTRACTION_FAILED',
       500,
       corsHeaders
     );
   }
-});
+};

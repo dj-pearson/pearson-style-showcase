@@ -1,4 +1,3 @@
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
@@ -190,7 +189,7 @@ async function sendSlackNotification(
   console.log('Slack notification sent successfully');
 }
 
-serve(async (req: Request) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -330,13 +329,21 @@ The reply has been sent to the customer. View ticket history: https://danpearson
 ---
 This is an automated notification from Pearson Media Support System
 `;
+    } else {
+      // The body is cast to NotificationRequest without validation, so an
+      // unrecognised type used to leave subject and body undefined and send an
+      // email with no subject, then log that undefined to email_logs. Reject it.
+      return new Response(JSON.stringify({ error: `Unknown notification type: ${request.type}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Send email notifications if enabled
     if (settings?.enabled !== false) {
       for (const email of notificationEmails) {
         try {
-          await sendNotificationEmail(email, subject!, body!);
+          await sendNotificationEmail(email, subject, body);
 
           // Log the notification
           await supabase.from('email_logs').insert({
@@ -409,4 +416,4 @@ This is an automated notification from Pearson Media Support System
   } catch (error: any) {
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
-});
+};

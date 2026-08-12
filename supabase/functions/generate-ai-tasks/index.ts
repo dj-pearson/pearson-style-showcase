@@ -1,4 +1,3 @@
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
@@ -35,7 +34,7 @@ interface GeneratedTasksResponse {
   summary: string;
 }
 
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -222,6 +221,7 @@ ${text}`;
         } else if (config.provider === 'openai' || config.provider === 'lovable') {
           // Deprecated: redirect openai/lovable configs to Claude
           console.warn(`Provider "${config.provider}" is deprecated, falling back to Claude`);
+          const FALLBACK_MODEL = 'claude-sonnet-4-6';
           const claudeKey = Deno.env.get('CLAUDE_API_KEY');
           if (!claudeKey) {
             console.error('CLAUDE_API_KEY not configured for fallback');
@@ -237,7 +237,7 @@ ${text}`;
                 'anthropic-version': '2023-06-01',
               },
               body: JSON.stringify({
-                model: 'claude-sonnet-4-6',
+                model: FALLBACK_MODEL,
                 max_tokens: 4096,
                 system: systemPrompt,
                 messages: [{ role: 'user', content: userPrompt }],
@@ -250,7 +250,10 @@ ${text}`;
             const result = await response.json();
             generatedResponse = result.content?.[0]?.text;
             if (generatedResponse) {
-              usedConfig = config;
+              // Claude produced this text, not config.provider/config.model_name.
+              // Report what actually ran; config_id still points at the row that
+              // triggered the fallback so the deprecated config stays traceable.
+              usedConfig = { ...config, provider: 'claude', model_name: FALLBACK_MODEL };
               break;
             }
           } else {
@@ -323,10 +326,10 @@ ${text}`;
   } catch (error) {
     console.error('Generate tasks error:', error);
     return structuredErrorResponse(
-      error.message || 'Internal server error',
+      error instanceof Error ? error.message : 'Internal server error',
       'TASK_GENERATION_FAILED',
       500,
       corsHeaders
     );
   }
-});
+};

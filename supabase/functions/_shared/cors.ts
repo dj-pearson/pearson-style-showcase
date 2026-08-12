@@ -56,8 +56,11 @@ export const getCorsHeaders = (origin: string | null): Record<string, string> =>
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
+    // Keep in sync with ALLOWED_HEADERS in danpearson-edge-functions/server.ts.
+    // supabase-js v2 sends x-supabase-api-version on preflighted calls, so
+    // omitting it here fails the preflight before the handler ever runs.
     'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, cookie, x-csrf-token, x-webhook-signature, x-webhook-timestamp',
+      'authorization, x-client-info, apikey, content-type, cookie, x-csrf-token, x-webhook-signature, x-webhook-timestamp, x-supabase-api-version, x-requested-with',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours

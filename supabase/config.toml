@@ -202,6 +202,15 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 s3_secret_key = "env(S3_SECRET_KEY)"
 
+# --- Edge function JWT settings ---
+#
+# These apply to the Supabase-hosted edge runtime and to local `supabase start`.
+# Production does NOT use them: functions are served by the Deno server in
+# danpearson-edge-functions/server.ts, whose PUBLIC_FUNCTIONS set is the
+# authoritative list of unauthenticated endpoints. Keep the two in sync; they
+# had drifted apart on four functions, all of which enforce requireAdmin
+# internally and are correctly JWT-gated in production.
+
 [functions.admin-auth]
 verify_jwt = false
 
@@ -215,7 +224,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.amazon-article-pipeline]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-social-content]
 verify_jwt = true
@@ -230,16 +239,16 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-notification-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-ticket-email]
 verify_jwt = true
 
 [functions.test-ai-model]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-ticket-response]
-verify_jwt = false
+verify_jwt = true
 
 [functions.extract-from-url]
 verify_jwt = true
@@ -273,3 +282,12 @@ verify_jwt = true
 
 [functions.coolify-health]
 verify_jwt = true
+
+# Public: reverse-proxies GoTrue for the frontend's auth calls (see
+# src/integrations/supabase/client.ts). Carries email/password sign-in.
+[functions.auth-proxy]
+verify_jwt = false
+
+# Public: backs the anonymous status page at /status.
+[functions.health-dashboard]
+verify_jwt = false

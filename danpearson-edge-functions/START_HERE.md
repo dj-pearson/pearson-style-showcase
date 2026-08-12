@@ -2,12 +2,14 @@
 
 Welcome to your complete edge functions setup for danpearson.net with self-hosted Supabase!
 
+**Read this first**: the functions themselves live in `supabase/functions/` at the repository root, which is the single source of truth. This directory holds only the runtime that serves them (`server.ts`, Dockerfile, compose file, deployment scripts, docs). Build the image from the repository root with `docker build -f danpearson-edge-functions/Dockerfile .`; building from inside this directory fails because the Dockerfile copies `supabase/functions`.
+
 ## 📦 What You Have
 
-Your `danpearson-edge-functions` directory contains everything you need to run 22 serverless functions on your self-hosted infrastructure:
+The runtime in this directory plus the 31 functions in `supabase/functions/` are everything you need to run serverless functions on your self-hosted infrastructure:
 
 ```
-✅ 22 Edge Functions (ready to deploy)
+✅ 31 Edge Functions (in supabase/functions/)
 ✅ Deno Runtime (v1.40.0)
 ✅ Docker Configuration (production-ready)
 ✅ Deployment Scripts (Coolify, GitHub Actions)
@@ -23,6 +25,7 @@ Your `danpearson-edge-functions` directory contains everything you need to run 2
 **Prerequisites**: Self-hosted Supabase running at `api.danpearson.net`
 
 1. **Configure Environment**:
+
    ```powershell
    cd danpearson-edge-functions\deployment
    .\setup-secrets.ps1 production
@@ -32,6 +35,7 @@ Your `danpearson-edge-functions` directory contains everything you need to run 2
    - Go to Coolify dashboard
    - Create new service → Docker
    - Repository: Your GitHub repo
+   - Build context: repository root (`.`)
    - Dockerfile path: `danpearson-edge-functions/Dockerfile`
    - Domain: `functions.danpearson.net`
    - Copy environment variables from step 1
@@ -50,6 +54,7 @@ Your `danpearson-edge-functions` directory contains everything you need to run 2
 **Perfect for**: Testing before production deployment
 
 1. **Setup Environment**:
+
    ```powershell
    cd danpearson-edge-functions
    cp env.example .env
@@ -57,12 +62,14 @@ Your `danpearson-edge-functions` directory contains everything you need to run 2
    ```
 
 2. **Start Local Supabase** (if not running):
+
    ```bash
    cd ..  # Go to project root
    supabase start
    ```
 
 3. **Start Edge Functions**:
+
    ```bash
    cd danpearson-edge-functions
    docker-compose up
@@ -85,6 +92,7 @@ Your `danpearson-edge-functions` directory contains everything you need to run 2
 Follow the complete guide: [docs/MIGRATION.md](./docs/MIGRATION.md)
 
 Steps:
+
 1. Backup cloud database
 2. Deploy self-hosted Supabase
 3. Deploy edge functions (Path 1)
@@ -97,14 +105,14 @@ Steps:
 
 ## 📚 Documentation Index
 
-| Document | Purpose | When to Use |
-|----------|---------|-------------|
-| **[README.md](./README.md)** | Complete overview and features | For understanding the system |
-| **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** | Deployment guide (Coolify, Docker, etc.) | When deploying to production |
-| **[docs/MIGRATION.md](./docs/MIGRATION.md)** | Cloud to self-hosted migration | When migrating from cloud Supabase |
-| **[docs/ROUTING.md](./docs/ROUTING.md)** | Domain routing and DNS setup | When configuring domains |
-| **[docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** | Common issues and solutions | When things go wrong |
-| **[START_HERE.md](./START_HERE.md)** | This file - your starting point | Always start here! |
+| Document                                                 | Purpose                                  | When to Use                        |
+| -------------------------------------------------------- | ---------------------------------------- | ---------------------------------- |
+| **[README.md](./README.md)**                             | Complete overview and features           | For understanding the system       |
+| **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)**           | Deployment guide (Coolify, Docker, etc.) | When deploying to production       |
+| **[docs/MIGRATION.md](./docs/MIGRATION.md)**             | Cloud to self-hosted migration           | When migrating from cloud Supabase |
+| **[docs/ROUTING.md](./docs/ROUTING.md)**                 | Domain routing and DNS setup             | When configuring domains           |
+| **[docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** | Common issues and solutions              | When things go wrong               |
+| **[START_HERE.md](./START_HERE.md)**                     | This file - your starting point          | Always start here!                 |
 
 ## 🌐 Your Architecture
 
@@ -118,9 +126,9 @@ Steps:
     │ api.danpearson    │    │ functions.          │
     │    .net           │    │  danpearson.net     │
     │                   │    │                     │
-    │ - Kong Gateway    │    │ - 22 Edge Functions │
+    │ - Kong Gateway    │    │ - 31 Edge Functions │
     │ - Auth Service    │    │ - Deno Runtime      │
-    │ - REST API        │    │ - This Folder!      │
+    │ - REST API        │    │ - Runtime: here     │
     │ - Storage API     │    │                     │
     │ - PostgreSQL DB   │    │                     │
     │                   │    │                     │
@@ -134,17 +142,20 @@ Steps:
 Before deploying, ensure you have:
 
 ### Infrastructure
+
 - [ ] Self-hosted Supabase running at `api.danpearson.net`
 - [ ] Supabase API keys (anon and service role)
 - [ ] Coolify instance with Docker support
 - [ ] Domain: `functions.danpearson.net` (DNS configured)
 
 ### Repository
+
 - [ ] Code committed to Git
 - [ ] GitHub repository accessible
 - [ ] No secrets in repository
 
 ### Environment
+
 - [ ] `.env` file created (locally)
 - [ ] Environment secrets configured in Coolify
 - [ ] All required variables set
@@ -183,28 +194,33 @@ This creates `.env.production` with your configuration.
 ### Step 4: Configure Service
 
 **General**:
+
 - Name: `danpearson-edge-functions`
 - Description: `Edge Functions for danpearson.net`
 
 **Source**:
+
 - Repository: `your-github-repo`
 - Branch: `main`
 - Build Pack: `Dockerfile`
 - Dockerfile Location: `danpearson-edge-functions/Dockerfile`
-- Docker Build Context: `danpearson-edge-functions`
+- Docker Build Context: repository root (`.`) - the build copies `supabase/functions`, so a narrower context fails
 
 **Network**:
+
 - Ports Exposed: `8000` ⚠️ **CRITICAL!**
 - Health Check Path: `/_health`
 - Health Check Interval: `10s`
 
 **Domain**:
+
 - Domain: `functions.danpearson.net`
 - Automatic HTTPS: ✅ Enabled
 
 **Environment**:
 
 Copy these from your `.env.production`:
+
 ```env
 SUPABASE_URL=https://api.danpearson.net
 SUPABASE_ANON_KEY=your-anon-key
@@ -229,7 +245,7 @@ curl https://functions.danpearson.net/_health
 
 # Should return JSON with:
 # - status: "healthy"
-# - functions: 22
+# - functions: 31
 # - functionList: [array of function names]
 
 # Test a function
@@ -247,16 +263,10 @@ Update your frontend to use the new URLs:
 
 ```typescript
 // Before (cloud Supabase)
-const supabase = createClient(
-  'https://qazhdcqvjppbbjxzvisp.supabase.co',
-  'old-anon-key'
-);
+const supabase = createClient('https://qazhdcqvjppbbjxzvisp.supabase.co', 'old-anon-key');
 
 // After (self-hosted)
-const supabase = createClient(
-  'https://api.danpearson.net',
-  'new-anon-key'
-);
+const supabase = createClient('https://api.danpearson.net', 'new-anon-key');
 ```
 
 Update function calls:
@@ -270,7 +280,7 @@ const response = await fetch('https://functions.danpearson.net/my-function', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`,
+    Authorization: `Bearer ${session.access_token}`,
   },
   body: JSON.stringify({ data: 'test' }),
 });
@@ -337,7 +347,7 @@ docker stats danpearson-functions
 
 ### Issue: Function Not Found
 
-**Fix**: Check function directory structure: `functions/{name}/index.ts`
+**Fix**: Check function directory structure: `supabase/functions/{name}/index.ts` (mounted at `/app/functions/{name}/index.ts` in the container)
 
 ### Issue: Can't Connect to Supabase
 
@@ -349,50 +359,65 @@ See [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) for comprehensive troub
 
 ## 📊 Your Functions
 
-You have **22 edge functions** ready to deploy:
+You have **31 edge functions** in `supabase/functions/`. Whether a function needs a
+bearer token is decided by the `PUBLIC_FUNCTIONS` set in `server.ts`; anything not in
+that set is rejected with 401 before it loads.
 
-**Public Functions** (no auth required):
+**Public Functions** (no auth required, the 10 in `PUBLIC_FUNCTIONS`):
+
+- `admin-auth` - Admin authentication (issues the session)
+- `auth-proxy` - GoTrue auth proxy with CORS
+- `email-webhook-receiver` - Email webhook handler (HMAC verified)
 - `health-check` - System health check
+- `health-dashboard` - Health JSON for the public status page
 - `newsletter-signup` - Newsletter subscriptions
+- `oauth-proxy` - OAuth authorize and callback
+- `receive-email` - Email webhook receiver
 - `send-contact-email` - Contact form handler
 - `track-affiliate-click` - Affiliate tracking
-- `receive-email` - Email webhook receiver
-- `email-webhook-receiver` - Email webhook handler
 
 **Authenticated Functions** (require JWT):
+
+- `ai-content-generator` - General AI content
+- `amazon-article-pipeline` - Amazon article workflow
+- `coolify-health` - Coolify container health
+- `coolify-proxy` - Coolify API proxy
+- `create-invoice-from-document` - Invoice from a parsed document
+- `extract-from-url` - URL content extraction
 - `generate-ai-article` - AI article generation
 - `generate-ai-tasks` - AI task generation
 - `generate-social-content` - Social media content
-- `ai-content-generator` - General AI content
-- `amazon-article-pipeline` - Amazon article workflow
-- `extract-from-url` - URL content extraction
 - `generate-ticket-response` - Support ticket AI responses
-- `send-article-webhook` - Article webhooks
-- `send-ticket-email` - Support ticket emails
-- `send-notification-email` - Notification emails
-- `admin-auth` - Admin authentication
-- `secure-vault` - Secure vault operations
+- `google-indexing` - Google Indexing API submissions
 - `optimize-image` - Image optimization
 - `process-accounting-document` - Document processing
+- `secure-vault` - Secure vault operations
+- `send-article-webhook` - Article webhooks
+- `send-notification-email` - Notification emails
+- `send-ticket-email` - Support ticket emails
+- `slack-test` - Slack webhook test
 - `test-ai-model` - AI model testing
 - `test-api-setup` - API testing
 
 **Maintenance**:
+
 - `maintenance-runner` - Scheduled maintenance tasks
 
 ## 📦 What's Included
 
 ```
-danpearson-edge-functions/
-├── functions/              # 22 edge functions + shared utilities
-├── docs/                   # Complete documentation
-├── deployment/             # Deployment scripts and workflows
-├── Dockerfile             # Production Docker image
-├── docker-compose.yml     # Local development
-├── server.ts              # Deno HTTP server
-├── env.example            # Environment template
-├── README.md              # Full documentation
-└── START_HERE.md          # This file!
+<repo root>/
+├── danpearson-edge-functions/  # Runtime only
+│   ├── docs/                   # Documentation
+│   ├── deployment/             # Deployment scripts and workflows
+│   ├── Dockerfile              # Production Docker image (build from repo root)
+│   ├── docker-compose.yml      # Local development
+│   ├── server.ts               # Deno HTTP server
+│   ├── env.example             # Environment template
+│   ├── README.md               # Full documentation
+│   └── START_HERE.md           # This file!
+│
+└── supabase/functions/         # 31 edge functions + _shared/ utilities
 ```
 
 ## 🎓 Learning Resources
@@ -441,9 +466,11 @@ Once deployed, your functions will be available at:
 **🔗 https://functions.danpearson.net**
 
 Each function accessible at:
+
 - `https://functions.danpearson.net/{function-name}`
 
 Example:
+
 - `https://functions.danpearson.net/generate-ai-article`
 - `https://functions.danpearson.net/newsletter-signup`
 

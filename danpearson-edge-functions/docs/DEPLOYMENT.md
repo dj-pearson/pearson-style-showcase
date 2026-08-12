@@ -37,7 +37,12 @@ This service (`functions.danpearson.net`) is designed to run alongside your self
 2. **Branch**: `main` (or your production branch)
 3. **Build Pack**: Docker
 4. **Dockerfile Location**: `danpearson-edge-functions/Dockerfile`
-5. **Context**: `danpearson-edge-functions`
+5. **Build Context**: repository root (`.`)
+
+The context has to be the repository root. Function source lives in
+`supabase/functions/`, the Dockerfile copies it with
+`COPY supabase/functions ./functions`, and a context of
+`danpearson-edge-functions` cannot see that path.
 
 ### Step 3: Set Environment Variables
 
@@ -61,6 +66,7 @@ DENO_DIR=/app/.deno_cache
 ```
 
 **Getting Supabase Keys**:
+
 1. Access your self-hosted Supabase Studio at `api.danpearson.net`
 2. Go to Settings → API
 3. Copy **anon (public)** key
@@ -102,6 +108,7 @@ curl -X POST https://functions.danpearson.net/health-check \
 ```
 
 Expected health check response:
+
 ```json
 {
   "status": "healthy",
@@ -114,7 +121,7 @@ Expected health check response:
     "anonKeyConfigured": true,
     "serviceRoleKeyConfigured": true
   },
-  "functions": 22
+  "functions": 31
 }
 ```
 
@@ -154,9 +161,9 @@ For any Docker host (AWS, DigitalOcean, etc.):
 ### Build and Push to Registry
 
 ```bash
-# Build image
-cd danpearson-edge-functions
-docker build -t danpearson/edge-functions:latest .
+# Build image (from the repository root, not from danpearson-edge-functions)
+docker build -f danpearson-edge-functions/Dockerfile \
+  -t danpearson/edge-functions:latest .
 
 # Tag for your registry
 docker tag danpearson/edge-functions:latest \
@@ -221,6 +228,7 @@ server {
 ```
 
 Enable site and get SSL:
+
 ```bash
 # Enable site
 sudo ln -s /etc/nginx/sites-available/functions.danpearson.net \
@@ -256,6 +264,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 See `deployment/deploy-github.yml` for complete workflow.
 
 The workflow will:
+
 1. Trigger on push to `main` (only if edge functions changed)
 2. Build Docker image
 3. Push to registry
@@ -276,6 +285,7 @@ PORT=8000
 ```
 
 Start local Supabase first:
+
 ```bash
 # In your main project
 cd ../
@@ -331,16 +341,19 @@ Before going to production:
 ### Viewing Logs
 
 **In Coolify**:
+
 1. Go to your service
 2. Click "Logs" tab
 3. View real-time or historical logs
 
 **Via Docker**:
+
 ```bash
 docker logs -f danpearson-functions
 ```
 
 **Via docker-compose**:
+
 ```bash
 docker-compose logs -f edge-functions
 ```
@@ -357,6 +370,7 @@ Set up external monitoring (e.g., UptimeRobot, Better Uptime):
 ### Performance Monitoring
 
 Monitor function execution times:
+
 ```typescript
 // In your functions
 const startTime = Date.now();
@@ -372,20 +386,23 @@ console.log(`Function executed in ${duration}ms`);
 **Symptom**: Docker build fails
 
 **Solutions**:
+
 1. Check Dockerfile syntax
 2. Verify base image exists: `denoland/deno:1.40.0`
 3. Check build logs in Coolify
-4. Test build locally:
+4. Test build locally (from the repository root):
    ```bash
-   cd danpearson-edge-functions
-   docker build -t test .
+   docker build -f danpearson-edge-functions/Dockerfile -t test .
    ```
+   A build that fails on `COPY supabase/functions ./functions` means the context
+   was wrong, not the Dockerfile.
 
 ### Container Starts but Health Check Fails
 
 **Symptom**: Container running but health endpoint returns error
 
 **Solutions**:
+
 1. Check environment variables are set correctly
 2. Verify Supabase URL is accessible from container
 3. Check logs: `docker logs danpearson-functions`
@@ -396,6 +413,7 @@ console.log(`Function executed in ${duration}ms`);
 **Symptom**: Accessing domain returns 502
 
 **Solutions**:
+
 1. **Verify port exposure**: Must be `8000` in Coolify
 2. Check container is running: `docker ps`
 3. Check health endpoint internally: `docker exec danpearson-functions curl http://localhost:8000/_health`
@@ -406,16 +424,19 @@ console.log(`Function executed in ${duration}ms`);
 **Symptom**: Health check works but functions return 404
 
 **Solutions**:
+
 1. Verify functions directory copied: `docker exec danpearson-functions ls /app/functions`
-2. Check function structure: `functions/{name}/index.ts`
-3. Review function logs
-4. Restart container: `docker restart danpearson-functions`
+2. Check function structure in the repo: `supabase/functions/{name}/index.ts`, which becomes `/app/functions/{name}/index.ts` in the container
+3. Check the function exports a default handler; `server.ts` returns 500 with "does not export a handler" if it does not
+4. Review function logs
+5. Restart container: `docker restart danpearson-functions`
 
 ### Environment Variables Not Working
 
 **Symptom**: Container starts but functions can't access Supabase
 
 **Solutions**:
+
 1. Verify variables are set in Coolify
 2. Check variable names match exactly
 3. Test inside container:

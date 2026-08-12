@@ -1,5 +1,4 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
@@ -10,6 +9,13 @@ import {
   type RateLimitConfig,
 } from '../_shared/rate-limiter.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import {
+  getAIConfigs,
+  callAIWithConfig,
+  parseJSONResponse,
+  type AIConfig,
+} from '../_shared/ai-helper.ts';
+import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
 
 // Rate limit: 2 requests per hour per IP (expensive AI operation)
 const PIPELINE_RATE_LIMIT: RateLimitConfig = {
@@ -18,8 +24,6 @@ const PIPELINE_RATE_LIMIT: RateLimitConfig = {
   burstAllowance: 0,
   keyPrefix: 'amazon-pipeline',
 };
-
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 // Extract ASIN from Amazon URL
 function extractASIN(url: string): string | null {
@@ -185,7 +189,6 @@ async function fetchProductsViaGoogleSearch(niche: string, itemCount: number = 5
 async function fetchAmazonProducts(
   niche: string,
   itemCount: number = 5,
-  supabaseClient: any,
   log: (level: string, message: string, ctx?: any) => Promise<void>
 ): Promise<any[]> {
   let products: any[] = [];
@@ -259,14 +262,16 @@ async function enrichProductData(
 // SEO data generation removed - focusing on core article generation
 
 // Enhanced AI prompt for better SEO and conversion optimization
-async function generateArticleContent(products: any[], niche: string, wordCount: number) {
-  const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
+async function generateArticleContent(
+  products: any[],
+  niche: string,
+  wordCount: number,
+  aiConfigs: AIConfig[]
+) {
+  const systemPrompt =
+    'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.';
 
-  if (!claudeApiKey) {
-    throw new Error('CLAUDE_API_KEY not configured');
-  }
-
-  const prompt = `You are an expert Amazon affiliate product reviewer. Create a compelling, SEO-optimized article about "${niche}" that will rank well in Google and drive affiliate sales.
+  const userPrompt = `You are an expert Amazon affiliate product reviewer. Create a compelling, SEO-optimized article about "${niche}" that will rank well in Google and drive affiliate sales.
 
 TARGET WORD COUNT: ${wordCount} words
 
@@ -370,72 +375,23 @@ Return ONLY valid JSON (no markdown code blocks) in this exact format:
 
 IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting, just pure JSON.`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': claudeApiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
-      system:
-        'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    }),
-  });
+  // Provider/model selection lives in ai_model_configs, with fallback across
+  // configs handled by callAIWithConfig.
+  const { response: content, usedConfig } = await callAIWithConfig(
+    aiConfigs,
+    systemPrompt,
+    userPrompt,
+    { temperature: 0.7, maxTokens: 20000, jsonMode: true }
+  );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Claude API failed: ${response.status} ${errorText}`);
-  }
+  console.log(
+    `[Pipeline] Article generated using ${usedConfig.provider} - ${usedConfig.model_name}`
+  );
 
-  const data = await response.json();
-  const content = data.content[0].text;
-
-  // Extract JSON from markdown code blocks if present
-  let jsonContent = content;
-  if (content.includes('```json')) {
-    jsonContent = content.split('```json')[1].split('```')[0].trim();
-  } else if (content.includes('```')) {
-    jsonContent = content.split('```')[1].split('```')[0].trim();
-  }
-
-  // Try to parse JSON with better error handling
-  try {
-    return JSON.parse(jsonContent);
-  } catch (parseError) {
-    // Log first 500 chars of the problematic content for debugging
-    console.error('[ERROR] JSON parse failed. Content preview:', jsonContent.substring(0, 500));
-    console.error('[ERROR] Parse error:', parseError);
-
-    // Try to fix common JSON issues
-    // 1. Remove any leading/trailing whitespace or BOM
-    jsonContent = jsonContent.trim().replace(/^\uFEFF/, '');
-
-    // 2. Try to find the JSON object boundaries
-    const jsonStart = jsonContent.indexOf('{');
-    const jsonEnd = jsonContent.lastIndexOf('}');
-
-    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-      jsonContent = jsonContent.substring(jsonStart, jsonEnd + 1);
-
-      try {
-        return JSON.parse(jsonContent);
-      } catch (secondError) {
-        console.error('[ERROR] Second parse attempt failed:', secondError);
-      }
-    }
-
-    throw new Error(
-      `Failed to parse AI response as JSON: ${parseError.message}. Content length: ${content.length}`
-    );
-  }
+  return parseJSONResponse(content);
 }
 
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -460,6 +416,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Resolved up front so a misconfigured AI setup fails before a run record
+    // is created and API credits are spent.
+    const aiConfigs = await getAIConfigs(supabase, 'normal', 'article_generation');
+    console.log(`[Pipeline] Found ${aiConfigs.length} normal tier AI configs`);
 
     // Read optional body overrides
     let bodyOverrides: any = {};
@@ -535,10 +496,6 @@ serve(async (req) => {
     const effectiveCacheOnly =
       Boolean(settings.cache_only_mode) || Boolean(bodyOverrides?.cacheOnly);
 
-    if (!settings) {
-      throw new Error('Pipeline settings not configured');
-    }
-
     await log('info', 'Settings loaded', {
       niches: settings.niches,
       cache_only_mode: settings.cache_only_mode,
@@ -549,6 +506,10 @@ serve(async (req) => {
     const { count } = await supabase
       .from('amazon_search_terms')
       .select('*', { count: 'exact', head: true });
+
+    // Declared before the seeding branch below, which assigns it when the CSV
+    // is missing.
+    let niche = '';
 
     if (count === 0) {
       await log('info', 'Seeding search terms from CSV in storage bucket');
@@ -591,7 +552,6 @@ serve(async (req) => {
     }
 
     // Pick random unused search term with retry logic
-    let niche = '';
     let searchTermId = '';
     let retryCount = 0;
     const maxRetries = 5;
@@ -672,7 +632,7 @@ serve(async (req) => {
             await log('info', 'Fetching fresh products via SerpAPI/Google Search');
 
             // Fetch products using new method
-            let freshProducts = await fetchAmazonProducts(niche, 5, supabase, log);
+            let freshProducts = await fetchAmazonProducts(niche, 5, log);
 
             // Enrich product data if possible
             freshProducts = await enrichProductData(freshProducts, log);
@@ -801,7 +761,12 @@ serve(async (req) => {
     await log('info', 'Generating SEO-optimized article content with AI');
     let articleData;
     try {
-      articleData = await generateArticleContent(products, niche, settings.word_count_target);
+      articleData = await generateArticleContent(
+        products,
+        niche,
+        settings.word_count_target,
+        aiConfigs
+      );
       await log('info', 'AI article generation completed successfully');
     } catch (aiError) {
       await log('error', 'AI generation failed', {
@@ -892,16 +857,11 @@ serve(async (req) => {
 
     // If article is published, trigger webhook to distribute to social
     if (article.published) {
-      try {
-        await supabase.functions.invoke('send-article-webhook', {
-          body: { articleId: article.id, isTest: false },
-        });
-        await log('info', 'Webhook invoked for article', { articleId: article.id });
-      } catch (e) {
-        await log('error', 'Failed to invoke webhook', {
-          error: (e as Error)?.message || String(e),
-        });
-      }
+      await invokeFunctionAndForget('send-article-webhook', {
+        articleId: article.id,
+        isTest: false,
+      });
+      await log('info', 'Webhook invoked for article', { articleId: article.id });
     }
 
     // Update run status
@@ -946,4 +906,4 @@ serve(async (req) => {
   } catch (error) {
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
-});
+};

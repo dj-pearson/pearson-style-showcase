@@ -1,9 +1,13 @@
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { encode as base64Encode } from 'https://deno.land/std@0.190.0/encoding/base64.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
-import { callAIWithVision } from '../_shared/ai-helper.ts';
+import {
+  getAIConfigs,
+  callAIWithVision,
+  callAIWithConfig,
+  parseJSONResponse,
+} from '../_shared/ai-helper.ts';
 import { structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 
 interface ProcessDocumentRequest {
@@ -21,7 +25,7 @@ interface ProcessDocumentRequest {
   relatedEntityId?: string;
 }
 
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -90,17 +94,52 @@ serve(async (req) => {
 
     // Convert file to base64 using Deno std library (avoids call stack overflow from spread operator)
     const arrayBuffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = base64Encode(uint8Array);
+    const base64 = base64Encode(arrayBuffer);
 
     // Determine media type
     const fileType = document.file_type || 'application/pdf';
+    const dataUrl = `data:${fileType};base64,${base64}`;
+
+    // Lightweight tier is enough for extraction, and getAIConfigs falls back to
+    // the normal tier if no lightweight model is configured.
+    const aiConfigs = await getAIConfigs(supabaseClient, 'lightweight', 'document_processing');
+    console.log(`[Document] Found ${aiConfigs.length} AI configs for document processing`);
 
     console.log('[Document] Sending to vision AI for OCR...');
 
     // Build the parsing prompt based on document type
     const parsingPrompts: Record<string, string> = {
       invoice: `Analyze this invoice/bill and extract the following information in JSON format:
+{
+  "invoice_number": "Invoice or reference number",
+  "invoice_date": "Date in YYYY-MM-DD format",
+  "due_date": "Due date in YYYY-MM-DD format (if present)",
+  "vendor_name": "Vendor/company name",
+  "customer_name": "Customer name (if this is a sales invoice)",
+  "vendor_address": "Full vendor address",
+  "customer_address": "Full customer address (if present)",
+  "subtotal": numeric value without currency symbols,
+  "tax_amount": numeric value,
+  "discount_amount": numeric value (if present),
+  "total_amount": numeric value,
+  "currency": "Currency code (USD, EUR, etc.)",
+  "payment_terms": "Payment terms if mentioned",
+  "line_items": [
+    {
+      "description": "Item description",
+      "quantity": numeric,
+      "unit_price": numeric,
+      "amount": numeric
+    }
+  ],
+  "notes": "Any additional notes or payment instructions"
+}
+
+Return ONLY valid JSON, no explanations.`,
+
+      // 'bill' is an accepted documentType and must not fall through to the
+      // generic 'other' prompt, which drops line items and addresses.
+      bill: `Analyze this invoice/bill and extract the following information in JSON format:
 {
   "invoice_number": "Invoice or reference number",
   "invoice_date": "Date in YYYY-MM-DD format",
@@ -211,27 +250,44 @@ Return ONLY valid JSON.`,
 
     const parsingPrompt = parsingPrompts[documentType] || parsingPrompts.other;
 
-    // Use shared AI helper with multi-model fallback and proper PDF handling
-    const aiResult = await callAIWithVision(base64, fileType, parsingPrompt, {
-      lightweight: true,
-      maxTokens: 4096,
-      temperature: 0.1,
-      systemPrompt:
-        'You are an expert at extracting structured data from financial documents. First read and extract all text from the document, then parse it into the requested JSON format. Always return valid JSON without any explanations or markdown formatting.',
-    });
+    // Two passes on purpose. A single vision call that both reads and structures
+    // the document leaves nothing to store in ocr_text but the JSON it returned,
+    // so anything reading ocr_text for search or audit gets a JSON blob instead
+    // of the document's text.
+    //
+    // Pass 1: OCR. Vision model reads the document as text.
+    const ocrPrompt =
+      'Extract all text from this document. Return the complete text content as accurately as possible, maintaining the structure and layout.';
 
-    const aiContent = aiResult.text;
-    console.log(
-      `[Document] AI processing completed via ${aiResult.provider}/${aiResult.model}, response length: ${aiContent.length}`
+    const { response: ocrText, usedConfig: ocrConfig } = await callAIWithVision(
+      aiConfigs,
+      ocrPrompt,
+      dataUrl,
+      { temperature: 0.1, maxTokens: 4096 }
     );
 
-    // Parse JSON response (handle potential markdown code blocks)
+    console.log(
+      `[Document] OCR completed via ${ocrConfig.provider}/${ocrConfig.model_name}, text length: ${ocrText.length}`
+    );
+
+    // Pass 2: structure the extracted text into the document-type schema.
+    console.log('[Document] Sending to AI for structured parsing...');
+
+    const { response: aiContent, usedConfig: parseConfig } = await callAIWithConfig(
+      aiConfigs,
+      'You are an expert at extracting structured data from financial documents. Always return valid JSON without any explanations or markdown formatting.',
+      `${parsingPrompt}\n\nDocument text:\n${ocrText}`,
+      { temperature: 0.2, maxTokens: 4096, jsonMode: true }
+    );
+
+    console.log(
+      `[Document] AI parsing completed via ${parseConfig.provider}/${parseConfig.model_name}`
+    );
+
+    // Parse JSON response (handles markdown code fences and stray prose)
     let parsedData;
     try {
-      const jsonMatch =
-        aiContent.match(/```json\n([\s\S]*?)\n```/) || aiContent.match(/```\n([\s\S]*?)\n```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : aiContent;
-      parsedData = JSON.parse(jsonStr);
+      parsedData = parseJSONResponse(aiContent);
     } catch (e) {
       console.error('[Document] Failed to parse AI response:', e);
       parsedData = { error: 'Failed to parse AI response', raw: aiContent };
@@ -257,13 +313,13 @@ Return ONLY valid JSON.`,
       .from('accounting_documents')
       .update({
         ocr_status: 'completed',
-        ocr_text: aiContent,
+        ocr_text: ocrText,
         ocr_confidence: 95,
         ocr_language: 'en',
         ocr_processed_at: new Date().toISOString(),
         ai_status: 'completed',
         ai_parsed_data: parsedData,
-        ai_confidence: 95,
+        ai_confidence: 90,
         ai_processed_at: new Date().toISOString(),
         extracted_date: extractedDate,
         extracted_amount: extractedAmount,
@@ -287,8 +343,13 @@ Return ONLY valid JSON.`,
       JSON.stringify({
         success: true,
         document: updatedDoc,
+        ocr_text_length: ocrText.length,
         parsed_data: parsedData,
         message: 'Document processed successfully',
+        models_used: {
+          ocr: `${ocrConfig.provider} - ${ocrConfig.model_name}`,
+          parsing: `${parseConfig.provider} - ${parseConfig.model_name}`,
+        },
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -318,10 +379,10 @@ Return ONLY valid JSON.`,
     }
 
     return structuredErrorResponse(
-      error.message || 'Internal server error',
+      error instanceof Error ? error.message : 'Internal server error',
       'DOCUMENT_PROCESSING_FAILED',
       500,
       corsHeaders
     );
   }
-});
+};

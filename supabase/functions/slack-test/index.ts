@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 /**
  * Validate that a webhook URL is a legitimate Slack webhook.
@@ -24,8 +23,8 @@ function isValidSlackWebhookUrl(url: string): boolean {
   }
 }
 
-serve(async (req: Request) => {
-  const origin = req.headers.get("origin");
+export default async (req: Request): Promise<Response> => {
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -36,16 +35,18 @@ serve(async (req: Request) => {
     const { webhookUrl, channel } = await req.json();
 
     if (!webhookUrl) {
-      return new Response(
-        JSON.stringify({ error: 'Webhook URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Webhook URL is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // SSRF protection: only allow Slack webhook URLs
     if (!isValidSlackWebhookUrl(webhookUrl)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid webhook URL. Only https://hooks.slack.com/services/* URLs are accepted.' }),
+        JSON.stringify({
+          error: 'Invalid webhook URL. Only https://hooks.slack.com/services/* URLs are accepted.',
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -103,7 +104,9 @@ serve(async (req: Request) => {
         );
       } else {
         return new Response(
-          JSON.stringify({ error: `Slack returned an error (status ${response.status}). Please verify your webhook URL.` }),
+          JSON.stringify({
+            error: `Slack returned an error (status ${response.status}). Please verify your webhook URL.`,
+          }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -117,4 +120,4 @@ serve(async (req: Request) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+};

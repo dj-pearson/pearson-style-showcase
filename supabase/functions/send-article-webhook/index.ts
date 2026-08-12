@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { invokeFunction } from '../_shared/invoke-function.ts';
 
-Deno.serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -66,9 +67,7 @@ Deno.serve(async (req) => {
       if (!article.social_short_form || !article.social_long_form) {
         console.log('Social content not found, generating...');
 
-        const generateResponse = await supabaseClient.functions.invoke('generate-social-content', {
-          body: { articleId },
-        });
+        const generateResponse = await invokeFunction('generate-social-content', { articleId });
 
         if (generateResponse.error) {
           throw new Error('Failed to generate social content');
@@ -140,9 +139,10 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Error sending webhook:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+};
