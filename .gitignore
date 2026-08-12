@@ -76,3 +76,7 @@ test-results/
 
 # Bundle analyzer output
 stats.html
+
+# Written by `deno check` on supabase/functions. The image runs deno without
+# a lockfile, so committing one would only drift.
+deno.lock

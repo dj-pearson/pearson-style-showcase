@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const GENERATOR = 'scripts/generate-article-seed.mjs';
-const MIGRATION = 'supabase/migrations/20260811000001_seed_crm_pillar_articles.sql';
+const MIGRATION = 'supabase/migrations/20260811000002_seed_crm_pillar_articles.sql';
 
 /**
  * The seed migration is generated from content/crm/*.md, and the repo runs
@@ -17,7 +17,12 @@ describe('article seed migration', () => {
   const generated = execFileSync('node', [GENERATOR], { encoding: 'utf8' });
 
   it('matches the committed migration', () => {
-    expect(generated).toBe(readFileSync(MIGRATION, 'utf8'));
+    // Compare on normalized newlines: git checks the .sql out as CRLF on
+    // Windows while the generator writes LF, and the invariant being asserted
+    // is the content, not the checkout's line endings.
+    const lf = (s: string) => s.replace(/\r\n/g, '\n');
+
+    expect(lf(generated)).toBe(lf(readFileSync(MIGRATION, 'utf8')));
   });
 
   it('is idempotent — regenerating produces identical output', () => {
