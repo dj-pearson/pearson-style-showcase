@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 serve(async (req) => {
   const origin = req.headers.get('origin');
@@ -9,6 +10,10 @@ serve(async (req) => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Reads full ticket threads and spends an AI provider key; admins only.
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
 
   try {
     const { ticket_id } = await req.json();

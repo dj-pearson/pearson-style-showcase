@@ -1,4 +1,4 @@
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 
 /**
  * Google Indexing API Edge Function
@@ -14,9 +14,9 @@ import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
  * Reference: https://developers.google.com/search/apis/indexing-api/v3/prereqs
  */
 
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const INDEXING_API_URL = "https://indexing.googleapis.com/v3/urlNotifications:publish";
-const INDEXING_SCOPE = "https://www.googleapis.com/auth/indexing";
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const INDEXING_API_URL = 'https://indexing.googleapis.com/v3/urlNotifications:publish';
+const INDEXING_SCOPE = 'https://www.googleapis.com/auth/indexing';
 
 interface ServiceAccountKey {
   client_email: string;
@@ -26,7 +26,7 @@ interface ServiceAccountKey {
 
 interface IndexingRequest {
   urls: string[];
-  type?: "URL_UPDATED" | "URL_DELETED";
+  type?: 'URL_UPDATED' | 'URL_DELETED';
 }
 
 interface IndexingResult {
@@ -40,7 +40,7 @@ interface IndexingResult {
  */
 function base64urlEncode(data: Uint8Array): string {
   const base64 = btoa(String.fromCharCode(...data));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function textToBase64url(text: string): string {
@@ -53,34 +53,32 @@ function textToBase64url(text: string): string {
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   // Strip PEM headers and decode
   const pemBody = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/-----BEGIN RSA PRIVATE KEY-----/g, "")
-    .replace(/-----END RSA PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/-----BEGIN RSA PRIVATE KEY-----/g, '')
+    .replace(/-----END RSA PRIVATE KEY-----/g, '')
+    .replace(/\s/g, '');
 
   const binaryDer = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
 
   return crypto.subtle.importKey(
-    "pkcs8",
+    'pkcs8',
     binaryDer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
-    ["sign"]
+    ['sign']
   );
 }
 
 /**
  * Create a signed JWT for Google OAuth2
  */
-async function createSignedJwt(
-  serviceAccount: ServiceAccountKey
-): Promise<string> {
+async function createSignedJwt(serviceAccount: ServiceAccountKey): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
   const header = {
-    alg: "RS256",
-    typ: "JWT",
+    alg: 'RS256',
+    typ: 'JWT',
   };
 
   const payload = {
@@ -97,7 +95,7 @@ async function createSignedJwt(
 
   const key = await importPrivateKey(serviceAccount.private_key);
   const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
+    'RSASSA-PKCS1-v1_5',
     key,
     new TextEncoder().encode(signingInput)
   );
@@ -109,16 +107,14 @@ async function createSignedJwt(
 /**
  * Get an OAuth2 access token using the service account JWT
  */
-async function getAccessToken(
-  serviceAccount: ServiceAccountKey
-): Promise<string> {
+async function getAccessToken(serviceAccount: ServiceAccountKey): Promise<string> {
   const jwt = await createSignedJwt(serviceAccount);
 
   const response = await fetch(GOOGLE_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
       assertion: jwt,
     }),
   });
@@ -137,14 +133,14 @@ async function getAccessToken(
  */
 async function submitUrl(
   url: string,
-  type: "URL_UPDATED" | "URL_DELETED",
+  type: 'URL_UPDATED' | 'URL_DELETED',
   accessToken: string
 ): Promise<IndexingResult> {
   try {
     const response = await fetch(INDEXING_API_URL, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
@@ -169,8 +165,10 @@ async function submitUrl(
   }
 }
 
-Deno.serve(async (req) => {
-  const origin = req.headers.get("origin");
+// server.ts dispatches on the module's default export; Deno.serve would bind a
+// second listener on the shared port instead of registering a handler.
+export default async (req: Request): Promise<Response> => {
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -180,40 +178,40 @@ Deno.serve(async (req) => {
   try {
     // Parse request body
     const body: IndexingRequest = await req.json();
-    const { urls, type = "URL_UPDATED" } = body;
+    const { urls, type = 'URL_UPDATED' } = body;
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
       return new Response(
         JSON.stringify({ error: "Missing or empty 'urls' array in request body" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (urls.length > 100) {
-      return new Response(
-        JSON.stringify({ error: "Maximum 100 URLs per request" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: 'Maximum 100 URLs per request' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Validate notification type
-    if (type !== "URL_UPDATED" && type !== "URL_DELETED") {
+    if (type !== 'URL_UPDATED' && type !== 'URL_DELETED') {
       return new Response(
         JSON.stringify({ error: "Invalid type. Must be 'URL_UPDATED' or 'URL_DELETED'" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Load service account credentials from environment
     // Supports both raw JSON and base64-encoded JSON (use base64 to avoid
     // Docker ARG parsing issues with newlines in the private key)
-    const serviceAccountRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+    const serviceAccountRaw = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountRaw) {
-      console.error("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set");
-      return new Response(
-        JSON.stringify({ error: "Google service account not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error('GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set');
+      return new Response(JSON.stringify({ error: 'Google service account not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     let serviceAccount: ServiceAccountKey;
@@ -221,22 +219,25 @@ Deno.serve(async (req) => {
       // Try parsing as raw JSON first
       let jsonString = serviceAccountRaw;
       // If it doesn't start with '{', assume it's base64-encoded
-      if (!serviceAccountRaw.trimStart().startsWith("{")) {
+      if (!serviceAccountRaw.trimStart().startsWith('{')) {
         jsonString = atob(serviceAccountRaw);
       }
       serviceAccount = JSON.parse(jsonString);
     } catch {
-      console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON (tried both raw JSON and base64)");
+      console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON (tried both raw JSON and base64)');
       return new Response(
-        JSON.stringify({ error: "Invalid service account configuration. Ensure the value is valid JSON or base64-encoded JSON." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error:
+            'Invalid service account configuration. Ensure the value is valid JSON or base64-encoded JSON.',
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!serviceAccount.client_email || !serviceAccount.private_key) {
       return new Response(
-        JSON.stringify({ error: "Service account missing client_email or private_key" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: 'Service account missing client_email or private_key' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -266,16 +267,16 @@ Deno.serve(async (req) => {
       }),
       {
         status: failureCount === urls.length ? 500 : 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
-    console.error("Google Indexing API error:", error);
+    console.error('Google Indexing API error:', error);
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: error instanceof Error ? error.message : 'Internal server error',
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+};

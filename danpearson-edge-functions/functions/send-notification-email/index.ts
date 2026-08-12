@@ -1,6 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 interface NotificationRequest {
   type: 'new_ticket' | 'new_response' | 'agent_reply';
@@ -188,12 +189,18 @@ async function sendSlackNotification(
 }
 
 export default async (req: Request): Promise<Response> => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Sends mail to the configured addresses and posts to Slack, so it must not
+  // be an open relay. Service role is accepted because receive-email,
+  // email-webhook-receiver and send-ticket-email invoke this internally.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     const supabase = createClient(
@@ -202,7 +209,7 @@ export default async (req: Request): Promise<Response> => {
     );
 
     const request: NotificationRequest = await req.json();
-    
+
     // Fetch ticket to check status
     const { data: ticket, error: ticketError } = await supabase
       .from('support_tickets')
@@ -217,44 +224,46 @@ export default async (req: Request): Promise<Response> => {
 
     // Skip notifications for spam and disregard statuses
     if (ticket && (ticket.status === 'spam' || ticket.status === 'disregard')) {
-      console.log(`Skipping notification for ticket ${request.ticket_number} with status: ${ticket.status}`);
+      console.log(
+        `Skipping notification for ticket ${request.ticket_number} with status: ${ticket.status}`
+      );
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          skipped: true, 
-          reason: `Ticket marked as ${ticket.status}` 
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: `Ticket marked as ${ticket.status}`,
         }),
         {
           status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
-    
+
     // Fetch notification settings to get configured email addresses and Slack settings
     const { data: notificationSettings } = await supabase
       .from('notification_settings')
       .select('notification_emails, enabled, slack_enabled, slack_webhook_url, slack_channel')
       .single();
-    
+
     const settings = notificationSettings as NotificationSettings | null;
-    
+
     // Skip if notifications are disabled
     if (settings && !settings.enabled && !settings.slack_enabled) {
       console.log('All notifications are disabled in settings');
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          skipped: true, 
-          reason: 'All notifications disabled' 
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: 'All notifications disabled',
         }),
         {
           status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
-    
+
     // Get notification emails from settings or use default
     const notificationEmails = settings?.notification_emails || ['pearsonperformance@gmail.com'];
 
@@ -326,7 +335,7 @@ This is an automated notification from Pearson Media Support System
       for (const email of notificationEmails) {
         try {
           await sendNotificationEmail(email, subject!, body!);
-          
+
           // Log the notification
           await supabase.from('email_logs').insert({
             recipient_email: email,
@@ -335,11 +344,11 @@ This is an automated notification from Pearson Media Support System
             status: 'sent',
             sent_at: new Date().toISOString(),
           });
-          
+
           console.log(`Email notification sent to ${email}`);
         } catch (emailError: any) {
           console.error(`Failed to send notification to ${email}:`, emailError);
-          
+
           // Log the failure
           await supabase.from('email_logs').insert({
             recipient_email: email,
@@ -357,7 +366,7 @@ This is an automated notification from Pearson Media Support System
     if (settings?.slack_enabled && settings?.slack_webhook_url) {
       try {
         await sendSlackNotification(settings.slack_webhook_url, request);
-        
+
         // Log the Slack notification
         await supabase.from('email_logs').insert({
           recipient_email: `slack:${settings.slack_channel || '#notifications'}`,
@@ -366,11 +375,11 @@ This is an automated notification from Pearson Media Support System
           status: 'sent',
           sent_at: new Date().toISOString(),
         });
-        
+
         console.log(`Slack notification sent to ${settings.slack_channel || '#notifications'}`);
       } catch (slackError: any) {
         console.error('Failed to send Slack notification:', slackError);
-        
+
         // Log the failure
         await supabase.from('email_logs').insert({
           recipient_email: `slack:${settings.slack_channel || '#notifications'}`,
@@ -388,24 +397,23 @@ This is an automated notification from Pearson Media Support System
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Notifications sent successfully'
+        message: 'Notifications sent successfully',
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-
   } catch (error: any) {
     console.error('Error sending notification:', error);
     return new Response(
       JSON.stringify({
         error: error.message || 'Failed to send notification',
-        details: error.toString()
+        details: error.toString(),
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }

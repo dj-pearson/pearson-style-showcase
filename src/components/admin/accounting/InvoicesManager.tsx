@@ -47,6 +47,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
+import { toCsvRow } from '@/lib/csv';
 import { DocumentUpload } from './DocumentUpload';
 
 interface Invoice {
@@ -219,10 +220,10 @@ export const InvoicesManager = () => {
 
     invoices.forEach((inv) => {
       csvLines.push(
-        [
-          `"${inv.invoice_number}"`,
+        toCsvRow([
+          inv.invoice_number,
           inv.invoice_type,
-          `"${inv.contacts?.contact_name || ''}"`,
+          inv.contacts?.contact_name || '',
           inv.invoice_date,
           inv.due_date || '',
           inv.total_amount.toFixed(2),
@@ -230,7 +231,7 @@ export const InvoicesManager = () => {
           inv.amount_due.toFixed(2),
           inv.status,
           inv.import_source || 'manual',
-        ].join(',')
+        ])
       );
     });
 

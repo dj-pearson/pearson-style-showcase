@@ -1,14 +1,23 @@
-import { Resend } from "npm:resend@2.0.0";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { Resend } from 'npm:resend@2.0.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import {
   checkRateLimit,
   getClientIdentifier,
   createRateLimitResponse,
   initRateLimiter,
   type RateLimitConfig,
-} from "../_shared/rate-limiter.ts";
+} from '../_shared/rate-limiter.ts';
+import { validateEmail, sanitizeInput, escapeHtml, messageToHtml } from './validation.ts';
 
-const resend = new Resend(Deno.env.get("RESEND_API"));
+const resend = new Resend(Deno.env.get('RESEND_API'));
+
+// Where contact form submissions are delivered. Overridable per environment;
+// the fallback matches the owner address send-notification-email defaults to.
+const CONTACT_RECIPIENT = Deno.env.get('CONTACT_EMAIL') || 'pearsonperformance@gmail.com';
+
+// Verified sending identity. resend.dev senders only deliver to the Resend
+// account owner, which silently drops the confirmation to the submitter.
+const CONTACT_FROM = Deno.env.get('CONTACT_FROM') || 'Dan Pearson <noreply@danpearson.net>';
 
 // Initialize rate limiter
 initRateLimiter();
@@ -23,23 +32,15 @@ interface ContactFormData {
 // Custom rate limit config for contact form (stricter than default)
 const CONTACT_RATE_LIMIT: RateLimitConfig = {
   windowMs: 60 * 60 * 1000, // 1 hour
-  maxRequests: 3,           // 3 emails per hour per IP
-  burstAllowance: 1,        // Allow 1 extra in burst
+  maxRequests: 3, // 3 emails per hour per IP
+  burstAllowance: 1, // Allow 1 extra in burst
   keyPrefix: 'contact',
 };
 
-// Input validation
-function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email) && email.length <= 255;
-}
-
-function sanitizeInput(input: string, maxLength: number): string {
-  return input.trim().slice(0, maxLength);
-}
+// Input validation / sanitization lives in ./validation.ts (imported at top).
 
 const handler = async (req: Request): Promise<Response> => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight requests
@@ -69,93 +70,95 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Server-side validation
     if (!name || name.length < 2) {
-      return new Response(
-        JSON.stringify({ error: "Name must be at least 2 characters" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return new Response(JSON.stringify({ error: 'Name must be at least 2 characters' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     if (!validateEmail(email)) {
-      return new Response(
-        JSON.stringify({ error: "Invalid email address" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid email address' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     if (!subject || subject.length < 3) {
-      return new Response(
-        JSON.stringify({ error: "Subject must be at least 3 characters" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return new Response(JSON.stringify({ error: 'Subject must be at least 3 characters' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     if (!message || message.length < 10) {
-      return new Response(
-        JSON.stringify({ error: "Message must be at least 10 characters" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return new Response(JSON.stringify({ error: 'Message must be at least 10 characters' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     console.log(`Sending contact email from: ${email}`);
 
     // Send email to site owner
     const emailResponse = await resend.emails.send({
-      from: "Build Desk Contact <onboarding@resend.dev>",
-      to: ["your-email@example.com"], // Replace with actual recipient email
+      from: CONTACT_FROM,
+      to: [CONTACT_RECIPIENT],
       replyTo: email,
       subject: `Contact Form: ${subject}`,
       html: `
         <h2>New Contact Form Submission</h2>
-        <p><strong>From:</strong> ${name} (${email})</p>
-        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>From:</strong> ${escapeHtml(name)} (${escapeHtml(email)})</p>
+        <p><strong>Subject:</strong> ${escapeHtml(subject)}</p>
         <hr />
         <h3>Message:</h3>
-        <p>${message.replace(/\n/g, '<br>')}</p>
+        <p>${messageToHtml(message)}</p>
       `,
-    };
+    });
 
-    console.log("Email sent successfully:", emailResponse);
+    console.log('Email sent successfully:', emailResponse);
 
     // Send confirmation email to sender
     await resend.emails.send({
-      from: "Build Desk <onboarding@resend.dev>",
+      from: CONTACT_FROM,
       to: [email],
-      subject: "Thank you for contacting us!",
+      subject: 'Thank you for contacting us!',
       html: `
-        <h1>Thank you for reaching out, ${name}!</h1>
+        <h1>Thank you for reaching out, ${escapeHtml(name)}!</h1>
         <p>We have received your message and will get back to you as soon as possible.</p>
         <p><strong>Your message:</strong></p>
-        <p>${message.replace(/\n/g, '<br>')}</p>
+        <p>${messageToHtml(message)}</p>
         <hr />
-        <p>Best regards,<br>The Build Desk Team</p>
+        <p>Best regards,<br>Dan Pearson</p>
       `,
-    };
+    });
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
-        message: "Message sent successfully!" 
+        message: 'Message sent successfully!',
       }),
       {
         status: 200,
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           ...corsHeaders,
         },
       }
     );
   } catch (error) {
-    console.error("Error in send-contact-email function:", error);
+    console.error('Error in send-contact-email function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: "Failed to send message. Please try again later." 
+      JSON.stringify({
+        error: 'Failed to send message. Please try again later.',
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     );
   }
 };
 
-serve(handler);
+// server.ts dispatches on the module's default export; `serve` is not imported
+// here and calling it would bind a second listener on the shared port.
+export default handler;

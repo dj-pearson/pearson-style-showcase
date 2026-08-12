@@ -1,12 +1,13 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { 
-  getAIConfigs, 
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
+import {
+  getAIConfigs,
   callAIWithConfig,
   parseJSONResponse,
-  AIConfig
-} from "../_shared/ai-helper.ts";
+  AIConfig,
+} from '../_shared/ai-helper.ts';
 
 // Extract ASIN from Amazon URL
 function extractASIN(url: string): string | null {
@@ -14,7 +15,7 @@ function extractASIN(url: string): string | null {
     /\/dp\/([A-Z0-9]{10})/,
     /\/gp\/product\/([A-Z0-9]{10})/,
     /\/product\/([A-Z0-9]{10})/,
-    /amazon\.com\/([A-Z0-9]{10})/
+    /amazon\.com\/([A-Z0-9]{10})/,
   ];
 
   for (const pattern of patterns) {
@@ -92,7 +93,7 @@ async function fetchProductsViaSerpAPI(niche: string, itemCount: number = 5): Pr
         ratingCount,
         price,
         imageUrl: item.thumbnail || '',
-        bulletPoints: item.extensions || []
+        bulletPoints: item.extensions || [],
       };
     })
     .filter((p: any) => p !== null && p.asin)
@@ -146,7 +147,7 @@ async function fetchProductsViaGoogleSearch(niche: string, itemCount: number = 5
         ratingCount: 0,
         price: 0,
         imageUrl: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.cse_thumbnail?.[0]?.src || '',
-        bulletPoints: []
+        bulletPoints: [],
       };
     })
     .filter((p: any) => p !== null && p.asin)
@@ -173,7 +174,7 @@ async function fetchAmazonProducts(
     }
   } catch (error) {
     await log('warn', 'SerpAPI failed, falling back to Google Search', {
-      error: (error as Error)?.message ?? String(error)
+      error: (error as Error)?.message ?? String(error),
     });
   }
 
@@ -187,7 +188,7 @@ async function fetchAmazonProducts(
     }
   } catch (error) {
     await log('error', 'Google Search also failed', {
-      error: (error as Error)?.message ?? String(error)
+      error: (error as Error)?.message ?? String(error),
     });
     throw new Error(`Both SerpAPI and Google Search failed: ${(error as Error)?.message}`);
   }
@@ -196,7 +197,10 @@ async function fetchAmazonProducts(
 }
 
 // Enrich product data
-async function enrichProductData(products: any[], log: (level: string, message: string, ctx?: any) => Promise<void>): Promise<any[]> {
+async function enrichProductData(
+  products: any[],
+  log: (level: string, message: string, ctx?: any) => Promise<void>
+): Promise<any[]> {
   const enrichedProducts = [];
 
   for (const product of products) {
@@ -207,7 +211,7 @@ async function enrichProductData(products: any[], log: (level: string, message: 
       enrichedProducts.push(product);
     } catch (error) {
       await log('warn', `Failed to enrich product ${product.asin}`, {
-        error: (error as Error)?.message
+        error: (error as Error)?.message,
       });
       enrichedProducts.push(product);
     }
@@ -223,18 +227,23 @@ async function generateArticleContent(
   wordCount: number,
   aiConfigs: AIConfig[]
 ) {
-  const systemPrompt = 'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.';
+  const systemPrompt =
+    'You are an expert Amazon affiliate marketer and SEO content writer. You write compelling, conversion-focused product reviews that rank well and drive sales. CRITICAL: Always return ONLY valid, properly escaped JSON. Never use markdown code blocks. Ensure all quotes in HTML content are properly escaped.';
 
   const userPrompt = `You are an expert Amazon affiliate product reviewer. Create a compelling, SEO-optimized article about "${niche}" that will rank well in Google and drive affiliate sales.
 
 TARGET WORD COUNT: ${wordCount} words
 
 PRODUCTS TO REVIEW:
-${products.map((p, i) => `${i + 1}. ${p.title}
+${products
+  .map(
+    (p, i) => `${i + 1}. ${p.title}
    - ASIN: ${p.asin}
    - Image URL: ${p.imageUrl || 'No image available'}
    ${p.price > 0 ? `- Price: $${p.price}` : ''}
-   ${p.rating > 0 ? `- Rating: ${p.rating}/5 stars (${p.ratingCount || 0} reviews)` : ''}`).join('\n\n')}
+   ${p.rating > 0 ? `- Rating: ${p.rating}/5 stars (${p.ratingCount || 0} reviews)` : ''}`
+  )
+  .join('\n\n')}
 
 ARTICLE STRUCTURE:
 
@@ -299,17 +308,23 @@ IMPORTANT: Return ONLY the JSON object. No explanations, no markdown formatting,
     { temperature: 0.7, maxTokens: 20000, jsonMode: true }
   );
 
-  console.log(`[Pipeline] Article generated using ${usedConfig.provider} - ${usedConfig.model_name}`);
+  console.log(
+    `[Pipeline] Article generated using ${usedConfig.provider} - ${usedConfig.model_name}`
+  );
 
   return parseJSONResponse(content);
 }
 
 export default async (req: Request): Promise<Response> => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Spends SerpAPI and Claude credits and publishes articles; admins only.
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -325,7 +340,9 @@ export default async (req: Request): Promise<Response> => {
       if (req.method === 'POST') {
         bodyOverrides = await req.json();
       }
-    } catch (_) { /* ignore bad json */ }
+    } catch (_) {
+      /* ignore bad json */
+    }
 
     // Concurrency guard
     const tenSecondsAgo = new Date(Date.now() - 10_000).toISOString();
@@ -337,10 +354,13 @@ export default async (req: Request): Promise<Response> => {
       .limit(1);
 
     if (running && running.length) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Pipeline busy. Try again shortly.'
-      }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Pipeline busy. Try again shortly.',
+        }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create run record
@@ -359,7 +379,7 @@ export default async (req: Request): Promise<Response> => {
         run_id: runId,
         level,
         message,
-        ctx: ctx || {}
+        ctx: ctx || {},
       });
       console.log(`[${level.toUpperCase()}] ${message}`, ctx || '');
     };
@@ -373,7 +393,7 @@ export default async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     const settings = settingsRow || {
-      niches: ["home office", "travel gear", "fitness"],
+      niches: ['home office', 'travel gear', 'fitness'],
       daily_post_count: 1,
       min_rating: 4.0,
       price_min: null,
@@ -382,15 +402,16 @@ export default async (req: Request): Promise<Response> => {
       word_count_target: 1500,
       amazon_tag: 'your-tag-20',
       cache_only_mode: false,
-      id: null
+      id: null,
     };
 
-    const effectiveCacheOnly = Boolean(settings.cache_only_mode) || Boolean(bodyOverrides?.cacheOnly);
+    const effectiveCacheOnly =
+      Boolean(settings.cache_only_mode) || Boolean(bodyOverrides?.cacheOnly);
 
     await log('info', 'Settings loaded', {
       niches: settings.niches,
       cache_only_mode: settings.cache_only_mode,
-      amazon_tag: settings.amazon_tag
+      amazon_tag: settings.amazon_tag,
     });
 
     // Seed search terms from CSV if table is empty
@@ -402,15 +423,14 @@ export default async (req: Request): Promise<Response> => {
 
     if (count === 0) {
       await log('info', 'Seeding search terms from CSV in storage bucket');
-      
-      const { data: csvData, error: csvError } = await supabase
-        .storage
+
+      const { data: csvData, error: csvError } = await supabase.storage
         .from('admin-uploads')
         .download('amazon_ideas.csv');
 
       if (csvError) {
         await log('warn', 'CSV file not found in storage, using fallback niches', {
-          error: csvError.message
+          error: csvError.message,
         });
         const niches = settings.niches as string[];
         niche = niches[Math.floor(Math.random() * niches.length)];
@@ -418,12 +438,12 @@ export default async (req: Request): Promise<Response> => {
         const csvText = await csvData.text();
         const lines = csvText.split('\n').slice(1);
         const terms = lines
-          .filter(line => line.trim())
-          .map(line => {
+          .filter((line) => line.trim())
+          .map((line) => {
             const [search_term, category] = line.split(',');
             return { search_term: search_term?.trim(), category: category?.trim() };
           })
-          .filter(t => t.search_term && t.category);
+          .filter((t) => t.search_term && t.category);
 
         if (terms.length > 0) {
           const batchSize = 100;
@@ -462,7 +482,7 @@ export default async (req: Request): Promise<Response> => {
       searchTermId = selectedTerm.id;
 
       await log('info', `Selected search term (attempt ${retryCount + 1}): ${niche}`, {
-        category: selectedTerm.category
+        category: selectedTerm.category,
       });
 
       // Try cached products first
@@ -490,14 +510,15 @@ export default async (req: Request): Promise<Response> => {
           ratingCount: c.rating_count || 0,
           price: c.price || 0,
           imageUrl: c.image_url || '',
-          bulletPoints: c.bullet_points || []
+          bulletPoints: c.bullet_points || [],
         }));
 
-        products = products.filter((p) => (
-          p.asin &&
-          (settings.price_min ? p.price >= settings.price_min : true) &&
-          (settings.price_max ? p.price <= settings.price_max : true)
-        ));
+        products = products.filter(
+          (p) =>
+            p.asin &&
+            (settings.price_min ? p.price >= settings.price_min : true) &&
+            (settings.price_max ? p.price <= settings.price_max : true)
+        );
 
         if (products.length >= 3) {
           await log('info', `Using ${products.length} cached products`);
@@ -513,11 +534,12 @@ export default async (req: Request): Promise<Response> => {
           let freshProducts = await fetchAmazonProducts(niche, 5, log);
           freshProducts = await enrichProductData(freshProducts, log);
 
-          freshProducts = freshProducts.filter((p: any) => (
-            p.asin &&
-            (settings.price_min ? p.price >= settings.price_min : true) &&
-            (settings.price_max ? p.price <= settings.price_max : true)
-          ));
+          freshProducts = freshProducts.filter(
+            (p: any) =>
+              p.asin &&
+              (settings.price_min ? p.price >= settings.price_min : true) &&
+              (settings.price_max ? p.price <= settings.price_max : true)
+          );
 
           if (freshProducts.length === 0) {
             throw new Error('No products passed filtering criteria');
@@ -529,23 +551,26 @@ export default async (req: Request): Promise<Response> => {
             await log('info', `Caching ${products.length} products for future use`);
 
             for (const product of products) {
-              await supabase.from('amazon_products').upsert({
-                asin: product.asin,
-                title: product.title,
-                brand: product.brand || '',
-                rating: product.rating || 0,
-                rating_count: product.ratingCount || 0,
-                price: product.price || 0,
-                image_url: product.imageUrl || '',
-                niche: niche,
-                bullet_points: product.bulletPoints || [],
-                last_seen_at: new Date().toISOString()
-              }, { onConflict: 'asin' });
+              await supabase.from('amazon_products').upsert(
+                {
+                  asin: product.asin,
+                  title: product.title,
+                  brand: product.brand || '',
+                  rating: product.rating || 0,
+                  rating_count: product.ratingCount || 0,
+                  price: product.price || 0,
+                  image_url: product.imageUrl || '',
+                  niche: niche,
+                  bullet_points: product.bulletPoints || [],
+                  last_seen_at: new Date().toISOString(),
+                },
+                { onConflict: 'asin' }
+              );
             }
           }
         } catch (err) {
           await log('error', 'Product fetching failed; trying fallback cache', {
-            error: (err as Error)?.message ?? String(err)
+            error: (err as Error)?.message ?? String(err),
           });
 
           const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -558,20 +583,23 @@ export default async (req: Request): Promise<Response> => {
             .limit(5);
 
           if (oldCache && oldCache.length) {
-            products = (oldCache as any[]).map((c) => ({
-              asin: c.asin,
-              title: c.title,
-              brand: c.brand,
-              rating: c.rating || 0,
-              ratingCount: c.rating_count || 0,
-              price: c.price || 0,
-              imageUrl: c.image_url || '',
-              bulletPoints: c.bullet_points || []
-            })).filter((p: any) => (
-              p.asin &&
-              (settings.price_min ? p.price >= settings.price_min : true) &&
-              (settings.price_max ? p.price <= settings.price_max : true)
-            ));
+            products = (oldCache as any[])
+              .map((c) => ({
+                asin: c.asin,
+                title: c.title,
+                brand: c.brand,
+                rating: c.rating || 0,
+                ratingCount: c.rating_count || 0,
+                price: c.price || 0,
+                imageUrl: c.image_url || '',
+                bulletPoints: c.bullet_points || [],
+              }))
+              .filter(
+                (p: any) =>
+                  p.asin &&
+                  (settings.price_min ? p.price >= settings.price_min : true) &&
+                  (settings.price_max ? p.price <= settings.price_max : true)
+              );
 
             await log('info', `Using fallback cache: ${products.length} products`);
           }
@@ -600,15 +628,18 @@ export default async (req: Request): Promise<Response> => {
           finished_at: new Date().toISOString(),
           posts_created: 0,
           posts_published: 0,
-          note: message
+          note: message,
         })
         .eq('id', runId);
 
-      return new Response(JSON.stringify({
-        success: false,
-        message,
-        runId
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message,
+          runId,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
+      );
     }
 
     await log('info', `Using ${products.length} products for article generation`);
@@ -627,13 +658,14 @@ export default async (req: Request): Promise<Response> => {
     } catch (aiError) {
       await log('error', 'AI generation failed', {
         error: (aiError as Error)?.message,
-        stack: (aiError as Error)?.stack
+        stack: (aiError as Error)?.stack,
       });
       throw new Error(`AI generation failed: ${(aiError as Error)?.message}`);
     }
 
     // Create slug
-    const slug = articleData.title.toLowerCase()
+    const slug = articleData.title
+      .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
@@ -653,7 +685,7 @@ export default async (req: Request): Promise<Response> => {
         target_keyword: articleData.target_keyword,
         seo_keywords: articleData.seo_keywords,
         tags: ['Amazon', 'Product Review', niche],
-        read_time: `${Math.ceil(settings.word_count_target / 200)} min read`
+        read_time: `${Math.ceil(settings.word_count_target / 200)} min read`,
       })
       .select()
       .single();
@@ -662,7 +694,7 @@ export default async (req: Request): Promise<Response> => {
 
     await log('info', `Article created: ${article.title}`, {
       slug: article.slug,
-      published: article.published
+      published: article.published,
     });
 
     // Mark search term as used
@@ -672,7 +704,7 @@ export default async (req: Request): Promise<Response> => {
         .update({
           used_at: new Date().toISOString(),
           article_id: article.id,
-          product_count: products.length
+          product_count: products.length,
         })
         .eq('id', searchTermId);
 
@@ -681,7 +713,7 @@ export default async (req: Request): Promise<Response> => {
 
     // Link products to article with affiliate URLs
     let finalContent = articleData.content;
-    
+
     for (const productData of articleData.products) {
       const linkId = Math.random().toString(36).substring(2, 15);
       const affiliateUrl = `https://www.amazon.com/dp/${productData.asin}?&linkCode=ll1&tag=${settings.amazon_tag}&linkId=${linkId}&language=en_US&ref_=as_li_ss_tl`;
@@ -696,17 +728,14 @@ export default async (req: Request): Promise<Response> => {
         cons: productData.cons,
         specs: productData.specs,
         best_for: productData.best_for,
-        affiliate_url: affiliateUrl
+        affiliate_url: affiliateUrl,
       });
 
       await log('info', `Linked product ${productData.asin} with affiliate URL`);
     }
 
     // Update article content with actual affiliate links
-    await supabase
-      .from('articles')
-      .update({ content: finalContent })
-      .eq('id', article.id);
+    await supabase.from('articles').update({ content: finalContent }).eq('id', article.id);
 
     // Trigger webhook if published
     const functionsUrl = Deno.env.get('FUNCTIONS_URL') || 'https://functions.danpearson.net';
@@ -716,13 +745,18 @@ export default async (req: Request): Promise<Response> => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`
+            Authorization: `Bearer ${supabaseServiceKey}`,
           },
-          body: JSON.stringify({ articleId: article.id, isTest: false })
+          body: JSON.stringify({ articleId: article.id, isTest: false }),
         });
-        await log('info', 'Webhook invoked for article', { articleId: article.id, status: webhookResponse.status });
+        await log('info', 'Webhook invoked for article', {
+          articleId: article.id,
+          status: webhookResponse.status,
+        });
       } catch (e) {
-        await log('error', 'Failed to invoke webhook', { error: (e as Error)?.message || String(e) });
+        await log('error', 'Failed to invoke webhook', {
+          error: (e as Error)?.message || String(e),
+        });
       }
     }
 
@@ -734,7 +768,7 @@ export default async (req: Request): Promise<Response> => {
         finished_at: new Date().toISOString(),
         posts_created: 1,
         posts_published: article.published ? 1 : 0,
-        note: `Successfully created article: ${article.title}`
+        note: `Successfully created article: ${article.title}`,
       })
       .eq('id', runId);
 
@@ -755,27 +789,26 @@ export default async (req: Request): Promise<Response> => {
           title: article.title,
           slug: article.slug,
           url: `https://yourdomain.com/news/${article.slug}`,
-          published: article.published
+          published: article.published,
         },
         products: products.length,
         affiliateTag: settings.amazon_tag,
         method: 'Centralized AI Config',
-        runId: runId
+        runId: runId,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('[Pipeline] error:', error);
 
     return new Response(
       JSON.stringify({
         error: error.message,
-        details: error.stack
+        details: error.stack,
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }

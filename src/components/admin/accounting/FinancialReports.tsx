@@ -11,22 +11,111 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  BarChart3,
-  TrendingUp,
-  Download,
-  AlertCircle,
-} from 'lucide-react';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { BarChart3, TrendingUp, Download, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
-import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subQuarters, subYears } from 'date-fns';
+import { toCsvRow } from '@/lib/csv';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  subMonths,
+  subQuarters,
+  subYears,
+} from 'date-fns';
+
+interface ProfitLoss {
+  revenue: Record<string, number>;
+  expenses: Record<string, number>;
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+}
+
+/**
+ * Roll invoices, platform transactions and posted journal entries into a
+ * profit and loss statement. Shared by the period report and by the balance
+ * sheet's retained earnings, which needs the same maths over a wider window.
+ */
+function computeProfitLoss(
+  invoices: any[] | undefined,
+  platformTransactions: any[] | undefined,
+  journalEntries: any[] | undefined
+): ProfitLoss {
+  const revenue: Record<string, number> = {};
+  const expenses: Record<string, number> = {};
+
+  // Revenue from sales invoices
+  invoices?.forEach((invoice) => {
+    if (invoice.invoice_type === 'sales') {
+      const amount = Number(invoice.amount_paid || 0);
+      revenue['Sales Revenue'] = (revenue['Sales Revenue'] || 0) + amount;
+    }
+  });
+
+  // Revenue from platform transactions
+  platformTransactions?.forEach((transaction) => {
+    if (transaction.transaction_type === 'revenue') {
+      const amount = Number(transaction.amount || 0);
+      const platformName = transaction.platforms?.name || 'Other Revenue';
+      revenue[platformName] = (revenue[platformName] || 0) + amount;
+    }
+  });
+
+  // Expenses from purchase invoices
+  invoices?.forEach((invoice) => {
+    if (invoice.invoice_type === 'purchase') {
+      const amount = Number(invoice.amount_paid || 0);
+      expenses['Vendor Expenses'] = (expenses['Vendor Expenses'] || 0) + amount;
+    }
+  });
+
+  // Expenses from platform transactions
+  platformTransactions?.forEach((transaction) => {
+    if (transaction.transaction_type === 'expense') {
+      const amount = Number(transaction.amount || 0);
+      const categoryName = transaction.expense_categories?.name || 'Operating Expenses';
+      expenses[categoryName] = (expenses[categoryName] || 0) + amount;
+    }
+  });
+
+  // Add journal entry amounts (Income and Expense accounts only)
+  journalEntries?.forEach((entry) => {
+    entry.journal_entry_lines?.forEach((line: any) => {
+      const accountType = line.accounts?.account_type;
+      const accountName = line.accounts?.account_name || 'Other';
+      const debit = Number(line.debit || 0);
+      const credit = Number(line.credit || 0);
+
+      if (accountType === 'Income') {
+        // Credits increase income
+        const amount = credit - debit;
+        revenue[accountName] = (revenue[accountName] || 0) + amount;
+      } else if (accountType === 'Expense') {
+        // Debits increase expenses
+        const amount = debit - credit;
+        expenses[accountName] = (expenses[accountName] || 0) + amount;
+      }
+    });
+  });
+
+  const totalRevenue = Object.values(revenue).reduce((sum, val) => sum + val, 0);
+  const totalExpenses = Object.values(expenses).reduce((sum, val) => sum + val, 0);
+
+  return {
+    revenue,
+    expenses,
+    totalRevenue,
+    totalExpenses,
+    netProfit: totalRevenue - totalExpenses,
+  };
+}
 
 export const FinancialReports = () => {
   const [dateRange, setDateRange] = useState('this-month');
@@ -128,7 +217,8 @@ export const FinancialReports = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('journal_entries')
-        .select(`
+        .select(
+          `
           *,
           journal_entry_lines (
             id,
@@ -143,13 +233,87 @@ export const FinancialReports = () => {
               account_subtype
             )
           )
-        `)
+        `
+        )
         .eq('status', 'posted')
         .gte('entry_date', dateFrom)
         .lte('entry_date', dateTo);
 
       if (error) {
         logger.error('Error fetching journal entries:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  // A balance sheet states position "as of" a date, so it needs every posted
+  // entry up to dateTo rather than the reporting period alone. Scoping it to
+  // the period dropped all prior activity: opening a "This Month" report hid
+  // every unpaid invoice raised earlier and every journal entry before the 1st.
+  const { data: cumulativeInvoices } = useQuery({
+    queryKey: ['invoices', 'reports', 'cumulative', dateTo],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .lte('invoice_date', dateTo);
+
+      if (error) {
+        logger.error('Error fetching cumulative invoices:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  const { data: cumulativePlatformTransactions } = useQuery({
+    queryKey: ['platform_transactions', 'reports', 'cumulative', dateTo],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_transactions')
+        .select('*, platforms(name, platform_type), expense_categories(name, category_code)')
+        .lte('transaction_date', dateTo);
+
+      if (error) {
+        logger.error('Error fetching cumulative platform transactions:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  const { data: cumulativeJournalEntries } = useQuery({
+    queryKey: ['journal_entries', 'reports', 'cumulative', dateTo],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select(
+          `
+          *,
+          journal_entry_lines (
+            id,
+            account_id,
+            debit,
+            credit,
+            accounts (
+              id,
+              account_number,
+              account_name,
+              account_type,
+              account_subtype
+            )
+          )
+        `
+        )
+        .eq('status', 'posted')
+        .lte('entry_date', dateTo);
+
+      if (error) {
+        logger.error('Error fetching cumulative journal entries:', error);
         throw error;
       }
 
@@ -177,76 +341,22 @@ export const FinancialReports = () => {
   });
 
   // Calculate P&L data
-  const profitLossData = useMemo(() => {
-    const revenue: Record<string, number> = {};
-    const expenses: Record<string, number> = {};
+  const profitLossData = useMemo(
+    () => computeProfitLoss(invoices, platformTransactions, journalEntries),
+    [invoices, platformTransactions, journalEntries]
+  );
 
-    // Revenue from sales invoices
-    invoices?.forEach((invoice) => {
-      if (invoice.invoice_type === 'sales') {
-        const amount = Number(invoice.amount_paid || 0);
-        revenue['Sales Revenue'] = (revenue['Sales Revenue'] || 0) + amount;
-      }
-    });
-
-    // Revenue from platform transactions
-    platformTransactions?.forEach((transaction) => {
-      if (transaction.transaction_type === 'revenue') {
-        const amount = Number(transaction.amount || 0);
-        const platformName = transaction.platforms?.name || 'Other Revenue';
-        revenue[platformName] = (revenue[platformName] || 0) + amount;
-      }
-    });
-
-    // Expenses from purchase invoices
-    invoices?.forEach((invoice) => {
-      if (invoice.invoice_type === 'purchase') {
-        const amount = Number(invoice.amount_paid || 0);
-        expenses['Vendor Expenses'] = (expenses['Vendor Expenses'] || 0) + amount;
-      }
-    });
-
-    // Expenses from platform transactions
-    platformTransactions?.forEach((transaction) => {
-      if (transaction.transaction_type === 'expense') {
-        const amount = Number(transaction.amount || 0);
-        const categoryName = transaction.expense_categories?.name || 'Operating Expenses';
-        expenses[categoryName] = (expenses[categoryName] || 0) + amount;
-      }
-    });
-
-    // Add journal entry amounts (Income and Expense accounts only)
-    journalEntries?.forEach((entry) => {
-      entry.journal_entry_lines?.forEach((line: any) => {
-        const accountType = line.accounts?.account_type;
-        const accountName = line.accounts?.account_name || 'Other';
-        const debit = Number(line.debit || 0);
-        const credit = Number(line.credit || 0);
-
-        if (accountType === 'Income') {
-          // Credits increase income
-          const amount = credit - debit;
-          revenue[accountName] = (revenue[accountName] || 0) + amount;
-        } else if (accountType === 'Expense') {
-          // Debits increase expenses
-          const amount = debit - credit;
-          expenses[accountName] = (expenses[accountName] || 0) + amount;
-        }
-      });
-    });
-
-    const totalRevenue = Object.values(revenue).reduce((sum, val) => sum + val, 0);
-    const totalExpenses = Object.values(expenses).reduce((sum, val) => sum + val, 0);
-    const netProfit = totalRevenue - totalExpenses;
-
-    return {
-      revenue,
-      expenses,
-      totalRevenue,
-      totalExpenses,
-      netProfit,
-    };
-  }, [invoices, platformTransactions, journalEntries]);
+  // Cumulative P&L through dateTo. Retained earnings on a balance sheet is
+  // all-time profit to date, not the selected period's profit.
+  const cumulativeProfitLoss = useMemo(
+    () =>
+      computeProfitLoss(
+        cumulativeInvoices,
+        cumulativePlatformTransactions,
+        cumulativeJournalEntries
+      ),
+    [cumulativeInvoices, cumulativePlatformTransactions, cumulativeJournalEntries]
+  );
 
   // Calculate Balance Sheet data (as of end date)
   const balanceSheetData = useMemo(() => {
@@ -254,32 +364,40 @@ export const FinancialReports = () => {
     const liabilities: Record<string, number> = {};
     const equity: Record<string, number> = {};
 
-    // Calculate accounts receivable (unpaid sales invoices)
+    // Accumulate rather than assign: two accounts can share a name, and the
+    // derived 'Accounts Receivable'/'Accounts Payable' lines below collide with
+    // the same-named accounts most charts of accounts define. Assigning let one
+    // silently replace the other, dropping money from the statement.
+    const add = (bucket: Record<string, number>, name: string, amount: number) => {
+      bucket[name] = (bucket[name] || 0) + amount;
+    };
+
+    // Calculate accounts receivable (unpaid sales invoices, as of dateTo)
     let accountsReceivable = 0;
-    invoices?.forEach((invoice) => {
+    cumulativeInvoices?.forEach((invoice) => {
       if (invoice.invoice_type === 'sales') {
         accountsReceivable += Number(invoice.amount_due || 0);
       }
     });
     if (accountsReceivable > 0) {
-      assets['Accounts Receivable'] = accountsReceivable;
+      add(assets, 'Accounts Receivable', accountsReceivable);
     }
 
-    // Calculate accounts payable (unpaid purchase invoices)
+    // Calculate accounts payable (unpaid purchase invoices, as of dateTo)
     let accountsPayable = 0;
-    invoices?.forEach((invoice) => {
+    cumulativeInvoices?.forEach((invoice) => {
       if (invoice.invoice_type === 'purchase') {
         accountsPayable += Number(invoice.amount_due || 0);
       }
     });
     if (accountsPayable > 0) {
-      liabilities['Accounts Payable'] = accountsPayable;
+      add(liabilities, 'Accounts Payable', accountsPayable);
     }
 
     // Add balances from accounts via journal entries
     const accountBalances: Record<string, number> = {};
 
-    journalEntries?.forEach((entry) => {
+    cumulativeJournalEntries?.forEach((entry) => {
       entry.journal_entry_lines?.forEach((line: any) => {
         const accountId = line.account_id;
         const debit = Number(line.debit || 0);
@@ -293,9 +411,9 @@ export const FinancialReports = () => {
         // For Liability, Equity, and Income accounts, credits increase, debits decrease
         const accountType = line.accounts?.account_type;
         if (accountType === 'Asset' || accountType === 'Expense') {
-          accountBalances[accountId] += (debit - credit);
+          accountBalances[accountId] += debit - credit;
         } else {
-          accountBalances[accountId] += (credit - debit);
+          accountBalances[accountId] += credit - debit;
         }
       });
     });
@@ -307,23 +425,26 @@ export const FinancialReports = () => {
       // Also add opening balance
       const totalBalance = balance + Number(account.opening_balance || 0);
 
-      if (totalBalance === 0) return;
+      // Guard against float dust (1e-13 from summing debits and credits)
+      // rendering as a spurious zero-value line.
+      if (Math.abs(totalBalance) < 0.005) return;
 
       const accountName = account.account_name;
 
       if (account.account_type === 'Asset') {
-        assets[accountName] = totalBalance;
+        add(assets, accountName, totalBalance);
       } else if (account.account_type === 'Liability') {
-        liabilities[accountName] = totalBalance;
+        add(liabilities, accountName, totalBalance);
       } else if (account.account_type === 'Equity') {
-        equity[accountName] = totalBalance;
+        add(equity, accountName, totalBalance);
       }
     });
 
-    // Calculate retained earnings from P&L
-    const retainedEarnings = profitLossData.netProfit;
-    if (retainedEarnings !== 0) {
-      equity['Retained Earnings'] = (equity['Retained Earnings'] || 0) + retainedEarnings;
+    // Retained earnings is cumulative profit through dateTo, not the selected
+    // period's profit.
+    const retainedEarnings = cumulativeProfitLoss.netProfit;
+    if (Math.abs(retainedEarnings) >= 0.005) {
+      add(equity, 'Retained Earnings', retainedEarnings);
     }
 
     const totalAssets = Object.values(assets).reduce((sum, val) => sum + val, 0);
@@ -339,7 +460,7 @@ export const FinancialReports = () => {
       totalEquity,
       isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
     };
-  }, [invoices, journalEntries, accounts, profitLossData.netProfit]);
+  }, [cumulativeInvoices, cumulativeJournalEntries, accounts, cumulativeProfitLoss.netProfit]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -368,18 +489,18 @@ export const FinancialReports = () => {
     csvLines.push('Revenue,Amount');
 
     Object.entries(profitLossData.revenue).forEach(([name, amount]) => {
-      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+      csvLines.push(toCsvRow([name, amount.toFixed(2)]));
     });
-    csvLines.push(`"Total Revenue",${profitLossData.totalRevenue.toFixed(2)}`);
+    csvLines.push(toCsvRow(['Total Revenue', profitLossData.totalRevenue.toFixed(2)]));
     csvLines.push('');
 
     csvLines.push('Expenses,Amount');
     Object.entries(profitLossData.expenses).forEach(([name, amount]) => {
-      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+      csvLines.push(toCsvRow([name, amount.toFixed(2)]));
     });
-    csvLines.push(`"Total Expenses",${profitLossData.totalExpenses.toFixed(2)}`);
+    csvLines.push(toCsvRow(['Total Expenses', profitLossData.totalExpenses.toFixed(2)]));
     csvLines.push('');
-    csvLines.push(`"Net Profit",${profitLossData.netProfit.toFixed(2)}`);
+    csvLines.push(toCsvRow(['Net Profit', profitLossData.netProfit.toFixed(2)]));
     csvLines.push('');
     csvLines.push('');
 
@@ -390,25 +511,30 @@ export const FinancialReports = () => {
     csvLines.push('Assets,Amount');
 
     Object.entries(balanceSheetData.assets).forEach(([name, amount]) => {
-      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+      csvLines.push(toCsvRow([name, amount.toFixed(2)]));
     });
-    csvLines.push(`"Total Assets",${balanceSheetData.totalAssets.toFixed(2)}`);
+    csvLines.push(toCsvRow(['Total Assets', balanceSheetData.totalAssets.toFixed(2)]));
     csvLines.push('');
 
     csvLines.push('Liabilities,Amount');
     Object.entries(balanceSheetData.liabilities).forEach(([name, amount]) => {
-      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+      csvLines.push(toCsvRow([name, amount.toFixed(2)]));
     });
-    csvLines.push(`"Total Liabilities",${balanceSheetData.totalLiabilities.toFixed(2)}`);
+    csvLines.push(toCsvRow(['Total Liabilities', balanceSheetData.totalLiabilities.toFixed(2)]));
     csvLines.push('');
 
     csvLines.push('Equity,Amount');
     Object.entries(balanceSheetData.equity).forEach(([name, amount]) => {
-      csvLines.push(`"${name}",${amount.toFixed(2)}`);
+      csvLines.push(toCsvRow([name, amount.toFixed(2)]));
     });
-    csvLines.push(`"Total Equity",${balanceSheetData.totalEquity.toFixed(2)}`);
+    csvLines.push(toCsvRow(['Total Equity', balanceSheetData.totalEquity.toFixed(2)]));
     csvLines.push('');
-    csvLines.push(`"Total Liabilities & Equity",${(balanceSheetData.totalLiabilities + balanceSheetData.totalEquity).toFixed(2)}`);
+    csvLines.push(
+      toCsvRow([
+        'Total Liabilities & Equity',
+        (balanceSheetData.totalLiabilities + balanceSheetData.totalEquity).toFixed(2),
+      ])
+    );
 
     // Create CSV blob and download
     const csvContent = csvLines.join('\n');
@@ -472,11 +598,7 @@ export const FinancialReports = () => {
                 </div>
                 <div className="flex-1">
                   <Label>End Date</Label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
+                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </>
             )}
@@ -498,9 +620,7 @@ export const FinancialReports = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Profit & Loss Statement</CardTitle>
-                  <CardDescription>
-                    {formatDateRange()}
-                  </CardDescription>
+                  <CardDescription>{formatDateRange()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -513,7 +633,9 @@ export const FinancialReports = () => {
                             Object.entries(profitLossData.revenue).map(([name, amount]) => (
                               <TableRow key={name}>
                                 <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {formatCurrency(amount)}
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
@@ -542,7 +664,9 @@ export const FinancialReports = () => {
                             Object.entries(profitLossData.expenses).map(([name, amount]) => (
                               <TableRow key={name}>
                                 <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {formatCurrency(amount)}
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
@@ -568,7 +692,9 @@ export const FinancialReports = () => {
                         <TableBody>
                           <TableRow className="font-bold text-lg">
                             <TableCell>Net Profit</TableCell>
-                            <TableCell className={`text-right font-mono ${profitLossData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <TableCell
+                              className={`text-right font-mono ${profitLossData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                            >
                               {formatCurrency(profitLossData.netProfit)}
                             </TableCell>
                           </TableRow>
@@ -584,9 +710,7 @@ export const FinancialReports = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Balance Sheet</CardTitle>
-                  <CardDescription>
-                    As of {format(new Date(dateTo), 'MMM d, yyyy')}
-                  </CardDescription>
+                  <CardDescription>As of {format(new Date(dateTo), 'MMM d, yyyy')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -599,7 +723,9 @@ export const FinancialReports = () => {
                             Object.entries(balanceSheetData.assets).map(([name, amount]) => (
                               <TableRow key={name}>
                                 <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {formatCurrency(amount)}
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
@@ -628,7 +754,9 @@ export const FinancialReports = () => {
                             Object.entries(balanceSheetData.liabilities).map(([name, amount]) => (
                               <TableRow key={name}>
                                 <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {formatCurrency(amount)}
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
@@ -657,7 +785,9 @@ export const FinancialReports = () => {
                             Object.entries(balanceSheetData.equity).map(([name, amount]) => (
                               <TableRow key={name}>
                                 <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {formatCurrency(amount)}
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
@@ -684,7 +814,9 @@ export const FinancialReports = () => {
                           <TableRow className="font-bold text-lg">
                             <TableCell>Total Liabilities & Equity</TableCell>
                             <TableCell className="text-right font-mono">
-                              {formatCurrency(balanceSheetData.totalLiabilities + balanceSheetData.totalEquity)}
+                              {formatCurrency(
+                                balanceSheetData.totalLiabilities + balanceSheetData.totalEquity
+                              )}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -704,7 +836,12 @@ export const FinancialReports = () => {
                             <>
                               <AlertCircle className="h-4 w-4 text-destructive" />
                               <span className="text-sm font-medium text-destructive">
-                                Balance Sheet is not balanced - Assets: {formatCurrency(balanceSheetData.totalAssets)}, Liabilities + Equity: {formatCurrency(balanceSheetData.totalLiabilities + balanceSheetData.totalEquity)}
+                                Balance Sheet is not balanced - Assets:{' '}
+                                {formatCurrency(balanceSheetData.totalAssets)}, Liabilities +
+                                Equity:{' '}
+                                {formatCurrency(
+                                  balanceSheetData.totalLiabilities + balanceSheetData.totalEquity
+                                )}
                               </span>
                             </>
                           )}

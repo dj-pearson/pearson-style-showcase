@@ -11,9 +11,9 @@
  * Response format follows Kubernetes health check conventions.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { getRateLimitStats } from "../_shared/rate-limiter.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { getRateLimitStats } from '../_shared/rate-limiter.ts';
 
 // Health status types
 type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
@@ -65,10 +65,7 @@ async function checkDatabase(): Promise<ServiceHealth> {
     );
 
     // Simple query to verify database connectivity
-    const { error } = await supabase
-      .from('admin_whitelist')
-      .select('id')
-      .limit(1);
+    const { error } = await supabase.from('admin_whitelist').select('id').limit(1);
 
     const latency = Date.now() - startCheck;
 
@@ -119,7 +116,7 @@ async function checkExternalAPIs(): Promise<ServiceHealth[]> {
       const response = await fetch('https://api.resend.com/domains', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
+          Authorization: `Bearer ${resendApiKey}`,
         },
       });
 
@@ -152,7 +149,7 @@ async function checkExternalAPIs(): Promise<ServiceHealth[]> {
       const response = await fetch('https://api.openai.com/v1/models', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
+          Authorization: `Bearer ${openaiApiKey}`,
         },
       });
 
@@ -184,8 +181,8 @@ async function checkExternalAPIs(): Promise<ServiceHealth[]> {
  * Calculate overall health status from individual checks
  */
 function calculateOverallStatus(checks: ServiceHealth[]): HealthStatus {
-  const hasUnhealthy = checks.some(c => c.status === 'unhealthy');
-  const hasDegraded = checks.some(c => c.status === 'degraded');
+  const hasUnhealthy = checks.some((c) => c.status === 'unhealthy');
+  const hasDegraded = checks.some((c) => c.status === 'degraded');
 
   if (hasUnhealthy) return 'unhealthy';
   if (hasDegraded) return 'degraded';
@@ -210,7 +207,7 @@ function getMemoryMetrics(): { used: number; total: number; percentage: number }
 }
 
 export default async (req: Request): Promise<Response> => {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -297,8 +294,8 @@ export default async (req: Request): Promise<Response> => {
         },
       };
 
-      const httpStatus = overallStatus === 'unhealthy' ? 503 :
-                         overallStatus === 'degraded' ? 200 : 200;
+      const httpStatus =
+        overallStatus === 'unhealthy' ? 503 : overallStatus === 'degraded' ? 200 : 200;
 
       return new Response(JSON.stringify(response), {
         status: httpStatus,
@@ -349,7 +346,7 @@ export default async (req: Request): Promise<Response> => {
           'Content-Type': 'text/plain; charset=utf-8',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
         },
-      };
+      });
     }
 
     // Unknown check type
@@ -366,7 +363,6 @@ export default async (req: Request): Promise<Response> => {
         },
       }
     );
-
   } catch (error) {
     console.error('Health check error:', error);
 
