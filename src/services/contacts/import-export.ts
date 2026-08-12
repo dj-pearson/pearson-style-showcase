@@ -8,6 +8,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { validateEmail, validateTextInput } from '@/lib/security';
+import { toCsvRow } from '@/lib/csv';
 
 // Types
 export interface Contact {
@@ -178,29 +179,14 @@ export function toCSV(data: Record<string, unknown>[], headers?: string[]): stri
   const lines: string[] = [];
 
   // Header row
-  lines.push(fields.map(escapeCSVField).join(','));
+  lines.push(toCsvRow(fields));
 
   // Data rows
   for (const row of data) {
-    const values = fields.map((field) => {
-      const value = row[field];
-      if (value === null || value === undefined) return '';
-      return escapeCSVField(String(value));
-    });
-    lines.push(values.join(','));
+    lines.push(toCsvRow(fields.map((field) => row[field])));
   }
 
   return lines.join('\n');
-}
-
-/**
- * Escape a CSV field value
- */
-function escapeCSVField(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
 }
 
 // ============================================
@@ -250,10 +236,7 @@ const FIELD_MAPPINGS: Record<string, string> = {
 /**
  * Map CSV row to contact using field mappings
  */
-function mapRowToContact(
-  row: Record<string, string>,
-  options: ImportOptions
-): Partial<Contact> {
+function mapRowToContact(row: Record<string, string>, options: ImportOptions): Partial<Contact> {
   const customMapping = options.fieldMapping || {};
   const mappings = { ...FIELD_MAPPINGS, ...customMapping };
 
@@ -317,7 +300,11 @@ function validateContact(
   }
 
   // Validate contact type
-  let contactType = (contact.contact_type || options.defaultContactType || 'customer').toLowerCase();
+  let contactType = (
+    contact.contact_type ||
+    options.defaultContactType ||
+    'customer'
+  ).toLowerCase();
   if (!VALID_CONTACT_TYPES.includes(contactType)) {
     contactType = options.defaultContactType || 'customer';
   }
@@ -385,9 +372,7 @@ export async function importContactsFromCSV(
     // Get existing contacts for duplicate detection
     let existingContacts: Contact[] = [];
     if (options.updateExisting) {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('id, email, contact_name');
+      const { data, error } = await supabase.from('contacts').select('id, email, contact_name');
       // Surface the error instead of silently proceeding with an empty set,
       // which would defeat duplicate detection and create duplicate contacts.
       if (error) throw error;

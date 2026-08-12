@@ -289,11 +289,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
+      // Roles come from the server or not at all. Defaulting a missing roles
+      // field to ['admin'] granted the admin role whenever the response shape
+      // was unexpected, which is exactly when it should be withheld.
       const adminData: AdminUser = {
         id: data.id,
         email: data.email,
         username: data.username || data.email?.split('@')[0],
-        roles: data.roles || ['admin'],
+        roles: Array.isArray(data.roles) ? data.roles : [],
         permissions: data.permissions || [],
       };
 
@@ -398,7 +401,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                       id: data.id,
                       email: data.email,
                       username: data.username || data.email?.split('@')[0],
-                      roles: data.roles || ['admin'],
+                      roles: Array.isArray(data.roles) ? data.roles : [],
                       permissions: data.permissions || [],
                     };
                     await setCachedAdminData(newSession.user.id, freshAdminData);
@@ -466,7 +469,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           id: data.id,
           email: data.email,
           username: data.username || data.email?.split('@')[0],
-          roles: data.roles || ['admin'],
+          roles: Array.isArray(data.roles) ? data.roles : [],
           permissions: data.permissions || [],
         };
 
