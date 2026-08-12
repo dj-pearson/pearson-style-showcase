@@ -1,4 +1,3 @@
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 // Pure auth helpers (extracted for unit testing; see _shared/auth-helpers.ts). US-011.
@@ -37,9 +36,13 @@ async function isEmailWhitelisted(email: string): Promise<boolean> {
 
 // Helper function to get user roles from database
 async function getUserRoles(userId: string): Promise<string[]> {
-  let query = supabase.from('user_roles').select('role').eq('user_id', userId);
-  // Only filter by is_active if column exists (rbac migration may not have run)
-  const { data, error } = await query;
+  // is_active is added unconditionally by 20251125000001_rbac_enhancements.sql.
+  // Without this filter a revoked role still comes back in the login payload.
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('is_active', true);
 
   if (error || !data) return [];
   return data.map((r) => r.role);
@@ -468,7 +471,7 @@ async function checkAndHandleLockout(
   return false;
 }
 
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -655,7 +658,7 @@ serve(async (req) => {
           user: {
             id: authData.user.id,
             email: authData.user.email,
-            username: authData.user.email.split('@')[0],
+            username: authData.user.email?.split('@')[0] ?? '',
             two_factor_enabled: false,
             roles,
             permissions,
@@ -795,25 +798,29 @@ serve(async (req) => {
             const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
             const userAgent = req.headers.get('user-agent') || 'unknown';
 
-            await supabase
-              .from('admin_activity_log')
-              .insert({
-                admin_id: user.id,
-                admin_email: user.email,
-                action: 'LOGOUT',
-                action_category: 'authentication',
-                ip_address: clientIP,
-                user_agent: userAgent,
-                success: true,
-                metadata: {
-                  session_invalidated: true,
-                  timestamp_utc: new Date().toISOString(),
-                },
-                timestamp: new Date().toISOString(),
-              })
-              .catch((err) => {
-                console.error('Failed to log logout event:', err);
-              });
+            // A Postgrest builder is a thenable, not a Promise: it has no
+            // .catch(). Calling one threw a TypeError before the query was ever
+            // executed, so no LOGOUT row was written and the outer handler
+            // reported it as a session-invalidation failure. Check the returned
+            // error instead.
+            const { error: logError } = await supabase.from('admin_activity_log').insert({
+              admin_id: user.id,
+              admin_email: user.email,
+              action: 'LOGOUT',
+              action_category: 'authentication',
+              ip_address: clientIP,
+              user_agent: userAgent,
+              success: true,
+              metadata: {
+                session_invalidated: true,
+                timestamp_utc: new Date().toISOString(),
+              },
+              timestamp: new Date().toISOString(),
+            });
+
+            if (logError) {
+              console.error('Failed to log logout event:', logError);
+            }
           }
         } catch (err) {
           console.error('Error during session invalidation:', err);
@@ -890,4 +897,4 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+};

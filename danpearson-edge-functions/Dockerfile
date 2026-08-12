@@ -1,5 +1,12 @@
 # Dockerfile for danpearson.net Edge Functions
 # Self-Hosted Supabase Edge Functions with Deno
+#
+# BUILD CONTEXT IS THE REPOSITORY ROOT, not this directory.
+#   docker build -f danpearson-edge-functions/Dockerfile .
+# The function source lives in supabase/functions, which is the single source of
+# truth; this directory holds only the runtime that serves it. Building with
+# this directory as the context will fail on the COPY below, by design; that is
+# what previously allowed a second, drifting copy of every function to exist.
 
 FROM denoland/deno:1.40.0
 
@@ -15,11 +22,11 @@ RUN mkdir -p /app/.deno_cache && chown deno:deno /app/.deno_cache
 # Set Deno cache directory
 ENV DENO_DIR=/app/.deno_cache
 
-# Copy functions directory
-COPY --chown=deno:deno functions ./functions
+# Copy the canonical function source
+COPY --chown=deno:deno supabase/functions ./functions
 
 # Copy server script
-COPY --chown=deno:deno server.ts .
+COPY --chown=deno:deno danpearson-edge-functions/server.ts .
 
 # Switch to non-root user for security
 USER deno

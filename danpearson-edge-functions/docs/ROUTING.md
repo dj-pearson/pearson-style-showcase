@@ -17,7 +17,7 @@ Complete guide to routing and DNS configuration for the danpearson.net self-host
     │                  │            │                     │
     │ Supabase API     │            │ Edge Functions      │
     │ - Kong Gateway   │            │ - Deno Runtime      │
-    │ - Auth Service   │            │ - 22 Functions      │
+    │ - Auth Service   │            │ - 31 Functions      │
     │ - REST API       │            │                     │
     │ - Storage API    │            │                     │
     │ - Realtime       │            │                     │
@@ -31,19 +31,19 @@ Complete guide to routing and DNS configuration for the danpearson.net self-host
 
 ### Primary Domains
 
-| Domain | Purpose | Service | Port | SSL |
-|--------|---------|---------|------|-----|
-| `danpearson.net` | Main website/frontend | Cloudflare Pages | 443 | ✅ |
-| `api.danpearson.net` | Supabase API Gateway | Coolify/Docker | 443 | ✅ |
-| `functions.danpearson.net` | Edge Functions | Coolify/Docker | 443 | ✅ |
+| Domain                     | Purpose               | Service          | Port | SSL |
+| -------------------------- | --------------------- | ---------------- | ---- | --- |
+| `danpearson.net`           | Main website/frontend | Cloudflare Pages | 443  | ✅  |
+| `api.danpearson.net`       | Supabase API Gateway  | Coolify/Docker   | 443  | ✅  |
+| `functions.danpearson.net` | Edge Functions        | Coolify/Docker   | 443  | ✅  |
 
 ### Optional Subdomains
 
-| Domain | Purpose | Service |
-|--------|---------|---------|
-| `studio.danpearson.net` | Supabase Studio (if exposed) | Coolify/Docker |
-| `www.danpearson.net` | WWW redirect to apex | Cloudflare |
-| `staging.danpearson.net` | Staging environment | Cloudflare Pages |
+| Domain                   | Purpose                      | Service          |
+| ------------------------ | ---------------------------- | ---------------- |
+| `studio.danpearson.net`  | Supabase Studio (if exposed) | Coolify/Docker   |
+| `www.danpearson.net`     | WWW redirect to apex         | Cloudflare       |
+| `staging.danpearson.net` | Staging environment          | Cloudflare Pages |
 
 ## 🔧 DNS Configuration
 
@@ -120,6 +120,7 @@ https://functions.danpearson.net/{function-name}             → Execute functio
 ```
 
 Example function URLs:
+
 ```
 https://functions.danpearson.net/generate-ai-article
 https://functions.danpearson.net/newsletter-signup
@@ -159,7 +160,7 @@ export async function invokeFunction<T = any>(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(options?.token && { 'Authorization': `Bearer ${options.token}` }),
+      ...(options?.token && { Authorization: `Bearer ${options.token}` }),
       ...options?.headers,
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -174,17 +175,22 @@ export async function invokeFunction<T = any>(
 }
 
 // Usage example
-const result = await invokeFunction('generate-ai-article', {
-  title: 'My Article',
-  content: 'Article content...',
-}, {
-  token: session.access_token,
-});
+const result = await invokeFunction(
+  'generate-ai-article',
+  {
+    title: 'My Article',
+    content: 'Article content...',
+  },
+  {
+    token: session.access_token,
+  }
+);
 ```
 
 ### Environment Variables
 
 **Development (`.env.local`)**:
+
 ```env
 VITE_SUPABASE_URL=http://localhost:54321
 VITE_SUPABASE_ANON_KEY=your-local-anon-key
@@ -192,6 +198,7 @@ VITE_FUNCTIONS_URL=http://localhost:8000
 ```
 
 **Production (Cloudflare Pages Environment Variables)**:
+
 ```env
 VITE_SUPABASE_URL=https://api.danpearson.net
 VITE_SUPABASE_ANON_KEY=your-production-anon-key
@@ -203,10 +210,12 @@ VITE_FUNCTIONS_URL=https://functions.danpearson.net
 ### Coolify SSL
 
 Coolify automatically provisions Let's Encrypt SSL certificates for:
+
 - `api.danpearson.net`
 - `functions.danpearson.net`
 
 **Configuration**:
+
 1. In Coolify, for each service:
    - Go to Domains tab
    - Add domain
@@ -219,11 +228,13 @@ Coolify automatically provisions Let's Encrypt SSL certificates for:
 ### Certificate Renewal
 
 Automatic renewal is handled by Coolify/Let's Encrypt:
+
 - Certificates valid for 90 days
 - Auto-renewal 30 days before expiration
 - No manual intervention needed
 
 Verify certificates:
+
 ```bash
 # Check API certificate
 curl -vI https://api.danpearson.net 2>&1 | grep "SSL certificate"
@@ -265,7 +276,9 @@ curl -vI https://functions.danpearson.net 2>&1 | grep "SSL certificate"
    ↓
 3. Edge Functions server receives request
    ↓
-4. Function verifies JWT with api.danpearson.net
+4. server.ts verifies the JWT signature locally with SUPABASE_JWT_SECRET
+   (generate-ai-article is not in PUBLIC_FUNCTIONS, so a missing or invalid
+   token is rejected with 401 before the function loads)
    ↓
 5. Function generates article using AI
    ↓
@@ -303,38 +316,35 @@ curl -vI https://functions.danpearson.net 2>&1 | grep "SSL certificate"
 ### API Gateway CORS
 
 Kong (Supabase API Gateway) handles CORS automatically for:
+
 - `https://danpearson.net`
 - `https://www.danpearson.net`
 - `http://localhost:3000` (development)
 
 Configure in Supabase:
+
 ```sql
 -- In your database
-UPDATE auth.config 
+UPDATE auth.config
 SET site_url = 'https://danpearson.net',
     additional_redirect_urls = 'https://www.danpearson.net,http://localhost:3000';
 ```
 
 ### Edge Functions CORS
 
-Configured in `server.ts`:
+`server.ts` and `supabase/functions/_shared/cors.ts` both resolve the allowed
+origin from an allow-list; a wildcard is never sent, because responses carry
+`Access-Control-Allow-Credentials: true`. The list comes from the
+`ALLOWED_ORIGINS` environment variable (comma-separated), defaulting to
+`https://danpearson.net` and `https://www.danpearson.net`.
 
-```typescript
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Or specific domain
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
-  'Access-Control-Max-Age': '86400',
-};
+```env
+# Set on the Coolify service to add an origin
+ALLOWED_ORIGINS=https://danpearson.net,https://www.danpearson.net,http://localhost:8080
 ```
 
-For production, restrict to your domain:
-```typescript
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://danpearson.net',
-  // ... other headers
-};
-```
+A request from an origin outside the list gets the first list entry back in
+`Access-Control-Allow-Origin`, so the browser blocks it.
 
 ## 🌍 CDN & Caching
 
@@ -343,15 +353,18 @@ const corsHeaders = {
 Recommended Cloudflare settings:
 
 **For `danpearson.net`**:
+
 - Cache Level: Standard
 - Browser Cache TTL: Respect Existing Headers
 - Always Use HTTPS: On
 
 **For `api.danpearson.net`**:
+
 - Cache Level: Bypass (API calls should not be cached)
 - SSL: Full (strict)
 
 **For `functions.danpearson.net`**:
+
 - Cache Level: Bypass (function responses should not be cached)
 - SSL: Full (strict)
 
@@ -432,6 +445,7 @@ curl -X OPTIONS https://functions.danpearson.net/health-check \
 **Symptoms**: Domain doesn't resolve to IP
 
 **Solutions**:
+
 1. Check DNS records are correct
 2. Wait for DNS propagation (up to 48 hours)
 3. Clear DNS cache: `ipconfig /flushdns` (Windows) or `sudo dscacheutil -flushcache` (Mac)
@@ -442,6 +456,7 @@ curl -X OPTIONS https://functions.danpearson.net/health-check \
 **Symptoms**: Browser shows SSL warnings
 
 **Solutions**:
+
 1. Verify domain is configured in Coolify
 2. Check Coolify has provisioned Let's Encrypt cert
 3. Ensure DNS points to correct IP
@@ -453,6 +468,7 @@ curl -X OPTIONS https://functions.danpearson.net/health-check \
 **Symptoms**: Browser blocks requests with CORS error
 
 **Solutions**:
+
 1. Check CORS headers in `server.ts`
 2. Verify origin is allowed
 3. Add `OPTIONS` handler
@@ -463,6 +479,7 @@ curl -X OPTIONS https://functions.danpearson.net/health-check \
 **Symptoms**: Accessing domain returns 502
 
 **Solutions**:
+
 1. Verify service is running in Coolify
 2. Check port is exposed correctly (8000)
 3. Verify health check passes

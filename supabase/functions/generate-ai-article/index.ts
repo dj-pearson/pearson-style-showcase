@@ -1,4 +1,3 @@
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
@@ -8,8 +7,10 @@ import {
   createRateLimitResponse,
   initRateLimiter,
 } from '../_shared/rate-limiter.ts';
+import { getAIConfigs, callAIWithConfig, parseJSONResponse } from '../_shared/ai-helper.ts';
+import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
 // Pure parse/derive helpers (extracted for unit testing). US-012.
-import { assertApiKeyConfigured, parseAiArticleJson, slugify, calculateReadTime } from './parse.ts';
+import { slugify, calculateReadTime } from './parse.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -22,7 +23,7 @@ const ARTICLE_GEN_RATE_LIMIT = {
   keyPrefix: 'article-gen',
 };
 
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -43,8 +44,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY');
-    assertApiKeyConfigured(CLAUDE_API_KEY);
+    // Normal tier: quality matters more than latency for a full article.
+    const aiConfigs = await getAIConfigs(supabaseClient, 'normal', 'article_generation');
+    console.log(`Found ${aiConfigs.length} normal tier AI configs for article generation`);
 
     console.log('Fetching articles from AI news website...');
 
@@ -101,34 +103,19 @@ serve(async (req) => {
     console.log('Original article title:', title);
     console.log('Generating new article with AI...');
 
-    // Generate a completely new article with AI using Claude
-    const aiResponse = await fetchWithTimeout(
-      'https://api.anthropic.com/v1/messages',
-      {
-        method: 'POST',
-        headers: {
-          'x-api-key': CLAUDE_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 4096,
-          system: `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like.
+    const systemPrompt = `You are an expert AI and technology content writer. Your task is to write original, SEO-optimized articles that are informative, engaging, and human-like.
 
-            Rules:
-            - Write in a conversational, professional tone
-            - Create completely original content - do NOT copy from the source
-            - Use the source only for topic inspiration and key facts
-            - Include relevant examples and real-world applications
-            - Structure with clear headings (use ## and ### for markdown)
-            - Aim for 800-1200 words
-            - Write for both technical and non-technical readers
-            - Include actionable insights`,
-          messages: [
-            {
-              role: 'user',
-              content: `Based on this article about "${title}", write a completely new, SEO-optimized article with a fresh perspective.
+Rules:
+- Write in a conversational, professional tone
+- Create completely original content - do NOT copy from the source
+- Use the source only for topic inspiration and key facts
+- Include relevant examples and real-world applications
+- Structure with clear headings (use ## and ### for markdown)
+- Aim for 800-1200 words
+- Write for both technical and non-technical readers
+- Include actionable insights`;
+
+    const userPrompt = `Based on this article about "${title}", write a completely new, SEO-optimized article with a fresh perspective.
 
 Source article context (use only as inspiration):
 ${excerpt}
@@ -149,28 +136,28 @@ Make sure the content is:
 - Well-researched with specific details
 - Human-sounding and engaging
 - SEO-optimized but natural
-- Properly structured with markdown headings`,
-            },
-          ],
-          temperature: 0.7,
-        }),
-      },
-      { timeoutMs: 60_000, maxRetries: 2, label: 'claude-article-gen' }
+- Properly structured with markdown headings`;
+
+    // Provider/model selection lives in ai_model_configs, with fallback across
+    // configs handled by callAIWithConfig.
+    const { response: aiContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      userPrompt,
+      { temperature: 0.7, maxTokens: 4000, jsonMode: true }
     );
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Claude API error:', aiResponse.status, errorText);
-      throw new Error(`Claude API failed: ${aiResponse.status}`);
+    console.log(
+      `AI response received from ${usedConfig.provider} - ${usedConfig.model_name}, parsing...`
+    );
+
+    let articleData;
+    try {
+      articleData = parseJSONResponse(aiContent);
+    } catch (e) {
+      console.error('Failed to parse AI response:', e);
+      throw new Error('Failed to parse AI-generated content');
     }
-
-    const aiData = await aiResponse.json();
-    const aiContent = aiData.content[0].text;
-
-    console.log('AI response received, parsing...');
-
-    // Extract JSON from AI response (handle markdown code blocks)
-    const articleData = parseAiArticleJson(aiContent);
 
     // Generate a URL-friendly slug
     const slug = slugify(articleData.title);
@@ -212,16 +199,13 @@ Make sure the content is:
 
     console.log('Article created successfully:', newArticle.id);
 
-    // If published, trigger the webhook asynchronously (do not fail main flow)
+    // If published, trigger the webhook (failures are logged, not fatal)
     if (newArticle.published) {
-      try {
-        await supabaseClient.functions.invoke('send-article-webhook', {
-          body: { articleId: newArticle.id, isTest: false },
-        });
-        console.log('Webhook invoked for article', newArticle.id);
-      } catch (e) {
-        console.error('Failed to invoke webhook for article', newArticle.id, e);
-      }
+      await invokeFunctionAndForget('send-article-webhook', {
+        articleId: newArticle.id,
+        isTest: false,
+      });
+      console.log('Webhook invoked for article', newArticle.id);
     }
 
     return new Response(
@@ -230,6 +214,7 @@ Make sure the content is:
         article: newArticle,
         sourceUrl: randomUrl,
         message: 'Article generated and published successfully',
+        model_used: `${usedConfig.provider} - ${usedConfig.model_name}`,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -238,10 +223,10 @@ Make sure the content is:
   } catch (error) {
     console.error('Error in generate-ai-article function:', error);
     return structuredErrorResponse(
-      error.message || 'Internal server error',
+      (error instanceof Error ? error.message : '') || 'Internal server error',
       'ARTICLE_GENERATION_FAILED',
       500,
       corsHeaders
     );
   }
-});
+};

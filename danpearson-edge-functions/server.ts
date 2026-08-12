@@ -65,17 +65,26 @@ function serverCorsHeaders(origin: string | null): Record<string, string> {
 }
 
 /**
- * Functions reachable without a bearer token. Mirrors verify_jwt = false in
- * supabase/config.toml, which this server does not otherwise honor: OAuth
- * redirects and provider webhooks arrive without a Supabase session, and
- * monitoring probes health-check anonymously. Webhook receivers authenticate
- * with their own HMAC signature check.
+ * Functions reachable without a bearer token.
+ *
+ * THIS LIST IS AUTHORITATIVE. supabase/config.toml's verify_jwt flags apply to
+ * the Supabase-hosted edge runtime, which this deployment does not use; they
+ * are kept there for local `supabase start` only and have drifted from reality
+ * before. Anything requiring a token is gated here, so a function added to
+ * supabase/functions is authenticated by default until it is listed below.
+ *
+ * OAuth redirects and provider webhooks arrive without a Supabase session,
+ * monitoring probes health-check anonymously, and the public status page reads
+ * health-dashboard. Webhook receivers authenticate with their own HMAC check.
  */
 const PUBLIC_FUNCTIONS = new Set([
   'admin-auth',
   'oauth-proxy',
   'auth-proxy',
   'health-check',
+  // Backs the public status page at /status (src/pages/Status.tsx), which is
+  // fetched anonymously and would 401 without this.
+  'health-dashboard',
   'track-affiliate-click',
   'newsletter-signup',
   'send-contact-email',
@@ -352,7 +361,7 @@ async function handleRequest(req: Request): Promise<Response> {
     return new Response(
       JSON.stringify({
         error: `Function '${functionName}' does not export a handler`,
-        hint: 'Functions should use Deno.serve() or export a default handler function',
+        hint: 'Functions must export a default handler: export default async (req: Request): Promise<Response> => {...}. serve() and Deno.serve() are not dispatched by this server.',
       }),
       {
         status: 500,

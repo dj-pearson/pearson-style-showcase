@@ -26,7 +26,9 @@ const CHECK_TIMEOUT_MS = 4000;
 const START_TIME = Date.now();
 
 /** Run a promise with a timeout, resolving to a degraded/unhealthy check on timeout. */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | 'timeout'> {
+// PromiseLike, not Promise: Postgrest query builders are thenables and are
+// passed in directly by the database check below.
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | 'timeout'> {
   return Promise.race([
     promise,
     new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), ms)),
@@ -77,7 +79,7 @@ async function checkDatabase(): Promise<ServiceHealth> {
   }
 }
 
-Deno.serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -107,4 +109,4 @@ Deno.serve(async (req) => {
     status: healthHttpStatus(status),
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-});
+};

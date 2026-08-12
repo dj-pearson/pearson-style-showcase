@@ -1,7 +1,6 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
-import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import { structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 import {
   checkRateLimit,
   getClientIdentifier,
@@ -9,6 +8,12 @@ import {
   initRateLimiter,
 } from '../_shared/rate-limiter.ts';
 import { validateUuid } from '../_shared/validation.ts';
+import {
+  createSupabaseClient,
+  getAIConfigs,
+  callAIWithConfig,
+  parseJSONResponse,
+} from '../_shared/ai-helper.ts';
 
 // Initialize rate limiter cleanup
 initRateLimiter();
@@ -21,7 +26,7 @@ const SOCIAL_GEN_RATE_LIMIT = {
   keyPrefix: 'social-gen',
 };
 
-Deno.serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -48,10 +53,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseClient = createSupabaseClient();
+
+    // Lightweight tier is enough for short social copy
+    const aiConfigs = await getAIConfigs(supabaseClient, 'lightweight', 'social_content');
+    console.log(`[Social] Found ${aiConfigs.length} lightweight AI configs`);
 
     // Fetch article details
     const { data: article, error: articleError } = await supabaseClient
@@ -64,13 +70,10 @@ Deno.serve(async (req) => {
       throw new Error('Article not found');
     }
 
-    // Generate social media content using Claude
-    const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
-    if (!claudeApiKey) {
-      throw new Error('CLAUDE_API_KEY not configured');
-    }
+    const systemPrompt =
+      'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.';
 
-    const prompt = `Based on this article, create engaging social media posts:
+    const userPrompt = `Based on this article, create engaging social media posts:
 
 Article Title: ${article.title}
 Article Excerpt: ${article.excerpt}
@@ -85,59 +88,24 @@ Return ONLY valid JSON in this exact format:
   "longForm": "your facebook post here"
 }`;
 
-    const aiResponse = await fetchWithTimeout(
-      'https://api.anthropic.com/v1/messages',
-      {
-        method: 'POST',
-        headers: {
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1024,
-          system:
-            'You are a social media expert. Generate engaging posts that drive traffic. Always return valid JSON only.',
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      },
-      { timeoutMs: 30_000, maxRetries: 2, label: 'claude-social' }
+    // Generate social content using the configured lightweight models (with fallback)
+    const { response: rawContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      userPrompt,
+      { temperature: 0.7, maxTokens: 1000, jsonMode: true }
     );
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Claude API error:', errorText);
-      throw new Error('Failed to generate social content');
-    }
-
-    const aiData = await aiResponse.json();
-    const rawContent = aiData.content?.[0]?.text ?? '';
-
-    // Robust JSON extraction: handle code fences and extra text
-    let generatedContent = (rawContent as string).trim();
-    // Remove markdown code fences if present
-    const fenceMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenceMatch) {
-      generatedContent = fenceMatch[1].trim();
-    }
-    // If still not plain JSON, extract between first { and last }
-    if (!generatedContent.trim().startsWith('{')) {
-      const start = generatedContent.indexOf('{');
-      const end = generatedContent.lastIndexOf('}');
-      if (start !== -1 && end !== -1 && end > start) {
-        generatedContent = generatedContent.slice(start, end + 1);
-      }
-    }
-
-    console.log('Generated content (cleaned):', generatedContent);
+    console.log(
+      `[Social] Generated content using ${usedConfig.provider} - ${usedConfig.model_name}`
+    );
 
     // Parse the JSON response
     let socialContent;
     try {
-      socialContent = JSON.parse(generatedContent);
+      socialContent = parseJSONResponse(rawContent);
     } catch (parseError) {
-      console.error('Failed to parse AI response:', rawContent);
+      console.error('[Social] Failed to parse AI response:', parseError);
       throw new Error('Invalid AI response format');
     }
 
@@ -172,16 +140,17 @@ Return ONLY valid JSON in this exact format:
         shortForm: socialContent.shortForm,
         longForm: socialContent.longForm,
         imageUrl: socialImageUrl,
+        model_used: `${usedConfig.provider} - ${usedConfig.model_name}`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error generating social content:', error);
+    console.error('[Social] Error generating social content:', error);
     return structuredErrorResponse(
-      error.message || 'Internal server error',
+      (error instanceof Error ? error.message : '') || 'Internal server error',
       'SOCIAL_CONTENT_GENERATION_FAILED',
       500,
       corsHeaders
     );
   }
-});
+};

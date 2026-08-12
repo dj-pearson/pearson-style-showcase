@@ -97,7 +97,10 @@ function parseArray(value) {
  * surface area than the job needs.
  */
 function parseFrontmatter(raw, file) {
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  // Git checks these files out with CRLF on Windows, so match on normalized
+  // input. Without this the parser reports every file as missing frontmatter,
+  // and the generated SQL would carry \r into the article bodies.
+  const match = raw.replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!match) throw new Error(`${file}: missing frontmatter`);
 
   const [, block, body] = match;

@@ -1,4 +1,3 @@
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { Resend } from 'npm:resend@2.0.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import {
@@ -105,7 +104,10 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: CONTACT_FROM,
       to: [CONTACT_RECIPIENT],
-      replyTo: email,
+      // resend@2.0.0 takes snake_case here. camelCase replyTo was not added
+      // until v3.2, so spelling it that way against this pin silently drops the
+      // header and replies go to CONTACT_FROM instead of the sender.
+      reply_to: email,
       subject: `Contact Form: ${subject}`,
       html: `
         <h2>New Contact Form Submission</h2>
@@ -161,4 +163,4 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-serve(handler);
+export default handler;

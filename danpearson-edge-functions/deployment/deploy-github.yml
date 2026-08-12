@@ -8,6 +8,9 @@ on:
     branches:
       - main
     paths:
+      # Function source is the single source of truth and must trigger a deploy.
+      - 'supabase/functions/**'
+      # Runtime: server.ts, Dockerfile, compose file, deployment scripts.
       - 'danpearson-edge-functions/**'
       - '.github/workflows/deploy-edge-functions.yml'
   workflow_dispatch: # Allow manual triggering
@@ -52,7 +55,9 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./danpearson-edge-functions
+          # Repository root: the Dockerfile copies supabase/functions, which is
+          # outside danpearson-edge-functions.
+          context: .
           file: ./danpearson-edge-functions/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}

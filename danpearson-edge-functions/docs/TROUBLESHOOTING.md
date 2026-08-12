@@ -28,11 +28,13 @@ curl -vI https://functions.danpearson.net 2>&1 | grep "SSL certificate"
 ### 1. Container Won't Start
 
 **Symptoms**:
+
 - Container exits immediately after starting
 - Health check fails
 - No logs
 
 **Possible Causes**:
+
 - Missing environment variables
 - Invalid Dockerfile
 - Port already in use
@@ -60,6 +62,7 @@ docker-compose build --no-cache
 ```
 
 **Fix**: Ensure all required environment variables are set:
+
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -67,11 +70,13 @@ docker-compose build --no-cache
 ### 2. 502 Bad Gateway
 
 **Symptoms**:
+
 - Accessing `functions.danpearson.net` returns 502
 - Container is running
 - Logs show server started
 
 **Possible Causes**:
+
 - Port not exposed in Coolify
 - Reverse proxy misconfigured
 - Server not listening on correct port
@@ -91,6 +96,7 @@ docker exec danpearson-functions netstat -tlnp | grep 8000
 ```
 
 **Fix in Coolify**:
+
 1. Go to your service settings
 2. Set **"Ports Exposes"** to `8000`
 3. Redeploy
@@ -98,11 +104,13 @@ docker exec danpearson-functions netstat -tlnp | grep 8000
 ### 3. Function Not Found (404)
 
 **Symptoms**:
+
 - Health endpoint works
 - Calling function returns 404
 - Function list doesn't show your function
 
 **Possible Causes**:
+
 - Function directory doesn't exist
 - Function missing `index.ts`
 - Function name mismatch
@@ -125,18 +133,25 @@ curl https://functions.danpearson.net/
 ```
 
 **Fix**:
-- Ensure function structure is correct: `functions/{name}/index.ts`
+
+- Ensure function structure is correct: `supabase/functions/{name}/index.ts` in the repo, which the image copies to `/app/functions/{name}/index.ts`
 - Rebuild and redeploy
 - Check function name matches directory name exactly (case-sensitive)
+
+A 401 rather than a 404 means the function is not in the `PUBLIC_FUNCTIONS` set in
+`server.ts` and the request carried no valid bearer token. That set, not
+`supabase/config.toml`, is what this deployment enforces.
 
 ### 4. Function Crashes on Execution
 
 **Symptoms**:
+
 - Health endpoint works
 - Function returns 500 error
 - Logs show error
 
 **Possible Causes**:
+
 - Syntax error in function code
 - Missing dependencies
 - Timeout
@@ -153,13 +168,13 @@ cd danpearson-edge-functions
 docker-compose up
 curl -X POST http://localhost:8000/your-function -d '{"test":"data"}'
 
-# Test function directly with Deno
-docker exec danpearson-functions deno run \
-  --allow-all \
+# Type-check the function inside the container
+docker exec danpearson-functions deno check \
   /app/functions/your-function/index.ts
 ```
 
 **Fix**:
+
 - Review error in logs
 - Fix syntax errors
 - Ensure all imports are valid URLs
@@ -168,11 +183,13 @@ docker exec danpearson-functions deno run \
 ### 5. CORS Errors
 
 **Symptoms**:
+
 - Browser console shows CORS error
 - Function works in curl/Postman
 - Preflight request fails
 
 **Possible Causes**:
+
 - CORS headers not configured
 - Origin not allowed
 - Missing OPTIONS handler
@@ -191,26 +208,29 @@ curl -X OPTIONS https://functions.danpearson.net/your-function \
 
 **Fix**:
 
-Update `server.ts`:
+Both `server.ts` and `supabase/functions/_shared/cors.ts` answer only allow-listed
+origins, and both read the same `ALLOWED_ORIGINS` environment variable
+(comma-separated). Without it they fall back to `https://danpearson.net` and
+`https://www.danpearson.net`. To add an origin, set it on the service:
 
-```typescript
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://danpearson.net', // Your domain
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
-};
+```env
+ALLOWED_ORIGINS=https://danpearson.net,https://www.danpearson.net,http://localhost:8080
 ```
 
-Rebuild and redeploy.
+Then redeploy. An unknown origin is never echoed back, so a request from an
+unlisted origin will always fail preflight; that is deliberate, since the
+responses carry `Access-Control-Allow-Credentials: true`.
 
 ### 6. Environment Variables Not Working
 
 **Symptoms**:
+
 - Function can't access Supabase
 - `Deno.env.get()` returns undefined
 - Connection refused errors
 
 **Possible Causes**:
+
 - Environment variables not set in Coolify
 - Variable name mismatch
 - Special characters in values not escaped
@@ -233,6 +253,7 @@ console.log('Connected:', !!supabase);
 ```
 
 **Fix in Coolify**:
+
 1. Go to service → Environment tab
 2. Add/update variables
 3. Save
@@ -241,11 +262,13 @@ console.log('Connected:', !!supabase);
 ### 7. SSL Certificate Errors
 
 **Symptoms**:
+
 - Browser shows "Not Secure"
 - SSL certificate warning
 - Certificate expired
 
 **Possible Causes**:
+
 - Certificate not provisioned
 - DNS not pointing to server
 - Coolify SSL disabled
@@ -263,6 +286,7 @@ nslookup functions.danpearson.net
 ```
 
 **Fix in Coolify**:
+
 1. Verify domain is configured
 2. Enable "Automatic HTTPS"
 3. Wait for certificate provisioning (2-5 minutes)
@@ -271,11 +295,13 @@ nslookup functions.danpearson.net
 ### 8. Slow Function Execution
 
 **Symptoms**:
+
 - Functions take too long to respond
 - Timeouts
 - Poor performance
 
 **Possible Causes**:
+
 - Cold start (first request)
 - Heavy computation
 - Slow external API calls
@@ -294,6 +320,7 @@ docker logs danpearson-functions | grep "executed in"
 ```
 
 **Fixes**:
+
 - Add caching for expensive operations
 - Use async operations
 - Optimize database queries
@@ -303,11 +330,13 @@ docker logs danpearson-functions | grep "executed in"
 ### 9. Database Connection Fails
 
 **Symptoms**:
+
 - Function can't connect to Supabase
 - Connection refused
 - Timeout errors
 
 **Possible Causes**:
+
 - Wrong Supabase URL
 - Network issues
 - Invalid API keys
@@ -328,6 +357,7 @@ curl https://api.danpearson.net/rest/v1/
 ```
 
 **Fix**:
+
 - Verify `SUPABASE_URL` is correct
 - Check Supabase service is running
 - Verify API keys are valid
@@ -336,11 +366,13 @@ curl https://api.danpearson.net/rest/v1/
 ### 10. Deployment Fails in Coolify
 
 **Symptoms**:
+
 - Build fails
 - Deployment stuck
 - Image pull errors
 
 **Possible Causes**:
+
 - Build errors in Dockerfile
 - Out of disk space
 - Network issues
@@ -352,9 +384,8 @@ curl https://api.danpearson.net/rest/v1/
 # Check Coolify logs
 # Coolify → Your Service → Logs → Build Logs
 
-# Test build locally
-cd danpearson-edge-functions
-docker build -t test .
+# Test build locally (from the repository root; the build copies supabase/functions)
+docker build -f danpearson-edge-functions/Dockerfile -t test .
 
 # Check disk space on Coolify server
 df -h
@@ -364,6 +395,7 @@ docker system prune -a
 ```
 
 **Fix**:
+
 - Fix Dockerfile errors
 - Free up disk space
 - Check Docker daemon is running
@@ -389,11 +421,12 @@ console.log(`[DEBUG] Environment:`, {
 # Enter container
 docker exec -it danpearson-functions bash
 
-# Run function with Deno
-deno run --allow-all /app/functions/your-function/index.ts
+# Type-check a function without serving it (it exports a default handler,
+# so running it directly starts nothing)
+deno check /app/functions/your-function/index.ts
 
 # Test imports
-deno eval "import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'; console.log('OK');"
+deno eval "import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'; console.log('OK');"
 ```
 
 ### Check Resource Usage

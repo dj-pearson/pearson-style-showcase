@@ -1,146 +1,275 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 
-interface AIModelConfig {
+// Types
+export type ModelTier = 'lightweight' | 'normal';
+export type Provider = 'gemini-free' | 'gemini-paid' | 'claude' | 'openai' | 'lovable';
+
+export interface AIConfig {
   id: string;
-  provider: string;
+  provider: Provider;
   model_name: string;
-  api_key_env_var: string;
-  is_active: boolean;
+  api_key_secret_name: string;
   priority: number;
-  is_lightweight: boolean;
-  configuration?: Record<string, unknown>;
+  is_default: boolean;
+  is_active: boolean;
+  configuration: Record<string, any>;
+  use_case: string;
+  model_tier: ModelTier;
+  last_tested_at?: string;
+  last_test_status?: string;
 }
 
-interface AICallResult {
-  text: string;
-  model: string;
-  provider: string;
+export interface AICallOptions {
+  temperature?: number;
+  maxTokens?: number;
+  jsonMode?: boolean;
+}
+
+export interface AICallResult {
+  response: string;
+  usedConfig: AIConfig;
 }
 
 /**
- * Fetch AI model configs from the database, sorted by priority
+ * Get AI configurations filtered by tier and optional use case
+ * Includes cross-tier fallback: lightweight ↔ normal for resilience
+ *
+ * @param supabaseClient - Supabase client instance
+ * @param tier - 'lightweight' for fast/cheap tasks, 'normal' for quality tasks
+ * @param useCase - Optional specific use case (e.g., 'article_generation', 'ticket_response')
  */
-async function getAIConfigs(lightweight: boolean = false): Promise<AIModelConfig[]> {
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
-
-  let query = supabaseClient
+export async function getAIConfigs(
+  supabaseClient: SupabaseClient,
+  tier: ModelTier = 'normal',
+  useCase?: string
+): Promise<AIConfig[]> {
+  // Get all active configs
+  const { data: allConfigs, error: configError } = await supabaseClient
     .from('ai_model_configs')
     .select('*')
     .eq('is_active', true)
-    .order('priority', { ascending: true });
+    .order('priority', { ascending: false });
 
-  if (lightweight) {
-    query = query.eq('is_lightweight', true);
+  if (configError) {
+    console.error('[AI] Failed to load AI model configurations:', configError);
+    throw new Error('Failed to load AI model configurations');
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('[AI] Failed to fetch AI configs:', error);
-    return [];
+  if (!allConfigs || allConfigs.length === 0) {
+    throw new Error('No active AI configurations found');
   }
 
-  // If no lightweight configs found, fall back to all active configs
-  if (lightweight && (!data || data.length === 0)) {
-    const { data: allData } = await supabaseClient
-      .from('ai_model_configs')
-      .select('*')
-      .eq('is_active', true)
-      .order('priority', { ascending: true });
-    return allData || [];
+  // Separate configs by tier
+  const primaryTierConfigs = allConfigs.filter((c: AIConfig) => c.model_tier === tier);
+  const fallbackTier: ModelTier = tier === 'lightweight' ? 'normal' : 'lightweight';
+  const fallbackTierConfigs = allConfigs.filter((c: AIConfig) => c.model_tier === fallbackTier);
+
+  // Build ordered list: primary tier first, then fallback tier
+  let orderedConfigs: AIConfig[] = [];
+
+  // Filter by use case if provided
+  const filterByUseCase = (configs: AIConfig[]): AIConfig[] => {
+    if (!useCase) return configs;
+
+    const useCaseConfigs = configs.filter(
+      (c: AIConfig) => c.use_case && c.use_case.includes(useCase)
+    );
+    const allUseConfigs = configs.filter((c: AIConfig) => c.use_case && c.use_case.includes('all'));
+    const generalConfigs = configs.filter(
+      (c: AIConfig) => !c.use_case || c.use_case.includes('general')
+    );
+
+    // Return filtered in priority: specific > all > general, or full list if no matches
+    if (useCaseConfigs.length > 0) return useCaseConfigs;
+    if (allUseConfigs.length > 0) return allUseConfigs;
+    if (generalConfigs.length > 0) return generalConfigs;
+    return configs; // Return all if no use case matches
+  };
+
+  // Add primary tier configs (filtered by use case)
+  const filteredPrimary = filterByUseCase(primaryTierConfigs);
+  orderedConfigs.push(...filteredPrimary);
+
+  // Add fallback tier configs (filtered by use case) for resilience
+  const filteredFallback = filterByUseCase(fallbackTierConfigs);
+  orderedConfigs.push(...filteredFallback);
+
+  if (orderedConfigs.length === 0) {
+    // Ultimate fallback: use any active config
+    console.warn(`[AI] No ${tier} or ${fallbackTier} configs found, using any available`);
+    orderedConfigs = allConfigs as AIConfig[];
+  } else {
+    console.log(
+      `[AI] Config order: ${orderedConfigs.length} configs (${filteredPrimary.length} ${tier}, ${filteredFallback.length} ${fallbackTier} fallback)`
+    );
   }
 
-  return data || [];
+  return orderedConfigs;
 }
 
 /**
- * Call AI with text-only prompt, trying multiple models in priority order
+ * Call AI using centralized configuration with fallback support
+ *
+ * @param configs - Array of AI configurations to try in order
+ * @param systemPrompt - System prompt for the AI
+ * @param userPrompt - User prompt for the AI
+ * @param options - Optional parameters (temperature, maxTokens, jsonMode)
  */
-export async function callAI(
+export async function callAIWithConfig(
+  configs: AIConfig[],
   systemPrompt: string,
   userPrompt: string,
-  options?: { lightweight?: boolean; maxTokens?: number; temperature?: number }
+  options: AICallOptions = {}
 ): Promise<AICallResult> {
-  const configs = await getAIConfigs(options?.lightweight);
-  const maxTokens = options?.maxTokens || 4096;
-  const temperature = options?.temperature ?? 0.3;
-
-  console.log(`[AI] Config order: ${configs.length} configs`);
+  const { temperature = 0.7, maxTokens = 4000, jsonMode = false } = options;
 
   for (const config of configs) {
-    const apiKey = Deno.env.get(config.api_key_env_var);
-    if (!apiKey) {
-      console.warn(`[AI] No API key for ${config.provider} (${config.api_key_env_var})`);
-      continue;
-    }
+    console.log(`[AI] Trying model: ${config.provider} - ${config.model_name}`);
 
     try {
-      if (config.provider === 'claude') {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: config.model_name,
-            max_tokens: maxTokens,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: userPrompt }],
-            temperature,
-          }),
-        });
+      const apiKey = Deno.env.get(config.api_key_secret_name);
+      if (!apiKey) {
+        console.error(`[AI] API key ${config.api_key_secret_name} not found`);
+        continue;
+      }
 
-        if (response.ok) {
-          const result = await response.json();
-          const text = result.content?.[0]?.text;
-          if (text) {
-            return { text, model: config.model_name, provider: config.provider };
-          }
-        } else {
-          const errorText = await response.text();
-          console.error(`[AI] Claude API error: ${response.status} - ${errorText}`);
-        }
-      } else if (config.provider === 'gemini-free' || config.provider === 'gemini-paid') {
-        // Filter out non-standard fields from configuration
-        const genConfig = config.configuration
-          ? Object.fromEntries(
-              Object.entries(config.configuration).filter(
-                ([key]) => !['thinking', 'last_error'].includes(key)
+      let response: Response;
+      let generatedResponse: string | null = null;
+
+      switch (config.provider) {
+        case 'gemini-paid':
+        case 'gemini-free': {
+          // Filter out non-standard fields from configuration that Gemini rejects
+          const geminiGenConfig = config.configuration
+            ? Object.fromEntries(
+                Object.entries(config.configuration).filter(
+                  ([key]) => !['thinking', 'last_error', 'thinkingConfig'].includes(key)
+                )
               )
-            )
-          : {};
+            : {};
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
-              generationConfig: {
-                temperature,
-                maxOutputTokens: maxTokens,
-                ...genConfig,
-              },
-            }),
-          }
-        );
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+                  },
+                ],
+                generationConfig: {
+                  temperature,
+                  maxOutputTokens: maxTokens,
+                  ...geminiGenConfig,
+                },
+              }),
+            }
+          );
 
-        if (response.ok) {
-          const result = await response.json();
-          const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            return { text, model: config.model_name, provider: config.provider };
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI] Gemini API error: ${response.status}`, errorText);
           }
-        } else {
-          const errorText = await response.text();
-          console.error(`[AI] Gemini API error: ${response.status} - ${errorText}`);
+          break;
         }
+
+        case 'claude': {
+          response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model: config.model_name,
+              max_tokens: maxTokens,
+              // Claude takes the system prompt as a top-level field. Concatenating
+              // it into the user turn instead measurably weakens instruction
+              // following, so keep it separate here.
+              system: systemPrompt,
+              messages: [{ role: 'user', content: userPrompt }],
+              temperature,
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.content?.[0]?.text;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI] Claude API error: ${response.status}`, errorText);
+          }
+          break;
+        }
+
+        case 'openai': {
+          response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model_name,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              temperature,
+              max_tokens: maxTokens,
+              ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.choices?.[0]?.message?.content;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI] OpenAI API error: ${response.status}`, errorText);
+          }
+          break;
+        }
+
+        case 'lovable': {
+          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model_name,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              temperature,
+              max_tokens: maxTokens,
+              ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.choices?.[0]?.message?.content;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI] Lovable API error: ${response.status}`, errorText);
+          }
+          break;
+        }
+      }
+
+      if (generatedResponse) {
+        console.log(`[AI] Success with ${config.provider} - ${config.model_name}`);
+        return { response: generatedResponse, usedConfig: config };
       }
     } catch (error) {
       console.error(`[AI] Failed with ${config.provider}:`, error);
@@ -152,151 +281,231 @@ export async function callAI(
 }
 
 /**
- * Call AI with vision (image/PDF input), trying multiple models in priority order
+ * Call AI with vision capabilities (for image processing)
+ * Only certain models support vision - this function handles the differences
  */
 export async function callAIWithVision(
-  base64Data: string,
-  mimeType: string,
+  configs: AIConfig[],
   prompt: string,
-  options?: {
-    lightweight?: boolean;
-    maxTokens?: number;
-    temperature?: number;
-    systemPrompt?: string;
-  }
+  imageDataUrl: string,
+  options: AICallOptions = {}
 ): Promise<AICallResult> {
-  const configs = await getAIConfigs(options?.lightweight);
-  const maxTokens = options?.maxTokens || 4096;
-  const temperature = options?.temperature ?? 0.1;
-  const systemPrompt = options?.systemPrompt || '';
-
-  const isPdf = mimeType === 'application/pdf';
-
-  const lightweightCount = configs.filter((c) => c.is_lightweight).length;
-  const normalCount = configs.length - lightweightCount;
-  console.log(
-    `[AI] Config order: ${configs.length} configs (${lightweightCount} lightweight, ${normalCount} normal fallback)`
-  );
+  const { temperature = 0.1, maxTokens = 4000 } = options;
 
   for (const config of configs) {
-    const apiKey = Deno.env.get(config.api_key_env_var);
-    if (!apiKey) {
-      console.warn(`[AI Vision] No API key for ${config.provider} (${config.api_key_env_var})`);
-      continue;
-    }
+    console.log(`[AI Vision] Trying model: ${config.provider} - ${config.model_name}`);
 
     try {
-      console.log(`[AI Vision] Trying model: ${config.provider} - ${config.model_name}`);
+      const apiKey = Deno.env.get(config.api_key_secret_name);
+      if (!apiKey) {
+        console.error(`[AI Vision] API key ${config.api_key_secret_name} not found`);
+        continue;
+      }
 
-      if (config.provider === 'claude') {
-        // Claude vision: images use 'image' type, PDFs use 'document' type
-        let contentBlock;
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        };
+      let response: Response;
+      let generatedResponse: string | null = null;
 
-        if (isPdf) {
-          // PDF support requires the beta header
-          headers['anthropic-beta'] = 'pdfs-2024-09-25';
-          contentBlock = {
-            type: 'document',
-            source: {
-              type: 'base64',
-              media_type: 'application/pdf',
-              data: base64Data,
-            },
-          };
-        } else {
-          // Only these image types are supported
-          const supportedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-          const imageMediaType = supportedImageTypes.includes(mimeType) ? mimeType : 'image/png';
-          contentBlock = {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: imageMediaType,
-              data: base64Data,
-            },
-          };
-        }
-
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            model: config.model_name,
-            max_tokens: maxTokens,
-            ...(systemPrompt ? { system: systemPrompt } : {}),
-            messages: [
-              {
-                role: 'user',
-                content: [contentBlock, { type: 'text', text: prompt }],
-              },
-            ],
-            temperature,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const text = result.content?.[0]?.text;
-          if (text) {
-            return { text, model: config.model_name, provider: config.provider };
+      switch (config.provider) {
+        case 'gemini-paid':
+        case 'gemini-free': {
+          // Extract base64 and mime type from data URL
+          const matches = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (!matches) {
+            console.error('[AI Vision] Invalid image data URL format');
+            continue;
           }
-        } else {
-          const errorText = await response.text();
-          console.error(`[AI Vision] Claude API error: ${response.status} ${errorText}`);
-        }
-      } else if (config.provider === 'gemini-free' || config.provider === 'gemini-paid') {
-        // Filter out non-standard fields from configuration
-        const genConfig = config.configuration
-          ? Object.fromEntries(
-              Object.entries(config.configuration).filter(
-                ([key]) => !['thinking', 'last_error'].includes(key)
-              )
-            )
-          : {};
+          const [, mimeType, base64Data] = matches;
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    {
-                      inlineData: {
-                        mimeType: mimeType,
-                        data: base64Data,
+          // Filter out non-standard fields from configuration that Gemini rejects
+          const geminiConfig = config.configuration
+            ? Object.fromEntries(
+                Object.entries(config.configuration).filter(
+                  ([key]) => !['thinking', 'last_error', 'thinkingConfig'].includes(key)
+                )
+              )
+            : {};
+
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      { text: prompt },
+                      {
+                        inline_data: {
+                          mime_type: mimeType,
+                          data: base64Data,
+                        },
                       },
-                    },
-                    { text: `${systemPrompt ? systemPrompt + '\n\n' : ''}${prompt}` },
+                    ],
+                  },
+                ],
+                generationConfig: {
+                  temperature,
+                  maxOutputTokens: maxTokens,
+                  ...geminiConfig,
+                },
+              }),
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI Vision] Gemini API error: ${response.status}`, errorText);
+          }
+          break;
+        }
+
+        case 'openai': {
+          // OpenAI GPT-4 Vision
+          response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model_name,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: { url: imageDataUrl } },
                   ],
                 },
               ],
-              generationConfig: {
-                temperature,
-                maxOutputTokens: maxTokens,
-                ...genConfig,
-              },
+              temperature,
+              max_tokens: maxTokens,
             }),
-          }
-        );
+          });
 
-        if (response.ok) {
-          const result = await response.json();
-          const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            return { text, model: config.model_name, provider: config.provider };
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.choices?.[0]?.message?.content;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI Vision] OpenAI API error: ${response.status}`, errorText);
           }
-        } else {
-          const errorText = await response.text();
-          console.error(`[AI Vision] Gemini API error: ${response.status} ${errorText}`);
+          break;
         }
+
+        case 'lovable': {
+          // Lovable gateway (OpenAI-compatible)
+          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model_name,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: { url: imageDataUrl } },
+                  ],
+                },
+              ],
+              temperature,
+              max_tokens: maxTokens,
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.choices?.[0]?.message?.content;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI Vision] Lovable API error: ${response.status}`, errorText);
+          }
+          break;
+        }
+
+        case 'claude': {
+          // Claude with vision - handles both images and PDFs
+          const matches = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (!matches) {
+            console.error('[AI Vision] Invalid image data URL format');
+            continue;
+          }
+          const [, mediaType, base64Data] = matches;
+
+          const isPdf = mediaType === 'application/pdf';
+          const claudeHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          };
+
+          // PDF support requires the beta header
+          if (isPdf) {
+            claudeHeaders['anthropic-beta'] = 'pdfs-2024-09-25';
+          }
+
+          // Build content block: PDFs use 'document' type, images use 'image' type
+          let contentBlock;
+          if (isPdf) {
+            contentBlock = {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
+                data: base64Data,
+              },
+            };
+          } else {
+            // Claude only accepts these image media types
+            const supportedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            const safeMediaType = supportedImageTypes.includes(mediaType) ? mediaType : 'image/png';
+            contentBlock = {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: safeMediaType,
+                data: base64Data,
+              },
+            };
+          }
+
+          response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: claudeHeaders,
+            body: JSON.stringify({
+              model: config.model_name,
+              max_tokens: maxTokens,
+              messages: [
+                {
+                  role: 'user',
+                  content: [contentBlock, { type: 'text', text: prompt }],
+                },
+              ],
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            generatedResponse = result.content?.[0]?.text;
+          } else {
+            const errorText = await response.text();
+            console.error(`[AI Vision] Claude API error: ${response.status}`, errorText);
+          }
+          break;
+        }
+      }
+
+      if (generatedResponse) {
+        console.log(`[AI Vision] Success with ${config.provider} - ${config.model_name}`);
+        return { response: generatedResponse, usedConfig: config };
       }
     } catch (error) {
       console.error(`[AI Vision] Failed with ${config.provider}:`, error);
@@ -305,4 +514,56 @@ export async function callAIWithVision(
   }
 
   throw new Error('All AI models failed to process the image');
+}
+
+/**
+ * Parse JSON from AI response, handling markdown code blocks
+ */
+export function parseJSONResponse(content: string): any {
+  // Remove markdown code blocks if present
+  let jsonContent = content.trim();
+
+  if (jsonContent.startsWith('```json')) {
+    jsonContent = jsonContent.slice(7);
+  } else if (jsonContent.startsWith('```')) {
+    jsonContent = jsonContent.slice(3);
+  }
+
+  if (jsonContent.endsWith('```')) {
+    jsonContent = jsonContent.slice(0, -3);
+  }
+
+  jsonContent = jsonContent.trim();
+
+  // Try to find JSON object boundaries if still not clean
+  if (!jsonContent.startsWith('{') && !jsonContent.startsWith('[')) {
+    const jsonStart = jsonContent.indexOf('{');
+    const arrayStart = jsonContent.indexOf('[');
+    const start =
+      jsonStart === -1
+        ? arrayStart
+        : arrayStart === -1
+          ? jsonStart
+          : Math.min(jsonStart, arrayStart);
+
+    if (start !== -1) {
+      const isArray = jsonContent[start] === '[';
+      const end = isArray ? jsonContent.lastIndexOf(']') : jsonContent.lastIndexOf('}');
+      if (end > start) {
+        jsonContent = jsonContent.substring(start, end + 1);
+      }
+    }
+  }
+
+  return JSON.parse(jsonContent);
+}
+
+/**
+ * Create a Supabase client with service role key
+ */
+export function createSupabaseClient(): SupabaseClient {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
 }

@@ -11,10 +11,9 @@
  * Response format follows Kubernetes health check conventions.
  */
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
-import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
-import { getRateLimitStats } from "../_shared/rate-limiter.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { getRateLimitStats } from '../_shared/rate-limiter.ts';
 
 // Health status types
 type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
@@ -66,10 +65,7 @@ async function checkDatabase(): Promise<ServiceHealth> {
     );
 
     // Simple query to verify database connectivity
-    const { error } = await supabase
-      .from('admin_whitelist')
-      .select('id')
-      .limit(1);
+    const { error } = await supabase.from('admin_whitelist').select('id').limit(1);
 
     const latency = Date.now() - startCheck;
 
@@ -120,7 +116,7 @@ async function checkExternalAPIs(): Promise<ServiceHealth[]> {
       const response = await fetch('https://api.resend.com/domains', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
+          Authorization: `Bearer ${resendApiKey}`,
         },
       });
 
@@ -192,8 +188,8 @@ async function checkExternalAPIs(): Promise<ServiceHealth[]> {
  * Calculate overall health status from individual checks
  */
 function calculateOverallStatus(checks: ServiceHealth[]): HealthStatus {
-  const hasUnhealthy = checks.some(c => c.status === 'unhealthy');
-  const hasDegraded = checks.some(c => c.status === 'degraded');
+  const hasUnhealthy = checks.some((c) => c.status === 'unhealthy');
+  const hasDegraded = checks.some((c) => c.status === 'degraded');
 
   if (hasUnhealthy) return 'unhealthy';
   if (hasDegraded) return 'degraded';
@@ -217,8 +213,8 @@ function getMemoryMetrics(): { used: number; total: number; percentage: number }
   }
 }
 
-serve(async (req: Request): Promise<Response> => {
-  const origin = req.headers.get("origin");
+export default async (req: Request): Promise<Response> => {
+  const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
   // Handle CORS preflight
@@ -305,8 +301,8 @@ serve(async (req: Request): Promise<Response> => {
         },
       };
 
-      const httpStatus = overallStatus === 'unhealthy' ? 503 :
-                         overallStatus === 'degraded' ? 200 : 200;
+      const httpStatus =
+        overallStatus === 'unhealthy' ? 503 : overallStatus === 'degraded' ? 200 : 200;
 
       return new Response(JSON.stringify(response), {
         status: httpStatus,
@@ -374,7 +370,6 @@ serve(async (req: Request): Promise<Response> => {
         },
       }
     );
-
   } catch (error) {
     console.error('Health check error:', error);
 
@@ -395,4 +390,4 @@ serve(async (req: Request): Promise<Response> => {
       }
     );
   }
-});
+};

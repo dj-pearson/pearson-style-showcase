@@ -1,11 +1,14 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
+import {
+  createSupabaseClient,
+  getAIConfigs,
+  callAIWithConfig,
+  parseJSONResponse,
+} from '../_shared/ai-helper.ts';
 
-const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
-
-serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -54,13 +57,11 @@ serve(async (req) => {
       );
     }
 
-    if (!claudeApiKey) {
-      console.error('Claude API key not found');
-      return new Response(JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const supabaseClient = createSupabaseClient();
+
+    // Normal tier for full content generation (quality outputs)
+    const aiConfigs = await getAIConfigs(supabaseClient, 'normal', 'content_generation');
+    console.log(`[ContentGen] Found ${aiConfigs.length} normal tier AI configs`);
 
     let systemPrompt = '';
     const userPrompt = prompt;
@@ -106,41 +107,22 @@ serve(async (req) => {
           "You are a helpful content creation assistant. Generate high-quality content based on the user's request.";
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': claudeApiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [
-          { role: 'user', content: `${userPrompt}${context ? `\n\nContext: ${context}` : ''}` },
-        ],
-        temperature: 0.7,
-      }),
-    });
+    // Generate content using the configured normal tier models (with fallback)
+    const { response: generatedContent, usedConfig } = await callAIWithConfig(
+      aiConfigs,
+      systemPrompt,
+      `${userPrompt}${context ? `\n\nContext: ${context}` : ''}`,
+      { temperature: 0.7, maxTokens: 2000, jsonMode: true }
+    );
 
-    if (!response.ok) {
-      console.error('Claude API error:', response.status, response.statusText);
-      return new Response(JSON.stringify({ error: 'Failed to generate content' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const data = await response.json();
-    const generatedContent = data.content[0].text;
-
-    console.log('AI Content Generated Successfully');
+    console.log(
+      `[ContentGen] Content generated using ${usedConfig.provider} - ${usedConfig.model_name}`
+    );
 
     // Try to parse as JSON, fallback to plain text
     let parsedContent;
     try {
-      parsedContent = JSON.parse(generatedContent);
+      parsedContent = parseJSONResponse(generatedContent);
     } catch {
       parsedContent = { content: generatedContent };
     }
@@ -154,6 +136,7 @@ serve(async (req) => {
         template_category: templateCategory,
         generated_at: new Date().toISOString(),
         type: type,
+        model_used: `${usedConfig.provider} - ${usedConfig.model_name}`,
       },
     };
 
@@ -188,4 +171,4 @@ serve(async (req) => {
   } catch (error) {
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
-});
+};

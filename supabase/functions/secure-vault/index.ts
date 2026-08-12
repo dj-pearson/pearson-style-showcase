@@ -5,7 +5,7 @@ import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
 // can be unit-tested without the Supabase import). US-011.
 import { encrypt, decrypt } from '../_shared/vault-crypto.ts';
 
-Deno.serve(async (req) => {
+export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
@@ -278,4 +278,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+};
