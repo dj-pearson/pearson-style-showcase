@@ -6,6 +6,25 @@ import { ArrowRight, Layers, Tag, FolderOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { generateSlug } from '@/lib/seo';
 
+/** The pillar guide every CRM route funnels into. */
+const CRM_PILLAR_PATH = '/news/ai-crm-automation-complete-guide';
+
+/**
+ * Topic hubs promoted from article pages, CRM first.
+ *
+ * This component renders on every article including the older non-CRM ones, so
+ * this list is the main route from legacy traffic into the category the site is
+ * positioned around. Order is deliberate: the sidebar variant shows only the
+ * first three.
+ */
+const TOPIC_HUBS = [
+  { slug: 'ai-crm-automation', title: 'AI CRM Automation' },
+  { slug: 'ai-automation', title: 'AI Automation' },
+  { slug: 'business-optimization', title: 'Business Optimization' },
+  { slug: 'machine-learning', title: 'Machine Learning' },
+  { slug: 'digital-transformation', title: 'Digital Transformation' },
+];
+
 interface InternalLinksProps {
   currentCategory?: string;
   currentTags?: string[];
@@ -40,7 +59,7 @@ const InternalLinks = ({
       const categoryCounts: Record<string, number> = {};
       const tagCounts: Record<string, number> = {};
 
-      (articles || []).forEach(article => {
+      (articles || []).forEach((article) => {
         if (article.category) {
           categoryCounts[article.category] = (categoryCounts[article.category] || 0) + 1;
         }
@@ -65,21 +84,13 @@ const InternalLinks = ({
 
   // Determine which links to show based on context
   const relatedCategories = linkData.categories
-    .filter(cat => cat.name !== currentCategory)
+    .filter((cat) => cat.name !== currentCategory)
     .slice(0, 4);
 
   // Prioritize tags that overlap with current article
   const relatedTags = linkData.tags
-    .filter(tag => !currentTags.includes(tag.name))
+    .filter((tag) => !currentTags.includes(tag.name))
     .slice(0, maxLinks);
-
-  // Topic hubs to promote
-  const topicHubs = [
-    { slug: 'ai-automation', title: 'AI Automation' },
-    { slug: 'business-optimization', title: 'Business Optimization' },
-    { slug: 'machine-learning', title: 'Machine Learning' },
-    { slug: 'digital-transformation', title: 'Digital Transformation' },
-  ];
 
   if (variant === 'inline') {
     return (
@@ -96,14 +107,24 @@ const InternalLinks = ({
               </Badge>
             </Link>
           )}
-          {currentTags.slice(0, 3).map(tag => (
+          {currentTags.slice(0, 3).map((tag) => (
             <Link key={tag} to={`/news/tag/${generateSlug(tag)}`}>
-              <Badge variant="outline" className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors">
+              <Badge
+                variant="outline"
+                className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors"
+              >
                 {tag}
               </Badge>
             </Link>
           ))}
         </div>
+        <p className="mt-4 text-sm text-gray-400">
+          Working on the CRM itself?{' '}
+          <Link to={CRM_PILLAR_PATH} className="text-tech-cyan hover:underline">
+            Start with the AI CRM automation guide
+          </Link>
+          .
+        </p>
       </div>
     );
   }
@@ -122,7 +143,7 @@ const InternalLinks = ({
                 Browse by Category
               </h3>
               <ul className="space-y-2">
-                {relatedCategories.map(cat => (
+                {relatedCategories.map((cat) => (
                   <li key={cat.name}>
                     <Link
                       to={`/news/category/${cat.name}`}
@@ -151,7 +172,7 @@ const InternalLinks = ({
                 Popular Topics
               </h3>
               <div className="flex flex-wrap gap-2">
-                {relatedTags.slice(0, 8).map(tag => (
+                {relatedTags.slice(0, 8).map((tag) => (
                   <Link key={tag.name} to={`/news/tag/${generateSlug(tag.name)}`}>
                     <Badge
                       variant="outline"
@@ -171,7 +192,7 @@ const InternalLinks = ({
                 Topic Guides
               </h3>
               <ul className="space-y-2">
-                {topicHubs.map(hub => (
+                {TOPIC_HUBS.map((hub) => (
                   <li key={hub.slug}>
                     <Link
                       to={`/topics/${hub.slug}`}
@@ -220,7 +241,7 @@ const InternalLinks = ({
         <div className="mb-4">
           <p className="text-sm text-gray-500 mb-2">Related topics:</p>
           <div className="flex flex-wrap gap-2">
-            {currentTags.slice(0, 5).map(tag => (
+            {currentTags.slice(0, 5).map((tag) => (
               <Link key={tag} to={`/news/tag/${generateSlug(tag)}`}>
                 <Badge
                   variant="outline"
@@ -238,7 +259,7 @@ const InternalLinks = ({
       <div>
         <p className="text-sm text-gray-500 mb-2">Topic guides:</p>
         <ul className="space-y-1">
-          {topicHubs.slice(0, 3).map(hub => (
+          {TOPIC_HUBS.slice(0, 3).map((hub) => (
             <li key={hub.slug}>
               <Link
                 to={`/topics/${hub.slug}`}
@@ -249,6 +270,15 @@ const InternalLinks = ({
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-gray-800">
+        <Link
+          to="/ai-crm-automation"
+          className="text-sm text-tech-cyan hover:underline flex items-center gap-1"
+        >
+          The 12-point CRM automation audit <ArrowRight className="w-3 h-3" />
+        </Link>
       </div>
     </Card>
   );

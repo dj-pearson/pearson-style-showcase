@@ -1,28 +1,17 @@
----
-title: 'Why AI CRM Projects Fail: Five Failure Modes'
-slug: why-ai-crm-projects-fail
-category: CRM
-tags: ['CRM', 'CRM Automation', 'Sales Automation', 'AI Agents', 'RevOps', 'Pipeline']
-target_keyword: why do AI CRM projects fail
-seo_title: 'Why AI CRM Projects Fail: Five Failure Modes (2026)'
-seo_description: 'Most AI CRM projects fail for one root reason, which then shows up as five recognisable failure modes. How to tell which one you are in, and what to do about it.'
-seo_keywords:
-  [
-    'why do AI CRM projects fail',
-    'AI CRM failure',
-    'CRM data quality problems',
-    'sales reps not updating CRM',
-    'is CRM AI worth it',
-    'agentic CRM risk',
-  ]
-excerpt: 'Most AI CRM projects fail for a single reason: they automate the reporting layer instead of the capture layer. That root cause shows up as five recognisable failure modes. Here is how to tell which one you are in.'
-read_time: '11 min read'
-featured: true
-published: true
-author: Dan Pearson
----
+-- Backfill the FAQ section onto the flagship failure-modes article.
+--
+-- content/crm/why-ai-crm-projects-fail.md gained a 'Frequently asked questions'
+-- section after the row had already been seeded, and the seed migrations are
+-- INSERT ... WHERE NOT EXISTS by design, so they never touch an existing row.
+-- Without this the prerendered HTML would carry FAQPage schema that the page
+-- React renders does not, which is exactly the drift the content pipeline is
+-- built to prevent.
+--
+-- Guarded on the section being absent, so it is idempotent and will not
+-- overwrite a later edit made in the admin.
 
-**Most AI CRM projects fail for one reason: they automate the reporting layer instead of the capture layer.** The team buys AI that summarises, scores and forecasts a pipeline nobody reliably updated. The output is confidently wrong, people check the first few, find them unreliable, and quietly stop looking. The software stays licensed and unused.
+UPDATE articles
+SET content = '**Most AI CRM projects fail for one reason: they automate the reporting layer instead of the capture layer.** The team buys AI that summarises, scores and forecasts a pipeline nobody reliably updated. The output is confidently wrong, people check the first few, find them unreliable, and quietly stop looking. The software stays licensed and unused.
 
 That single root cause shows up as five distinct failure modes. They look different from the inside, which is why teams rarely recognise their own. Here they are, with the symptom you would actually notice and what is really happening underneath.
 
@@ -38,7 +27,7 @@ That single root cause shows up as five distinct failure modes. They look differ
 
 ## 2. The AI add-on that got switched off
 
-**What it looks like.** You paid for the platform's AI tier. The team used it enthusiastically for about six weeks. Now nobody mentions it, and somebody is quietly wondering whether to renew.
+**What it looks like.** You paid for the platform''s AI tier. The team used it enthusiastically for about six weeks. Now nobody mentions it, and somebody is quietly wondering whether to renew.
 
 **What is actually happening.** Summarisation, scoring and next-best-action all need dense, recent, structured history to work. On sparse records they produce plausible nonsense — a deal summary assembled from three log lines and an optimistic stage, a lead score derived from fields nobody filled in. Reps are excellent at detecting output they cannot rely on. Once trust breaks, it does not come back, even after the underlying data improves.
 
@@ -94,7 +83,7 @@ It is worth being fair about the incentives, because none of this is stupidity.
 
 Platform vendors sell the reporting layer because it demos well and it is what buyers ask to see. Agencies sell implementations scoped to what the buyer requested. Nobody in the transaction is rewarded for saying "before we build any of this, your capture is broken and that is the whole project." The one party with an incentive to say it is the person who has to live with the result.
 
-The market has started catching up. The most-repeated diagnosis of failed RevOps programmes in 2026 is teams buying tools that add dashboards without fixing the underlying data, and CX Today's trends analysis reduced it to a sentence: _"If your data is messy, AI will scale the mess."_ The diagnosis is now consensus. The sequencing implied by it still is not.
+The market has started catching up. The most-repeated diagnosis of failed RevOps programmes in 2026 is teams buying tools that add dashboards without fixing the underlying data, and CX Today''s trends analysis reduced it to a sentence: _"If your data is messy, AI will scale the mess."_ The diagnosis is now consensus. The sequencing implied by it still is not.
 
 ## What to do this week
 
@@ -131,4 +120,7 @@ _Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automa
 
 - [CRM Trends 2026: The Customer Data, AI, And Governance Shifts — CX Today](https://www.cxtoday.com/crm/crm-trends-2026-customer-data/)
 - [From Assistant to Agent: How AI Is Reshaping RevOps — MAN Digital](https://www.man.digital/blog/ai-in-revops)
-- [Agentic AI in HubSpot CRM: The Complete Guide — Fast Slow Motion](https://www.fastslowmotion.com/agentic-ai-hubspot-crm-guide/)
+- [Agentic AI in HubSpot CRM: The Complete Guide — Fast Slow Motion](https://www.fastslowmotion.com/agentic-ai-hubspot-crm-guide/)',
+    updated_at = NOW()
+WHERE slug = 'why-ai-crm-projects-fail'
+  AND content NOT LIKE '%Frequently asked questions%';
