@@ -277,11 +277,11 @@ That question is: **what share of your customer conversations reach the CRM with
 
 They are rarely distinguished on a website, and the pricing does not tell you which is which. It matters because they are good at different things.
 
-| Provider type                                                  | What they actually sell                                                    | Genuinely good at                                              | Where it goes wrong                                                                     | Typical range        |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------- |
-| **Platform partner** (certified HubSpot / Salesforce agency)   | Licences, configuration and enablement on one vendor''s stack               | Migrations, complex enterprise builds, staffing continuity     | Every problem resolves to a product you do not own yet. No incentive to say "buy nothing." | $25k-$150k+ projects |
-| **RevOps consultancy**                                         | Process, territory, comp design, reporting structure, tooling strategy     | Teams with no defined sales process, or a broken one           | Deliverable is a specification. Someone else still has to build it.                        | $5k-$20k/month       |
-| **Automation builder** (freelancer or small shop)              | Working automation, usually across Zapier, Make, n8n or direct API work    | Shipping the thing, fast, at the capture layer                 | Quality range is enormous; brittle work looks identical to solid work on day one.           | $3k-$40k projects    |
+| Provider type                                                | What they actually sell                                                 | Genuinely good at                                          | Where it goes wrong                                                                        | Typical range        |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------- |
+| **Platform partner** (certified HubSpot / Salesforce agency) | Licences, configuration and enablement on one vendor''s stack            | Migrations, complex enterprise builds, staffing continuity | Every problem resolves to a product you do not own yet. No incentive to say "buy nothing." | $25k-$150k+ projects |
+| **RevOps consultancy**                                       | Process, territory, comp design, reporting structure, tooling strategy  | Teams with no defined sales process, or a broken one       | Deliverable is a specification. Someone else still has to build it.                        | $5k-$20k/month       |
+| **Automation builder** (freelancer or small shop)            | Working automation, usually across Zapier, Make, n8n or direct API work | Shipping the thing, fast, at the capture layer             | Quality range is enormous; brittle work looks identical to solid work on day one.          | $3k-$40k projects    |
 
 **The mismatch that causes most failures**: teams with a capture problem hire a platform partner, who sells them the AI add-on that reads a pipeline nobody updates. This is failure mode two in [why AI CRM projects fail](/news/why-ai-crm-projects-fail), and it is expensive because it is nobody''s fault. The partner did competent work on the layer they sell.
 
@@ -669,12 +669,12 @@ _Vendor prices move constantly. Verify current numbers on vendor pricing pages b
 
 Every CRM automation project splits into the same four costs. Confusing them is how budgets go wrong.
 
-| Bucket                   | What it covers                                                              | Typical shape                       | Recurring?          |
-| ------------------------ | --------------------------------------------------------------------------- | ----------------------------------- | ------------------- |
-| **1. Diagnostic**        | Finding out what is actually broken, and in what order to fix it            | Small, fixed price, one-off         | No                  |
-| **2. Build**             | Engineering the automation: capture paths, integrations, error handling     | The largest one-off cost            | No                  |
-| **3. Platform**          | CRM licences, AI add-ons, transcription, iPaaS or automation tooling        | Per seat, per month                 | Yes                 |
-| **4. Run**               | Model and API usage, monitoring, maintenance when an API changes underneath | Small but permanent                 | Yes                 |
+| Bucket            | What it covers                                                              | Typical shape               | Recurring? |
+| ----------------- | --------------------------------------------------------------------------- | --------------------------- | ---------- |
+| **1. Diagnostic** | Finding out what is actually broken, and in what order to fix it            | Small, fixed price, one-off | No         |
+| **2. Build**      | Engineering the automation: capture paths, integrations, error handling     | The largest one-off cost    | No         |
+| **3. Platform**   | CRM licences, AI add-ons, transcription, iPaaS or automation tooling        | Per seat, per month         | Yes        |
+| **4. Run**        | Model and API usage, monitoring, maintenance when an API changes underneath | Small but permanent         | Yes        |
 
 Most published "CRM automation pricing" covers bucket 3 only, because that is the bucket vendors sell. Buckets 2 and 4 are where projects actually get expensive, and bucket 4 is the one teams forget entirely until something breaks nine months in.
 
@@ -692,9 +692,9 @@ Mine is $2,500 flat over two weeks and the roadmap is yours regardless of who bu
 
 The one-off engineering. Cost scales with the number of capture paths, not with seats, which is why small teams get better value here than they expect.
 
-| Scope                                                                | Range          |
-| -------------------------------------------------------------------- | -------------- |
-| One capture path (call and meeting logging, written back structured) | $6,000-$15,000 |
+| Scope                                                                | Range           |
+| -------------------------------------------------------------------- | --------------- |
+| One capture path (call and meeting logging, written back structured) | $6,000-$15,000  |
 | Two to three paths (add email fidelity, enrichment, stage proposals) | $15,000-$35,000 |
 | Full capture layer plus rung-3 agent work under supervision          | $35,000-$80,000 |
 
@@ -719,14 +719,14 @@ The real recurring cost is maintenance. APIs change, a vendor deprecates an endp
 
 ### Year one, totalled
 
-| Line                     | Conservative | Fuller build |
-| ------------------------ | ------------ | ------------ |
-| Diagnostic               | $2,500       | $2,500       |
-| Build                    | $9,000       | $35,000      |
-| Platform (year 1)        | $3,000       | $12,000      |
-| Run and maintenance      | $1,500       | $7,000       |
-| **Total year one**       | **$16,000**  | **$56,500**  |
-| **Ongoing, year two**    | **$4,500**   | **$19,000**  |
+| Line                  | Conservative | Fuller build |
+| --------------------- | ------------ | ------------ |
+| Diagnostic            | $2,500       | $2,500       |
+| Build                 | $9,000       | $35,000      |
+| Platform (year 1)     | $3,000       | $12,000      |
+| Run and maintenance   | $1,500       | $7,000       |
+| **Total year one**    | **$16,000**  | **$56,500**  |
+| **Ongoing, year two** | **$4,500**   | **$19,000**  |
 
 ## The number you are already paying
 
@@ -937,15 +937,15 @@ _Pricing models on all three changed during 2025 and 2026. Verify current number
 
 ## The short verdict
 
-|                        | Zapier                                    | Make                                                | n8n                                                     |
-| ---------------------- | ----------------------------------------- | --------------------------------------------------- | ------------------------------------------------------- |
-| **Best for**           | First automations, broad app coverage     | Branching logic, high volume, visual complexity     | Data control, cost at scale, custom code steps          |
-| **Pricing shape**      | Per task, escalates fast                  | Per operation, materially cheaper at volume         | Per execution (cloud) or free self-hosted plus a server |
-| **Learning curve**     | Lowest                                    | Moderate, the visual model is genuinely different   | Highest, expects technical comfort                      |
-| **Error handling**     | Basic retries, autoreplay on higher tiers | Good, explicit error routes per module              | Full control, including custom retry and alert logic    |
-| **Custom code**        | Limited                                   | Yes, workable                                       | First class, arbitrary JavaScript or Python             |
-| **Data residency**     | Their cloud                               | Their cloud                                         | Yours, if self-hosted                                   |
-| **Where it breaks**    | Cost at volume, shallow branching         | Steep enough to need a dedicated owner              | You now operate a server                                |
+|                     | Zapier                                    | Make                                              | n8n                                                     |
+| ------------------- | ----------------------------------------- | ------------------------------------------------- | ------------------------------------------------------- |
+| **Best for**        | First automations, broad app coverage     | Branching logic, high volume, visual complexity   | Data control, cost at scale, custom code steps          |
+| **Pricing shape**   | Per task, escalates fast                  | Per operation, materially cheaper at volume       | Per execution (cloud) or free self-hosted plus a server |
+| **Learning curve**  | Lowest                                    | Moderate, the visual model is genuinely different | Highest, expects technical comfort                      |
+| **Error handling**  | Basic retries, autoreplay on higher tiers | Good, explicit error routes per module            | Full control, including custom retry and alert logic    |
+| **Custom code**     | Limited                                   | Yes, workable                                     | First class, arbitrary JavaScript or Python             |
+| **Data residency**  | Their cloud                               | Their cloud                                       | Yours, if self-hosted                                   |
+| **Where it breaks** | Cost at volume, shallow branching         | Steep enough to need a dedicated owner            | You now operate a server                                |
 
 ## What actually matters for CRM work
 
