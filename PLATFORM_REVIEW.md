@@ -481,17 +481,37 @@ cause was `@babel/runtime`, which many libraries emit calls into and which had b
 absorbed into `three-vendor`. Pinning it to `utils-vendor` alongside `clsx` removed the
 edge.
 
-### Still open: six admin chunks bare-import three-vendor
+### Fixed: prop-types made every admin chart page load three.js
 
 `AIToolsManager`, `AccountingDashboard`, `AmazonPipelineManager`, `ArticleManager`,
-`CommandCenterDashboard` and `ProjectManager` each carry a side-effect-only
-`import "./three-vendor.js"`, so opening any of them fetches 843 kB of three.js that
-none of them render. This predates the highlighter work and was not introduced by it.
+`CommandCenterDashboard` and `ProjectManager` each carried a side-effect-only
+`import "./three-vendor.js"`, so opening any of them fetched 843 kB of three.js that
+none of them render.
 
-A module-graph scan finds no direct edge from any module in those chunks into
-`three-vendor`, so this is Rollup chunk-level bookkeeping rather than a stray shared
-module of the kind `clsx` and `@babel/runtime` turned out to be. It needs more than the
-scan that resolved those two, so it is recorded rather than guessed at.
+A module-graph scan found no direct edge in either direction, which is why the first
+look recorded it rather than guessing. Reading the chunk-level graph instead showed the
+route: `charts-vendor` itself imported `three-vendor`, and the admin chunks inherited it
+through recharts. The module behind it is `prop-types`, imported by recharts'
+`react-smooth` and `react-transition-group` and also reachable from the three ecosystem,
+and absorbed into `three-vendor` exactly as `clsx` and `@babel/runtime` had been.
+
+`prop-types` is now pinned to `utils-vendor`, along with `react-is`, `object-assign` and
+`tslib`, which are the same shape of hazard: small, widely shared, and harmless until
+they land inside a large chunk.
+
+Result: no chunk bare-imports `three-vendor` any more, `charts-vendor` no longer depends
+on it, and `Interactive3DOrb` is the only chunk in the build that references it at all -
+which is the whole point, since it is the only thing that renders 3D. `utils-vendor`
+grows from 20.91 kB to 27.25 kB raw, 9.56 kB gzip.
+
+Confirmed in Chromium against `vite preview`: the homepage loads with no page errors,
+renders its canvas, fetches `three-vendor` only once the orb mounts, and never fetches
+`charts-vendor` or `syntax-vendor`.
+
+This closes the `manualChunks` absorption problem in all three places it appeared. The
+pattern is worth remembering: anything left unassigned is Rollup's choice, and a shared
+module of a few hundred bytes landing in a large vendor chunk makes every chunk that
+needs it depend on all of it.
 
 ### Budgets are close to their ceilings
 

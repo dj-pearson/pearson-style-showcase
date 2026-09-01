@@ -96,6 +96,12 @@ export default defineConfig(({ mode }) => {
             // them first, and every chunk needing one then depends on all of it.
             if (inPkg('clsx', 'class-variance-authority', 'tailwind-merge')) return 'utils-vendor';
             if (id.includes('node_modules/@babel/runtime/')) return 'utils-vendor';
+            // prop-types is imported by recharts' react-smooth and
+            // react-transition-group and also from the three ecosystem. Absorbed
+            // into three-vendor it made charts-vendor depend on the whole of
+            // three, so every admin chunk rendering a chart fetched 843 kB of it.
+            // react-is, object-assign and tslib are the same shape of hazard.
+            if (inPkg('prop-types', 'react-is', 'object-assign', 'tslib')) return 'utils-vendor';
 
             if (inPkg('three', '@react-three/fiber', '@react-three/drei')) return 'three-vendor';
             if (inPkg('react', 'react-dom', 'react-router', 'react-router-dom', 'scheduler'))
