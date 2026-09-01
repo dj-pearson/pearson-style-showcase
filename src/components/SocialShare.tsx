@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Share2, Twitter, Facebook, Linkedin, Link2, Mail, Check, MessageCircle } from 'lucide-react';
+import {
+  Share2,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Link2,
+  Mail,
+  Check,
+  MessageCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,7 +42,7 @@ const SocialShare = ({
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
   const encodedDescription = encodeURIComponent(description);
-  const hashtagString = hashtags.map(tag => tag.replace(/^#/, '')).join(',');
+  const hashtagString = hashtags.map((tag) => tag.replace(/^#/, '')).join(',');
 
   // Share URLs for different platforms
   const shareUrls = {
@@ -121,8 +130,8 @@ const SocialShare = ({
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className={className}>
-            <Share2 className="w-4 h-4" />
+          <Button variant="outline" size="icon" className={className} aria-label="Share this page">
+            <Share2 className="w-4 h-4" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">

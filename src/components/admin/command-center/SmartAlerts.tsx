@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -267,9 +268,7 @@ export const SmartAlerts: React.FC = () => {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : alerts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50 text-green-500" />

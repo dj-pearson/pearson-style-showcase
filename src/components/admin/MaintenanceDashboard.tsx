@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import {
   TrendingUp,
   Zap,
   Link as LinkIcon,
-  Activity
+  Activity,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
@@ -75,8 +76,12 @@ export const MaintenanceDashboard: React.FC = () => {
     try {
       const [tasksData, resultsData, linksData] = await Promise.all([
         supabase.from('maintenance_tasks').select('*').order('task_name'),
-        supabase.from('maintenance_results').select('*').order('run_at', { ascending: false }).limit(20),
-        supabase.from('link_health').select('*').eq('is_broken', true).limit(50)
+        supabase
+          .from('maintenance_results')
+          .select('*')
+          .order('run_at', { ascending: false })
+          .limit(20),
+        supabase.from('link_health').select('*').eq('is_broken', true).limit(50),
       ]);
 
       setTasks(tasksData.data || []);
@@ -102,8 +107,8 @@ export const MaintenanceDashboard: React.FC = () => {
         body: {
           taskId,
           taskName,
-          runManually: true
-        }
+          runManually: true,
+        },
       });
 
       if (error) {
@@ -121,8 +126,9 @@ export const MaintenanceDashboard: React.FC = () => {
       logger.error('Task failed:', error);
       toast({
         title: 'Task Failed',
-        description: error instanceof Error ? error.message : 'An error occurred while running the task.',
-        variant: 'destructive'
+        description:
+          error instanceof Error ? error.message : 'An error occurred while running the task.',
+        variant: 'destructive',
       });
     } finally {
       setRunningTask(null);
@@ -147,30 +153,43 @@ export const MaintenanceDashboard: React.FC = () => {
       toast({
         title: 'Update Failed',
         description: 'Could not update task status.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
 
   const getStatusBadge = (status: string | null) => {
-    if (!status) return <Badge variant="outline" className="text-xs">Never run</Badge>;
+    if (!status)
+      return (
+        <Badge variant="outline" className="text-xs">
+          Never run
+        </Badge>
+      );
 
     const config = {
       success: { label: 'Success', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
       failed: { label: 'Failed', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
-      running: { label: 'Running', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' }
+      running: { label: 'Running', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
     };
 
     const { label, color } = config[status as keyof typeof config] || config.failed;
-    return <Badge variant="outline" className={`text-xs ${color}`}>{label}</Badge>;
+    return (
+      <Badge variant="outline" className={`text-xs ${color}`}>
+        {label}
+      </Badge>
+    );
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'success': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case 'failed': return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'running': return <Clock className="h-4 w-4 text-blue-500 animate-spin" />;
-      default: return <AlertCircle className="h-4 w-4 text-gray-500" />;
+      case 'success':
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'running':
+        return <Clock className="h-4 w-4 text-blue-500 animate-spin" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -182,18 +201,22 @@ export const MaintenanceDashboard: React.FC = () => {
       '*/15 * * * *': 'Every 15 minutes',
       '0 4 * * 0': 'Weekly on Sunday at 4:00 AM',
       '0 0 1 * *': 'Monthly on the 1st at midnight',
-      '0 5 * * *': 'Daily at 5:00 AM'
+      '0 5 * * *': 'Daily at 5:00 AM',
     };
     return descriptions[cron] || cron;
   };
 
   const stats = {
     totalTasks: tasks.length,
-    enabledTasks: tasks.filter(t => t.enabled).length,
-    successRate: recentResults.length > 0
-      ? (recentResults.filter(r => r.status === 'success').length / recentResults.length * 100).toFixed(1)
-      : '0',
-    brokenLinksCount: brokenLinks.length
+    enabledTasks: tasks.filter((t) => t.enabled).length,
+    successRate:
+      recentResults.length > 0
+        ? (
+            (recentResults.filter((r) => r.status === 'success').length / recentResults.length) *
+            100
+          ).toFixed(1)
+        : '0',
+    brokenLinksCount: brokenLinks.length,
   };
 
   return (
@@ -212,7 +235,9 @@ export const MaintenanceDashboard: React.FC = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold">{stats.enabledTasks}/{stats.totalTasks}</p>
+                <p className="text-2xl font-bold">
+                  {stats.enabledTasks}/{stats.totalTasks}
+                </p>
                 <p className="text-xs text-muted-foreground">Active Tasks</p>
               </div>
               <Zap className="h-8 w-8 text-primary opacity-50" />
@@ -270,13 +295,13 @@ export const MaintenanceDashboard: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Automated Maintenance Tasks</CardTitle>
-              <CardDescription>Configure and manage scheduled maintenance operations</CardDescription>
+              <CardDescription>
+                Configure and manage scheduled maintenance operations
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
+                <LoadingSpinner className="py-8" />
               ) : (
                 <div className="space-y-3">
                   {tasks.map((task) => (
@@ -290,9 +315,16 @@ export const MaintenanceDashboard: React.FC = () => {
                             <h4 className="font-semibold">{task.task_name}</h4>
                             {getStatusBadge(task.last_run_status)}
                             {task.enabled ? (
-                              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500">Enabled</Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-green-500/10 text-green-500"
+                              >
+                                Enabled
+                              </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-xs">Disabled</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                Disabled
+                              </Badge>
                             )}
                           </div>
 
@@ -301,14 +333,18 @@ export const MaintenanceDashboard: React.FC = () => {
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                             <div>
                               <p className="text-xs text-muted-foreground">Schedule</p>
-                              <p className="font-medium">{getCronDescription(task.schedule_cron)}</p>
+                              <p className="font-medium">
+                                {getCronDescription(task.schedule_cron)}
+                              </p>
                             </div>
 
                             {task.last_run_at && (
                               <div>
                                 <p className="text-xs text-muted-foreground">Last Run</p>
                                 <p className="font-medium">
-                                  {formatDistanceToNow(new Date(task.last_run_at), { addSuffix: true })}
+                                  {formatDistanceToNow(new Date(task.last_run_at), {
+                                    addSuffix: true,
+                                  })}
                                 </p>
                               </div>
                             )}
@@ -317,7 +353,9 @@ export const MaintenanceDashboard: React.FC = () => {
                               <div>
                                 <p className="text-xs text-muted-foreground">Next Run</p>
                                 <p className="font-medium">
-                                  {formatDistanceToNow(new Date(task.next_run_at), { addSuffix: true })}
+                                  {formatDistanceToNow(new Date(task.next_run_at), {
+                                    addSuffix: true,
+                                  })}
                                 </p>
                               </div>
                             )}
@@ -361,10 +399,7 @@ export const MaintenanceDashboard: React.FC = () => {
               <ScrollArea className="h-[500px]">
                 <div className="space-y-3">
                   {recentResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className="p-4 rounded-lg border bg-card"
-                    >
+                    <div key={result.id} className="p-4 rounded-lg border bg-card">
                       <div className="flex items-start gap-3">
                         {getStatusIcon(result.status)}
                         <div className="flex-1">
@@ -443,7 +478,10 @@ export const MaintenanceDashboard: React.FC = () => {
                                 {link.url}
                                 <ExternalLink className="h-3 w-3 shrink-0" />
                               </a>
-                              <Badge variant="outline" className="text-xs bg-red-500/10 text-red-500 shrink-0">
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-red-500/10 text-red-500 shrink-0"
+                              >
                                 {link.status_code}
                               </Badge>
                             </div>
@@ -451,7 +489,11 @@ export const MaintenanceDashboard: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4 text-xs">
                               <div>
                                 <p className="text-muted-foreground">Last Checked</p>
-                                <p>{formatDistanceToNow(new Date(link.last_checked_at), { addSuffix: true })}</p>
+                                <p>
+                                  {formatDistanceToNow(new Date(link.last_checked_at), {
+                                    addSuffix: true,
+                                  })}
+                                </p>
                               </div>
                               <div>
                                 <p className="text-muted-foreground">Consecutive Failures</p>

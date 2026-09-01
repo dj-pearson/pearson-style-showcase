@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { isTaskDue } from '../_shared/cron.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 /**
  * Run a single maintenance task by name and return its result payload.
@@ -88,6 +89,13 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Runs maintenance tasks with the service role, so it must check its own
+  // caller. allowServiceRole keeps the pg_cron scheduler working: it posts
+  // {"action":"run_due"} with the service-role key as its bearer token
+  // (supabase/migrations/20260716000000_maintenance_scheduler.sql).
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     const body = await req.json().catch(() => ({}));

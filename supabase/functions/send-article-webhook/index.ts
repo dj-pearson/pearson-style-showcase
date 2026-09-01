@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 import { invokeFunction } from '../_shared/invoke-function.ts';
 
 export default async (req: Request): Promise<Response> => {
@@ -9,6 +10,12 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Sends outbound webhooks with the service role. allowServiceRole keeps the
+  // internal invokeFunctionAndForget callers in generate-ai-article and
+  // amazon-article-pipeline working; they send the service-role key.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     const { articleId, isTest = false } = await req.json();

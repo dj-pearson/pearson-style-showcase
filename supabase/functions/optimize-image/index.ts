@@ -16,6 +16,7 @@ import {
   MagickFormat,
 } from 'https://deno.land/x/imagemagick_deno@0.0.25/mod.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 interface OptimizeRequest {
   /** Source file path in storage bucket */
@@ -124,6 +125,12 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // bucket and sourcePath are caller-supplied and are used against the service
+  // role, so any valid JWT could otherwise read or overwrite arbitrary storage
+  // objects. Restrict to admins, matching the other service-role functions.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     // Initialize ImageMagick

@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, CreditCard, Pencil, Trash2, Link, ArrowDown, ArrowUp, Upload as UploadIcon } from 'lucide-react';
+import {
+  Plus,
+  CreditCard,
+  Pencil,
+  Trash2,
+  Link,
+  ArrowDown,
+  ArrowUp,
+  Upload as UploadIcon,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -104,10 +114,12 @@ export const PaymentsManager = () => {
 
   const [formData, setFormData] = useState(getDefaultFormData());
 
-  const [allocationData, setAllocationData] = useState<{
-    invoice_id: string;
-    amount: string;
-  }[]>([]);
+  const [allocationData, setAllocationData] = useState<
+    {
+      invoice_id: string;
+      amount: string;
+    }[]
+  >([]);
 
   // Fetch payments with contact information
   const { data: payments, isLoading } = useQuery({
@@ -285,10 +297,10 @@ export const PaymentsManager = () => {
 
   // Allocate payment to invoices
   const allocateMutation = useMutation({
-    mutationFn: async (allocations: { payment_id: string; invoice_id: string; amount_allocated: number }[]) => {
-      const { error } = await supabase
-        .from('payment_allocations')
-        .insert(allocations);
+    mutationFn: async (
+      allocations: { payment_id: string; invoice_id: string; amount_allocated: number }[]
+    ) => {
+      const { error } = await supabase.from('payment_allocations').insert(allocations);
 
       if (error) throw error;
     },
@@ -380,8 +392,8 @@ export const PaymentsManager = () => {
     if (!allocatingPayment) return;
 
     const allocations = allocationData
-      .filter(a => a.invoice_id && parseFloat(a.amount) > 0)
-      .map(a => ({
+      .filter((a) => a.invoice_id && parseFloat(a.amount) > 0)
+      .map((a) => ({
         payment_id: allocatingPayment.id,
         invoice_id: a.invoice_id,
         amount_allocated: parseFloat(a.amount),
@@ -446,7 +458,8 @@ export const PaymentsManager = () => {
                   <DialogHeader>
                     <DialogTitle>Upload Payment Proof or Receipt</DialogTitle>
                     <DialogDescription>
-                      Upload a receipt or payment confirmation. Our AI will automatically extract the data.
+                      Upload a receipt or payment confirmation. Our AI will automatically extract
+                      the data.
                     </DialogDescription>
                   </DialogHeader>
                   <DocumentUpload
@@ -463,11 +476,20 @@ export const PaymentsManager = () => {
                         setFormData({
                           ...getDefaultFormData(),
                           payment_type: parsedData.payment_type || 'received',
-                          payment_number: parsedData.payment_number || parsedData.reference || parsedData.transactionId || '',
-                          payment_date: parsedData.payment_date || parsedData.date || new Date().toISOString().split('T')[0],
+                          payment_number:
+                            parsedData.payment_number ||
+                            parsedData.reference ||
+                            parsedData.transactionId ||
+                            '',
+                          payment_date:
+                            parsedData.payment_date ||
+                            parsedData.date ||
+                            new Date().toISOString().split('T')[0],
                           amount: (parsedData.amount || parsedData.total || '').toString(),
-                          payment_method: parsedData.payment_method || parsedData.method || 'Bank Transfer',
-                          reference_number: parsedData.reference_number || parsedData.reference || '',
+                          payment_method:
+                            parsedData.payment_method || parsedData.method || 'Bank Transfer',
+                          reference_number:
+                            parsedData.reference_number || parsedData.reference || '',
                           notes: parsedData.description || parsedData.notes || '',
                         });
 
@@ -491,152 +513,165 @@ export const PaymentsManager = () => {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              <Dialog
+                open={isDialogOpen}
+                onOpenChange={(open) => {
                   setIsDialogOpen(open);
                   if (!open) resetForm();
-                }}>
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
                     Record Payment
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingPayment ? 'Edit Payment' : 'Record New Payment'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingPayment ? 'Update payment information' : 'Record a payment received or made'}
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_type">Type *</Label>
-                      <Select
-                        value={formData.payment_type}
-                        onValueChange={(value: 'received' | 'made') =>
-                          setFormData({ ...formData, payment_type: value })
-                        }
-                        disabled={!!editingPayment}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="received">Payment Received</SelectItem>
-                          <SelectItem value="made">Payment Made</SelectItem>
-                        </SelectContent>
-                      </Select>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingPayment ? 'Edit Payment' : 'Record New Payment'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {editingPayment
+                        ? 'Update payment information'
+                        : 'Record a payment received or made'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="payment_type">Type *</Label>
+                        <Select
+                          value={formData.payment_type}
+                          onValueChange={(value: 'received' | 'made') =>
+                            setFormData({ ...formData, payment_type: value })
+                          }
+                          disabled={!!editingPayment}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="received">Payment Received</SelectItem>
+                            <SelectItem value="made">Payment Made</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="payment_date">Date *</Label>
+                        <Input
+                          id="payment_date"
+                          type="date"
+                          value={formData.payment_date}
+                          onChange={(e) =>
+                            setFormData({ ...formData, payment_date: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_date">Date *</Label>
-                      <Input
-                        id="payment_date"
-                        type="date"
-                        value={formData.payment_date}
-                        onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="amount">Amount *</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                        placeholder="0.00"
-                        required
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Amount *</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          step="0.01"
+                          value={formData.amount}
+                          onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                          placeholder="0.00"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact_id">
+                          {formData.payment_type === 'received' ? 'Customer' : 'Vendor'}
+                        </Label>
+                        <Select
+                          value={formData.contact_id}
+                          onValueChange={(value) => setFormData({ ...formData, contact_id: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select contact" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {contacts
+                              ?.filter((c: any) =>
+                                formData.payment_type === 'received'
+                                  ? c.contact_type === 'customer' || c.contact_type === 'both'
+                                  : c.contact_type === 'vendor' || c.contact_type === 'both'
+                              )
+                              .map((contact: any) => (
+                                <SelectItem key={contact.id} value={contact.id}>
+                                  {contact.company_name || contact.contact_name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="contact_id">
-                        {formData.payment_type === 'received' ? 'Customer' : 'Vendor'}
-                      </Label>
-                      <Select
-                        value={formData.contact_id}
-                        onValueChange={(value) => setFormData({ ...formData, contact_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select contact" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {contacts
-                            ?.filter((c: any) =>
-                              formData.payment_type === 'received'
-                                ? c.contact_type === 'customer' || c.contact_type === 'both'
-                                : c.contact_type === 'vendor' || c.contact_type === 'both'
-                            )
-                            .map((contact: any) => (
-                              <SelectItem key={contact.id} value={contact.id}>
-                                {contact.company_name || contact.contact_name}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="payment_method">Payment Method</Label>
+                        <Select
+                          value={formData.payment_method}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, payment_method: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAYMENT_METHODS.map((method) => (
+                              <SelectItem key={method} value={method}>
+                                {method}
                               </SelectItem>
                             ))}
-                        </SelectContent>
-                      </Select>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="reference_number">Reference Number</Label>
+                        <Input
+                          id="reference_number"
+                          value={formData.reference_number}
+                          onChange={(e) =>
+                            setFormData({ ...formData, reference_number: e.target.value })
+                          }
+                          placeholder="Check #, Transaction ID, etc."
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="payment_method">Payment Method</Label>
-                      <Select
-                        value={formData.payment_method}
-                        onValueChange={(value) => setFormData({ ...formData, payment_method: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PAYMENT_METHODS.map((method) => (
-                            <SelectItem key={method} value={method}>
-                              {method}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reference_number">Reference Number</Label>
-                      <Input
-                        id="reference_number"
-                        value={formData.reference_number}
-                        onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
-                        placeholder="Check #, Transaction ID, etc."
+                      <Label htmlFor="notes">Notes</Label>
+                      <Textarea
+                        id="notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        placeholder="Additional notes about this payment"
+                        rows={2}
                       />
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notes</Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Additional notes about this payment"
-                      rows={2}
-                    />
-                  </div>
-
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => {
-                      resetForm();
-                      setIsDialogOpen(false);
-                    }}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">
-                      {editingPayment ? 'Update' : 'Record'} Payment
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          resetForm();
+                          setIsDialogOpen(false);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit">{editingPayment ? 'Update' : 'Record'} Payment</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
               </Dialog>
             </div>
           </div>
@@ -669,9 +704,7 @@ export const PaymentsManager = () => {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <LoadingSpinner className="py-8" />
           ) : payments && payments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -695,11 +728,11 @@ export const PaymentsManager = () => {
                 <TableBody>
                   {payments?.map((payment) => (
                     <TableRow key={payment.id}>
-                      <TableCell className="font-mono text-sm">
-                        {payment.payment_number}
-                      </TableCell>
+                      <TableCell className="font-mono text-sm">{payment.payment_number}</TableCell>
                       <TableCell>
-                        <Badge variant={payment.payment_type === 'received' ? 'default' : 'secondary'}>
+                        <Badge
+                          variant={payment.payment_type === 'received' ? 'default' : 'secondary'}
+                        >
                           <span className="flex items-center gap-1">
                             {payment.payment_type === 'received' ? (
                               <ArrowDown className="h-3 w-3" />
@@ -737,18 +770,10 @@ export const PaymentsManager = () => {
                           >
                             <Link className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(payment)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(payment)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(payment)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(payment)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -768,7 +793,8 @@ export const PaymentsManager = () => {
           <DialogHeader>
             <DialogTitle>Allocate Payment to Invoices</DialogTitle>
             <DialogDescription>
-              Payment: {allocatingPayment?.payment_number} - {allocatingPayment && formatCurrency(allocatingPayment.amount)}
+              Payment: {allocatingPayment?.payment_number} -{' '}
+              {allocatingPayment && formatCurrency(allocatingPayment.amount)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -857,15 +883,17 @@ export const PaymentsManager = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => {
-              setIsAllocateDialogOpen(false);
-              setAllocationData([]);
-            }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAllocateDialogOpen(false);
+                setAllocationData([]);
+              }}
+            >
               Cancel
             </Button>
-            <Button onClick={handleAllocateSubmit}>
-              Allocate Payment
-            </Button>
+            <Button onClick={handleAllocateSubmit}>Allocate Payment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

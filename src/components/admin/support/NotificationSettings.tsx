@@ -8,7 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Plus, X, Mail, MessageSquare, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Plus,
+  X,
+  Mail,
+  MessageSquare,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export const NotificationSettings = () => {
@@ -17,7 +25,7 @@ export const NotificationSettings = () => {
   const [loading, setLoading] = useState(true);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState('');
-  
+
   // Slack settings
   const [slackEnabled, setSlackEnabled] = useState(false);
   const [slackWebhookUrl, setSlackWebhookUrl] = useState('');
@@ -30,10 +38,7 @@ export const NotificationSettings = () => {
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('notification_settings')
-        .select('*')
-        .single();
+      const { data, error } = await supabase.from('notification_settings').select('*').single();
 
       if (error) throw error;
 
@@ -42,9 +47,9 @@ export const NotificationSettings = () => {
         setEmails(data.notification_emails || []);
         setEnabled(data.enabled);
         // Slack settings - use type assertion for new fields
-        const slackData = data as typeof data & { 
-          slack_enabled?: boolean; 
-          slack_webhook_url?: string; 
+        const slackData = data as typeof data & {
+          slack_enabled?: boolean;
+          slack_webhook_url?: string;
           slack_channel?: string;
         };
         setSlackEnabled(slackData.slack_enabled || false);
@@ -141,7 +146,7 @@ export const NotificationSettings = () => {
       toast.error('You must have at least one notification email');
       return;
     }
-    setEmails(emails.filter(email => email !== emailToRemove));
+    setEmails(emails.filter((email) => email !== emailToRemove));
   };
 
   if (loading) {
@@ -169,16 +174,12 @@ export const NotificationSettings = () => {
                 Send email notifications for new tickets and responses
               </p>
             </div>
-            <Switch
-              id="enabled"
-              checked={enabled}
-              onCheckedChange={setEnabled}
-            />
+            <Switch id="enabled" checked={enabled} onCheckedChange={setEnabled} />
           </div>
 
           <div className="space-y-4">
             <Label>Notification Email Addresses</Label>
-            
+
             <div className="flex gap-2">
               <Input
                 type="email"
@@ -192,8 +193,13 @@ export const NotificationSettings = () => {
                   }
                 }}
               />
-              <Button onClick={addEmail} size="icon" variant="outline">
-                <Plus className="h-4 w-4" />
+              <Button
+                onClick={addEmail}
+                size="icon"
+                variant="outline"
+                aria-label="Add email recipient"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
 
@@ -244,24 +250,20 @@ export const NotificationSettings = () => {
                 Send notifications to your Slack workspace
               </p>
             </div>
-            <Switch
-              id="slack-enabled"
-              checked={slackEnabled}
-              onCheckedChange={setSlackEnabled}
-            />
+            <Switch id="slack-enabled" checked={slackEnabled} onCheckedChange={setSlackEnabled} />
           </div>
 
           {slackEnabled && (
             <>
               <Separator />
-              
+
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   To set up Slack integration, you need to create an{' '}
-                  <a 
-                    href="https://api.slack.com/messaging/webhooks" 
-                    target="_blank" 
+                  <a
+                    href="https://api.slack.com/messaging/webhooks"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium underline inline-flex items-center gap-1"
                   >
@@ -300,8 +302,8 @@ export const NotificationSettings = () => {
                   </p>
                 </div>
 
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={testSlackWebhook}
                   disabled={!slackWebhookUrl || testingSlack}
                   className="w-full"

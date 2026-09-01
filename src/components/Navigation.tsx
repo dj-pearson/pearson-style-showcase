@@ -116,7 +116,12 @@ const Navigation = () => {
 
       {/* Mobile Menu Backdrop */}
       {isMenuOpen && isMobile && (
+        // Dismiss-on-tap backdrop. aria-hidden keeps it out of the tree entirely,
+        // which is correct: the keyboard path is Escape, handled above, and the
+        // toggle button carries aria-expanded. A focusable backdrop would sit
+        // between the user and the menu it is meant to close.
         <div
+          aria-hidden="true"
           className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           onClick={() => setIsMenuOpen(false)}
           style={{ animation: 'fade-in 0.2s ease-out' }}

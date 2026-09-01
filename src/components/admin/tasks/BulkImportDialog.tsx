@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -16,7 +22,12 @@ interface BulkImportDialogProps {
   onSuccess: () => void;
 }
 
-export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: BulkImportDialogProps) => {
+export const BulkImportDialog = ({
+  open,
+  onOpenChange,
+  projects,
+  onSuccess,
+}: BulkImportDialogProps) => {
   const [selectedProject, setSelectedProject] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [sourceName, setSourceName] = useState('');
@@ -42,10 +53,10 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
     const result: string[] = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
-      
+
       if (char === '"') {
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
@@ -56,13 +67,14 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
       }
     }
     result.push(current.trim());
-    
+
     return result;
   };
 
   const mapPriority = (originalPriority: string): string => {
     const priority = originalPriority.toLowerCase();
-    if (priority.includes('p0') || priority.includes('critical') || priority.includes('urgent')) return 'urgent';
+    if (priority.includes('p0') || priority.includes('critical') || priority.includes('urgent'))
+      return 'urgent';
     if (priority.includes('p1') || priority.includes('high')) return 'high';
     if (priority.includes('p2') || priority.includes('medium')) return 'medium';
     if (priority.includes('p3') || priority.includes('low')) return 'low';
@@ -81,7 +93,11 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
     if (!file) return;
 
     if (!createProject && !selectedProject) {
-      toast({ title: 'Error', description: 'Please select a project or create a new one', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Please select a project or create a new one',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -99,11 +115,13 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
       if (createProject) {
         const { data: newProject, error: projectError } = await supabase
           .from('task_projects')
-          .insert([{
-            name: newProjectName.trim(),
-            platform: sourceName || file.name,
-            status: 'active'
-          }])
+          .insert([
+            {
+              name: newProjectName.trim(),
+              platform: sourceName || file.name,
+              status: 'active',
+            },
+          ])
           .select()
           .single();
 
@@ -112,23 +130,24 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
       }
 
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
-      
-      const tasks = lines.slice(1)
-        .filter(line => line.trim())
-        .map(line => {
+      const lines = text.split('\n').filter((line) => line.trim());
+      const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().trim());
+
+      const tasks = lines
+        .slice(1)
+        .filter((line) => line.trim())
+        .map((line) => {
           const values = parseCSVLine(line);
           const task: any = {
             project_id: projectId,
             source: sourceName || file.name,
-            metadata: {}
+            metadata: {},
           };
-          
+
           headers.forEach((header, index) => {
             const value = values[index] || '';
             if (!value) return;
-            
+
             // Map CSV fields to database fields (case-insensitive - headers already lowercased)
             switch (header) {
               case 'item':
@@ -192,15 +211,15 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
           task.tags = [task.category, task.original_priority, task.priority].filter(Boolean);
 
           return task;
-        })
+        });
 
       const { error } = await supabase.from('tasks').insert(tasks);
-      
+
       if (error) throw error;
 
-      toast({ 
-        title: 'Success', 
-        description: `Successfully imported ${tasks.length} tasks${createProject ? ` into new project "${newProjectName}"` : ''}` 
+      toast({
+        title: 'Success',
+        description: `Successfully imported ${tasks.length} tasks${createProject ? ` into new project "${newProjectName}"` : ''}`,
       });
       onSuccess();
       e.target.value = '';
@@ -209,10 +228,13 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
       setCreateProject(false);
     } catch (error) {
       console.error('Import error:', error);
-      toast({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to import tasks. Please check your CSV format.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to import tasks. Please check your CSV format.',
+        variant: 'destructive',
       });
     } finally {
       setIsImporting(false);
@@ -278,8 +300,8 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
                       <SelectItem key={project.id} value={project.id}>
                         <div className="flex items-center gap-2">
                           {project.color && (
-                            <div 
-                              className="w-3 h-3 rounded-full" 
+                            <div
+                              className="w-3 h-3 rounded-full"
                               style={{ backgroundColor: project.color }}
                             />
                           )}
@@ -300,10 +322,10 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
                 <Download className="mr-2 h-4 w-4" />
                 Download Sample CSV
               </Button>
-              <label className="flex-1">
-                <Button 
-                  variant="default" 
-                  disabled={(!selectedProject && !createProject) || isImporting} 
+              <label htmlFor="bulk-import-csv" className="flex-1">
+                <Button
+                  variant="default"
+                  disabled={(!selectedProject && !createProject) || isImporting}
                   className="w-full"
                   asChild
                 >
@@ -313,8 +335,10 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
                   </span>
                 </Button>
                 <input
+                  id="bulk-import-csv"
                   type="file"
                   accept=".csv"
+                  aria-label="Upload CSV"
                   onChange={handleFileUpload}
                   className="hidden"
                   disabled={(!selectedProject && !createProject) || isImporting}
@@ -328,18 +352,31 @@ export const BulkImportDialog = ({ open, onOpenChange, projects, onSuccess }: Bu
             <div>
               <h4 className="font-medium mb-2">✅ Supported CSV Formats:</h4>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li><strong>Enterprise Format:</strong> Priority, Category, Item, Status, Description, Effort, Dependencies</li>
-                <li><strong>Simple Format:</strong> Title, Description, Status, Priority, Due Date</li>
+                <li>
+                  <strong>Enterprise Format:</strong> Priority, Category, Item, Status, Description,
+                  Effort, Dependencies
+                </li>
+                <li>
+                  <strong>Simple Format:</strong> Title, Description, Status, Priority, Due Date
+                </li>
                 <li>All other columns will be preserved in metadata</li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-medium mb-2">🔄 Automatic Mapping:</h4>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li><strong>Priority:</strong> P0/Critical → Urgent, P1/High → High, P2/Medium → Medium, P3/Low → Low</li>
-                <li><strong>Status:</strong> "Not Started" → To Do, "In Progress" → In Progress, "Completed" → Completed</li>
-                <li><strong>Item/Title:</strong> Automatically detected as task title</li>
+                <li>
+                  <strong>Priority:</strong> P0/Critical → Urgent, P1/High → High, P2/Medium →
+                  Medium, P3/Low → Low
+                </li>
+                <li>
+                  <strong>Status:</strong> "Not Started" → To Do, "In Progress" → In Progress,
+                  "Completed" → Completed
+                </li>
+                <li>
+                  <strong>Item/Title:</strong> Automatically detected as task title
+                </li>
               </ul>
             </div>
 

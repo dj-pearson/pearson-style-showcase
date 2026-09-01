@@ -1,11 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useId, useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,16 +31,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import {
-  Sparkles,
-  Loader2,
-  Check,
-  X,
-  Trash2,
-  Edit2,
-  ClipboardPaste,
-  Wand2
-} from 'lucide-react';
+import { Sparkles, Loader2, Check, X, Trash2, Edit2, ClipboardPaste, Wand2 } from 'lucide-react';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface AITaskGeneratorDialogProps {
@@ -56,8 +65,9 @@ export const AITaskGeneratorDialog = ({
   onOpenChange,
   projects,
   defaultProjectId,
-  onSuccess
+  onSuccess,
 }: AITaskGeneratorDialogProps) => {
+  const fieldId = useId();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
@@ -82,7 +92,7 @@ export const AITaskGeneratorDialog = ({
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const projectName = projects.find(p => p.id === selectedProject)?.name;
+      const projectName = projects.find((p) => p.id === selectedProject)?.name;
 
       const { data, error } = await invokeEdgeFunction('generate-ai-tasks', {
         body: {
@@ -99,11 +109,13 @@ export const AITaskGeneratorDialog = ({
     },
     onSuccess: (data) => {
       if (data?.tasks && Array.isArray(data.tasks)) {
-        setGeneratedTasks(data.tasks.map((task: any) => ({
-          ...task,
-          selected: true,
-          editing: false,
-        })));
+        setGeneratedTasks(
+          data.tasks.map((task: any) => ({
+            ...task,
+            selected: true,
+            editing: false,
+          }))
+        );
         setSummary(data.summary || '');
         setStep('review');
         toast({
@@ -123,13 +135,13 @@ export const AITaskGeneratorDialog = ({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const selectedTasks = generatedTasks.filter(t => t.selected);
+      const selectedTasks = generatedTasks.filter((t) => t.selected);
 
       if (selectedTasks.length === 0) {
         throw new Error('No tasks selected');
       }
 
-      const tasksToInsert = selectedTasks.map(task => ({
+      const tasksToInsert = selectedTasks.map((task) => ({
         title: task.title,
         description: task.description || null,
         category: task.category || null,
@@ -182,34 +194,30 @@ export const AITaskGeneratorDialog = ({
   };
 
   const toggleTaskSelection = (index: number) => {
-    setGeneratedTasks(prev =>
-      prev.map((task, i) =>
-        i === index ? { ...task, selected: !task.selected } : task
-      )
+    setGeneratedTasks((prev) =>
+      prev.map((task, i) => (i === index ? { ...task, selected: !task.selected } : task))
     );
   };
 
   const removeTask = (index: number) => {
-    setGeneratedTasks(prev => prev.filter((_, i) => i !== index));
+    setGeneratedTasks((prev) => prev.filter((_, i) => i !== index));
   };
 
   const updateTask = (index: number, updates: Partial<GeneratedTask>) => {
-    setGeneratedTasks(prev =>
-      prev.map((task, i) =>
-        i === index ? { ...task, ...updates } : task
-      )
+    setGeneratedTasks((prev) =>
+      prev.map((task, i) => (i === index ? { ...task, ...updates } : task))
     );
   };
 
   const selectAll = () => {
-    setGeneratedTasks(prev => prev.map(t => ({ ...t, selected: true })));
+    setGeneratedTasks((prev) => prev.map((t) => ({ ...t, selected: true })));
   };
 
   const deselectAll = () => {
-    setGeneratedTasks(prev => prev.map(t => ({ ...t, selected: false })));
+    setGeneratedTasks((prev) => prev.map((t) => ({ ...t, selected: false })));
   };
 
-  const selectedCount = generatedTasks.filter(t => t.selected).length;
+  const selectedCount = generatedTasks.filter((t) => t.selected).length;
 
   const content = (
     <div className="flex flex-col h-full">
@@ -217,9 +225,11 @@ export const AITaskGeneratorDialog = ({
         <div className="flex flex-col gap-4 p-1">
           {/* Project Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Project (Optional)</label>
+            <label htmlFor={`${fieldId}-project-optional`} className="text-sm font-medium">
+              Project (Optional)
+            </label>
             <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${fieldId}-project-optional`} className="w-full">
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
               <SelectContent>
@@ -242,7 +252,9 @@ export const AITaskGeneratorDialog = ({
           {/* Text Input Area */}
           <div className="space-y-2 flex-1">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Paste Your Text</label>
+              <label htmlFor={`${fieldId}-input-text`} className="text-sm font-medium">
+                Paste Your Text
+              </label>
               <Button
                 type="button"
                 variant="ghost"
@@ -255,6 +267,7 @@ export const AITaskGeneratorDialog = ({
               </Button>
             </div>
             <Textarea
+              id={`${fieldId}-input-text`}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Paste text containing tasks here. The AI will analyze it and extract individual tasks for you.
@@ -370,11 +383,7 @@ Examples:
                           />
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingIndex(null)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => setEditingIndex(null)}>
                             Done
                           </Button>
                         </div>
@@ -426,9 +435,7 @@ Examples:
                               </Badge>
                             )}
                             {task.effort && (
-                              <span className="text-xs text-muted-foreground">
-                                {task.effort}
-                              </span>
+                              <span className="text-xs text-muted-foreground">{task.effort}</span>
                             )}
                           </div>
                         </div>
@@ -442,11 +449,7 @@ Examples:
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setStep('input')}
-              className="sm:flex-1"
-            >
+            <Button variant="outline" onClick={() => setStep('input')} className="sm:flex-1">
               <X className="mr-2 h-4 w-4" />
               Back to Edit
             </Button>
@@ -489,9 +492,7 @@ Examples:
                 : 'Review and customize the generated tasks'}
             </SheetDescription>
           </SheetHeader>
-          <div className="flex-1 overflow-hidden">
-            {content}
-          </div>
+          <div className="flex-1 overflow-hidden">{content}</div>
         </SheetContent>
       </Sheet>
     );
@@ -511,9 +512,7 @@ Examples:
               : 'Review and customize the generated tasks'}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden">
-          {content}
-        </div>
+        <div className="flex-1 overflow-hidden">{content}</div>
       </DialogContent>
     </Dialog>
   );

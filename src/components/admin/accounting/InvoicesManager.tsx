@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -469,9 +470,7 @@ export const InvoicesManager = () => {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
+            <LoadingSpinner className="py-8" />
           ) : isError ? (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />

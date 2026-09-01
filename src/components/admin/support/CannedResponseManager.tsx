@@ -1,3 +1,5 @@
+import { useId } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +39,7 @@ interface CannedResponse {
 }
 
 export const CannedResponseManager: React.FC = () => {
+  const fieldId = useId();
   const [responses, setResponses] = useState<CannedResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -45,7 +48,7 @@ export const CannedResponseManager: React.FC = () => {
     title: '',
     shortcut: '',
     content: '',
-    category: 'general'
+    category: 'general',
   });
   const { toast } = useToast();
 
@@ -76,7 +79,7 @@ export const CannedResponseManager: React.FC = () => {
         toast({
           title: 'Validation Error',
           description: 'Title and content are required.',
-          variant: 'destructive'
+          variant: 'destructive',
         });
         return;
       }
@@ -89,7 +92,7 @@ export const CannedResponseManager: React.FC = () => {
             title: formData.title,
             shortcut: formData.shortcut || null,
             content: formData.content,
-            category: formData.category
+            category: formData.category,
           })
           .eq('id', editingResponse.id);
 
@@ -101,14 +104,12 @@ export const CannedResponseManager: React.FC = () => {
         });
       } else {
         // Create new
-        const { error } = await supabase
-          .from('canned_responses')
-          .insert({
-            title: formData.title,
-            shortcut: formData.shortcut || null,
-            content: formData.content,
-            category: formData.category
-          });
+        const { error } = await supabase.from('canned_responses').insert({
+          title: formData.title,
+          shortcut: formData.shortcut || null,
+          content: formData.content,
+          category: formData.category,
+        });
 
         if (error) throw error;
 
@@ -127,7 +128,7 @@ export const CannedResponseManager: React.FC = () => {
       toast({
         title: 'Save Failed',
         description: 'Could not save the canned response.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -138,7 +139,7 @@ export const CannedResponseManager: React.FC = () => {
       title: response.title,
       shortcut: response.shortcut || '',
       content: response.content,
-      category: response.category || 'general'
+      category: response.category || 'general',
     });
     setIsDialogOpen(true);
   };
@@ -149,10 +150,7 @@ export const CannedResponseManager: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('canned_responses')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('canned_responses').delete().eq('id', id);
 
       if (error) throw error;
 
@@ -167,7 +165,7 @@ export const CannedResponseManager: React.FC = () => {
       toast({
         title: 'Delete Failed',
         description: 'Could not delete the canned response.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -185,7 +183,7 @@ export const CannedResponseManager: React.FC = () => {
       general: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
       bug: 'bg-red-500/10 text-red-500 border-red-500/20',
       feature_request: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-      question: 'bg-green-500/10 text-green-500 border-green-500/20'
+      question: 'bg-green-500/10 text-green-500 border-green-500/20',
     };
 
     return (
@@ -208,10 +206,12 @@ export const CannedResponseManager: React.FC = () => {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => {
-                setEditingResponse(null);
-                setFormData({ title: '', shortcut: '', content: '', category: 'general' });
-              }}>
+              <Button
+                onClick={() => {
+                  setEditingResponse(null);
+                  setFormData({ title: '', shortcut: '', content: '', category: 'general' });
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 New Response
               </Button>
@@ -226,8 +226,11 @@ export const CannedResponseManager: React.FC = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Title</label>
+                  <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
+                    Title
+                  </label>
                   <Input
+                    id={`${fieldId}-title`}
                     placeholder="e.g., Welcome Message"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -237,23 +240,30 @@ export const CannedResponseManager: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">Shortcut (optional)</label>
+                    <label htmlFor={`${fieldId}-shortcut-optional`} className="text-sm font-medium">
+                      Shortcut (optional)
+                    </label>
                     <Input
+                      id={`${fieldId}-shortcut-optional`}
                       placeholder="e.g., /welcome"
                       value={formData.shortcut}
                       onChange={(e) => setFormData({ ...formData, shortcut: e.target.value })}
                       className="mt-1"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Type this to quickly insert</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Type this to quickly insert
+                    </p>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Category</label>
+                    <label htmlFor={`${fieldId}-category`} className="text-sm font-medium">
+                      Category
+                    </label>
                     <Select
                       value={formData.category}
                       onValueChange={(value) => setFormData({ ...formData, category: value })}
                     >
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger id={`${fieldId}-category`} className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -267,8 +277,11 @@ export const CannedResponseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Response Content</label>
+                  <label htmlFor={`${fieldId}-response-content`} className="text-sm font-medium">
+                    Response Content
+                  </label>
                   <Textarea
+                    id={`${fieldId}-response-content`}
                     placeholder="Enter your response template..."
                     value={formData.content}
                     onChange={(e) => setFormData({ ...formData, content: e.target.value })}
@@ -296,9 +309,7 @@ export const CannedResponseManager: React.FC = () => {
 
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : responses.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />

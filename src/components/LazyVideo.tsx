@@ -254,27 +254,27 @@ export const LazyVideo: React.FC<LazyVideoProps> = ({
     ...(height ? { height } : {}),
   };
 
+  // Hover alone hides the custom controls from anyone driving the page by
+  // keyboard, so onFocus/onBlur mirror the mouse handlers: they fire as focus
+  // moves into and out of the subtree.
   return (
+    // Reveals the custom controls on hover and on focus. The container is not a
+    // control itself; the video element inside it is what receives focus.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       ref={containerRef}
-      className={cn(
-        'relative overflow-hidden bg-gray-900 rounded-lg',
-        className
-      )}
+      className={cn('relative overflow-hidden bg-gray-900 rounded-lg', className)}
       style={containerStyle}
       onMouseEnter={() => setShowCustomControls(true)}
       onMouseLeave={() => setShowCustomControls(false)}
+      onFocus={() => setShowCustomControls(true)}
+      onBlur={() => setShowCustomControls(false)}
     >
       {/* Poster image shown before video loads */}
       {(!isInView || (!state.isLoaded && poster)) && (
         <div className="absolute inset-0 z-10">
           {poster ? (
-            <img
-              src={poster}
-              alt={alt}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            <img src={poster} alt={alt} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <div className="w-full h-full bg-gray-800 flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -360,11 +360,7 @@ export const LazyVideo: React.FC<LazyVideoProps> = ({
                 onClick={handlePlayPause}
                 aria-label={state.isPlaying ? 'Pause' : 'Play'}
               >
-                {state.isPlaying ? (
-                  <Pause className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
+                {state.isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
               </Button>
 
               <Button
@@ -375,11 +371,7 @@ export const LazyVideo: React.FC<LazyVideoProps> = ({
                 onClick={handleMuteToggle}
                 aria-label={state.isMuted ? 'Unmute' : 'Mute'}
               >
-                {state.isMuted ? (
-                  <VolumeX className="h-5 w-5" />
-                ) : (
-                  <Volume2 className="h-5 w-5" />
-                )}
+                {state.isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </Button>
 
               <span className="text-white text-sm ml-2">

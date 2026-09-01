@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
@@ -1013,8 +1014,7 @@ export const ArticleManager: React.FC = () => {
         {isLoading ? (
           <Card>
             <CardContent className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">Loading articles...</p>
+              <LoadingSpinner text="Loading articles..." />
             </CardContent>
           </Card>
         ) : filteredArticles.length === 0 ? (

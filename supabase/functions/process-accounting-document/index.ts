@@ -1,6 +1,7 @@
 import { encode as base64Encode } from 'https://deno.land/std@0.190.0/encoding/base64.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
 import {
   getAIConfigs,
@@ -32,6 +33,12 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Reads uploaded accounting documents and calls paid AI vision with the
+  // service role. The CSRF check below proves the request is same-origin, not
+  // who sent it, so identity is established here first.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   // CSRF protection for state-changing document processing.
   if (isStateChanging(req.method)) {

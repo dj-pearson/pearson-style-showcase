@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -320,9 +321,7 @@ export const LiveActivityFeed: React.FC = () => {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : activities.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Activity className="h-12 w-12 mx-auto mb-3 opacity-50" />

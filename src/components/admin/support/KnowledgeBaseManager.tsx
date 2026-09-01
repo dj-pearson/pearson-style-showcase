@@ -1,3 +1,5 @@
+import { useId } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +45,7 @@ interface KBArticle {
 }
 
 export const KnowledgeBaseManager: React.FC = () => {
+  const fieldId = useId();
   const [articles, setArticles] = useState<KBArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -54,7 +57,7 @@ export const KnowledgeBaseManager: React.FC = () => {
     excerpt: '',
     category: 'general',
     keywords: '',
-    published: false
+    published: false,
   });
   const { toast } = useToast();
 
@@ -92,7 +95,7 @@ export const KnowledgeBaseManager: React.FC = () => {
         toast({
           title: 'Validation Error',
           description: 'Title and content are required.',
-          variant: 'destructive'
+          variant: 'destructive',
         });
         return;
       }
@@ -100,8 +103,8 @@ export const KnowledgeBaseManager: React.FC = () => {
       const slug = formData.slug || generateSlug(formData.title);
       const keywords = formData.keywords
         .split(',')
-        .map(k => k.trim())
-        .filter(k => k.length > 0);
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0);
 
       if (editingArticle) {
         // Update existing
@@ -114,7 +117,7 @@ export const KnowledgeBaseManager: React.FC = () => {
             excerpt: formData.excerpt || null,
             category: formData.category,
             keywords,
-            published: formData.published
+            published: formData.published,
           })
           .eq('id', editingArticle.id);
 
@@ -126,17 +129,15 @@ export const KnowledgeBaseManager: React.FC = () => {
         });
       } else {
         // Create new
-        const { error } = await supabase
-          .from('kb_articles')
-          .insert({
-            title: formData.title,
-            slug,
-            content: formData.content,
-            excerpt: formData.excerpt || null,
-            category: formData.category,
-            keywords,
-            published: formData.published
-          });
+        const { error } = await supabase.from('kb_articles').insert({
+          title: formData.title,
+          slug,
+          content: formData.content,
+          excerpt: formData.excerpt || null,
+          category: formData.category,
+          keywords,
+          published: formData.published,
+        });
 
         if (error) throw error;
 
@@ -155,7 +156,7 @@ export const KnowledgeBaseManager: React.FC = () => {
         excerpt: '',
         category: 'general',
         keywords: '',
-        published: false
+        published: false,
       });
       loadArticles();
     } catch (error: any) {
@@ -163,7 +164,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       toast({
         title: 'Save Failed',
         description: error.message || 'Could not save the article.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -177,7 +178,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       excerpt: article.excerpt || '',
       category: article.category || 'general',
       keywords: article.keywords.join(', '),
-      published: article.published
+      published: article.published,
     });
     setIsDialogOpen(true);
   };
@@ -188,10 +189,7 @@ export const KnowledgeBaseManager: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('kb_articles')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('kb_articles').delete().eq('id', id);
 
       if (error) throw error;
 
@@ -206,7 +204,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       toast({
         title: 'Delete Failed',
         description: 'Could not delete the article.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -231,7 +229,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       toast({
         title: 'Update Failed',
         description: 'Could not update the article.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -256,18 +254,20 @@ export const KnowledgeBaseManager: React.FC = () => {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => {
-                setEditingArticle(null);
-                setFormData({
-                  title: '',
-                  slug: '',
-                  content: '',
-                  excerpt: '',
-                  category: 'general',
-                  keywords: '',
-                  published: false
-                });
-              }}>
+              <Button
+                onClick={() => {
+                  setEditingArticle(null);
+                  setFormData({
+                    title: '',
+                    slug: '',
+                    content: '',
+                    excerpt: '',
+                    category: 'general',
+                    keywords: '',
+                    published: false,
+                  });
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 New Article
               </Button>
@@ -282,8 +282,11 @@ export const KnowledgeBaseManager: React.FC = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Title</label>
+                  <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
+                    Title
+                  </label>
                   <Input
+                    id={`${fieldId}-title`}
                     placeholder="e.g., How to reset your password"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -292,8 +295,11 @@ export const KnowledgeBaseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Slug (URL)</label>
+                  <label htmlFor={`${fieldId}-slug-url`} className="text-sm font-medium">
+                    Slug (URL)
+                  </label>
                   <Input
+                    id={`${fieldId}-slug-url`}
                     placeholder="Auto-generated from title"
                     value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
@@ -305,8 +311,11 @@ export const KnowledgeBaseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Excerpt (Summary)</label>
+                  <label htmlFor={`${fieldId}-excerpt-summary`} className="text-sm font-medium">
+                    Excerpt (Summary)
+                  </label>
                   <Textarea
+                    id={`${fieldId}-excerpt-summary`}
                     placeholder="Brief summary shown in search results..."
                     value={formData.excerpt}
                     onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
@@ -317,12 +326,14 @@ export const KnowledgeBaseManager: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">Category</label>
+                    <label htmlFor={`${fieldId}-category`} className="text-sm font-medium">
+                      Category
+                    </label>
                     <Select
                       value={formData.category}
                       onValueChange={(value) => setFormData({ ...formData, category: value })}
                     >
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger id={`${fieldId}-category`} className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -336,8 +347,14 @@ export const KnowledgeBaseManager: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Keywords (comma-separated)</label>
+                    <label
+                      htmlFor={`${fieldId}-keywords-comma-separated`}
+                      className="text-sm font-medium"
+                    >
+                      Keywords (comma-separated)
+                    </label>
                     <Input
+                      id={`${fieldId}-keywords-comma-separated`}
                       placeholder="password, reset, login"
                       value={formData.keywords}
                       onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
@@ -347,8 +364,14 @@ export const KnowledgeBaseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Content (Markdown supported)</label>
+                  <label
+                    htmlFor={`${fieldId}-content-markdown-supported`}
+                    className="text-sm font-medium"
+                  >
+                    Content (Markdown supported)
+                  </label>
                   <Textarea
+                    id={`${fieldId}-content-markdown-supported`}
                     placeholder="# Article Title
 
 Write your help article content here. You can use Markdown formatting.
@@ -368,10 +391,13 @@ Write your help article content here. You can use Markdown formatting.
 
                 <div className="flex items-center gap-2">
                   <Switch
+                    id={`${fieldId}-published`}
                     checked={formData.published}
                     onCheckedChange={(checked) => setFormData({ ...formData, published: checked })}
                   />
-                  <label className="text-sm font-medium">Publish immediately</label>
+                  <label htmlFor={`${fieldId}-published`} className="text-sm font-medium">
+                    Publish immediately
+                  </label>
                 </div>
               </div>
 
@@ -379,9 +405,7 @@ Write your help article content here. You can use Markdown formatting.
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave}>
-                  {editingArticle ? 'Update' : 'Create'} Article
-                </Button>
+                <Button onClick={handleSave}>{editingArticle ? 'Update' : 'Create'} Article</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -390,9 +414,7 @@ Write your help article content here. You can use Markdown formatting.
 
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : articles.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -412,7 +434,10 @@ Write your help article content here. You can use Markdown formatting.
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className="font-semibold">{article.title}</h4>
                         {article.published ? (
-                          <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500">
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-green-500/10 text-green-500"
+                          >
                             Published
                           </Badge>
                         ) : (

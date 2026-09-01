@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -113,7 +114,10 @@ export const ImportIntegrationsManager = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
+    const variants: Record<
+      string,
+      { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }
+    > = {
       completed: { variant: 'default', icon: CheckCircle2 },
       failed: { variant: 'destructive', icon: XCircle },
       processing: { variant: 'secondary', icon: Clock },
@@ -153,12 +157,14 @@ export const ImportIntegrationsManager = () => {
       // Create import log entry
       const { data: logData, error: logError } = await supabase
         .from('import_logs')
-        .insert([{
-          import_source_id: source.id,
-          import_type: 'invoice',
-          status: 'processing',
-          records_total: 0,
-        }])
+        .insert([
+          {
+            import_source_id: source.id,
+            import_type: 'invoice',
+            status: 'processing',
+            records_total: 0,
+          },
+        ])
         .select()
         .single();
 
@@ -251,17 +257,19 @@ export const ImportIntegrationsManager = () => {
     csvLines.push('Source,Type,Status,Total,Imported,Failed,Started,Completed,Error');
 
     logs.forEach((log) => {
-      csvLines.push([
-        `"${log.import_sources?.source_name || ''}"`,
-        log.import_type,
-        log.status,
-        log.records_total,
-        log.records_imported,
-        log.records_failed,
-        log.started_at,
-        log.completed_at || '',
-        `"${(log.error_message || '').replace(/"/g, '""')}"`,
-      ].join(','));
+      csvLines.push(
+        [
+          `"${log.import_sources?.source_name || ''}"`,
+          log.import_type,
+          log.status,
+          log.records_total,
+          log.records_imported,
+          log.records_failed,
+          log.started_at,
+          log.completed_at || '',
+          `"${(log.error_message || '').replace(/"/g, '""')}"`,
+        ].join(',')
+      );
     });
 
     const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -302,14 +310,14 @@ export const ImportIntegrationsManager = () => {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                </div>
+                <LoadingSpinner className="py-8" />
               ) : sources.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Upload className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No import sources configured</p>
-                  <p className="text-sm mt-1">Add platforms in the Platforms tab to enable imports</p>
+                  <p className="text-sm mt-1">
+                    Add platforms in the Platforms tab to enable imports
+                  </p>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -369,13 +377,20 @@ export const ImportIntegrationsManager = () => {
                               size="sm"
                               className="flex-1"
                               onClick={() => importMutation.mutate(source)}
-                              disabled={!source.is_active || !source.configuration?.api_key || importMutation.isPending}
+                              disabled={
+                                !source.is_active ||
+                                !source.configuration?.api_key ||
+                                importMutation.isPending
+                              }
                             >
                               <Play className="h-3 w-3 mr-1" />
                               {importMutation.isPending ? 'Importing...' : 'Import Now'}
                             </Button>
                           ) : (
-                            <Dialog open={showCSVUpload === source.id} onOpenChange={(open) => setShowCSVUpload(open ? source.id : null)}>
+                            <Dialog
+                              open={showCSVUpload === source.id}
+                              onOpenChange={(open) => setShowCSVUpload(open ? source.id : null)}
+                            >
                               <DialogTrigger asChild>
                                 <Button size="sm" className="flex-1">
                                   <Upload className="h-3 w-3 mr-1" />
@@ -386,7 +401,8 @@ export const ImportIntegrationsManager = () => {
                                 <DialogHeader>
                                   <DialogTitle>Upload {source.source_name} CSV</DialogTitle>
                                   <DialogDescription>
-                                    Upload a CSV file with columns: Invoice Number, Date, Amount, Description, Currency
+                                    Upload a CSV file with columns: Invoice Number, Date, Amount,
+                                    Description, Currency
                                   </DialogDescription>
                                 </DialogHeader>
                                 <CSVUploadForm
@@ -410,7 +426,8 @@ export const ImportIntegrationsManager = () => {
             <CardHeader>
               <CardTitle>Upload Invoices & Receipts</CardTitle>
               <CardDescription>
-                Upload PDF invoices or receipt images. AI will extract data. Review and approve below to create invoices.
+                Upload PDF invoices or receipt images. AI will extract data. Review and approve
+                below to create invoices.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -426,11 +443,15 @@ export const ImportIntegrationsManager = () => {
                       description: `Extracted: ${parsedData.vendor_name || 'Invoice'} - ${parsedData.total_amount ? `$${parsedData.total_amount}` : 'amount pending'}. Creating invoice...`,
                     });
                     try {
-                      const { data, error } = await invokeEdgeFunction('create-invoice-from-document', {
-                        body: { documentId, parsedData },
-                      });
+                      const { data, error } = await invokeEdgeFunction(
+                        'create-invoice-from-document',
+                        {
+                          body: { documentId, parsedData },
+                        }
+                      );
                       if (error) throw error;
-                      if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
+                      if (!data?.success)
+                        throw new Error(data?.error || 'Failed to create invoice');
                       queryClient.invalidateQueries({ queryKey: ['invoices'] });
                       toast({
                         title: 'Invoice created',
@@ -440,7 +461,10 @@ export const ImportIntegrationsManager = () => {
                       logger.error('Auto-create invoice failed:', err);
                       toast({
                         title: 'Invoice creation failed',
-                        description: err instanceof Error ? err.message : 'Click Approve below to create manually.',
+                        description:
+                          err instanceof Error
+                            ? err.message
+                            : 'Click Approve below to create manually.',
                         variant: 'destructive',
                       });
                       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -460,14 +484,24 @@ export const ImportIntegrationsManager = () => {
                   });
                 }}
                 onDeny={async (documentId) => {
-                  const { data: doc } = await supabase.from('accounting_documents').select('file_path').eq('id', documentId).single();
+                  const { data: doc } = await supabase
+                    .from('accounting_documents')
+                    .select('file_path')
+                    .eq('id', documentId)
+                    .single();
                   if (doc?.file_path) {
                     await supabase.storage.from('accounting-documents').remove([doc.file_path]);
                   }
-                  const { error: dbError } = await supabase.from('accounting_documents').delete().eq('id', documentId);
+                  const { error: dbError } = await supabase
+                    .from('accounting_documents')
+                    .delete()
+                    .eq('id', documentId);
                   if (dbError) throw dbError;
                   queryClient.invalidateQueries({ queryKey: ['invoices'] });
-                  toast({ title: 'Document removed', description: 'Document denied and removed from queue.' });
+                  toast({
+                    title: 'Document removed',
+                    description: 'Document denied and removed from queue.',
+                  });
                 }}
                 onError={(error) => logger.error('Upload error:', error)}
               />
@@ -551,7 +585,8 @@ export const ImportIntegrationsManager = () => {
               <CreditCard className="h-4 w-4" /> Stripe
             </h4>
             <p className="text-sm text-muted-foreground">
-              Get your API key from Stripe Dashboard. Use restricted keys with read-only billing access for security.
+              Get your API key from Stripe Dashboard. Use restricted keys with read-only billing
+              access for security.
             </p>
           </div>
           <div className="space-y-2">
@@ -559,7 +594,8 @@ export const ImportIntegrationsManager = () => {
               <Zap className="h-4 w-4" /> OpenAI
             </h4>
             <p className="text-sm text-muted-foreground">
-              Download invoices as PDF from OpenAI Platform billing page, then upload them here for AI parsing.
+              Download invoices as PDF from OpenAI Platform billing page, then upload them here for
+              AI parsing.
             </p>
           </div>
           <div className="space-y-2">
@@ -567,7 +603,8 @@ export const ImportIntegrationsManager = () => {
               <Code className="h-4 w-4" /> Anthropic (Claude)
             </h4>
             <p className="text-sm text-muted-foreground">
-              Download invoices from Anthropic Console billing section. Upload PDFs for automatic data extraction.
+              Download invoices from Anthropic Console billing section. Upload PDFs for automatic
+              data extraction.
             </p>
           </div>
           <div className="space-y-2">
@@ -575,7 +612,8 @@ export const ImportIntegrationsManager = () => {
               <FileText className="h-4 w-4" /> Any PDF Invoice
             </h4>
             <p className="text-sm text-muted-foreground">
-              Upload any PDF invoice or receipt. Our AI will extract vendor, amount, date, line items, and map them to the correct expense categories.
+              Upload any PDF invoice or receipt. Our AI will extract vendor, amount, date, line
+              items, and map them to the correct expense categories.
             </p>
           </div>
         </CardContent>
@@ -685,11 +723,7 @@ const CSVUploadForm = ({ onUpload }: { onUpload: (file: File) => void }) => {
       <p className="text-xs text-muted-foreground">
         Expected columns: Invoice Number, Date, Amount, Description, Currency
       </p>
-      <Button
-        onClick={() => file && onUpload(file)}
-        disabled={!file}
-        className="w-full"
-      >
+      <Button onClick={() => file && onUpload(file)} disabled={!file} className="w-full">
         <Upload className="h-4 w-4 mr-2" />
         Import CSV
       </Button>

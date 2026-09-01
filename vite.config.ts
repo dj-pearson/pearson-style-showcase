@@ -68,22 +68,58 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         external: [],
         output: {
-          manualChunks: {
-            // Separate heavy vendor libraries to reduce initial bundle
-            // These are lazy-loaded via route-based code splitting
-            'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            'ui-vendor': [
-              '@radix-ui/react-dialog',
-              '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-select',
-            ],
-            'icons-vendor': ['lucide-react'],
-            'markdown-vendor': ['react-markdown', 'remark-gfm', 'react-syntax-highlighter'],
-            'charts-vendor': ['recharts'],
-            'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
-            // GSAP animations - separated to reduce initial bundle
-            'gsap-vendor': ['gsap', '@gsap/react'],
+          // Assign chunks by resolved module path rather than by package name.
+          //
+          // The object form let Rollup absorb tiny shared modules into whichever
+          // vendor chunk referenced them first. clsx (about 500 bytes, imported
+          // by src/lib/utils.ts and class-variance-authority) landed inside
+          // charts-vendor, and Vite's preload-helper plus react-dom's commonjs
+          // shim landed inside three-vendor. The entry then statically imported
+          // both chunks to reach them, so index.html modulepreloaded 403 kB of
+          // recharts and 849 kB of three that the homepage never renders.
+          //
+          // Naming the shared utilities explicitly keeps them in their own small
+          // chunk, which is what breaks the edge. Matching on path alone is not
+          // enough: anything left unassigned is still Rollup's choice, and it
+          // chooses the big vendor chunks.
+          manualChunks(id) {
+            // Vite's preload helper is shared by every dynamic import.
+            if (id.includes('vite/preload-helper')) return 'vite-helpers';
+
+            if (!id.includes('node_modules')) return undefined;
+            const inPkg = (...names: string[]) =>
+              names.some((n) => id.includes(`node_modules/${n}/`));
+
+            // Small shared utilities pulled in by nearly every component, plus the
+            // Babel helper runtime that many libraries emit calls into. Left
+            // unassigned these get absorbed into whichever big vendor chunk names
+            // them first, and every chunk needing one then depends on all of it.
+            if (inPkg('clsx', 'class-variance-authority', 'tailwind-merge')) return 'utils-vendor';
+            if (id.includes('node_modules/@babel/runtime/')) return 'utils-vendor';
+            // prop-types is imported by recharts' react-smooth and
+            // react-transition-group and also from the three ecosystem. Absorbed
+            // into three-vendor it made charts-vendor depend on the whole of
+            // three, so every admin chunk rendering a chart fetched 843 kB of it.
+            // react-is, object-assign and tslib are the same shape of hazard.
+            if (inPkg('prop-types', 'react-is', 'object-assign', 'tslib')) return 'utils-vendor';
+
+            if (inPkg('three', '@react-three/fiber', '@react-three/drei')) return 'three-vendor';
+            if (inPkg('react', 'react-dom', 'react-router', 'react-router-dom', 'scheduler'))
+              return 'react-vendor';
+            if (id.includes('node_modules/@radix-ui/')) return 'ui-vendor';
+            if (inPkg('lucide-react')) return 'icons-vendor';
+            // Kept apart from markdown-vendor on purpose. react-markdown is needed
+            // by any article, but the Prism build behind react-syntax-highlighter
+            // is roughly 780 kB of language definitions and is loaded lazily by
+            // components/article/CodeBlock, so grouping the two would drag it in
+            // eagerly again.
+            if (inPkg('react-syntax-highlighter', 'refractor', 'prismjs', 'highlight.js'))
+              return 'syntax-vendor';
+            if (inPkg('react-markdown', 'remark-gfm')) return 'markdown-vendor';
+            if (inPkg('recharts')) return 'charts-vendor';
+            if (inPkg('react-hook-form', '@hookform/resolvers', 'zod')) return 'form-vendor';
+            if (inPkg('gsap', '@gsap/react')) return 'gsap-vendor';
+            return undefined;
           },
         },
       },

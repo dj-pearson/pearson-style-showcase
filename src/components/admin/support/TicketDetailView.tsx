@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import React, { useEffect, useState } from 'react';
 import type { RealtimePayload } from '@/types/supabase-realtime';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,6 +72,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
   onClose,
   onUpdate,
 }) => {
+  const fieldId = useId();
   const [responses, setResponses] = useState<Response[]>([]);
   const [replyMessage, setReplyMessage] = useState('');
   const [emailSubject, setEmailSubject] = useState(`Re: ${ticket.subject}`);
@@ -372,7 +374,9 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground">Status</label>
+              <label htmlFor={`${fieldId}-status`} className="text-xs text-muted-foreground">
+                Status
+              </label>
               <Select
                 value={newStatus}
                 onValueChange={(v) => {
@@ -380,7 +384,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                   updateTicket({ status: v });
                 }}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id={`${fieldId}-status`} className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -397,7 +401,9 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">Category</label>
+              <label htmlFor={`${fieldId}-category`} className="text-xs text-muted-foreground">
+                Category
+              </label>
               <Select
                 value={newCategory}
                 onValueChange={(v) => {
@@ -405,7 +411,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                   updateTicket({ category: v });
                 }}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id={`${fieldId}-category`} className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -419,12 +425,14 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">Assign To</label>
+              <label htmlFor={`${fieldId}-assign-to`} className="text-xs text-muted-foreground">
+                Assign To
+              </label>
               <Select
                 value={ticket.assigned_to || 'unassigned'}
                 onValueChange={(v) => updateTicket({ assigned_to: v === 'unassigned' ? null : v })}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id={`${fieldId}-assign-to`} className="mt-1">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
@@ -436,12 +444,12 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">From</label>
+              <span className="text-xs text-muted-foreground">From</span>
               <p className="text-sm font-medium mt-1">{ticket.user_name || ticket.user_email}</p>
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">Created</label>
+              <span className="text-xs text-muted-foreground">Created</span>
               <p className="text-sm font-medium mt-1">
                 {format(new Date(ticket.created_at), 'MMM d, yyyy')}
               </p>
@@ -770,16 +778,17 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                   {ticket.ai_suggested_responses && ticket.ai_suggested_responses.length > 0 ? (
                     <div className="space-y-2">
                       {ticket.ai_suggested_responses.map((suggestion: string, index: number) => (
-                        <div
+                        <button
                           key={index}
-                          className="p-3 rounded-lg border bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                          type="button"
+                          className="w-full text-left p-3 rounded-lg border bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
                           onClick={() => handleSuggestedResponse(suggestion)}
                         >
                           <p className="text-sm">{suggestion}</p>
-                          <Button size="sm" variant="ghost" className="mt-2 text-xs">
-                            Use This Response
+                          <Button asChild size="sm" variant="ghost" className="mt-2 text-xs">
+                            <span>Use This Response</span>
                           </Button>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   ) : (

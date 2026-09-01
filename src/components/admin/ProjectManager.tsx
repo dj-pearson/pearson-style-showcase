@@ -1,5 +1,6 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useState, useEffect, useCallback } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,19 +8,32 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { FileUpload } from './FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Sparkles, 
-  Save, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Sparkles,
+  Save,
   X,
   Database,
   ExternalLink,
@@ -28,7 +42,7 @@ import {
   Calendar,
   ChevronUp,
   ChevronDown,
-  GripVertical
+  GripVertical,
 } from 'lucide-react';
 
 interface Project {
@@ -68,7 +82,7 @@ export const ProjectManager: React.FC = () => {
     live_link: '',
     tags: [],
     status: 'Active',
-    featured: false
+    featured: false,
   });
 
   const loadProjects = useCallback(async () => {
@@ -84,9 +98,9 @@ export const ProjectManager: React.FC = () => {
     } catch (error) {
       logger.error('Error loading projects:', error);
       toast({
-        variant: "destructive",
-        title: "Error loading projects",
-        description: "Could not load projects. Please try again.",
+        variant: 'destructive',
+        title: 'Error loading projects',
+        description: 'Could not load projects. Please try again.',
       });
     } finally {
       setIsLoading(false);
@@ -98,40 +112,43 @@ export const ProjectManager: React.FC = () => {
   }, [loadProjects]);
 
   const handleInputChange = (field: keyof Project, value: unknown) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleTagsChange = (value: string) => {
-    const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag);
-    setFormData(prev => ({ ...prev, tags }));
+    const tags = value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag);
+    setFormData((prev) => ({ ...prev, tags }));
   };
 
   const extractFromUrl = async () => {
     if (!extractUrl) {
       toast({
-        variant: "destructive",
-        title: "URL required",
-        description: "Please enter a website URL to extract information.",
+        variant: 'destructive',
+        title: 'URL required',
+        description: 'Please enter a website URL to extract information.',
       });
       return;
     }
 
     setIsExtracting(true);
-    
+
     try {
       const { data, error } = await invokeEdgeFunction('extract-from-url', {
-        body: { 
+        body: {
           url: extractUrl,
-          type: 'project'
-        }
+          type: 'project',
+        },
       });
 
       if (error) throw error;
 
       if (data.success) {
         const extracted = data.data;
-        
-        setFormData(prev => ({
+
+        setFormData((prev) => ({
           ...prev,
           title: extracted.title || prev.title,
           description: extracted.description || prev.description,
@@ -139,22 +156,22 @@ export const ProjectManager: React.FC = () => {
           status: extracted.status || prev.status,
           github_link: extracted.github_link || prev.github_link,
           live_link: extracted.live_link || prev.live_link,
-          image_url: extracted.image_url || prev.image_url
+          image_url: extracted.image_url || prev.image_url,
         }));
 
         toast({
-          title: "Information extracted successfully",
-          description: "AI has extracted project information from the URL.",
+          title: 'Information extracted successfully',
+          description: 'AI has extracted project information from the URL.',
         });
-        
+
         setExtractUrl('');
       }
     } catch (error) {
       logger.error('Error extracting from URL:', error);
       toast({
-        variant: "destructive",
-        title: "Extraction failed",
-        description: "Could not extract information from URL. Please try again.",
+        variant: 'destructive',
+        title: 'Extraction failed',
+        description: 'Could not extract information from URL. Please try again.',
       });
     } finally {
       setIsExtracting(false);
@@ -164,50 +181,52 @@ export const ProjectManager: React.FC = () => {
   const generateContent = async () => {
     if (!formData.title) {
       toast({
-        variant: "destructive",
-        title: "Title required",
-        description: "Please enter a project title before generating content.",
+        variant: 'destructive',
+        title: 'Title required',
+        description: 'Please enter a project title before generating content.',
       });
       return;
     }
 
     setIsGenerating(true);
-    
+
     try {
       const prompt = `Generate comprehensive project description for: ${formData.title}. Include technical details, features, and technologies used.`;
 
       const { data, error } = await invokeEdgeFunction('ai-content-generator', {
-        body: { 
-          type: 'project', 
+        body: {
+          type: 'project',
           prompt,
-          context: formData.description ? `Current description: ${formData.description}` : undefined
-        }
+          context: formData.description
+            ? `Current description: ${formData.description}`
+            : undefined,
+        },
       });
 
       if (error) throw error;
 
       if (data.success) {
         const generated = data.data;
-        
-        setFormData(prev => ({
+
+        setFormData((prev) => ({
           ...prev,
           title: generated.title || prev.title,
           description: generated.description || prev.description,
           tags: generated.tags || prev.tags,
-          status: generated.status || prev.status
+          status: generated.status || prev.status,
         }));
 
         toast({
-          title: "Content generated successfully",
-          description: "AI has generated project content for you.",
+          title: 'Content generated successfully',
+          description: 'AI has generated project content for you.',
         });
       }
     } catch (error) {
       logger.error('Error generating content:', error);
       toast({
-        variant: "destructive",
-        title: "Generation failed",
-        description: "Could not generate content. Please try again.",
+        variant: 'destructive',
+        title: 'Generation failed',
+        description: 'Could not generate content. Please try again.',
       });
     } finally {
       setIsGenerating(false);
@@ -218,9 +237,9 @@ export const ProjectManager: React.FC = () => {
     try {
       if (!formData.title || !formData.description) {
         toast({
-          variant: "destructive",
-          title: "Missing required fields",
-          description: "Please fill in title and description.",
+          variant: 'destructive',
+          title: 'Missing required fields',
+          description: 'Please fill in title and description.',
         });
         return;
       }
@@ -235,7 +254,7 @@ export const ProjectManager: React.FC = () => {
         status: formData.status || 'Active',
         featured: formData.featured || false,
         sort_order: formData.sort_order || 0,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       if (selectedProject) {
@@ -246,10 +265,10 @@ export const ProjectManager: React.FC = () => {
           .eq('id', selectedProject.id);
 
         if (error) throw error;
-        
+
         toast({
-          title: "Project updated",
-          description: "Your project has been updated successfully.",
+          title: 'Project updated',
+          description: 'Your project has been updated successfully.',
         });
       } else {
         // Create new project - get max sort_order and add 1
@@ -262,15 +281,13 @@ export const ProjectManager: React.FC = () => {
 
         projectData.sort_order = (maxSortOrder?.sort_order || 0) + 1;
 
-        const { error } = await supabase
-          .from('projects')
-          .insert([projectData]);
+        const { error } = await supabase.from('projects').insert([projectData]);
 
         if (error) throw error;
-        
+
         toast({
-          title: "Project created",
-          description: "Your new project has been created successfully.",
+          title: 'Project created',
+          description: 'Your new project has been created successfully.',
         });
       }
 
@@ -284,15 +301,15 @@ export const ProjectManager: React.FC = () => {
         live_link: '',
         tags: [],
         status: 'Active',
-        featured: false
+        featured: false,
       });
       loadProjects();
     } catch (error) {
       logger.error('Error saving project:', error);
       toast({
-        variant: "destructive",
-        title: "Save failed",
-        description: "Could not save project. Please try again.",
+        variant: 'destructive',
+        title: 'Save failed',
+        description: 'Could not save project. Please try again.',
       });
     }
   };
@@ -307,39 +324,36 @@ export const ProjectManager: React.FC = () => {
     if (!confirm('Are you sure you want to delete this project?')) return;
 
     try {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('projects').delete().eq('id', id);
 
       if (error) throw error;
 
       toast({
-        title: "Project deleted",
-        description: "The project has been deleted successfully.",
+        title: 'Project deleted',
+        description: 'The project has been deleted successfully.',
       });
-      
+
       loadProjects();
     } catch (error) {
       logger.error('Error deleting project:', error);
       toast({
-        variant: "destructive",
-        title: "Delete failed",
-        description: "Could not delete project. Please try again.",
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: 'Could not delete project. Please try again.',
       });
     }
   };
 
-  const filteredProjects = projects.filter(project =>
-    project.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (project.tags && project.tags.some(tag => 
-      tag?.toLowerCase().includes(searchTerm.toLowerCase())
-    ))
+  const filteredProjects = projects.filter(
+    (project) =>
+      project.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (project.tags &&
+        project.tags.some((tag) => tag?.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   const moveProject = async (projectId: string, direction: 'up' | 'down') => {
-    const projectIndex = projects.findIndex(p => p.id === projectId);
+    const projectIndex = projects.findIndex((p) => p.id === projectId);
     if (projectIndex === -1) return;
 
     const targetIndex = direction === 'up' ? projectIndex - 1 : projectIndex + 1;
@@ -361,7 +375,7 @@ export const ProjectManager: React.FC = () => {
         .eq('id', targetProject.id);
 
       toast({
-        title: "Project reordered",
+        title: 'Project reordered',
         description: `Project moved ${direction}.`,
       });
 
@@ -369,9 +383,9 @@ export const ProjectManager: React.FC = () => {
     } catch (error) {
       logger.error('Error reordering project:', error);
       toast({
-        variant: "destructive",
-        title: "Reorder failed",
-        description: "Could not reorder project. Please try again.",
+        variant: 'destructive',
+        title: 'Reorder failed',
+        description: 'Could not reorder project. Please try again.',
       });
     }
   };
@@ -386,7 +400,7 @@ export const ProjectManager: React.FC = () => {
       live_link: '',
       tags: [],
       status: 'Active',
-      featured: false
+      featured: false,
     });
     setIsDialogOpen(true);
   };
@@ -407,11 +421,11 @@ export const ProjectManager: React.FC = () => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {selectedProject ? 'Edit Project' : 'Create New Project'}
-              </DialogTitle>
+              <DialogTitle>{selectedProject ? 'Edit Project' : 'Create New Project'}</DialogTitle>
               <DialogDescription>
-                {selectedProject ? 'Update your project details.' : 'Add a new project to your portfolio.'}
+                {selectedProject
+                  ? 'Update your project details.'
+                  : 'Add a new project to your portfolio.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -554,11 +568,7 @@ export const ProjectManager: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
@@ -591,8 +601,7 @@ export const ProjectManager: React.FC = () => {
         {isLoading ? (
           <Card>
             <CardContent className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">Loading projects...</p>
+              <LoadingSpinner text="Loading projects..." />
             </CardContent>
           </Card>
         ) : filteredProjects.length === 0 ? (
@@ -601,7 +610,9 @@ export const ProjectManager: React.FC = () => {
               <Database className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No projects found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchTerm ? 'No projects match your search.' : 'Get started by adding your first project.'}
+                {searchTerm
+                  ? 'No projects match your search.'
+                  : 'Get started by adding your first project.'}
               </p>
               {!searchTerm && (
                 <Button onClick={openNewProjectDialog}>
@@ -640,7 +651,7 @@ export const ProjectManager: React.FC = () => {
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
                         <h3 className="font-semibold text-lg">{project.title}</h3>
@@ -650,20 +661,20 @@ export const ProjectManager: React.FC = () => {
                           #{project.sort_order || 0}
                         </Badge>
                       </div>
-                      
+
                       <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                         {project.description}
                       </p>
-                      
+
                       <div className="flex items-center space-x-4 text-xs text-muted-foreground mb-3">
                         <span className="flex items-center">
                           <Calendar className="h-3 w-3 mr-1" />
                           {new Date(project.created_at).toLocaleDateString()}
                         </span>
                         {project.github_link && (
-                          <a 
-                            href={project.github_link} 
-                            target="_blank" 
+                          <a
+                            href={project.github_link}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center hover:text-foreground"
                           >
@@ -672,9 +683,9 @@ export const ProjectManager: React.FC = () => {
                           </a>
                         )}
                         {project.live_link && (
-                          <a 
-                            href={project.live_link} 
-                            target="_blank" 
+                          <a
+                            href={project.live_link}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center hover:text-foreground"
                           >
@@ -706,18 +717,10 @@ export const ProjectManager: React.FC = () => {
                         <Eye className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => editProject(project)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => editProject(project)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteProject(project.id)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => deleteProject(project.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
