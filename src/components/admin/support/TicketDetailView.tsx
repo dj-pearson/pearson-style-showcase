@@ -778,16 +778,17 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                   {ticket.ai_suggested_responses && ticket.ai_suggested_responses.length > 0 ? (
                     <div className="space-y-2">
                       {ticket.ai_suggested_responses.map((suggestion: string, index: number) => (
-                        <div
+                        <button
                           key={index}
-                          className="p-3 rounded-lg border bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                          type="button"
+                          className="w-full text-left p-3 rounded-lg border bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
                           onClick={() => handleSuggestedResponse(suggestion)}
                         >
                           <p className="text-sm">{suggestion}</p>
-                          <Button size="sm" variant="ghost" className="mt-2 text-xs">
-                            Use This Response
+                          <Button asChild size="sm" variant="ghost" className="mt-2 text-xs">
+                            <span>Use This Response</span>
                           </Button>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   ) : (

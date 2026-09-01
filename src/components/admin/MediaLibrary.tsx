@@ -329,6 +329,10 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     const isImage = asset.mime_type.startsWith('image/');
 
     return (
+      // The checkbox inside is the accessible control for selection; this click
+      // handler only makes the whole card a larger pointer target. The card cannot
+      // itself become a button, since it contains one.
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
       <div
         key={asset.id}
         className={cn(
@@ -338,9 +342,17 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
         )}
         onClick={() => toggleSelection(asset)}
       >
-        {/* Checkbox */}
+        {/* Checkbox. This is the keyboard path for selection; the card's onClick
+            is a pointer convenience only. stopPropagation keeps a click here from
+            also firing the card handler and cancelling itself. */}
         <div className={cn('absolute z-10', viewMode === 'grid' ? 'top-2 left-2' : 'left-3')}>
-          <Checkbox checked={isSelected} className="bg-background" />
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleSelection(asset)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Select ${asset.original_name}`}
+            className="bg-background"
+          />
         </div>
 
         {/* Preview */}

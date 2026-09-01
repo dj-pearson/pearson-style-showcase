@@ -258,6 +258,9 @@ export const LazyVideo: React.FC<LazyVideoProps> = ({
   // keyboard, so onFocus/onBlur mirror the mouse handlers: they fire as focus
   // moves into and out of the subtree.
   return (
+    // Reveals the custom controls on hover and on focus. The container is not a
+    // control itself; the video element inside it is what receives focus.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       ref={containerRef}
       className={cn('relative overflow-hidden bg-gray-900 rounded-lg', className)}

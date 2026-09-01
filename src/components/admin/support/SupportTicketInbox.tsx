@@ -453,28 +453,36 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
 
         {/* Stats Bar */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
-          <div
+          <button
+            type="button"
+            aria-label="Show open tickets"
             className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
             onClick={() => setStatusFilter('open')}
           >
             <p className="text-xl font-bold text-blue-600">{stats.open}</p>
             <p className="text-xs text-muted-foreground">Open</p>
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
+            aria-label="Show tickets in progress"
             className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
             onClick={() => setStatusFilter('in_progress')}
           >
             <p className="text-xl font-bold text-yellow-600">{stats.inProgress}</p>
             <p className="text-xs text-muted-foreground">In Progress</p>
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
+            aria-label="Show tickets waiting on the user"
             className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
             onClick={() => setStatusFilter('waiting_for_user')}
           >
             <p className="text-xl font-bold text-purple-600">{stats.waitingForUser}</p>
             <p className="text-xs text-muted-foreground">Waiting</p>
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
+            aria-label="Show all active tickets"
             className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
             onClick={() => setStatusFilter('active')}
           >
@@ -482,14 +490,16 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
               {stats.open + stats.inProgress + stats.waitingForUser + stats.waitingForAgent}
             </p>
             <p className="text-xs text-muted-foreground">Active</p>
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
+            aria-label="Toggle archived tickets"
             className="p-2 rounded border text-center hover:bg-muted/50 cursor-pointer transition-colors"
             onClick={() => setShowArchived(!showArchived)}
           >
             <p className="text-xl font-bold text-gray-600">{stats.archived}</p>
             <p className="text-xs text-muted-foreground">Archived</p>
-          </div>
+          </button>
         </div>
 
         {/* Filters */}
@@ -598,7 +608,11 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                       />
 
                       {/* Ticket Content */}
-                      <div className="flex-1 cursor-pointer" onClick={() => onSelectTicket(ticket)}>
+                      <button
+                        type="button"
+                        className="flex-1 cursor-pointer text-left"
+                        onClick={() => onSelectTicket(ticket)}
+                      >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             {getStatusIcon(ticket.status)}
@@ -647,7 +661,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                             </>
                           )}
                         </div>
-                      </div>
+                      </button>
                     </div>
                   </div>
                 ))}

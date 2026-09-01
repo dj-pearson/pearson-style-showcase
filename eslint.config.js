@@ -52,6 +52,16 @@ export default tseslint.config(
       // so leaving it on buries real findings. Mapping Label via the components
       // setting makes it worse, not better: it took the count from 16 to 281.
       "jsx-a11y/control-has-associated-label": "off",
+      // onLoad and onError are in this rule's default handler list, so every
+      // lazy-loaded <img> that tracks its own load state trips it. Those are not
+      // user interactions and carry no keyboard expectation. Narrowed to the
+      // handlers that do, rather than switching the rule off.
+      "jsx-a11y/no-noninteractive-element-interactions": [
+        "warn",
+        {
+          handlers: ["onClick", "onMouseDown", "onMouseUp", "onKeyPress", "onKeyDown", "onKeyUp"],
+        },
+      ],
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },

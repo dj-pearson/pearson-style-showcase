@@ -356,8 +356,7 @@ same controls as `label-has-associated-control` with a worse message.
 
 - 49 `label-has-associated-control`. Cleared in a dedicated pass; see below.
 - 17 `control-has-associated-label`. Audited and cleared; see below.
-- 19 `no-static-element-interactions` and `click-events-have-key-events`, all but two
-  in admin components.
+- 19 `no-static-element-interactions` and `click-events-have-key-events`. Cleared; see below.
 - A few known false positives, left alone: `heading-has-content` in `ui/alert.tsx:39`
   and `ui/card.tsx:36` and `anchor-has-content` in `ui/pagination.tsx:48` are shadcn
   forwardRef wrappers that receive children from the call site, and the
@@ -638,3 +637,69 @@ first and is worse, not better: it takes the count from 16 to 281, because every
 `<Input>` then counts as a native input needing a label the rule still cannot resolve.
 
 `npm run lint` goes from 342 to 325 warnings, still 0 errors.
+
+## E4. Keyboard interaction
+
+Twenty-one reports across `click-events-have-key-events`,
+`no-static-element-interactions` and `no-noninteractive-element-interactions`. Six were
+controls a keyboard could not reach, two of those hiding a separate bug; the rest were
+presentational or load-event noise.
+
+### Fixed: six controls that only a mouse could operate
+
+- `admin/support/SupportTicketInbox.tsx:456-486`. The five stat tiles above the inbox
+  (Open, In Progress, Waiting, Active, Archived) set the status filter on click. They
+  were `<div>`s: no role, no tab stop, no key handler, so the filters could not be
+  reached without a mouse. They are `<button type="button">` now, each with an
+  `aria-label` saying what it filters to, since the visible text is just a count and a
+  one-word noun.
+- `admin/support/SupportTicketInbox.tsx:601`. The ticket row body, which opens a ticket
+  on click. It holds no interactive descendants, so it became a button directly.
+
+### Fixed: two decorative controls that did nothing
+
+Both surfaced from chasing the warnings rather than from the rule itself.
+
+- `admin/MediaLibrary.tsx:343`. The per-asset `<Checkbox>` had `checked={isSelected}`
+  and no `onCheckedChange`. It was painted state, not a control: selection worked only
+  through the card's click handler, so keyboard users could not select an asset at all.
+  It now has `onCheckedChange`, an `aria-label` naming the asset, and a
+  `stopPropagation` on its own click so a pointer click does not also fire the card
+  handler and cancel itself. The card keeps its click as a larger pointer target, with
+  a disable and the reason: it contains a control, so it cannot become a button.
+- `admin/support/TicketDetailView.tsx:781`. Each AI-suggested response rendered a
+  "Use This Response" `<Button>` with no `onClick` at all, inside a `<div>` that
+  carried the real handler. The button looked actionable and was not, and the card was
+  unreachable by keyboard. The card is now the `<button>`, and the inner one uses
+  `asChild` over a `<span>` so it keeps its styling without nesting a button in a
+  button - the same trick `BulkImportDialog` already uses.
+
+### Rule narrowed rather than switched off
+
+`no-noninteractive-element-interactions` counts `onLoad` and `onError` among its default
+handlers, so every lazy-loaded `<img>` tracking its own load state trips it -
+`OptimizedImage.tsx:156` and `PerformanceOptimized.tsx:41`. Those are not user
+interactions and carry no keyboard expectation. The rule now lists only the pointer and
+key handlers, so it still reports a real click on a non-interactive element.
+
+### Two presentational cases, one of which improved
+
+`Navigation.tsx:119` is the mobile menu backdrop. Escape is already handled at `:85` and
+the toggle carries `aria-expanded`, so the keyboard path exists. Marking it
+`aria-hidden="true"` is what it should have been anyway - it is decoration behind the
+menu - and that alone satisfied both rules, so the disable that was drafted for it came
+straight back out.
+
+`LazyVideo.tsx:261` reveals its custom controls on hover and focus. The container is not
+a control; the video inside it takes focus. Annotated with the reason.
+
+### Coverage
+
+`src/components/admin/support/__tests__/SupportTicketInbox.test.tsx` asserts each stat
+filter resolves by button role and accessible name and is a real `BUTTON` element. All
+six assertions fail against the previous divs.
+
+`npm run lint` goes from 325 to 304 warnings, still 0 errors. No `jsx-a11y` interaction
+warnings remain; what is left is 4 `no-redundant-roles`, 3 `no-autofocus`, 2
+`media-has-caption`, 2 `heading-has-content` and 1 `anchor-has-content`, all previously
+assessed as deliberate choices or shadcn wrapper false positives.
