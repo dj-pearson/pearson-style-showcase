@@ -12,7 +12,7 @@ scope, and leaves judgement calls for Dj. Verified with `npm run typecheck`,
 | A   | UI, layout and design-system consistency                                           | first pass done |
 | B   | Frontend correctness: routing, data fetching, loading/error states, effect cleanup | first pass done |
 | C   | Edge functions: auth, input validation, error handling, secrets                    | first pass done |
-| D   | Security: RLS, CSRF, sanitization, auth flows                                      | not started     |
+| D   | Security: RLS, CSRF, sanitization, auth flows                                      | first pass done |
 | E   | Accessibility and mobile                                                           | not started     |
 | F   | Performance: bundle budgets, lazy loading, re-renders                              | not started     |
 | G   | Data layer: migrations vs. generated types                                         | not started     |
@@ -233,3 +233,90 @@ would close this.
 `optimize-image` accepts any `bucket` name from the caller. Admin-gating it removes the
 untrusted-caller problem, but an allow-list of buckets would be better than trusting the
 body, since the default is `admin-uploads` and nothing else appears to be used.
+
+## D. Security
+
+Reconstructed the final RLS state by replaying all 68 migrations in order (a policy
+that looks alarming in a 2025 migration is usually dropped by a later one), then read
+the sanitization and CSRF paths.
+
+### RLS coverage is complete
+
+All 82 tables have `ENABLE ROW LEVEL SECURITY`, with 199 policies in the final state.
+The permissive early policies that stand out on a naive grep - `projects` open for
+UPDATE and DELETE, `newsletter_subscribers` readable by everyone - were correctly
+dropped and replaced later. Only the end state matters and it is mostly sound.
+
+### Fixed: anonymous read of subscriber emails on amazon_price_alerts
+
+`supabase/migrations/20251113000002_amazon_price_tracking.sql:184-201` creates four
+policies named "Users can view own alerts", "update own alerts" and "delete own
+alerts". Every predicate is `USING (true)` and none carries a `TO` clause, so they
+applied to the public role. The table has no `user_id` column at all - it keys on
+`user_email` - so "own row" was never expressible with `auth.uid()`. The names describe
+an intent the SQL does not implement.
+
+The anon key ships in the frontend bundle, so anyone could `select * from
+amazon_price_alerts` and harvest every subscriber's email address, or update and delete
+any row. This does not depend on the UI: `src/components/AmazonPriceTracker.tsx` is the
+only consumer and nothing renders it, but the policy is live regardless.
+
+`supabase/migrations/20260901000001_restrict_price_alert_and_reset_token_rls.sql` moves
+SELECT, UPDATE and DELETE to `public.has_role(auth.uid(), 'admin')`, matching how
+`newsletter_subscribers` was fixed in `20251007232740`. INSERT stays public because
+creating your own alert is the intended anonymous action, the same shape as
+`contact_submissions` and `support_tickets`.
+
+Consequence worth knowing: the `userAlerts` query in `AmazonPriceTracker.tsx:88` now
+returns nothing for an anonymous visitor. That component is not mounted anywhere, so
+nothing changes today, but wiring it up later needs an edge function on the service
+role to read alerts back - which is exactly what `newsletter-signup` already does for
+its table.
+
+### Fixed: anyone could write password reset tokens
+
+`password_reset_tokens` scoped SELECT and UPDATE to `user_id = auth.uid()` but left
+INSERT as `WITH CHECK (true)` for the public role
+(`20251007234031_6706ee2a-3603-487f-829a-9a94ade3f4e3.sql:13`), so a client could write
+a reset-token row for any `user_id`. No application code touches this table and tokens
+are issued server-side where the service role bypasses RLS, so closing the client-side
+insert costs nothing.
+
+### Still permissive, and probably fine - worth one look from Dj
+
+These carry `USING (true)` for the public role in the final state. Most are the
+"anonymous action" pattern and are correct; a few are worth confirming.
+
+- Correct by design: `contact_submissions`, `support_tickets`, `ai_tool_submissions`,
+  `page_visits` (anonymous INSERT only), and the public SELECTs on `articles`,
+  `projects`, `ai_tools`, `article_categories`, `ventures`, `profile_settings`.
+- Worth confirming: `system_metrics`, `admin_activity_log`, `secure_vault_access_log`,
+  `email_logs` and `automated_alerts` all allow INSERT from the public role. These are
+  audit and monitoring tables, so a forged row means a poisoned audit trail or a
+  distorted health reading on the command centre. Writers are edge functions on the
+  service role, which bypasses RLS, so restricting these to the service role would
+  likely break nothing.
+- Also open to the public role for full read and write: `amazon_products`,
+  `article_products`, `link_health`, `dashboard_stats_cache`, `amazon_api_throttle`.
+- `accounting_documents` grants SELECT, INSERT and UPDATE to any `authenticated` user
+  with `USING (true)`, so financial documents are not scoped per user. Low risk while
+  authentication is admin-only, but it is not least privilege.
+
+### Checked and sound
+
+- Markdown sanitization. `src/components/MarkdownRenderer.tsx:243` and `:451` allow no
+  event-handler or `style` attributes, set `ALLOW_DATA_ATTR: false` and
+  `ALLOW_UNKNOWN_PROTOCOLS: false`, pin `ALLOWED_URI_REGEXP` to http/https/mailto/tel,
+  and then re-walk the output to strip `img` sources beginning `data:image/svg`,
+  `javascript:` or `vbscript:`. `button` was deliberately removed from `ALLOWED_TAGS`
+  in favour of `span[data-custom-btn]` to close onclick injection. Custom button, alert
+  and badge syntax whitelists its style, type and variant values and re-validates the
+  URL at click time.
+- CSRF. `supabase/functions/_shared/csrf.ts` pairs a strict Origin allow-list with a
+  required `x-csrf-token` header. A missing Origin still has to clear the header
+  requirement, and a cross-site attacker cannot set a custom header without passing
+  preflight, so the combination holds.
+- Secrets. No key, token or password literal anywhere in `src` or
+  `supabase/functions`; the only JWT-shaped string is a fixture in
+  `lib/__tests__/production-logger.test.ts` that tests log masking. No `.env` file is
+  tracked, only `.env.example`.
