@@ -456,3 +456,82 @@ All four pass, two with little room: `three-vendor` 186.53 kB of 200 kB (93%),
   dynamic import is statically dropped from production.
 - Production builds emit no source maps unless they are being uploaded to Sentry and
   deleted afterwards (`vite.config.ts:95`).
+
+## G. Data layer
+
+Cross-checked every `.from('...')` in `src` and `supabase/functions` (83 distinct
+names) against the 74 tables in `src/integrations/supabase/types.ts` and against the
+tables the migrations actually create.
+
+### Fixed: security_events did not exist, and its absence disabled the login rate limit
+
+Eleven call sites read from or write to `security_events` and no migration ever created
+it.
+
+The audit rows are the smaller half of this. `checkRateLimit` in
+`supabase/functions/admin-auth/index.ts:104` counts recent `login_failure` rows for an
+IP address to throttle admin logins, and on a query error it deliberately fails open:
+
+    if (error) {
+      console.error('Rate limit check failed:', error);
+      // Fail open if DB check fails (allow the attempt)
+      return true;
+    }
+
+With the table absent every count errors, so the branch that returns `false` was
+unreachable and the brute-force guard has never engaged. `admin-auth` is in
+`PUBLIC_FUNCTIONS` (`danpearson-edge-functions/server.ts:81`), so it is reachable
+without a token by design - which is correct for a login endpoint and is exactly why
+the throttle matters. The lockout-notification check at `:451` runs the same query and
+returns `false` on error, so no lockout email has ever been sent either, and
+`recordFailedAttempt` at `:127` swallows its insert failure, so nothing was recorded to
+notice the gap.
+
+`supabase/migrations/20260901000002_create_security_events.sql` creates the table with
+the union of all six writers' columns, an index on
+`(event_type, ip_address, created_at DESC)` to serve exactly the rate-limit and lockout
+queries, and RLS: admin-only reads, since the rows carry emails, IPs and user agents;
+INSERT for the `authenticated` role so `SecurityAuditContext` and `error-alerting` keep
+working from the browser while an anonymous caller cannot poison the audit trail. The
+security-critical writers hold the service role and bypass RLS regardless. Written with
+`IF NOT EXISTS` and `DROP POLICY IF EXISTS` so it is safe whether or not the table was
+ever created by hand outside the migration history.
+
+`ip_address` is `text` rather than `inet` because `admin-auth` records the literal
+string `'unknown'` when it cannot resolve a client address.
+
+### The reason this class of bug survives: the client is untyped
+
+`src/integrations/supabase/client.ts:150` calls `createClient(...)` with no `Database`
+generic. Every `.from()` therefore accepts any table name and every column comes back
+as `any`. `types.ts` is 4,028 lines of generated types that constrain nothing at the
+query layer - the `Tables<'articles'>` helper is used for component props in 12 files,
+and that is all it does.
+
+That is how `security_events` survived across eleven call sites, and it is the same
+hole that let `_shared/ai-helper.ts` query `api_key_env_var` and `is_lightweight` -
+columns that exist in no migration and no generated type - until commit 8ed5673 caught
+it by reading the code.
+
+Adding the generic is the fix, and it is a project rather than a one-line change: it
+would immediately fail typecheck on the 15 table names below. Recommended as its own
+piece of work, because until it lands nothing mechanical will catch the next one.
+
+### Generated types are stale by 14 tables
+
+These exist in the migrations and are queried by code, but are absent from `types.ts`:
+`accounting_documents`, `achievements`, `amazon_price_alerts`, `amazon_price_history`,
+`amazon_price_stats`, `case_studies`, `certifications`, `faqs`, `media_assets`,
+`media_folders`, `page_visits`, `traffic_rules`, `trusted_devices`, `work_experience`.
+
+`CLAUDE.md` is right that this file must be regenerated rather than hand-edited, so
+that is the action here - and it now also needs to pick up `security_events`. Nothing
+in `package.json` regenerates it, so it happens only when someone remembers.
+
+### Checked and sound
+
+- Every one of the 83 referenced table names other than `security_events` exists in
+  the migrations. The apparent hits on `accounting`, `admin` and `x` were scan
+  artifacts: `x` comes from a doc comment in `src/test/mocks/supabase.ts:38` and the
+  other two have no call sites at all.
+- All 82 tables have RLS enabled, as recorded in area D.
