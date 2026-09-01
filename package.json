@@ -59,6 +59,12 @@
     {
       "name": "markdown-vendor",
       "path": "dist/assets/markdown-vendor-*.js",
+      "limit": "60 KB",
+      "running": false
+    },
+    {
+      "name": "syntax-vendor",
+      "path": "dist/assets/syntax-vendor-*.js",
       "limit": "240 KB",
       "running": false
     }

@@ -90,16 +90,26 @@ export default defineConfig(({ mode }) => {
             const inPkg = (...names: string[]) =>
               names.some((n) => id.includes(`node_modules/${n}/`));
 
-            // Small class-name utilities pulled in by nearly every component.
+            // Small shared utilities pulled in by nearly every component, plus the
+            // Babel helper runtime that many libraries emit calls into. Left
+            // unassigned these get absorbed into whichever big vendor chunk names
+            // them first, and every chunk needing one then depends on all of it.
             if (inPkg('clsx', 'class-variance-authority', 'tailwind-merge')) return 'utils-vendor';
+            if (id.includes('node_modules/@babel/runtime/')) return 'utils-vendor';
 
             if (inPkg('three', '@react-three/fiber', '@react-three/drei')) return 'three-vendor';
             if (inPkg('react', 'react-dom', 'react-router', 'react-router-dom', 'scheduler'))
               return 'react-vendor';
             if (id.includes('node_modules/@radix-ui/')) return 'ui-vendor';
             if (inPkg('lucide-react')) return 'icons-vendor';
-            if (inPkg('react-markdown', 'remark-gfm', 'react-syntax-highlighter'))
-              return 'markdown-vendor';
+            // Kept apart from markdown-vendor on purpose. react-markdown is needed
+            // by any article, but the Prism build behind react-syntax-highlighter
+            // is roughly 780 kB of language definitions and is loaded lazily by
+            // components/article/CodeBlock, so grouping the two would drag it in
+            // eagerly again.
+            if (inPkg('react-syntax-highlighter', 'refractor', 'prismjs', 'highlight.js'))
+              return 'syntax-vendor';
+            if (inPkg('react-markdown', 'remark-gfm')) return 'markdown-vendor';
             if (inPkg('recharts')) return 'charts-vendor';
             if (inPkg('react-hook-form', '@hookform/resolvers', 'zod')) return 'form-vendor';
             if (inPkg('gsap', '@gsap/react')) return 'gsap-vendor';

@@ -1,10 +1,14 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import DOMPurify from 'dompurify';
 import { validateUrl } from '@/lib/security';
+
+// Prism ships roughly 200 language definitions, about 780 kB raw. Loading it
+// lazily means an article only pays for it when it actually contains a fenced
+// code block, and the Suspense fallback below renders the same code unhighlighted
+// in the meantime, so nothing is hidden while the chunk arrives.
+const CodeBlock = React.lazy(() => import('@/components/article/CodeBlock'));
 
 interface MarkdownRendererProps {
   content: string;
@@ -77,16 +81,17 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
   const components = {
     code({ node, inline, className, children, ...props }: MarkdownComponentProps) {
       const match = /language-(\w+)/.exec(className || '');
+      const value = String(children).replace(/\n$/, '');
       return !inline && match ? (
-        <SyntaxHighlighter
-          style={oneDark}
-          language={match[1]}
-          PreTag="div"
-          className="rounded-md"
-          {...props}
+        <React.Suspense
+          fallback={
+            <pre className="rounded-md bg-muted p-4 overflow-x-auto">
+              <code>{value}</code>
+            </pre>
+          }
         >
-          {String(children).replace(/\n$/, '')}
-        </SyntaxHighlighter>
+          <CodeBlock language={match[1]} value={value} {...props} />
+        </React.Suspense>
       ) : (
         <code className="bg-muted px-1.5 py-0.5 rounded text-sm" {...props}>
           {children}

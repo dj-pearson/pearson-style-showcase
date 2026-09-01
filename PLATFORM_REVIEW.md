@@ -439,21 +439,59 @@ read `rel="modulepreload" crossorigin href=`, and the pattern used expected
 right, for the real reason: it shrank the entry without removing either heavy
 dependency, because it never assigned `clsx`.
 
-### react-syntax-highlighter ships every language
+### react-syntax-highlighter no longer loads with every article
 
-`src/components/MarkdownRenderer.tsx:4` imports `{ Prism as SyntaxHighlighter } from
-'react-syntax-highlighter'`, which is the full build with roughly 200 language
-definitions. It is most of `markdown-vendor` at 778.51 kB raw, and that chunk sits at
-218.16 kB of its 240 kB brotli budget - 91% full, the tightest budget in the project.
+`MarkdownRenderer.tsx:4` imported the full Prism build, roughly 200 language
+definitions, at module scope. It was most of `markdown-vendor`, so every article page
+paid about 780 kB raw for it whether or not the article held a single fenced code block.
 
-Two ways out, both with a real trade-off, so neither was applied unilaterally:
+Split rather than narrowed, so no language coverage is lost. The highlighter moved to
+`src/components/article/CodeBlock.tsx`, which `MarkdownRenderer` now pulls in through
+`React.lazy`. The Suspense fallback renders the same code in a plain `<pre><code>`, so
+the text is on screen from the first paint and is replaced by the highlighted version
+when the chunk arrives - nothing is hidden while it loads.
 
-- Switch to `prism-light` and `registerLanguage` for a fixed set. Only `json` appears
-  in the seeded article content, but articles are generated at runtime, so any language
-  not registered silently loses highlighting.
-- Lazy-load the highlighter inside `MarkdownRenderer` so it loads only for articles
-  that actually contain a fenced code block. No loss of language coverage, but it makes
-  code-block rendering async on the site's primary content type.
+The lazy import alone would not have helped: `manualChunks` grouped
+`react-syntax-highlighter` with `react-markdown`, which any article needs, so the
+highlighter would have been dragged in eagerly regardless. It now has its own
+`syntax-vendor` chunk.
+
+|                                   | before                        | after                                            |
+| --------------------------------- | ----------------------------- | ------------------------------------------------ |
+| `markdown-vendor`                 | 790.85 kB raw, 271.54 kB gzip | 157.35 kB raw, 47.70 kB gzip                     |
+| highlighter                       | inside `markdown-vendor`      | `syntax-vendor`, 633.51 kB raw, loaded on demand |
+| `markdown-vendor` budget (brotli) | 218.23 kB of 240 kB, 91%      | 41.82 kB of 60 kB                                |
+
+Verified by the built graph: the only static importer of `syntax-vendor` is the
+`CodeBlock` chunk, which is itself only reachable through a dynamic import.
+`src/components/__tests__/MarkdownRenderer.codeblock.test.tsx` covers the behaviour -
+the code text is present before the chunk resolves, per-token highlighting appears
+after it, and prose without a fence is untouched.
+
+Budgets in `package.json` were retuned to match: `markdown-vendor` from 240 KB to
+60 KB, since a limit five times the chunk would catch nothing, and a new 240 KB budget
+covers `syntax-vendor`.
+
+### Fixed: @babel/runtime was dragging three.js into unrelated chunks
+
+Splitting the highlighter exposed the same absorption bug found earlier with `clsx`.
+`CodeBlock` came out of the first build with a bare `import "./three-vendor.js"`, which
+would have put 843 kB of three.js on any article page containing a code block. The
+cause was `@babel/runtime`, which many libraries emit calls into and which had been
+absorbed into `three-vendor`. Pinning it to `utils-vendor` alongside `clsx` removed the
+edge.
+
+### Still open: six admin chunks bare-import three-vendor
+
+`AIToolsManager`, `AccountingDashboard`, `AmazonPipelineManager`, `ArticleManager`,
+`CommandCenterDashboard` and `ProjectManager` each carry a side-effect-only
+`import "./three-vendor.js"`, so opening any of them fetches 843 kB of three.js that
+none of them render. This predates the highlighter work and was not introduced by it.
+
+A module-graph scan finds no direct edge from any module in those chunks into
+`three-vendor`, so this is Rollup chunk-level bookkeeping rather than a stray shared
+module of the kind `clsx` and `@babel/runtime` turned out to be. It needs more than the
+scan that resolved those two, so it is recorded rather than guessed at.
 
 ### Budgets are close to their ceilings
 
