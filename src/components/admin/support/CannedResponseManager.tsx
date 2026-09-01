@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +39,7 @@ interface CannedResponse {
 }
 
 export const CannedResponseManager: React.FC = () => {
+  const fieldId = useId();
   const [responses, setResponses] = useState<CannedResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -224,8 +226,11 @@ export const CannedResponseManager: React.FC = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Title</label>
+                  <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
+                    Title
+                  </label>
                   <Input
+                    id={`${fieldId}-title`}
                     placeholder="e.g., Welcome Message"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -235,8 +240,11 @@ export const CannedResponseManager: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">Shortcut (optional)</label>
+                    <label htmlFor={`${fieldId}-shortcut-optional`} className="text-sm font-medium">
+                      Shortcut (optional)
+                    </label>
                     <Input
+                      id={`${fieldId}-shortcut-optional`}
                       placeholder="e.g., /welcome"
                       value={formData.shortcut}
                       onChange={(e) => setFormData({ ...formData, shortcut: e.target.value })}
@@ -248,12 +256,14 @@ export const CannedResponseManager: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Category</label>
+                    <label htmlFor={`${fieldId}-category`} className="text-sm font-medium">
+                      Category
+                    </label>
                     <Select
                       value={formData.category}
                       onValueChange={(value) => setFormData({ ...formData, category: value })}
                     >
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger id={`${fieldId}-category`} className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -267,8 +277,11 @@ export const CannedResponseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Response Content</label>
+                  <label htmlFor={`${fieldId}-response-content`} className="text-sm font-medium">
+                    Response Content
+                  </label>
                   <Textarea
+                    id={`${fieldId}-response-content`}
                     placeholder="Enter your response template..."
                     value={formData.content}
                     onChange={(e) => setFormData({ ...formData, content: e.target.value })}

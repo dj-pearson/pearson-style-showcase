@@ -1,13 +1,32 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
@@ -27,6 +46,7 @@ interface ProjectsManagerProps {
 }
 
 export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
+  const fieldId = useId();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({
@@ -61,7 +81,8 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
       toast({ title: 'Success', description: 'Project created successfully' });
       resetForm();
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to create project', variant: 'destructive' }),
+    onError: () =>
+      toast({ title: 'Error', description: 'Failed to create project', variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -74,7 +95,8 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
       toast({ title: 'Success', description: 'Project updated successfully' });
       resetForm();
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to update project', variant: 'destructive' }),
+    onError: () =>
+      toast({ title: 'Error', description: 'Failed to update project', variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -86,7 +108,8 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
       queryClient.invalidateQueries({ queryKey: ['task_projects'] });
       toast({ title: 'Success', description: 'Project deleted successfully' });
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to delete project', variant: 'destructive' }),
+    onError: () =>
+      toast({ title: 'Error', description: 'Failed to delete project', variant: 'destructive' }),
   });
 
   const resetForm = () => {
@@ -135,24 +158,33 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Name *</label>
+                <label htmlFor={`${fieldId}-name`} className="text-sm font-medium">
+                  Name *
+                </label>
                 <Input
+                  id={`${fieldId}-name`}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Domain</label>
+                <label htmlFor={`${fieldId}-domain`} className="text-sm font-medium">
+                  Domain
+                </label>
                 <Input
+                  id={`${fieldId}-domain`}
                   value={formData.domain}
                   onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
                   placeholder="example.com"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Description</label>
+                <label htmlFor={`${fieldId}-description`} className="text-sm font-medium">
+                  Description
+                </label>
                 <Textarea
+                  id={`${fieldId}-description`}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
@@ -160,12 +192,14 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Status</label>
+                  <label htmlFor={`${fieldId}-status`} className="text-sm font-medium">
+                    Status
+                  </label>
                   <Select
                     value={formData.status}
                     onValueChange={(value) => setFormData({ ...formData, status: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${fieldId}-status`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -177,8 +211,11 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Color</label>
+                  <label htmlFor={`${fieldId}-color`} className="text-sm font-medium">
+                    Color
+                  </label>
                   <Input
+                    id={`${fieldId}-color`}
                     type="color"
                     value={formData.color}
                     onChange={(e) => setFormData({ ...formData, color: e.target.value })}
@@ -215,7 +252,10 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
               >
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: project.color }}
+                    />
                     {project.name}
                   </div>
                 </TableCell>

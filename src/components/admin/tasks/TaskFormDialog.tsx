@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useId, useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 
 interface TaskFormDialogProps {
@@ -16,7 +22,14 @@ interface TaskFormDialogProps {
   onSuccess: () => void;
 }
 
-export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSuccess }: TaskFormDialogProps) => {
+export const TaskFormDialog = ({
+  open,
+  onOpenChange,
+  editingTask,
+  projects,
+  onSuccess,
+}: TaskFormDialogProps) => {
+  const fieldId = useId();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -80,13 +93,14 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
       }
     },
     onSuccess: () => {
-      toast({ 
-        title: 'Success', 
-        description: editingTask ? 'Task updated successfully' : 'Task created successfully' 
+      toast({
+        title: 'Success',
+        description: editingTask ? 'Task updated successfully' : 'Task created successfully',
       });
       onSuccess();
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to save task', variant: 'destructive' }),
+    onError: () =>
+      toast({ title: 'Error', description: 'Failed to save task', variant: 'destructive' }),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -113,16 +127,22 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium">Title *</label>
+            <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
+              Title *
+            </label>
             <Input
+              id={`${fieldId}-title`}
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium">Description</label>
+            <label htmlFor={`${fieldId}-description`} className="text-sm font-medium">
+              Description
+            </label>
             <Textarea
+              id={`${fieldId}-description`}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={4}
@@ -131,16 +151,22 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium">Category</label>
+              <label htmlFor={`${fieldId}-category`} className="text-sm font-medium">
+                Category
+              </label>
               <Input
+                id={`${fieldId}-category`}
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 placeholder="e.g., Core Auth, Security, CRM"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Source/Platform</label>
+              <label htmlFor={`${fieldId}-source-platform`} className="text-sm font-medium">
+                Source/Platform
+              </label>
               <Input
+                id={`${fieldId}-source-platform`}
                 value={formData.source}
                 onChange={(e) => setFormData({ ...formData, source: e.target.value })}
                 placeholder="e.g., Enterprise Readiness"
@@ -150,9 +176,14 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium">Project</label>
-              <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
-                <SelectTrigger>
+              <label htmlFor={`${fieldId}-project`} className="text-sm font-medium">
+                Project
+              </label>
+              <Select
+                value={formData.project_id}
+                onValueChange={(value) => setFormData({ ...formData, project_id: value })}
+              >
+                <SelectTrigger id={`${fieldId}-project`}>
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
@@ -165,9 +196,14 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Status</label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger>
+              <label htmlFor={`${fieldId}-status`} className="text-sm font-medium">
+                Status
+              </label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger id={`${fieldId}-status`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -181,9 +217,14 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-sm font-medium">Priority</label>
-              <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
-                <SelectTrigger>
+              <label htmlFor={`${fieldId}-priority`} className="text-sm font-medium">
+                Priority
+              </label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+              >
+                <SelectTrigger id={`${fieldId}-priority`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -195,16 +236,22 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Original Priority</label>
+              <label htmlFor={`${fieldId}-original-priority`} className="text-sm font-medium">
+                Original Priority
+              </label>
               <Input
+                id={`${fieldId}-original-priority`}
                 value={formData.original_priority}
                 onChange={(e) => setFormData({ ...formData, original_priority: e.target.value })}
                 placeholder="e.g., P0-Critical"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Effort</label>
+              <label htmlFor={`${fieldId}-effort`} className="text-sm font-medium">
+                Effort
+              </label>
               <Input
+                id={`${fieldId}-effort`}
                 value={formData.effort}
                 onChange={(e) => setFormData({ ...formData, effort: e.target.value })}
                 placeholder="e.g., 2 hours, 4 hours"
@@ -214,16 +261,22 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium">Due Date</label>
+              <label htmlFor={`${fieldId}-due-date`} className="text-sm font-medium">
+                Due Date
+              </label>
               <Input
+                id={`${fieldId}-due-date`}
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Start Date</label>
+              <label htmlFor={`${fieldId}-start-date`} className="text-sm font-medium">
+                Start Date
+              </label>
               <Input
+                id={`${fieldId}-start-date`}
                 type="date"
                 value={formData.start_date}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
@@ -232,8 +285,11 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
           </div>
 
           <div>
-            <label className="text-sm font-medium">Dependencies</label>
+            <label htmlFor={`${fieldId}-dependencies`} className="text-sm font-medium">
+              Dependencies
+            </label>
             <Input
+              id={`${fieldId}-dependencies`}
               value={formData.dependencies}
               onChange={(e) => setFormData({ ...formData, dependencies: e.target.value })}
               placeholder="e.g., OAuth state validation, CRM system"
@@ -241,8 +297,11 @@ export const TaskFormDialog = ({ open, onOpenChange, editingTask, projects, onSu
           </div>
 
           <div>
-            <label className="text-sm font-medium">Links (JSON array)</label>
+            <label htmlFor={`${fieldId}-links-json-array`} className="text-sm font-medium">
+              Links (JSON array)
+            </label>
             <Textarea
+              id={`${fieldId}-links-json-array`}
               value={formData.links}
               onChange={(e) => setFormData({ ...formData, links: e.target.value })}
               rows={2}

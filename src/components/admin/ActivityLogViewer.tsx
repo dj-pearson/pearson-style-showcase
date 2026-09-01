@@ -5,7 +5,14 @@ import { usePermission, PERMISSIONS } from '@/hooks/usePermission';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -193,9 +200,7 @@ const ActivityLogViewer: React.FC = () => {
     return (
       <Alert>
         <Activity className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to view activity logs.
-        </AlertDescription>
+        <AlertDescription>You don't have permission to view activity logs.</AlertDescription>
       </Alert>
     );
   }
@@ -209,9 +214,7 @@ const ActivityLogViewer: React.FC = () => {
               <Activity className="h-5 w-5" />
               Activity Log
             </CardTitle>
-            <CardDescription>
-              View and search admin activity across the system.
-            </CardDescription>
+            <CardDescription>View and search admin activity across the system.</CardDescription>
           </div>
           <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
@@ -345,9 +348,7 @@ const ActivityLogViewer: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        className={`${ACTION_COLORS[log.action] || 'bg-gray-500'} text-white`}
-                      >
+                      <Badge className={`${ACTION_COLORS[log.action] || 'bg-gray-500'} text-white`}>
                         {log.action}
                       </Badge>
                     </TableCell>
@@ -355,18 +356,14 @@ const ActivityLogViewer: React.FC = () => {
                       {log.action_category && (
                         <div className="flex items-center gap-2">
                           {CATEGORY_ICONS[log.action_category] || null}
-                          <span className="text-sm capitalize">
-                            {log.action_category}
-                          </span>
+                          <span className="text-sm capitalize">{log.action_category}</span>
                         </div>
                       )}
                     </TableCell>
                     <TableCell>
                       {log.resource_type && (
                         <div>
-                          <div className="text-sm font-medium capitalize">
-                            {log.resource_type}
-                          </div>
+                          <div className="text-sm font-medium capitalize">{log.resource_type}</div>
                           {log.resource_title && (
                             <div className="text-xs text-muted-foreground truncate max-w-[200px]">
                               {log.resource_title}
@@ -378,11 +375,7 @@ const ActivityLogViewer: React.FC = () => {
                     <TableCell className="text-right">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedEntry(log)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedEntry(log)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                         </DialogTrigger>
@@ -397,87 +390,74 @@ const ActivityLogViewer: React.FC = () => {
                             <div className="space-y-4 p-4">
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Timestamp
-                                  </label>
+                                  </span>
                                   <p className="text-sm">
-                                    {format(
-                                      new Date(log.timestamp),
-                                      'PPpp'
-                                    )}
+                                    {format(new Date(log.timestamp), 'PPpp')}
                                   </p>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Admin Email
-                                  </label>
+                                  </span>
                                   <p className="text-sm">{log.admin_email}</p>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Action
-                                  </label>
+                                  </span>
                                   <p className="text-sm">{log.action}</p>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Category
-                                  </label>
+                                  </span>
                                   <p className="text-sm capitalize">
                                     {log.action_category || 'N/A'}
                                   </p>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Resource Type
-                                  </label>
-                                  <p className="text-sm capitalize">
-                                    {log.resource_type || 'N/A'}
-                                  </p>
+                                  </span>
+                                  <p className="text-sm capitalize">{log.resource_type || 'N/A'}</p>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Resource ID
-                                  </label>
+                                  </span>
                                   <p className="text-sm font-mono text-xs">
                                     {log.resource_id || 'N/A'}
                                   </p>
                                 </div>
                                 <div className="col-span-2">
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Resource Title
-                                  </label>
-                                  <p className="text-sm">
-                                    {log.resource_title || 'N/A'}
-                                  </p>
+                                  </span>
+                                  <p className="text-sm">{log.resource_title || 'N/A'}</p>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     IP Address
-                                  </label>
-                                  <p className="text-sm font-mono">
-                                    {log.ip_address || 'N/A'}
-                                  </p>
+                                  </span>
+                                  <p className="text-sm font-mono">{log.ip_address || 'N/A'}</p>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Success
-                                  </label>
+                                  </span>
                                   <p className="text-sm">
-                                    {log.success === null
-                                      ? 'N/A'
-                                      : log.success
-                                      ? 'Yes'
-                                      : 'No'}
+                                    {log.success === null ? 'N/A' : log.success ? 'Yes' : 'No'}
                                   </p>
                                 </div>
                               </div>
 
                               {log.old_values && (
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Previous Values
-                                  </label>
+                                  </span>
                                   <pre className="mt-1 p-3 bg-muted rounded-md text-xs overflow-auto">
                                     {JSON.stringify(log.old_values, null, 2)}
                                   </pre>
@@ -486,9 +466,9 @@ const ActivityLogViewer: React.FC = () => {
 
                               {log.new_values && (
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     New Values
-                                  </label>
+                                  </span>
                                   <pre className="mt-1 p-3 bg-muted rounded-md text-xs overflow-auto">
                                     {JSON.stringify(log.new_values, null, 2)}
                                   </pre>
@@ -497,9 +477,9 @@ const ActivityLogViewer: React.FC = () => {
 
                               {log.user_agent && (
                                 <div>
-                                  <label className="text-sm font-medium text-muted-foreground">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     User Agent
-                                  </label>
+                                  </span>
                                   <p className="text-xs text-muted-foreground break-all">
                                     {log.user_agent}
                                   </p>
@@ -519,8 +499,7 @@ const ActivityLogViewer: React.FC = () => {
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted-foreground">
                 Showing {(page - 1) * PAGE_SIZE + 1} to{' '}
-                {Math.min(page * PAGE_SIZE, data.totalCount)} of {data.totalCount}{' '}
-                entries
+                {Math.min(page * PAGE_SIZE, data.totalCount)} of {data.totalCount} entries
               </p>
               <div className="flex items-center gap-2">
                 <Button

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,6 +45,7 @@ interface KBArticle {
 }
 
 export const KnowledgeBaseManager: React.FC = () => {
+  const fieldId = useId();
   const [articles, setArticles] = useState<KBArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -280,8 +282,11 @@ export const KnowledgeBaseManager: React.FC = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Title</label>
+                  <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
+                    Title
+                  </label>
                   <Input
+                    id={`${fieldId}-title`}
                     placeholder="e.g., How to reset your password"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -290,8 +295,11 @@ export const KnowledgeBaseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Slug (URL)</label>
+                  <label htmlFor={`${fieldId}-slug-url`} className="text-sm font-medium">
+                    Slug (URL)
+                  </label>
                   <Input
+                    id={`${fieldId}-slug-url`}
                     placeholder="Auto-generated from title"
                     value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
@@ -303,8 +311,11 @@ export const KnowledgeBaseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Excerpt (Summary)</label>
+                  <label htmlFor={`${fieldId}-excerpt-summary`} className="text-sm font-medium">
+                    Excerpt (Summary)
+                  </label>
                   <Textarea
+                    id={`${fieldId}-excerpt-summary`}
                     placeholder="Brief summary shown in search results..."
                     value={formData.excerpt}
                     onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
@@ -315,12 +326,14 @@ export const KnowledgeBaseManager: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">Category</label>
+                    <label htmlFor={`${fieldId}-category`} className="text-sm font-medium">
+                      Category
+                    </label>
                     <Select
                       value={formData.category}
                       onValueChange={(value) => setFormData({ ...formData, category: value })}
                     >
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger id={`${fieldId}-category`} className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -334,8 +347,14 @@ export const KnowledgeBaseManager: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Keywords (comma-separated)</label>
+                    <label
+                      htmlFor={`${fieldId}-keywords-comma-separated`}
+                      className="text-sm font-medium"
+                    >
+                      Keywords (comma-separated)
+                    </label>
                     <Input
+                      id={`${fieldId}-keywords-comma-separated`}
                       placeholder="password, reset, login"
                       value={formData.keywords}
                       onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
@@ -345,8 +364,14 @@ export const KnowledgeBaseManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Content (Markdown supported)</label>
+                  <label
+                    htmlFor={`${fieldId}-content-markdown-supported`}
+                    className="text-sm font-medium"
+                  >
+                    Content (Markdown supported)
+                  </label>
                   <Textarea
+                    id={`${fieldId}-content-markdown-supported`}
                     placeholder="# Article Title
 
 Write your help article content here. You can use Markdown formatting.
@@ -366,10 +391,13 @@ Write your help article content here. You can use Markdown formatting.
 
                 <div className="flex items-center gap-2">
                   <Switch
+                    id={`${fieldId}-published`}
                     checked={formData.published}
                     onCheckedChange={(checked) => setFormData({ ...formData, published: checked })}
                   />
-                  <label className="text-sm font-medium">Publish immediately</label>
+                  <label htmlFor={`${fieldId}-published`} className="text-sm font-medium">
+                    Publish immediately
+                  </label>
                 </div>
               </div>
 

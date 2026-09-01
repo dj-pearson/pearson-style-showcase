@@ -354,13 +354,7 @@ same controls as `label-has-associated-control` with a worse message.
 
 ### The backlog the linter now reports
 
-- 49 `label-has-associated-control`. The pattern is a `<Label>` sibling rather than
-  parent, with no `htmlFor` and no `id` on the control, as at
-  `admin/AIModelConfigManager.tsx:250`. shadcn's `Label` is a Radix `Label.Root`, which
-  associates only by `htmlFor` or by wrapping, so these controls have no accessible
-  name. Repo-wide it is 128 `<Label>` without `htmlFor` against 220 with, so this is
-  drift rather than a missing convention. Worth a dedicated pass: it needs a unique id
-  per control and is too varied to rewrite mechanically with confidence.
+- 49 `label-has-associated-control`. Cleared in a dedicated pass; see below.
 - 17 `control-has-associated-label`.
 - 19 `no-static-element-interactions` and `click-events-have-key-events`, all but two
   in admin components.
@@ -561,3 +555,46 @@ in `package.json` regenerates it, so it happens only when someone remembers.
   artifacts: `x` comes from a doc comment in `src/test/mocks/supabase.ts:38` and the
   other two have no call sites at all.
 - All 82 tables have RLS enabled, as recorded in area D.
+
+## E2. The label pass
+
+The 49 `label-has-associated-control` warnings turned out to be three different bugs
+sharing one rule, which is why a single mechanical rewrite would have been wrong.
+
+**14 were not form controls at all.** `admin/ActivityLogViewer.tsx` (12) and
+`support/TicketDetailView.tsx` (2) used `<label>` to style a read-only caption above a
+`<p>` or `<pre>` holding a value. There is no control to associate. They are now
+`<span>`, which is the same `display: inline` default, so nothing moved on screen.
+
+**30 were real controls with no association.** A native `<label>` sitting beside an
+`Input`, `Textarea` or Radix `Select`, with no `htmlFor` and no `id`, across
+`TaskFormDialog` (13), `KnowledgeBaseManager` (6), `ProjectsManager` (5),
+`CannedResponseManager` (4) and two others. Each now gets `htmlFor` and a matching
+`id`, built from `useId()` so a component rendered twice on one page cannot collide -
+which a static id would not survive. For Radix `Select` the id goes on `SelectTrigger`,
+since the root renders no focusable element.
+
+**5 needed hand work.** Two `Select` fields in `TicketDetailView` put their
+`SelectTrigger` past an inline `onValueChange` body, further than the scan window; a
+`Switch` in `KnowledgeBaseManager:370` sits before its label rather than after; and
+`AITaskGeneratorDialog:246` separates its label from its `Textarea` with a header row
+holding a Paste button.
+
+**1 was already correct.** `BulkImportDialog:303` wraps a hidden
+`<input type="file">` in a `<label>` - the standard styled-upload pattern, associated by
+nesting. jsx-a11y misses it because the label's text lives inside `Button > span`,
+deeper than the rule's default depth of 2. Annotated with a disable and the reason
+rather than rewritten.
+
+`npm run lint` goes from 391 to 342 warnings, still 0 errors, with
+`label-has-associated-control` at zero.
+
+`src/components/admin/tasks/__tests__/TaskFormDialog.test.tsx` covers it:
+`getByLabelText` resolves a label to its control only through a real association, so all
+six assertions fail against the previous code and pass against this one. One of them
+checks that two mounted instances share no ids, which is what pins the `useId` choice.
+
+Worth recording: the first version of that test queried the render container and passed
+for the wrong reason. Radix renders the dialog through a portal into `document.body`, so
+the container held no labels at all and "no unassociated labels" was vacuously true. The
+test now queries `document.body` and asserts it found labels before judging them.
