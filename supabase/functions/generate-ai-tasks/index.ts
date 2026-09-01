@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 import {
   checkRateLimit,
@@ -41,6 +42,12 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Calls paid AI providers with the service role. The per-IP rate limit below
+  // caps abuse volume but does not establish who the caller is, so identity is
+  // checked first and unauthenticated calls cost no work.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     // Rate limit check

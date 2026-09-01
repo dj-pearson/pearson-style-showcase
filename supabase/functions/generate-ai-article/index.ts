@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 import {
   checkRateLimit,
@@ -30,6 +31,11 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Generates articles through paid AI providers with the service role, so it
+  // must check its own caller rather than accept any valid JWT.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     // Rate limit check

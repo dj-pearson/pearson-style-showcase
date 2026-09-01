@@ -11,7 +11,7 @@ scope, and leaves judgement calls for Dj. Verified with `npm run typecheck`,
 | --- | ---------------------------------------------------------------------------------- | --------------- |
 | A   | UI, layout and design-system consistency                                           | first pass done |
 | B   | Frontend correctness: routing, data fetching, loading/error states, effect cleanup | first pass done |
-| C   | Edge functions: auth, input validation, error handling, secrets                    | not started     |
+| C   | Edge functions: auth, input validation, error handling, secrets                    | first pass done |
 | D   | Security: RLS, CSRF, sanitization, auth flows                                      | not started     |
 | E   | Accessibility and mobile                                                           | not started     |
 | F   | Performance: bundle budgets, lazy loading, re-renders                              | not started     |
@@ -161,3 +161,75 @@ than adding routes speculatively.
   `dangerouslySetInnerHTML` subtree with no cleanup. React replaces that subtree when
   `sanitizedHtml` changes, so the handlers go with it, and `src/main.tsx` does not
   enable `StrictMode`, so there is no double-invoke to stack them.
+
+## C. Edge functions
+
+Thirty-one functions plus `_shared`, about 9,300 lines. Reviewed the auth model first,
+since that is where a mistake is worth the most.
+
+### How the auth model actually works
+
+`danpearson-edge-functions/server.ts:274` is the gateway and it is well built: every
+function is authenticated unless it appears in the `PUBLIC_FUNCTIONS` set, and an unset
+`SUPABASE_JWT_SECRET` returns 503 rather than silently skipping the check. Default-deny
+and fail-closed, both correct.
+
+`supabase/config.toml` also carries `verify_jwt` flags. They apply only to the
+Supabase-hosted runtime and to `supabase start`; the file says so itself. Nine deployed
+functions have no entry there at all (`ai-content-generator`, `coolify-proxy`,
+`create-invoice-from-document`, `generate-ai-tasks`, `google-indexing`,
+`maintenance-runner`, `optimize-image`, `process-accounting-document`, `secure-vault`).
+That is safe, because both the platform default and the gateway deny by default, but it
+does weaken the file as the reference it is kept as.
+
+### Fixed: six service-role functions accepted any valid JWT
+
+`server.ts:275` states the invariant: "Functions holding the service role key still
+check their own caller." Six did not. The gateway proved the caller held _a_ valid
+token; nothing then checked _whose_. Every one of them then ran with
+`SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS entirely.
+
+- `optimize-image` - `bucket` and `sourcePath` come straight from the request body and
+  go to `supabase.storage.from(bucket).download(sourcePath)` on the service role, with
+  a write of the result. That is an arbitrary storage read and write primitive for any
+  token holder.
+- `maintenance-runner` - dispatches `runTask` by name on the service role: session
+  cleanup, database optimization, sitemap regeneration.
+- `process-accounting-document` - reads uploaded financial documents and calls paid AI
+  vision. It had a CSRF check, which proves a request is same-origin, not who sent it.
+- `generate-ai-article`, `generate-ai-tasks` - paid AI generation. `generate-ai-tasks`
+  had a per-IP rate limit, which caps volume rather than establishing identity.
+- `send-article-webhook` - sends outbound webhooks.
+
+All six now call `requireAdmin(req, corsHeaders, { allowServiceRole: true })`, which is
+the helper the codebase already uses for exactly this and which the other service-role
+functions were already calling. `allowServiceRole` matters in two places and both were
+verified rather than assumed:
+
+- the pg_cron scheduler posts `{"action":"run_due"}` to `maintenance-runner` with the
+  service-role key as its bearer token
+  (`supabase/migrations/20260716000000_maintenance_scheduler.sql:44`);
+- `generate-ai-article:204` and `amazon-article-pipeline:860` call
+  `send-article-webhook` through `invokeFunctionAndForget`, which sends the same key
+  (`_shared/invoke-function.ts:40`).
+
+Every other caller is admin-only UI. `useImageOptimization` currently has no consumer
+at all, so `optimize-image` had no live caller to break.
+
+After the change, the only service-role functions without a caller check are
+`health-check`, `health-dashboard`, `newsletter-signup` and `oauth-proxy` - the four
+that are deliberately in `PUBLIC_FUNCTIONS` and documented as such.
+
+### Verification gap worth knowing about
+
+`npm run typecheck` runs against `tsconfig.app.json`, which covers `src` only, and Deno
+is not installed here, so nothing in `supabase/functions` is type-checked by any command
+in `package.json` or by CI. The six edited files were parsed with esbuild to confirm they
+are at least syntactically valid, which is weaker than a type check. A `deno check` step
+would close this.
+
+### Open question for Dj
+
+`optimize-image` accepts any `bucket` name from the caller. Admin-gating it removes the
+untrusted-caller problem, but an allow-list of buckets would be better than trusting the
+body, since the default is `admin-uploads` and nothing else appears to be used.
