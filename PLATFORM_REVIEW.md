@@ -13,7 +13,7 @@ scope, and leaves judgement calls for Dj. Verified with `npm run typecheck`,
 | B   | Frontend correctness: routing, data fetching, loading/error states, effect cleanup | first pass done |
 | C   | Edge functions: auth, input validation, error handling, secrets                    | first pass done |
 | D   | Security: RLS, CSRF, sanitization, auth flows                                      | first pass done |
-| E   | Accessibility and mobile                                                           | not started     |
+| E   | Accessibility and mobile                                                           | first pass done |
 | F   | Performance: bundle budgets, lazy loading, re-renders                              | not started     |
 | G   | Data layer: migrations vs. generated types                                         | not started     |
 
@@ -320,3 +320,67 @@ These carry `USING (true)` for the public role in the final state. Most are the
   `supabase/functions`; the only JWT-shaped string is a fixture in
   `lib/__tests__/production-logger.test.ts` that tests log masking. No `.env` file is
   tracked, only `.env.example`.
+
+## E. Accessibility and mobile
+
+### The gap: nothing checked accessibility on the admin surface
+
+`e2e/public/accessibility.spec.ts` runs axe-core against six routes - `/`, `/about`,
+`/news`, `/projects`, `/connect`, `/search` - and gates on serious and critical WCAG
+2.1 A/AA violations. That is real coverage, and the public site is in good shape
+because of it.
+
+Nothing covered the other 74 admin components, and `eslint-plugin-jsx-a11y` was not
+configured, so no static rule caught anything anywhere.
+
+The plugin is now wired into `eslint.config.js` at `warn`. Warnings keep the count
+visible in `npm run lint` and in CI without gating a build that has a real backlog to
+work down; the comment there says to tighten to `error` once it is cleared.
+`jsx-a11y/label-has-for` is explicitly off: it is deprecated upstream and reports the
+same controls as `label-has-associated-control` with a worse message.
+
+`npm run lint` goes from 292 to 391 warnings, still 0 errors.
+
+### Fixed
+
+- `src/components/SocialShare.tsx:124` - the compact share button is icon-only with no
+  accessible name, so it announced as just "button". This one is public, on article
+  pages. Now `aria-label="Share this page"` with the icon `aria-hidden`.
+- `src/components/admin/support/NotificationSettings.tsx:195` - same shape on the add
+  recipient button.
+- `src/components/LazyVideo.tsx:265` - custom video controls appeared on
+  `onMouseEnter` and hid on `onMouseLeave`, so a keyboard user never saw them at all.
+  `onFocus` and `onBlur` now mirror the mouse handlers.
+
+### The backlog the linter now reports
+
+- 49 `label-has-associated-control`. The pattern is a `<Label>` sibling rather than
+  parent, with no `htmlFor` and no `id` on the control, as at
+  `admin/AIModelConfigManager.tsx:250`. shadcn's `Label` is a Radix `Label.Root`, which
+  associates only by `htmlFor` or by wrapping, so these controls have no accessible
+  name. Repo-wide it is 128 `<Label>` without `htmlFor` against 220 with, so this is
+  drift rather than a missing convention. Worth a dedicated pass: it needs a unique id
+  per control and is too varied to rewrite mechanically with confidence.
+- 17 `control-has-associated-label`.
+- 19 `no-static-element-interactions` and `click-events-have-key-events`, all but two
+  in admin components.
+- A few known false positives, left alone: `heading-has-content` in `ui/alert.tsx:39`
+  and `ui/card.tsx:36` and `anchor-has-content` in `ui/pagination.tsx:48` are shadcn
+  forwardRef wrappers that receive children from the call site, and the
+  `no-redundant-roles` hits in `ui/accessible-table.tsx` look like a deliberate choice
+  in a file named for the purpose.
+
+### Checked and sound
+
+- Every `<img>` in `src` has an `alt` attribute. The single apparent miss in
+  `auth/MFAEnrollment.tsx:90` is the word `<img>` inside a code comment.
+- `src/components/Navigation.tsx:119` reports as a static element with a click handler,
+  but it is the mobile menu backdrop and the keyboard path is already there: Escape is
+  handled at `:85` with a cleaned-up listener, and the toggle at `:200` carries both
+  `aria-label` and `aria-expanded`. False positive.
+- Mobile CSS holds up against what `CLAUDE.md` asks for: `src/index.css` has 11
+  occurrences of 44px minimum touch targets, `safe-area-inset` and `100dvh`, plus two
+  `prefers-reduced-motion` blocks, one of which kills `animate-bounce`, `animate-spin`
+  and `animate-pulse` outright.
+- `LoadingSpinner` carries `role="status"`, `aria-busy` and an sr-only label, and after
+  the area A pass every loading state in the app routes through it.
