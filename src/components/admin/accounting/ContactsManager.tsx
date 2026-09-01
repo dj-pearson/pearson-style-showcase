@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,10 +85,7 @@ export const ContactsManager = () => {
   const { data: contacts, isLoading } = useQuery({
     queryKey: ['contacts', filterType],
     queryFn: async () => {
-      let query = supabase
-        .from('contacts')
-        .select('*')
-        .order('contact_name', { ascending: true });
+      let query = supabase.from('contacts').select('*').order('contact_name', { ascending: true });
 
       if (filterType !== 'all') {
         query = query.or(`contact_type.eq.${filterType},contact_type.eq.both`);
@@ -166,10 +164,7 @@ export const ContactsManager = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('contacts')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('contacts').delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -184,7 +179,8 @@ export const ContactsManager = () => {
       logger.error('Error deleting contact:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete contact. They may have associated transactions.',
+        description:
+          error.message || 'Failed to delete contact. They may have associated transactions.',
         variant: 'destructive',
       });
     },
@@ -260,7 +256,11 @@ export const ContactsManager = () => {
   };
 
   const handleDelete = (contact: Contact) => {
-    if (confirm(`Are you sure you want to delete contact "${contact.contact_name}"? This cannot be undone.`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete contact "${contact.contact_name}"? This cannot be undone.`
+      )
+    ) {
       deleteMutation.mutate(contact.id);
     }
   };
@@ -278,11 +278,7 @@ export const ContactsManager = () => {
       both: 'outline',
     } as const;
 
-    return (
-      <Badge variant={variants[type as keyof typeof variants] || 'outline'}>
-        {type}
-      </Badge>
-    );
+    return <Badge variant={variants[type as keyof typeof variants] || 'outline'}>{type}</Badge>;
   };
 
   return (
@@ -292,14 +288,15 @@ export const ContactsManager = () => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Contacts</CardTitle>
-              <CardDescription>
-                Manage customers and vendors
-              </CardDescription>
+              <CardDescription>Manage customers and vendors</CardDescription>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) resetForm();
-            }}>
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) resetForm();
+              }}
+            >
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -312,9 +309,7 @@ export const ContactsManager = () => {
                     {editingContact ? 'Edit Contact' : 'Create New Contact'}
                   </DialogTitle>
                   <DialogDescription>
-                    {editingContact
-                      ? 'Update contact information'
-                      : 'Add a new customer or vendor'}
+                    {editingContact ? 'Update contact information' : 'Add a new customer or vendor'}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -499,9 +494,7 @@ export const ContactsManager = () => {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">
-                      {editingContact ? 'Update' : 'Create'} Contact
-                    </Button>
+                    <Button type="submit">{editingContact ? 'Update' : 'Create'} Contact</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -534,9 +527,7 @@ export const ContactsManager = () => {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <LoadingSpinner className="py-8" />
           ) : contacts && contacts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -568,9 +559,7 @@ export const ContactsManager = () => {
                         </div>
                       </TableCell>
                       <TableCell>{contact.company_name || '-'}</TableCell>
-                      <TableCell>
-                        {getContactTypeBadge(contact.contact_type)}
-                      </TableCell>
+                      <TableCell>{getContactTypeBadge(contact.contact_type)}</TableCell>
                       <TableCell className="text-sm">{contact.email || '-'}</TableCell>
                       <TableCell className="text-sm">{contact.phone || '-'}</TableCell>
                       <TableCell className="text-sm">{contact.payment_terms || '-'}</TableCell>
@@ -581,18 +570,10 @@ export const ContactsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(contact)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(contact)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(contact)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(contact)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>

@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -112,10 +113,7 @@ export const ChartOfAccountsManager = () => {
   const { data: currencies } = useQuery({
     queryKey: ['currencies'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('currencies')
-        .select('*')
-        .order('code');
+      const { data, error } = await supabase.from('currencies').select('*').order('code');
 
       if (error) throw error;
       return data as Currency[];
@@ -189,10 +187,7 @@ export const ChartOfAccountsManager = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('accounts')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('accounts').delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -250,7 +245,8 @@ export const ChartOfAccountsManager = () => {
     e.preventDefault();
 
     // Get base currency if none selected
-    const currencyId = formData.currency_id || currencies?.find(c => c.code === 'USD')?.id || null;
+    const currencyId =
+      formData.currency_id || currencies?.find((c) => c.code === 'USD')?.id || null;
 
     const accountData = {
       account_number: formData.account_number || null,
@@ -273,7 +269,11 @@ export const ChartOfAccountsManager = () => {
   };
 
   const handleDelete = (account: Account) => {
-    if (confirm(`Are you sure you want to delete account "${account.account_name}"? This cannot be undone.`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete account "${account.account_name}"? This cannot be undone.`
+      )
+    ) {
       deleteMutation.mutate(account.id);
     }
   };
@@ -299,10 +299,11 @@ export const ChartOfAccountsManager = () => {
   // Get potential parent accounts (exclude self and same-level)
   const getParentAccountOptions = () => {
     if (!accounts) return [];
-    return accounts.filter(account =>
-      account.account_type === formData.account_type &&
-      account.id !== editingAccount?.id &&
-      account.is_group
+    return accounts.filter(
+      (account) =>
+        account.account_type === formData.account_type &&
+        account.id !== editingAccount?.id &&
+        account.is_group
     );
   };
 
@@ -317,10 +318,13 @@ export const ChartOfAccountsManager = () => {
                 Manage your account structure for double-entry bookkeeping
               </CardDescription>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) resetForm();
-            }}>
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) resetForm();
+              }}
+            >
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -345,7 +349,9 @@ export const ChartOfAccountsManager = () => {
                       <Input
                         id="account_number"
                         value={formData.account_number}
-                        onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, account_number: e.target.value })
+                        }
                         placeholder="e.g., 1000"
                       />
                     </div>
@@ -419,7 +425,8 @@ export const ChartOfAccountsManager = () => {
                         <SelectContent>
                           {getParentAccountOptions().map((account) => (
                             <SelectItem key={account.id} value={account.id}>
-                              {account.account_number ? `${account.account_number} - ` : ''}{account.account_name}
+                              {account.account_number ? `${account.account_number} - ` : ''}
+                              {account.account_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -432,7 +439,9 @@ export const ChartOfAccountsManager = () => {
                         type="number"
                         step="0.01"
                         value={formData.opening_balance}
-                        onChange={(e) => setFormData({ ...formData, opening_balance: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, opening_balance: e.target.value })
+                        }
                         placeholder="0.00"
                       />
                     </div>
@@ -487,9 +496,7 @@ export const ChartOfAccountsManager = () => {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">
-                      {editingAccount ? 'Update' : 'Create'} Account
-                    </Button>
+                    <Button type="submit">{editingAccount ? 'Update' : 'Create'} Account</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -543,9 +550,7 @@ export const ChartOfAccountsManager = () => {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <LoadingSpinner className="py-8" />
           ) : accounts && accounts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -568,9 +573,7 @@ export const ChartOfAccountsManager = () => {
                 <TableBody>
                   {accounts?.map((account) => (
                     <TableRow key={account.id}>
-                      <TableCell className="font-mono">
-                        {account.account_number || '-'}
-                      </TableCell>
+                      <TableCell className="font-mono">{account.account_number || '-'}</TableCell>
                       <TableCell className="font-medium">
                         {account.account_name}
                         {account.is_group && (
@@ -597,18 +600,10 @@ export const ChartOfAccountsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(account)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(account)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(account)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>

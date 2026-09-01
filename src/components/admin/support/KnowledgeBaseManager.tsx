@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,7 +55,7 @@ export const KnowledgeBaseManager: React.FC = () => {
     excerpt: '',
     category: 'general',
     keywords: '',
-    published: false
+    published: false,
   });
   const { toast } = useToast();
 
@@ -92,7 +93,7 @@ export const KnowledgeBaseManager: React.FC = () => {
         toast({
           title: 'Validation Error',
           description: 'Title and content are required.',
-          variant: 'destructive'
+          variant: 'destructive',
         });
         return;
       }
@@ -100,8 +101,8 @@ export const KnowledgeBaseManager: React.FC = () => {
       const slug = formData.slug || generateSlug(formData.title);
       const keywords = formData.keywords
         .split(',')
-        .map(k => k.trim())
-        .filter(k => k.length > 0);
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0);
 
       if (editingArticle) {
         // Update existing
@@ -114,7 +115,7 @@ export const KnowledgeBaseManager: React.FC = () => {
             excerpt: formData.excerpt || null,
             category: formData.category,
             keywords,
-            published: formData.published
+            published: formData.published,
           })
           .eq('id', editingArticle.id);
 
@@ -126,17 +127,15 @@ export const KnowledgeBaseManager: React.FC = () => {
         });
       } else {
         // Create new
-        const { error } = await supabase
-          .from('kb_articles')
-          .insert({
-            title: formData.title,
-            slug,
-            content: formData.content,
-            excerpt: formData.excerpt || null,
-            category: formData.category,
-            keywords,
-            published: formData.published
-          });
+        const { error } = await supabase.from('kb_articles').insert({
+          title: formData.title,
+          slug,
+          content: formData.content,
+          excerpt: formData.excerpt || null,
+          category: formData.category,
+          keywords,
+          published: formData.published,
+        });
 
         if (error) throw error;
 
@@ -155,7 +154,7 @@ export const KnowledgeBaseManager: React.FC = () => {
         excerpt: '',
         category: 'general',
         keywords: '',
-        published: false
+        published: false,
       });
       loadArticles();
     } catch (error: any) {
@@ -163,7 +162,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       toast({
         title: 'Save Failed',
         description: error.message || 'Could not save the article.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -177,7 +176,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       excerpt: article.excerpt || '',
       category: article.category || 'general',
       keywords: article.keywords.join(', '),
-      published: article.published
+      published: article.published,
     });
     setIsDialogOpen(true);
   };
@@ -188,10 +187,7 @@ export const KnowledgeBaseManager: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('kb_articles')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('kb_articles').delete().eq('id', id);
 
       if (error) throw error;
 
@@ -206,7 +202,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       toast({
         title: 'Delete Failed',
         description: 'Could not delete the article.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -231,7 +227,7 @@ export const KnowledgeBaseManager: React.FC = () => {
       toast({
         title: 'Update Failed',
         description: 'Could not update the article.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -256,18 +252,20 @@ export const KnowledgeBaseManager: React.FC = () => {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => {
-                setEditingArticle(null);
-                setFormData({
-                  title: '',
-                  slug: '',
-                  content: '',
-                  excerpt: '',
-                  category: 'general',
-                  keywords: '',
-                  published: false
-                });
-              }}>
+              <Button
+                onClick={() => {
+                  setEditingArticle(null);
+                  setFormData({
+                    title: '',
+                    slug: '',
+                    content: '',
+                    excerpt: '',
+                    category: 'general',
+                    keywords: '',
+                    published: false,
+                  });
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 New Article
               </Button>
@@ -379,9 +377,7 @@ Write your help article content here. You can use Markdown formatting.
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave}>
-                  {editingArticle ? 'Update' : 'Create'} Article
-                </Button>
+                <Button onClick={handleSave}>{editingArticle ? 'Update' : 'Create'} Article</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -390,9 +386,7 @@ Write your help article content here. You can use Markdown formatting.
 
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : articles.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -412,7 +406,10 @@ Write your help article content here. You can use Markdown formatting.
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className="font-semibold">{article.title}</h4>
                         {article.published ? (
-                          <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500">
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-green-500/10 text-green-500"
+                          >
                             Published
                           </Badge>
                         ) : (

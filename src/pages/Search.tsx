@@ -1,9 +1,17 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
-import { Search as SearchIcon, TrendingUp, FileText, Folder, Wrench, ArrowLeft } from 'lucide-react';
+import {
+  Search as SearchIcon,
+  TrendingUp,
+  FileText,
+  Folder,
+  Wrench,
+  ArrowLeft,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { logger } from '@/lib/logger';
@@ -93,16 +101,18 @@ const Search = () => {
         const { data: aiTools, error: aiToolsError } = await supabase
           .from('ai_tools')
           .select('id, title, description, category, link, image_url')
-          .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`)
+          .or(
+            `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`
+          )
           .limit(5);
 
         if (aiToolsError) logger.error('Search ai_tools query failed:', aiToolsError);
 
         // Combine and format results
         const combined: SearchResult[] = [
-          ...(articles?.map(a => ({ ...a, type: 'article' as const })) || []),
-          ...(projects?.map(p => ({ ...p, type: 'project' as const })) || []),
-          ...(aiTools?.map(t => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
+          ...(articles?.map((a) => ({ ...a, type: 'article' as const })) || []),
+          ...(projects?.map((p) => ({ ...p, type: 'project' as const })) || []),
+          ...(aiTools?.map((t) => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
         ];
 
         setResults(combined);
@@ -168,7 +178,11 @@ const Search = () => {
     <div className="min-h-screen flex flex-col">
       <SEO
         title={query ? `Search Results for "${query}" | Dan Pearson` : 'Search | Dan Pearson'}
-        description={query ? `Search results for ${query} across articles, projects, and AI tools on Dan Pearson's portfolio.` : 'Search across articles, projects, and AI tools on Dan Pearson\'s portfolio.'}
+        description={
+          query
+            ? `Search results for ${query} across articles, projects, and AI tools on Dan Pearson's portfolio.`
+            : "Search across articles, projects, and AI tools on Dan Pearson's portfolio."
+        }
         url={`https://danpearson.net/search${query ? `?q=${encodeURIComponent(query)}` : ''}`}
         type="website"
         noIndex={true}
@@ -180,12 +194,7 @@ const Search = () => {
         <div className="container mx-auto max-w-4xl">
           {/* Back Button */}
           <div className="mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="gap-2"
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2">
               <ArrowLeft className="w-4 h-4" />
               Back
             </Button>
@@ -202,8 +211,13 @@ const Search = () => {
           {/* Search Input */}
           <form onSubmit={handleSearch} className="mb-8">
             <div className="relative">
-              <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" aria-hidden="true" />
-              <label htmlFor="search-input" className="sr-only">Search for articles, projects, AI tools</label>
+              <SearchIcon
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <label htmlFor="search-input" className="sr-only">
+                Search for articles, projects, AI tools
+              </label>
               <Input
                 id="search-input"
                 type="text"
@@ -222,8 +236,7 @@ const Search = () => {
             {/* Loading state */}
             {isLoading && (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Searching...</p>
+                <LoadingSpinner size="lg" text="Searching..." />
               </div>
             )}
 
@@ -231,9 +244,7 @@ const Search = () => {
             {!query && !isLoading && (
               <div className="text-center py-12">
                 <SearchIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-xl text-muted-foreground">
-                  Enter a search query to get started
-                </p>
+                <p className="text-xl text-muted-foreground">Enter a search query to get started</p>
                 <p className="text-sm text-muted-foreground mt-2">
                   Try searching for topics like "AI automation", "React", or "business development"
                 </p>
@@ -253,11 +264,7 @@ const Search = () => {
 
             {/* Results */}
             {!isLoading && results.length > 0 && (
-              <div
-                className="space-y-6"
-                role="region"
-                aria-label="Search results"
-              >
+              <div className="space-y-6" role="region" aria-label="Search results">
                 <div
                   className="flex items-center gap-2 text-sm font-medium"
                   role="status"
@@ -302,13 +309,9 @@ const Search = () => {
                               <div className="text-primary" aria-hidden="true">
                                 {getIcon(result.type)}
                               </div>
-                              <Badge variant="outline">
-                                {getTypeLabel(result.type)}
-                              </Badge>
+                              <Badge variant="outline">{getTypeLabel(result.type)}</Badge>
                               {result.category && (
-                                <Badge variant="secondary">
-                                  {result.category}
-                                </Badge>
+                                <Badge variant="secondary">{result.category}</Badge>
                               )}
                             </div>
                             <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
@@ -322,11 +325,7 @@ const Search = () => {
                             {result.tags && result.tags.length > 0 && (
                               <div className="flex gap-2 flex-wrap">
                                 {result.tags.slice(0, 5).map((tag, idx) => (
-                                  <Badge
-                                    key={idx}
-                                    variant="outline"
-                                    className="text-xs"
-                                  >
+                                  <Badge key={idx} variant="outline" className="text-xs">
                                     {tag}
                                   </Badge>
                                 ))}

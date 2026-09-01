@@ -1,3 +1,4 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,7 +48,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from 'recharts';
 import { DocumentUpload } from './DocumentUpload';
 
 interface AIBillingEntry {
@@ -109,16 +120,19 @@ export const AIBillingTracker = () => {
       const { data: aiPlatforms } = await supabase
         .from('platforms')
         .select('id, name')
-        .in('name', AI_SERVICES.map(s => s.label));
+        .in(
+          'name',
+          AI_SERVICES.map((s) => s.label)
+        );
 
-      const aiPlatformIds = aiPlatforms?.map(p => p.id) || [];
+      const aiPlatformIds = aiPlatforms?.map((p) => p.id) || [];
 
       if (aiPlatformIds.length > 0) {
         query = query.in('platform_id', aiPlatformIds);
       }
 
       if (filterService !== 'all') {
-        const platform = aiPlatforms?.find(p =>
+        const platform = aiPlatforms?.find((p) =>
           p.name.toLowerCase().includes(filterService.toLowerCase())
         );
         if (platform) {
@@ -136,10 +150,7 @@ export const AIBillingTracker = () => {
   const { data: platforms = [] } = useQuery({
     queryKey: ['platforms', 'ai-billing'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('platforms')
-        .select('*')
-        .order('name');
+      const { data, error } = await supabase.from('platforms').select('*').order('name');
 
       if (error) throw error;
       return data || [];
@@ -173,11 +184,13 @@ export const AIBillingTracker = () => {
       serviceBreakdown[serviceName] = (serviceBreakdown[serviceName] || 0) + amount;
     });
 
-    const monthOverMonthChange = lastMonthTotal > 0
-      ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100
-      : 0;
+    const monthOverMonthChange =
+      lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0;
 
-    const totalAllTime = billingEntries.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
+    const totalAllTime = billingEntries.reduce(
+      (sum: number, e: any) => sum + Number(e.amount || 0),
+      0
+    );
 
     return {
       thisMonthTotal,
@@ -258,27 +271,25 @@ export const AIBillingTracker = () => {
         }
       }
 
-      const { error } = await supabase
-        .from('platform_transactions')
-        .insert({
-          platform_id: platformId,
-          transaction_type: 'expense',
-          transaction_date: formData.billing_period_start,
-          amount: formData.total_amount,
-          currency: formData.currency || 'USD',
-          description: formData.notes || `AI billing: ${formData.service_name}`,
-          reference_number: formData.invoice_number || null,
-          external_url: formData.invoice_url || null,
-          metadata: {
-            billing_period_end: formData.billing_period_end,
-            usage_tokens_input: formData.usage_tokens_input,
-            usage_tokens_output: formData.usage_tokens_output,
-            usage_api_calls: formData.usage_api_calls,
-            usage_compute_minutes: formData.usage_compute_minutes,
-            model_breakdown: formData.model_breakdown,
-            source: 'ai-billing-tracker',
-          },
-        });
+      const { error } = await supabase.from('platform_transactions').insert({
+        platform_id: platformId,
+        transaction_type: 'expense',
+        transaction_date: formData.billing_period_start,
+        amount: formData.total_amount,
+        currency: formData.currency || 'USD',
+        description: formData.notes || `AI billing: ${formData.service_name}`,
+        reference_number: formData.invoice_number || null,
+        external_url: formData.invoice_url || null,
+        metadata: {
+          billing_period_end: formData.billing_period_end,
+          usage_tokens_input: formData.usage_tokens_input,
+          usage_tokens_output: formData.usage_tokens_output,
+          usage_api_calls: formData.usage_api_calls,
+          usage_compute_minutes: formData.usage_compute_minutes,
+          model_breakdown: formData.model_breakdown,
+          source: 'ai-billing-tracker',
+        },
+      });
 
       if (error) throw error;
     },
@@ -291,17 +302,18 @@ export const AIBillingTracker = () => {
     },
     onError: (error) => {
       logger.error('Error creating AI billing entry:', error);
-      toast({ title: 'Error', description: 'Failed to create billing entry', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Failed to create billing entry',
+        variant: 'destructive',
+      });
     },
   });
 
   // Delete entry
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('platform_transactions')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('platform_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -324,9 +336,7 @@ export const AIBillingTracker = () => {
   };
 
   const getServiceIcon = (name: string) => {
-    const service = AI_SERVICES.find(s =>
-      name.toLowerCase().includes(s.value.split('-')[0])
-    );
+    const service = AI_SERVICES.find((s) => name.toLowerCase().includes(s.value.split('-')[0]));
     if (service) {
       const Icon = service.icon;
       return <Icon className={`h-4 w-4 ${service.color}`} />;
@@ -340,17 +350,19 @@ export const AIBillingTracker = () => {
 
     billingEntries.forEach((entry: any) => {
       const meta = entry.metadata || {};
-      csvLines.push([
-        entry.transaction_date,
-        `"${entry.platforms?.name || 'Unknown'}"`,
-        Number(entry.amount || 0).toFixed(2),
-        entry.currency || 'USD',
-        `"${entry.reference_number || ''}"`,
-        meta.usage_tokens_input || '',
-        meta.usage_tokens_output || '',
-        meta.usage_api_calls || '',
-        `"${(entry.description || '').replace(/"/g, '""')}"`,
-      ].join(','));
+      csvLines.push(
+        [
+          entry.transaction_date,
+          `"${entry.platforms?.name || 'Unknown'}"`,
+          Number(entry.amount || 0).toFixed(2),
+          entry.currency || 'USD',
+          `"${entry.reference_number || ''}"`,
+          meta.usage_tokens_input || '',
+          meta.usage_tokens_output || '',
+          meta.usage_api_calls || '',
+          `"${(entry.description || '').replace(/"/g, '""')}"`,
+        ].join(',')
+      );
     });
 
     const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -392,7 +404,8 @@ export const AIBillingTracker = () => {
               <DialogHeader>
                 <DialogTitle>Upload AI Service Invoice</DialogTitle>
                 <DialogDescription>
-                  Upload a PDF invoice from any AI service. Our AI will extract billing details automatically.
+                  Upload a PDF invoice from any AI service. Our AI will extract billing details
+                  automatically.
                 </DialogDescription>
               </DialogHeader>
               <DocumentUpload
@@ -406,14 +419,20 @@ export const AIBillingTracker = () => {
                       id: '',
                       platform_id: null,
                       service_name: parsedData.vendor_name || parsedData.vendorName || '',
-                      billing_period_start: parsedData.invoice_date || parsedData.date || parsedData.billing_period_start || new Date().toISOString().split('T')[0],
-                      billing_period_end: parsedData.billing_period_end || parsedData.due_date || '',
+                      billing_period_start:
+                        parsedData.invoice_date ||
+                        parsedData.date ||
+                        parsedData.billing_period_start ||
+                        new Date().toISOString().split('T')[0],
+                      billing_period_end:
+                        parsedData.billing_period_end || parsedData.due_date || '',
                       total_amount: parseFloat(parsedData.total_amount || parsedData.amount || '0'),
                       currency: parsedData.currency || 'USD',
                       invoice_number: parsedData.invoice_number || parsedData.invoiceNumber || '',
                       notes: parsedData.description || parsedData.notes || '',
                       usage_tokens_input: parsedData.tokens_input || parsedData.usage?.input_tokens,
-                      usage_tokens_output: parsedData.tokens_output || parsedData.usage?.output_tokens,
+                      usage_tokens_output:
+                        parsedData.tokens_output || parsedData.usage?.output_tokens,
                       usage_api_calls: parsedData.api_calls || parsedData.usage?.api_calls,
                       document_id: documentId,
                       created_at: new Date().toISOString(),
@@ -433,10 +452,13 @@ export const AIBillingTracker = () => {
               />
             </DialogContent>
           </Dialog>
-          <Dialog open={showCreateDialog} onOpenChange={(open) => {
-            setShowCreateDialog(open);
-            if (!open) setEditingEntry(null);
-          }}>
+          <Dialog
+            open={showCreateDialog}
+            onOpenChange={(open) => {
+              setShowCreateDialog(open);
+              if (!open) setEditingEntry(null);
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -445,12 +467,8 @@ export const AIBillingTracker = () => {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
-                  {editingEntry?.id ? 'Edit' : 'Add'} AI Billing Entry
-                </DialogTitle>
-                <DialogDescription>
-                  Record spending from an AI service or tool
-                </DialogDescription>
+                <DialogTitle>{editingEntry?.id ? 'Edit' : 'Add'} AI Billing Entry</DialogTitle>
+                <DialogDescription>Record spending from an AI service or tool</DialogDescription>
               </DialogHeader>
               <AIBillingForm
                 initialData={editingEntry}
@@ -484,7 +502,9 @@ export const AIBillingTracker = () => {
                   ) : (
                     <TrendingDown className="h-3 w-3 text-green-500" />
                   )}
-                  <span className={`text-xs ${metrics.monthOverMonthChange > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                  <span
+                    className={`text-xs ${metrics.monthOverMonthChange > 0 ? 'text-red-500' : 'text-green-500'}`}
+                  >
                     {Math.abs(metrics.monthOverMonthChange).toFixed(1)}% vs last month
                   </span>
                 </>
@@ -513,9 +533,7 @@ export const AIBillingTracker = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(metrics.totalAllTime)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {billingEntries.length} entries
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{billingEntries.length} entries</p>
           </CardContent>
         </Card>
 
@@ -527,7 +545,9 @@ export const AIBillingTracker = () => {
           <CardContent>
             {metrics.serviceBreakdown.length > 0 ? (
               <>
-                <div className="text-2xl font-bold">{formatCurrency(metrics.serviceBreakdown[0].amount)}</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(metrics.serviceBreakdown[0].amount)}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                   {getServiceIcon(metrics.serviceBreakdown[0].name)}
                   {metrics.serviceBreakdown[0].name}
@@ -582,7 +602,12 @@ export const AIBillingTracker = () => {
                     <XAxis type="number" tickFormatter={(v) => `$${v}`} />
                     <YAxis type="category" dataKey="name" width={120} />
                     <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    <Bar dataKey="amount" fill="hsl(var(--primary))" name="Total Spent" radius={[0, 4, 4, 0]} />
+                    <Bar
+                      dataKey="amount"
+                      fill="hsl(var(--primary))"
+                      name="Total Spent"
+                      radius={[0, 4, 4, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -623,14 +648,14 @@ export const AIBillingTracker = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
+            <LoadingSpinner className="py-8" />
           ) : billingEntries.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg font-medium">No AI billing entries yet</p>
-              <p className="text-sm mt-1">Upload an invoice PDF or add an entry manually to get started</p>
+              <p className="text-sm mt-1">
+                Upload an invoice PDF or add an entry manually to get started
+              </p>
               <div className="flex gap-2 justify-center mt-4">
                 <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
                   <Upload className="h-4 w-4 mr-2" />
@@ -665,11 +690,15 @@ export const AIBillingTracker = () => {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getServiceIcon(entry.platforms?.name || '')}
-                            <span className="font-medium">{entry.platforms?.name || 'Unknown'}</span>
+                            <span className="font-medium">
+                              {entry.platforms?.name || 'Unknown'}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {entry.transaction_date ? format(parseISO(entry.transaction_date), 'MMM d, yyyy') : '-'}
+                          {entry.transaction_date
+                            ? format(parseISO(entry.transaction_date), 'MMM d, yyyy')
+                            : '-'}
                         </TableCell>
                         <TableCell>
                           {entry.reference_number ? (
@@ -685,7 +714,9 @@ export const AIBillingTracker = () => {
                             ) : (
                               entry.reference_number
                             )
-                          ) : '-'}
+                          ) : (
+                            '-'
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
                           {formatCurrency(Number(entry.amount || 0))}
@@ -734,7 +765,12 @@ export const AIBillingTracker = () => {
       </Card>
 
       {/* View Entry Dialog */}
-      <Dialog open={!!viewingEntry} onOpenChange={(open) => { if (!open) setViewingEntry(null); }}>
+      <Dialog
+        open={!!viewingEntry}
+        onOpenChange={(open) => {
+          if (!open) setViewingEntry(null);
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Billing Entry Details</DialogTitle>
@@ -745,13 +781,19 @@ export const AIBillingTracker = () => {
                 <div>
                   <Label className="text-xs text-muted-foreground">Service</Label>
                   <p className="font-medium flex items-center gap-2">
-                    {getServiceIcon(viewingEntry.platforms?.name || viewingEntry.service_name || '')}
+                    {getServiceIcon(
+                      viewingEntry.platforms?.name || viewingEntry.service_name || ''
+                    )}
                     {(viewingEntry as any).platforms?.name || viewingEntry.service_name}
                   </p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Amount</Label>
-                  <p className="font-medium font-mono">{formatCurrency(Number((viewingEntry as any).amount || viewingEntry.total_amount || 0))}</p>
+                  <p className="font-medium font-mono">
+                    {formatCurrency(
+                      Number((viewingEntry as any).amount || viewingEntry.total_amount || 0)
+                    )}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Date</Label>
@@ -766,7 +808,8 @@ export const AIBillingTracker = () => {
                   <p className="font-medium">{(viewingEntry as any).reference_number || '-'}</p>
                 </div>
               </div>
-              {((viewingEntry as any).metadata?.usage_tokens_input || (viewingEntry as any).metadata?.usage_tokens_output) && (
+              {((viewingEntry as any).metadata?.usage_tokens_input ||
+                (viewingEntry as any).metadata?.usage_tokens_output) && (
                 <div className="border-t pt-4">
                   <h4 className="font-medium mb-2">Usage Details</h4>
                   <div className="grid grid-cols-2 gap-4">
@@ -820,7 +863,8 @@ const AIBillingForm = ({
   const [formData, setFormData] = useState({
     service_name: initialData?.service_name || '',
     platform_id: initialData?.platform_id || '',
-    billing_period_start: initialData?.billing_period_start || new Date().toISOString().split('T')[0],
+    billing_period_start:
+      initialData?.billing_period_start || new Date().toISOString().split('T')[0],
     billing_period_end: initialData?.billing_period_end || '',
     total_amount: initialData?.total_amount?.toString() || '',
     currency: initialData?.currency || 'USD',
@@ -838,10 +882,16 @@ const AIBillingForm = ({
     onSubmit({
       ...formData,
       total_amount: parseFloat(formData.total_amount) || 0,
-      usage_tokens_input: formData.usage_tokens_input ? parseInt(formData.usage_tokens_input) : undefined,
-      usage_tokens_output: formData.usage_tokens_output ? parseInt(formData.usage_tokens_output) : undefined,
+      usage_tokens_input: formData.usage_tokens_input
+        ? parseInt(formData.usage_tokens_input)
+        : undefined,
+      usage_tokens_output: formData.usage_tokens_output
+        ? parseInt(formData.usage_tokens_output)
+        : undefined,
       usage_api_calls: formData.usage_api_calls ? parseInt(formData.usage_api_calls) : undefined,
-      usage_compute_minutes: formData.usage_compute_minutes ? parseFloat(formData.usage_compute_minutes) : undefined,
+      usage_compute_minutes: formData.usage_compute_minutes
+        ? parseFloat(formData.usage_compute_minutes)
+        : undefined,
     });
   };
 
@@ -853,7 +903,7 @@ const AIBillingForm = ({
           <Select
             value={formData.service_name}
             onValueChange={(value) => {
-              const service = AI_SERVICES.find(s => s.value === value);
+              const service = AI_SERVICES.find((s) => s.value === value);
               setFormData({
                 ...formData,
                 service_name: service?.label || value,
@@ -866,9 +916,7 @@ const AIBillingForm = ({
             <SelectContent>
               {AI_SERVICES.map((service) => (
                 <SelectItem key={service.value} value={service.value}>
-                  <span className="flex items-center gap-2">
-                    {service.label}
-                  </span>
+                  <span className="flex items-center gap-2">{service.label}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -929,9 +977,7 @@ const AIBillingForm = ({
 
       {/* Usage Details (collapsible section) */}
       <details className="border rounded-lg p-3">
-        <summary className="font-medium cursor-pointer text-sm">
-          Usage Details (optional)
-        </summary>
+        <summary className="font-medium cursor-pointer text-sm">Usage Details (optional)</summary>
         <div className="grid grid-cols-2 gap-4 mt-3">
           <div className="space-y-2">
             <Label>Input Tokens</Label>

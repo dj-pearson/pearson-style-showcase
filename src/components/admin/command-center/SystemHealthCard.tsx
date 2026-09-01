@@ -1,15 +1,8 @@
+import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Activity,
-  Database,
-  Zap,
-  Server,
-  AlertCircle,
-  CheckCircle2,
-  Clock
-} from 'lucide-react';
+import { Activity, Database, Zap, Server, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 
@@ -39,7 +32,7 @@ export const SystemHealthCard: React.FC = () => {
     errorRate: 0,
     apiLatency: 0,
     activeConnections: 0,
-    lastChecked: new Date()
+    lastChecked: new Date(),
   });
   const [metrics, setMetrics] = useState<SystemMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +50,9 @@ export const SystemHealthCard: React.FC = () => {
     try {
       // Check database connectivity
       const dbStart = performance.now();
-      const { error: dbError } = await supabase.from('articles').select('count', { count: 'exact', head: true });
+      const { error: dbError } = await supabase
+        .from('articles')
+        .select('count', { count: 'exact', head: true });
       const dbLatency = performance.now() - dbStart;
 
       // Get error metrics from last hour
@@ -96,21 +91,27 @@ export const SystemHealthCard: React.FC = () => {
       // degraded (warning) state rather than reporting everything healthy.
       const metricsUnavailable = Boolean(errorMetricsError || latencyError);
 
-      const avgLatency = latencyMetrics && latencyMetrics.length > 0
-        ? (latencyMetrics as any[]).reduce((sum, m) => sum + Number(m.value), 0) / latencyMetrics.length
-        : dbLatency;
+      const avgLatency =
+        latencyMetrics && latencyMetrics.length > 0
+          ? (latencyMetrics as any[]).reduce((sum, m) => sum + Number(m.value), 0) /
+            latencyMetrics.length
+          : dbLatency;
 
       // Determine health status
-      const dbHealth: 'healthy' | 'warning' | 'critical' =
-        dbError ? 'critical' :
-        dbLatency > 1000 ? 'warning' :
-        'healthy';
+      const dbHealth: 'healthy' | 'warning' | 'critical' = dbError
+        ? 'critical'
+        : dbLatency > 1000
+          ? 'warning'
+          : 'healthy';
 
       const apiHealth: 'healthy' | 'warning' | 'critical' =
-        avgLatency > 2000 ? 'critical' :
-        avgLatency > 1000 ? 'warning' :
-        metricsUnavailable ? 'warning' :
-        'healthy';
+        avgLatency > 2000
+          ? 'critical'
+          : avgLatency > 1000
+            ? 'warning'
+            : metricsUnavailable
+              ? 'warning'
+              : 'healthy';
 
       setHealth({
         database: dbHealth,
@@ -119,7 +120,7 @@ export const SystemHealthCard: React.FC = () => {
         errorRate: Math.round(errorRate * 100) / 100,
         apiLatency: Math.round(avgLatency),
         activeConnections: 0, // Would need backend support
-        lastChecked: new Date()
+        lastChecked: new Date(),
       });
 
       // Build metrics array
@@ -128,33 +129,45 @@ export const SystemHealthCard: React.FC = () => {
           name: 'Error Rate',
           value: errorRate,
           unit: '/min',
-          status: errorMetricsError ? 'warning' : errorRate > 5 ? 'critical' : errorRate > 2 ? 'warning' : 'healthy',
-          trend: 'stable'
+          status: errorMetricsError
+            ? 'warning'
+            : errorRate > 5
+              ? 'critical'
+              : errorRate > 2
+                ? 'warning'
+                : 'healthy',
+          trend: 'stable',
         },
         {
           name: 'API Latency',
           value: Math.round(avgLatency),
           unit: 'ms',
-          status: latencyError ? 'warning' : avgLatency > 2000 ? 'critical' : avgLatency > 1000 ? 'warning' : 'healthy',
-          trend: 'stable'
+          status: latencyError
+            ? 'warning'
+            : avgLatency > 2000
+              ? 'critical'
+              : avgLatency > 1000
+                ? 'warning'
+                : 'healthy',
+          trend: 'stable',
         },
         {
           name: 'DB Response',
           value: Math.round(dbLatency),
           unit: 'ms',
           status: dbLatency > 1000 ? 'critical' : dbLatency > 500 ? 'warning' : 'healthy',
-          trend: 'stable'
-        }
+          trend: 'stable',
+        },
       ]);
 
       setIsLoading(false);
     } catch (error) {
       logger.error('Failed to load system health:', error);
-      setHealth(prev => ({
+      setHealth((prev) => ({
         ...prev,
         database: 'critical',
         api: 'critical',
-        lastChecked: new Date()
+        lastChecked: new Date(),
       }));
       setIsLoading(false);
     }
@@ -162,32 +175,58 @@ export const SystemHealthCard: React.FC = () => {
 
   const getStatusColor = (status: 'healthy' | 'warning' | 'critical') => {
     switch (status) {
-      case 'healthy': return 'text-green-500';
-      case 'warning': return 'text-yellow-500';
-      case 'critical': return 'text-red-500';
+      case 'healthy':
+        return 'text-green-500';
+      case 'warning':
+        return 'text-yellow-500';
+      case 'critical':
+        return 'text-red-500';
     }
   };
 
   const getStatusBadge = (status: 'healthy' | 'warning' | 'critical') => {
     switch (status) {
-      case 'healthy': return <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">Healthy</Badge>;
-      case 'warning': return <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Warning</Badge>;
-      case 'critical': return <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Critical</Badge>;
+      case 'healthy':
+        return (
+          <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+            Healthy
+          </Badge>
+        );
+      case 'warning':
+        return (
+          <Badge
+            variant="outline"
+            className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+          >
+            Warning
+          </Badge>
+        );
+      case 'critical':
+        return (
+          <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">
+            Critical
+          </Badge>
+        );
     }
   };
 
   const getStatusIcon = (status: 'healthy' | 'warning' | 'critical') => {
     switch (status) {
-      case 'healthy': return <CheckCircle2 className="h-4 w-4" />;
-      case 'warning': return <AlertCircle className="h-4 w-4" />;
-      case 'critical': return <AlertCircle className="h-4 w-4" />;
+      case 'healthy':
+        return <CheckCircle2 className="h-4 w-4" />;
+      case 'warning':
+        return <AlertCircle className="h-4 w-4" />;
+      case 'critical':
+        return <AlertCircle className="h-4 w-4" />;
     }
   };
 
   const overallStatus =
-    health.database === 'critical' || health.api === 'critical' ? 'critical' :
-    health.database === 'warning' || health.api === 'warning' ? 'warning' :
-    'healthy';
+    health.database === 'critical' || health.api === 'critical'
+      ? 'critical'
+      : health.database === 'warning' || health.api === 'warning'
+        ? 'warning'
+        : 'healthy';
 
   return (
     <Card>
@@ -205,9 +244,7 @@ export const SystemHealthCard: React.FC = () => {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : (
           <div className="space-y-6">
             {/* Service Status */}
@@ -222,7 +259,7 @@ export const SystemHealthCard: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Response time: {metrics.find(m => m.name === 'DB Response')?.value || 0}ms
+                    Response time: {metrics.find((m) => m.name === 'DB Response')?.value || 0}ms
                   </p>
                 </div>
               </div>
@@ -247,14 +284,18 @@ export const SystemHealthCard: React.FC = () => {
             <div className="space-y-3">
               <h4 className="text-sm font-semibold">Key Metrics (Last Hour)</h4>
               {metrics.map((metric, index) => (
-                <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-muted/50 transition-colors">
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-2 rounded hover:bg-muted/50 transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     <Zap className={`h-4 w-4 ${getStatusColor(metric.status)}`} />
                     <span className="text-sm">{metric.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm font-mono ${getStatusColor(metric.status)}`}>
-                      {metric.value}{metric.unit}
+                      {metric.value}
+                      {metric.unit}
                     </span>
                     {metric.trend && (
                       <span className="text-xs text-muted-foreground">
@@ -284,10 +325,7 @@ export const SystemHealthCard: React.FC = () => {
                 <Clock className="h-3 w-3" />
                 <span>Last checked: {health.lastChecked.toLocaleTimeString()}</span>
               </div>
-              <button
-                onClick={loadSystemHealth}
-                className="text-primary hover:underline"
-              >
+              <button onClick={loadSystemHealth} className="text-primary hover:underline">
                 Refresh
               </button>
             </div>

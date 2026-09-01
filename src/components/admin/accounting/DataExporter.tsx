@@ -11,13 +11,31 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Download, FileText, Receipt, CreditCard, DollarSign, Users, Zap } from 'lucide-react';
+import {
+  Loader2,
+  Download,
+  FileText,
+  Receipt,
+  CreditCard,
+  DollarSign,
+  Users,
+  Zap,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
-import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, subYears } from 'date-fns';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+  subMonths,
+  subYears,
+} from 'date-fns';
 
-type ExportType = 'invoices' | 'payments' | 'transactions' | 'journal_entries' | 'contacts' | 'ai_billing' | 'all';
+type ExportType =
+  'invoices' | 'payments' | 'transactions' | 'journal_entries' | 'contacts' | 'ai_billing' | 'all';
 
 interface ExportField {
   key: string;
@@ -129,24 +147,53 @@ export const DataExporter = () => {
   const handleTypeChange = (type: ExportType) => {
     setExportType(type);
     if (type !== 'all' && EXPORT_CONFIGS[type]) {
-      setFields(EXPORT_CONFIGS[type].fields.map(f => ({ ...f })));
+      setFields(EXPORT_CONFIGS[type].fields.map((f) => ({ ...f })));
     }
   };
 
   const toggleField = (key: string) => {
-    setFields(fields.map(f => f.key === key ? { ...f, enabled: !f.enabled } : f));
+    setFields(fields.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f)));
   };
 
   const getDateRange = () => {
     const now = new Date();
     switch (dateRange) {
-      case 'this-month': return { from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd') };
-      case 'last-month': { const lm = subMonths(now, 1); return { from: format(startOfMonth(lm), 'yyyy-MM-dd'), to: format(endOfMonth(lm), 'yyyy-MM-dd') }; }
-      case 'this-year': return { from: format(startOfYear(now), 'yyyy-MM-dd'), to: format(endOfYear(now), 'yyyy-MM-dd') };
-      case 'last-year': { const ly = subYears(now, 1); return { from: format(startOfYear(ly), 'yyyy-MM-dd'), to: format(endOfYear(ly), 'yyyy-MM-dd') }; }
-      case 'all': return { from: '2000-01-01', to: '2099-12-31' };
-      case 'custom': return { from: startDate || format(startOfYear(now), 'yyyy-MM-dd'), to: endDate || format(endOfYear(now), 'yyyy-MM-dd') };
-      default: return { from: format(startOfYear(now), 'yyyy-MM-dd'), to: format(endOfYear(now), 'yyyy-MM-dd') };
+      case 'this-month':
+        return {
+          from: format(startOfMonth(now), 'yyyy-MM-dd'),
+          to: format(endOfMonth(now), 'yyyy-MM-dd'),
+        };
+      case 'last-month': {
+        const lm = subMonths(now, 1);
+        return {
+          from: format(startOfMonth(lm), 'yyyy-MM-dd'),
+          to: format(endOfMonth(lm), 'yyyy-MM-dd'),
+        };
+      }
+      case 'this-year':
+        return {
+          from: format(startOfYear(now), 'yyyy-MM-dd'),
+          to: format(endOfYear(now), 'yyyy-MM-dd'),
+        };
+      case 'last-year': {
+        const ly = subYears(now, 1);
+        return {
+          from: format(startOfYear(ly), 'yyyy-MM-dd'),
+          to: format(endOfYear(ly), 'yyyy-MM-dd'),
+        };
+      }
+      case 'all':
+        return { from: '2000-01-01', to: '2099-12-31' };
+      case 'custom':
+        return {
+          from: startDate || format(startOfYear(now), 'yyyy-MM-dd'),
+          to: endDate || format(endOfYear(now), 'yyyy-MM-dd'),
+        };
+      default:
+        return {
+          from: format(startOfYear(now), 'yyyy-MM-dd'),
+          to: format(endOfYear(now), 'yyyy-MM-dd'),
+        };
     }
   };
 
@@ -154,7 +201,7 @@ export const DataExporter = () => {
     setIsExporting(true);
     try {
       const { from, to } = getDateRange();
-      const enabledFields = fields.filter(f => f.enabled);
+      const enabledFields = fields.filter((f) => f.enabled);
 
       const csvLines: string[] = [];
 
@@ -164,18 +211,18 @@ export const DataExporter = () => {
           const data = await fetchExportData(type, from, to);
           if (data.length > 0) {
             csvLines.push(`\n--- ${config.label} ---`);
-            csvLines.push(config.fields.map(f => f.label).join(','));
-            data.forEach(row => {
-              csvLines.push(config.fields.map(f => escapeCSV(row[f.key])).join(','));
+            csvLines.push(config.fields.map((f) => f.label).join(','));
+            data.forEach((row) => {
+              csvLines.push(config.fields.map((f) => escapeCSV(row[f.key])).join(','));
             });
             csvLines.push('');
           }
         }
       } else {
         const data = await fetchExportData(exportType, from, to);
-        csvLines.push(enabledFields.map(f => f.label).join(','));
-        data.forEach(row => {
-          csvLines.push(enabledFields.map(f => escapeCSV(row[f.key])).join(','));
+        csvLines.push(enabledFields.map((f) => f.label).join(','));
+        data.forEach((row) => {
+          csvLines.push(enabledFields.map((f) => escapeCSV(row[f.key])).join(','));
         });
       }
 
@@ -191,7 +238,11 @@ export const DataExporter = () => {
       toast({ title: 'Export complete', description: `${exportType} data exported successfully` });
     } catch (error) {
       logger.error('Export error:', error);
-      toast({ title: 'Export failed', description: 'Failed to export data', variant: 'destructive' });
+      toast({
+        title: 'Export failed',
+        description: 'Failed to export data',
+        variant: 'destructive',
+      });
     } finally {
       setIsExporting(false);
     }
@@ -222,7 +273,9 @@ export const DataExporter = () => {
                     exportType === key ? 'border-primary bg-primary/5' : 'hover:bg-accent'
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${exportType === key ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <Icon
+                    className={`h-5 w-5 ${exportType === key ? 'text-primary' : 'text-muted-foreground'}`}
+                  />
                   <div>
                     <p className="font-medium text-sm">{config.label}</p>
                   </div>
@@ -235,7 +288,9 @@ export const DataExporter = () => {
                 exportType === 'all' ? 'border-primary bg-primary/5' : 'hover:bg-accent'
               }`}
             >
-              <Download className={`h-5 w-5 ${exportType === 'all' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <Download
+                className={`h-5 w-5 ${exportType === 'all' ? 'text-primary' : 'text-muted-foreground'}`}
+              />
               <div>
                 <p className="font-medium text-sm">Export All</p>
               </div>
@@ -264,7 +319,11 @@ export const DataExporter = () => {
               <>
                 <div className="flex-1">
                   <Label>From</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
                 </div>
                 <div className="flex-1">
                   <Label>To</Label>
@@ -299,7 +358,7 @@ export const DataExporter = () => {
           <Button onClick={exportData} disabled={isExporting} size="lg" className="w-full">
             {isExporting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin mr-2" aria-hidden="true" />
                 Exporting...
               </>
             ) : (
@@ -326,7 +385,11 @@ function escapeCSV(value: any): string {
 }
 
 // Fetch data for export
-async function fetchExportData(type: string, from: string, to: string): Promise<Record<string, any>[]> {
+async function fetchExportData(
+  type: string,
+  from: string,
+  to: string
+): Promise<Record<string, any>[]> {
   switch (type) {
     case 'invoices': {
       const { data, error } = await supabase
@@ -427,10 +490,7 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
     }
 
     case 'contacts': {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('*')
-        .order('contact_name');
+      const { data, error } = await supabase.from('contacts').select('*').order('contact_name');
 
       if (error) throw error;
 
@@ -440,7 +500,9 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
         email: c.email || '',
         phone: c.phone || '',
         company: c.company_name || '',
-        address: [c.address_line_1, c.address_line_2, c.city, c.state, c.postal_code, c.country].filter(Boolean).join(', '),
+        address: [c.address_line_1, c.address_line_2, c.city, c.state, c.postal_code, c.country]
+          .filter(Boolean)
+          .join(', '),
         tax_id: c.tax_id || '',
         payment_terms: c.payment_terms || '',
       }));
@@ -451,11 +513,13 @@ async function fetchExportData(type: string, from: string, to: string): Promise<
       const { data: aiPlatforms, error: aiPlatformsError } = await supabase
         .from('platforms')
         .select('id, name')
-        .or('name.ilike.%openai%,name.ilike.%anthropic%,name.ilike.%claude%,name.ilike.%cursor%,name.ilike.%copilot%,name.ilike.%gemini%,name.ilike.%replicate%,name.ilike.%midjourney%,name.ilike.%lovable%,name.ilike.%replit%');
+        .or(
+          'name.ilike.%openai%,name.ilike.%anthropic%,name.ilike.%claude%,name.ilike.%cursor%,name.ilike.%copilot%,name.ilike.%gemini%,name.ilike.%replicate%,name.ilike.%midjourney%,name.ilike.%lovable%,name.ilike.%replit%'
+        );
 
       if (aiPlatformsError) throw aiPlatformsError;
 
-      const aiPlatformIds = aiPlatforms?.map(p => p.id) || [];
+      const aiPlatformIds = aiPlatforms?.map((p) => p.id) || [];
 
       let query = supabase
         .from('platform_transactions')
