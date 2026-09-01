@@ -797,12 +797,60 @@ work. No client code inserts into any of the four.
 
 Not part of what was authorised, and recorded rather than swept in:
 
-- `amazon_products`, `article_products`, `link_health`, `dashboard_stats_cache` and
-  `amazon_api_throttle` carry `FOR ALL USING (true)` for the public role, so anonymous
-  callers can write and delete, not just read. `amazon_products` and `article_products`
-  are written by `amazon-article-pipeline` on the service role and need only their
-  existing public SELECT policies, so those two look straightforward.
-  `dashboard_stats_cache` is not: `QuickActionsPanel.tsx:244` deletes from it in the
-  browser, so it needs an authenticated policy rather than none.
+- The five `FOR ALL USING (true)` tables are closed; see D3 below.
 - `accounting_documents` grants SELECT, INSERT and UPDATE to any `authenticated` user
   with `USING (true)`, so financial documents are not scoped per user.
+
+## D3. The FOR ALL public policies
+
+Five tables carried `FOR ALL USING (true)` for the public role, which granted anonymous
+callers INSERT, UPDATE and DELETE rather than only reads. With the anon key in the
+frontend bundle that meant anyone could rewrite the Amazon product catalogue, delete the
+article-to-product mappings behind the affiliate pages, or clear the link-health and
+dashboard caches. A wider hole than the audit-table INSERTs closed in D2, since it
+includes deletes.
+
+`supabase/migrations/20260901000004_restrict_for_all_public_policies.sql` drops all
+five. Reads survive without replacement because each table except
+`amazon_api_throttle` already carried its own SELECT policy - `amazon_products` and
+`article_products` public, `link_health` and `dashboard_stats_cache` admin-scoped - so
+dropping the blanket policy leaves the intended read path in place.
+
+Writers were traced first, as in D2:
+
+| table                   | writer                                          | outcome                     |
+| ----------------------- | ----------------------------------------------- | --------------------------- |
+| `amazon_products`       | `amazon-article-pipeline`, service role         | policy dropped              |
+| `article_products`      | same; `AmazonReportImporter.tsx:128` only reads | policy dropped              |
+| `link_health`           | `update_link_health`, SECURITY DEFINER          | policy dropped              |
+| `dashboard_stats_cache` | nothing writes from a client                    | dropped, admin DELETE added |
+| `amazon_api_throttle`   | `claim_amazon_throttle` only                    | dropped, function altered   |
+
+Two needed more than a drop.
+
+`dashboard_stats_cache` is cleared from the browser: the command centre's "Refresh
+Stats" action at `QuickActionsPanel.tsx:243` deletes rows past their `expires_at`.
+That keeps a DELETE policy, scoped to admins to match the SELECT policy already there.
+
+`amazon_api_throttle` had no other policy, so dropping its blanket one leaves it
+reachable only by the service role. The catch is that `claim_amazon_throttle` is
+SECURITY INVOKER, so it runs with the caller's privileges and RLS applies to it; it
+would have worked only for the service role afterwards. A throttle counter has to work
+whoever calls it, and the table is a single row of counters, so the function is now
+SECURITY DEFINER - matching `record_metric` and `update_link_health`, which are both
+defined that way. `ALTER FUNCTION` changes the security attribute and nothing else, so
+the body is untouched, and the function already sets `search_path`, which is the
+safeguard that belongs with SECURITY DEFINER. Nothing in `src` or `supabase/functions`
+calls it today, so this is about not leaving a trap behind rather than fixing a live
+break.
+
+After this, no policy anywhere grants the public role a write. The two `FOR ALL`
+policies left in the schema are scoped by role rather than open: `admin_sessions` is
+`TO service_role` and `media_folders` is `TO authenticated`.
+
+### Still open in this area
+
+`accounting_documents` grants SELECT, INSERT and UPDATE to any `authenticated` user with
+`USING (true)`, so financial documents are not scoped per user. Low risk while
+authentication is admin-whitelisted, and it is a per-user ownership model rather than a
+policy tweak, so it is left recorded.
