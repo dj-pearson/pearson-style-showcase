@@ -290,12 +290,8 @@ These carry `USING (true)` for the public role in the final state. Most are the
 - Correct by design: `contact_submissions`, `support_tickets`, `ai_tool_submissions`,
   `page_visits` (anonymous INSERT only), and the public SELECTs on `articles`,
   `projects`, `ai_tools`, `article_categories`, `ventures`, `profile_settings`.
-- Worth confirming: `system_metrics`, `admin_activity_log`, `secure_vault_access_log`,
-  `email_logs` and `automated_alerts` all allow INSERT from the public role. These are
-  audit and monitoring tables, so a forged row means a poisoned audit trail or a
-  distorted health reading on the command centre. Writers are edge functions on the
-  service role, which bypasses RLS, so restricting these to the service role would
-  likely break nothing.
+- `system_metrics`, `admin_activity_log`, `secure_vault_access_log`, `email_logs` and
+  `automated_alerts` allowed INSERT from the public role. Closed; see D2 below.
 - Also open to the public role for full read and write: `amazon_products`,
   `article_products`, `link_health`, `dashboard_stats_cache`, `amazon_api_throttle`.
 - `accounting_documents` grants SELECT, INSERT and UPDATE to any `authenticated` user
@@ -761,3 +757,52 @@ six assertions fail against the previous divs.
 warnings remain; what is left is 4 `no-redundant-roles`, 3 `no-autofocus`, 2
 `media-has-caption`, 2 `heading-has-content` and 1 `anchor-has-content`, all previously
 assessed as deliberate choices or shadcn wrapper false positives.
+
+## D2. Anonymous writes to the audit and monitoring tables
+
+Dj authorised closing these. Each carried an INSERT policy with `WITH CHECK (true)` and
+no `TO` clause, so it applied to the public role, and the anon key ships in the frontend
+bundle. Anyone could write into the audit trail and the monitoring feed: forged admin
+activity, invented security-alert rows, or fabricated metrics that skew the command
+centre's health reading. Nothing about that requires a login.
+
+`supabase/migrations/20260901000003_restrict_audit_table_inserts.sql` closes it. Every
+writer was traced first, because the fix is only safe if no real path depended on the
+open policy:
+
+| table                     | real writer                                             | outcome                     |
+| ------------------------- | ------------------------------------------------------- | --------------------------- |
+| `system_metrics`          | `public.record_metric`, SECURITY DEFINER                | INSERT policy dropped       |
+| `automated_alerts`        | SECURITY DEFINER functions in the command-centre schema | INSERT policy dropped       |
+| `secure_vault_access_log` | `functions/secure-vault`, service role                  | INSERT policy dropped       |
+| `email_logs`              | `functions/send-notification-email`, service role       | INSERT policy dropped       |
+| `admin_activity_log`      | `admin-auth` on the service role, and the browser       | narrowed to `authenticated` |
+
+Dropping the policy outright is what the first four need rather than a narrower one: the
+service role bypasses RLS, and a SECURITY DEFINER function runs as its owner and
+likewise bypasses it, so neither needs a policy to keep working. A table with no INSERT
+policy simply cannot be written to from a client.
+
+`admin_activity_log` is the exception. `src/lib/security-layers.ts:800` writes to it
+from the browser through `logSecurityEvent`, so it keeps an INSERT policy, narrowed to
+the `authenticated` role. Authentication here is admin-whitelisted, so that is not a
+broad grant.
+
+Checked against the read and update paths that remain: `SystemHealthCard` reads
+`system_metrics`, `SmartAlerts` reads `automated_alerts` and updates it to acknowledge
+an alert. Reads stay admin-scoped and the UPDATE policy is untouched, so both still
+work. No client code inserts into any of the four.
+
+### Still open in this area
+
+Not part of what was authorised, and recorded rather than swept in:
+
+- `amazon_products`, `article_products`, `link_health`, `dashboard_stats_cache` and
+  `amazon_api_throttle` carry `FOR ALL USING (true)` for the public role, so anonymous
+  callers can write and delete, not just read. `amazon_products` and `article_products`
+  are written by `amazon-article-pipeline` on the service role and need only their
+  existing public SELECT policies, so those two look straightforward.
+  `dashboard_stats_cache` is not: `QuickActionsPanel.tsx:244` deletes from it in the
+  browser, so it needs an authenticated policy rather than none.
+- `accounting_documents` grants SELECT, INSERT and UPDATE to any `authenticated` user
+  with `USING (true)`, so financial documents are not scoped per user.
