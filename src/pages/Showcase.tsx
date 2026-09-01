@@ -524,6 +524,7 @@ const Showcase = () => {
     let dot: HTMLDivElement | null = null;
     let ring: HTMLDivElement | null = null;
     let raf = 0;
+    let removeCursorListeners: (() => void) | null = null;
     const pos = { x: innerWidth / 2, y: innerHeight / 2 };
     const ringPos = { x: pos.x, y: pos.y };
 
@@ -546,6 +547,10 @@ const Showcase = () => {
       };
       window.addEventListener('pointermove', onMove, { passive: true });
       window.addEventListener('pointerover', overInteractive, { passive: true });
+      removeCursorListeners = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerover', overInteractive);
+      };
 
       const trail = () => {
         raf = requestAnimationFrame(trail);
@@ -555,7 +560,6 @@ const Showcase = () => {
       };
       trail();
 
-      // cleanup captured below
       root.dataset.cursorInit = 'true';
     }
 
@@ -634,7 +638,7 @@ const Showcase = () => {
       magnetHandlers.forEach((fn) => fn());
       tiltHandlers.forEach((fn) => fn());
       revealIO?.disconnect();
-      // pointer listeners on window
+      removeCursorListeners?.();
       root.dataset.cursorInit = '';
     };
   }, []);

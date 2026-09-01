@@ -10,7 +10,7 @@ scope, and leaves judgement calls for Dj. Verified with `npm run typecheck`,
 | #   | Area                                                                               | Status          |
 | --- | ---------------------------------------------------------------------------------- | --------------- |
 | A   | UI, layout and design-system consistency                                           | first pass done |
-| B   | Frontend correctness: routing, data fetching, loading/error states, effect cleanup | not started     |
+| B   | Frontend correctness: routing, data fetching, loading/error states, effect cleanup | first pass done |
 | C   | Edge functions: auth, input validation, error handling, secrets                    | not started     |
 | D   | Security: RLS, CSRF, sanitization, auth flows                                      | not started     |
 | E   | Accessibility and mobile                                                           | not started     |
@@ -98,3 +98,66 @@ so on a dark surface these headings drop to poor contrast.
 - `src/index.css:1195` - the `animate-bounce` match is inside the
   `.a11y-reduced-motion` block that sets `animation: none !important`. It disables
   bounce rather than adding it.
+
+## B. Frontend correctness
+
+Swept effect cleanup, timers, routing and every `useQuery` / `await supabase` call site.
+
+### Fixed: two window listeners survived unmount on `/showcase`
+
+`src/pages/Showcase.tsx` registered `pointermove` and `pointerover` on `window` for the
+custom cursor, and the cleanup never removed them - it carried the comment
+`// pointer listeners on window` where the calls should have been, next to a
+`// cleanup captured below` note at the registration site. The work was started and
+left unfinished.
+
+Both handlers closed over the cursor `dot`, `ring` and the page root, so navigating
+away from `/showcase` kept those DOM nodes alive and kept running the handler on every
+pointer move for the rest of the session, writing to elements already removed from the
+document. Each return visit added another pair.
+
+The handlers are declared inside an `if (fine)` block, so the fix hoists a
+`removeCursorListeners` disposer into the effect scope and calls it from the cleanup.
+
+### Fixed: date-archive cleanup could delete the wrong meta tag
+
+`src/pages/DateArchive.tsx` appended its own `<meta name="robots" content="noindex,
+nofollow">`, then on unmount removed whatever
+`document.querySelector('meta[name="robots"][content="noindex, nofollow"]')` matched
+first. `src/components/SEO.tsx:113` maintains a single shared `robots` meta and sets it
+to exactly that value on any `noIndex` page, so the cleanup could delete SEO's node
+instead and leak its own - once per visit to a legacy date URL.
+
+It now holds the element it created and calls `metaRobots.remove()`. Covered by
+`src/pages/__tests__/DateArchive.test.tsx`, which fails against the previous
+implementation and passes against this one.
+
+### Open question for Dj
+
+`src/App.tsx:159-160` redirects legacy date URLs for `/2023/*` and `/2025/*` only.
+There is no `/2024/*` or `/2026/*`, so legacy URLs from those years would land on the
+404 page instead of `/news`. Nothing in the repo (`public/_redirects` included)
+references 2024 or 2026 paths, so this may be correct - it depends on which legacy
+URLs actually exist in the crawl data the list was built from. Worth confirming rather
+than adding routes speculatively.
+
+### Checked and sound
+
+- Parameterized queries. All 108 `useQuery` call sites guard on their route
+  param; none fire with an undefined `slug`, `topic`, `tag` or `id`.
+- Supabase error handling. No call site drops the `error` field. Five looked
+  suspicious on a mechanical scan and all five check it - the check just sits past a
+  long insert payload. `SystemHealthCard.tsx` is the good example: it already refuses
+  to read a failed metrics query as "zero errors", and reports degraded instead.
+- Routing. Every page except the homepage is lazily imported, wrapped in both a
+  local `ErrorBoundary` and a `Sentry.ErrorBoundary`, with a catch-all 404.
+- Timer cleanup. The unmatched `setInterval` calls in `lib/registerSW.ts` and
+  `lib/error-alerting.ts` are module singletons that live for the session, and the
+  unmatched `setTimeout` calls are almost all "copied" toast resets. The 10-second
+  `Promise.race` timeouts in `contexts/AuthContext.tsx:267` and `:448` leave a timer
+  pending when the race is won, but `race` keeps the late rejection handled, so it
+  costs one dangling timer and nothing else.
+- `MarkdownRenderer.tsx:316` attaches click and keydown handlers to nodes inside a
+  `dangerouslySetInnerHTML` subtree with no cleanup. React replaces that subtree when
+  `sanitizedHtml` changes, so the handlers go with it, and `src/main.tsx` does not
+  enable `StrictMode`, so there is no double-invoke to stack them.
