@@ -68,22 +68,42 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         external: [],
         output: {
-          manualChunks: {
-            // Separate heavy vendor libraries to reduce initial bundle
-            // These are lazy-loaded via route-based code splitting
-            'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            'ui-vendor': [
-              '@radix-ui/react-dialog',
-              '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-select',
-            ],
-            'icons-vendor': ['lucide-react'],
-            'markdown-vendor': ['react-markdown', 'remark-gfm', 'react-syntax-highlighter'],
-            'charts-vendor': ['recharts'],
-            'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
-            // GSAP animations - separated to reduce initial bundle
-            'gsap-vendor': ['gsap', '@gsap/react'],
+          // Assign chunks by resolved module path rather than by package name.
+          //
+          // The object form let Rollup absorb tiny shared modules into whichever
+          // vendor chunk referenced them first. clsx (about 500 bytes, imported
+          // by src/lib/utils.ts and class-variance-authority) landed inside
+          // charts-vendor, and Vite's preload-helper plus react-dom's commonjs
+          // shim landed inside three-vendor. The entry then statically imported
+          // both chunks to reach them, so index.html modulepreloaded 403 kB of
+          // recharts and 849 kB of three that the homepage never renders.
+          //
+          // Naming the shared utilities explicitly keeps them in their own small
+          // chunk, which is what breaks the edge. Matching on path alone is not
+          // enough: anything left unassigned is still Rollup's choice, and it
+          // chooses the big vendor chunks.
+          manualChunks(id) {
+            // Vite's preload helper is shared by every dynamic import.
+            if (id.includes('vite/preload-helper')) return 'vite-helpers';
+
+            if (!id.includes('node_modules')) return undefined;
+            const inPkg = (...names: string[]) =>
+              names.some((n) => id.includes(`node_modules/${n}/`));
+
+            // Small class-name utilities pulled in by nearly every component.
+            if (inPkg('clsx', 'class-variance-authority', 'tailwind-merge')) return 'utils-vendor';
+
+            if (inPkg('three', '@react-three/fiber', '@react-three/drei')) return 'three-vendor';
+            if (inPkg('react', 'react-dom', 'react-router', 'react-router-dom', 'scheduler'))
+              return 'react-vendor';
+            if (id.includes('node_modules/@radix-ui/')) return 'ui-vendor';
+            if (inPkg('lucide-react')) return 'icons-vendor';
+            if (inPkg('react-markdown', 'remark-gfm', 'react-syntax-highlighter'))
+              return 'markdown-vendor';
+            if (inPkg('recharts')) return 'charts-vendor';
+            if (inPkg('react-hook-form', '@hookform/resolvers', 'zod')) return 'form-vendor';
+            if (inPkg('gsap', '@gsap/react')) return 'gsap-vendor';
+            return undefined;
           },
         },
       },

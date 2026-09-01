@@ -14,7 +14,7 @@ scope, and leaves judgement calls for Dj. Verified with `npm run typecheck`,
 | C   | Edge functions: auth, input validation, error handling, secrets                    | first pass done |
 | D   | Security: RLS, CSRF, sanitization, auth flows                                      | first pass done |
 | E   | Accessibility and mobile                                                           | first pass done |
-| F   | Performance: bundle budgets, lazy loading, re-renders                              | first pass done |
+| F   | Performance: bundle budgets, lazy loading, re-renders                              | fixed           |
 | G   | Data layer: migrations vs. generated types                                         | not started     |
 
 ## Baseline
@@ -411,14 +411,40 @@ This also contradicts what `CLAUDE.md` claims for the architecture ("Three.js
 lazy-loaded only when needed", "Main bundle ~45KB gzipped"). The main bundle is
 177.63 kB gzip.
 
-Attempted and reverted: rewriting `manualChunks` from the object form to a path-matching
-function form. It did shrink the entry, 589.05 to 511.58 kB raw and 150.2 to 124.53 kB
-brotli, but the entry still statically imported both vendor chunks afterwards, and all
-six modulepreload hints disappeared from `index.html`. Same bytes required, discovered
-later - a regression, so it was backed out and the build verified back to baseline.
+Resolved. A throwaway Rollup plugin walking the entry chunk's module graph named the
+cause exactly: `clsx` had been absorbed into `charts-vendor`. It is about 500 bytes and
+is imported by `src/lib/utils.ts` (the `cn()` helper, used by nearly every component)
+and by `class-variance-authority`, so the entry hard-depended on 403 kB of recharts to
+reach it. `three-vendor` was reached the same way, through Vite's `preload-helper` and
+react-dom's commonjs shim.
 
-Pinning the real cause wants `npm run build:analyze`, which this repo already has wired
-to rollup-plugin-visualizer. That is the next step here, not another config guess.
+The object form of `manualChunks` let Rollup place those shared micro-modules inside
+whichever vendor chunk referenced them first. Switching to a path-matching function form
+alone does not fix it - anything left unassigned is still Rollup's choice, and it keeps
+choosing the big chunks. The fix is to name the shared utilities explicitly:
+`clsx`, `class-variance-authority` and `tailwind-merge` into a `utils-vendor` chunk, and
+`vite/preload-helper` into `vite-helpers`.
+
+Measured on the built output and then in Chromium against `vite preview`:
+
+|                                    | before                            | after                                 |
+| ---------------------------------- | --------------------------------- | ------------------------------------- |
+| entry chunk                        | 589.05 kB raw, 177.63 kB gzip     | 490.94 kB raw, 142.28 kB gzip         |
+| `main bundle` (size-limit, brotli) | 150.2 kB                          | 118.68 kB                             |
+| `charts-vendor` on the homepage    | fetched (109.21 kB gzip)          | never fetched                         |
+| `three-vendor` on the homepage     | fetched up front (226.32 kB gzip) | fetched on demand when the orb mounts |
+
+The browser run confirms the behaviour rather than just the byte counts: React mounts
+with no page errors, the hero still renders its canvas, the `Interactive3DOrb` chunk and
+`three-vendor` load only when the orb does, and `charts-vendor` is never requested. All
+four size-limit budgets still pass.
+
+Correcting an earlier note in this document: the first attempt was reported as having
+removed all six `modulepreload` hints from `index.html`. That was a bad grep - the tags
+read `rel="modulepreload" crossorigin href=`, and the pattern used expected
+`modulepreload" href=`. The hints were never lost. Reverting that attempt was still
+right, for the real reason: it shrank the entry without removing either heavy
+dependency, because it never assigned `clsx`.
 
 ### react-syntax-highlighter ships every language
 
