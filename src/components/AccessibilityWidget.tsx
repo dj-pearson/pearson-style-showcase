@@ -118,11 +118,7 @@ const AccessibilityWidget: React.FC = () => {
     announce(`Font size increased to ${Math.round(newSize * 100)}%`);
   };
 
-  const handleToggle = (
-    toggle: () => void,
-    name: string,
-    currentState: boolean
-  ) => {
+  const handleToggle = (toggle: () => void, name: string, currentState: boolean) => {
     toggle();
     announce(`${name} ${currentState ? 'disabled' : 'enabled'}`);
   };
@@ -168,9 +164,7 @@ const AccessibilityWidget: React.FC = () => {
             <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
               <div className="flex items-center gap-2">
                 <Accessibility className="w-5 h-5 text-primary" aria-hidden="true" />
-                <h2 className="text-lg font-semibold text-foreground">
-                  Accessibility
-                </h2>
+                <h2 className="text-lg font-semibold text-foreground">Accessibility</h2>
               </div>
               <button
                 data-close-btn
@@ -192,9 +186,7 @@ const AccessibilityWidget: React.FC = () => {
                 <label className="text-sm font-medium text-foreground flex items-center gap-2">
                   <Type className="w-4 h-4 text-primary" aria-hidden="true" />
                   Text Size
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {fontSizeLabel}
-                  </span>
+                  <span className="ml-auto text-xs text-muted-foreground">{fontSizeLabel}</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <button
@@ -239,11 +231,7 @@ const AccessibilityWidget: React.FC = () => {
                   description="Increase color contrast for better readability"
                   checked={preferences.highContrast}
                   onChange={() =>
-                    handleToggle(
-                      toggleHighContrast,
-                      'High contrast',
-                      preferences.highContrast
-                    )
+                    handleToggle(toggleHighContrast, 'High contrast', preferences.highContrast)
                   }
                 />
                 <ToggleOption
@@ -252,11 +240,7 @@ const AccessibilityWidget: React.FC = () => {
                   description="Minimize animations and transitions"
                   checked={preferences.reducedMotion}
                   onChange={() =>
-                    handleToggle(
-                      toggleReducedMotion,
-                      'Reduced motion',
-                      preferences.reducedMotion
-                    )
+                    handleToggle(toggleReducedMotion, 'Reduced motion', preferences.reducedMotion)
                   }
                 />
                 <ToggleOption
@@ -278,11 +262,7 @@ const AccessibilityWidget: React.FC = () => {
                   description="Increase the cursor size for visibility"
                   checked={preferences.largeCursor}
                   onChange={() =>
-                    handleToggle(
-                      toggleLargeCursor,
-                      'Large cursor',
-                      preferences.largeCursor
-                    )
+                    handleToggle(toggleLargeCursor, 'Large cursor', preferences.largeCursor)
                   }
                 />
               </div>
@@ -322,11 +302,18 @@ const ToggleOption: React.FC<ToggleOptionProps> = ({
 }) => {
   const id = `a11y-${label.toLowerCase().replace(/\s+/g, '-')}`;
 
+  // The switch button's only child is aria-hidden, so it has no content to name
+  // it, and label[for] pointing at a button is named inconsistently across
+  // browsers. aria-labelledby is unambiguous everywhere.
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
       <div className="text-primary flex-shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
-        <label htmlFor={id} className="text-sm font-medium text-foreground cursor-pointer block">
+        <label
+          id={`${id}-label`}
+          htmlFor={id}
+          className="text-sm font-medium text-foreground cursor-pointer block"
+        >
           {label}
         </label>
         <p className="text-xs text-muted-foreground" id={`${id}-desc`}>
@@ -337,6 +324,7 @@ const ToggleOption: React.FC<ToggleOptionProps> = ({
         id={id}
         role="switch"
         aria-checked={checked}
+        aria-labelledby={`${id}-label`}
         aria-describedby={`${id}-desc`}
         onClick={onChange}
         className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${

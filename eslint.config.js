@@ -42,6 +42,16 @@ export default tseslint.config(
       // Deprecated upstream and duplicates label-has-associated-control, which
       // reports the same 49 controls with a usable message.
       "jsx-a11y/label-has-for": "off",
+      // Off after auditing all 17 of its reports. The rule inspects an element's
+      // own subtree and cannot follow htmlFor to a matching id on a sibling, which
+      // is the dominant correct pattern here: `<input id="is_active" />` next to
+      // `<Label htmlFor="is_active">`. Fourteen of the seventeen were correctly
+      // labelled that way. It did catch two real ones (an unlabelled <video> in
+      // MediaLibrary and a hidden file input in BulkImportDialog), both since
+      // fixed, but it will flag every new correctly-labelled control the same way,
+      // so leaving it on buries real findings. Mapping Label via the components
+      // setting makes it worse, not better: it took the count from 16 to 281.
+      "jsx-a11y/control-has-associated-label": "off",
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },

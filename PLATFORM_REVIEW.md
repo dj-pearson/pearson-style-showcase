@@ -355,7 +355,7 @@ same controls as `label-has-associated-control` with a worse message.
 ### The backlog the linter now reports
 
 - 49 `label-has-associated-control`. Cleared in a dedicated pass; see below.
-- 17 `control-has-associated-label`.
+- 17 `control-has-associated-label`. Audited and cleared; see below.
 - 19 `no-static-element-interactions` and `click-events-have-key-events`, all but two
   in admin components.
 - A few known false positives, left alone: `heading-has-content` in `ui/alert.tsx:39`
@@ -598,3 +598,43 @@ Worth recording: the first version of that test queried the render container and
 for the wrong reason. Radix renders the dialog through a portal into `document.body`, so
 the container held no labels at all and "no unassociated labels" was vacuously true. The
 test now queries `document.body` and asserts it found labels before judging them.
+
+## E3. control-has-associated-label
+
+Audited all 17 reports individually rather than treating the count as a backlog.
+Fourteen were false positives on correct code, two were real, and one was the file
+input already handled in the label pass.
+
+### Fixed: three controls with no accessible name
+
+- `src/components/AccessibilityWidget.tsx:336`. A `<button role="switch">` named by a
+  `<label htmlFor>`. `button` is a labelable element, so that is valid HTML, but the
+  button's only child is `aria-hidden`, leaving no content to name it, and naming a
+  button through `label[for]` is handled inconsistently across browsers. It now carries
+  `aria-labelledby` pointing at the label's id, which is unambiguous everywhere. This is
+  the accessibility widget itself, so it is the one place where getting this wrong is
+  most pointed.
+- `src/components/admin/MediaLibrary.tsx:746`. A `<video controls>` preview with no
+  name, sitting next to an `<img>` that does set `alt`. Now takes the same
+  `alt_text || original_name`.
+- `src/components/admin/tasks/BulkImportDialog.tsx:341`. The hidden file input inside
+  the styled upload label. The label pass had annotated it with an eslint-disable
+  because the association was by nesting only. Giving the input an id and the label a
+  matching `htmlFor` makes the association explicit, satisfies both rules, and let the
+  disable comment come back out.
+
+### Rule turned off, with the audit behind it
+
+The remaining 14 are all `<input id="is_active" />` beside `<Label htmlFor="is_active">`
+across the accounting managers, `AIModelConfigManager`, `AmazonReportImporter`,
+`DocumentUpload` and `Showcase.tsx:816`. Each was checked by resolving the control's
+`id` against an `htmlFor` in the same file; all 14 resolve.
+
+`control-has-associated-label` inspects an element's own subtree and cannot follow
+`htmlFor` to a sibling id, so this pattern - the correct one, and the dominant one here -
+will always report. It is now off, with the reasoning recorded in `eslint.config.js`
+next to the rule. Mapping `Label` through the jsx-a11y `components` setting was tried
+first and is worse, not better: it takes the count from 16 to 281, because every
+`<Input>` then counts as a native input needing a label the rule still cannot resolve.
+
+`npm run lint` goes from 342 to 325 warnings, still 0 errors.

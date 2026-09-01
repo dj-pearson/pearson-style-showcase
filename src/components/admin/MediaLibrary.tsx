@@ -113,11 +113,16 @@ type SortField = 'created_at' | 'file_name' | 'file_size' | 'usage_count';
 const MediaIcon = ({ mimeType, className }: { mimeType: string; className?: string }) => {
   const type = getMediaType(mimeType);
   switch (type) {
-    case 'image': return <Image className={className} />;
-    case 'video': return <Video className={className} />;
-    case 'audio': return <Music className={className} />;
-    case 'document': return <FileText className={className} />;
-    default: return <File className={className} />;
+    case 'image':
+      return <Image className={className} />;
+    case 'video':
+      return <Video className={className} />;
+    case 'audio':
+      return <Music className={className} />;
+    case 'document':
+      return <FileText className={className} />;
+    default:
+      return <File className={className} />;
   }
 };
 
@@ -160,7 +165,11 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
   };
 
   // Fetch media assets
-  const { data: mediaData, isLoading: isLoadingMedia, refetch: refetchMedia } = useQuery({
+  const {
+    data: mediaData,
+    isLoading: isLoadingMedia,
+    refetch: refetchMedia,
+  } = useQuery({
     queryKey: ['media-assets', searchOptions],
     queryFn: () => searchMedia(searchOptions),
   });
@@ -264,7 +273,12 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     [uploadMutation, selectedFolder, mode, multiple, toast]
   );
 
-  const { getRootProps, getInputProps, isDragActive, open: openFileDialog } = useDropzone({
+  const {
+    getRootProps,
+    getInputProps,
+    isDragActive,
+    open: openFileDialog,
+  } = useDropzone({
     onDrop,
     accept: acceptedTypes
       ? acceptedTypes.reduce((acc, type) => ({ ...acc, [`${type}/*`]: [] }), {})
@@ -325,12 +339,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
         onClick={() => toggleSelection(asset)}
       >
         {/* Checkbox */}
-        <div
-          className={cn(
-            'absolute z-10',
-            viewMode === 'grid' ? 'top-2 left-2' : 'left-3'
-          )}
-        >
+        <div className={cn('absolute z-10', viewMode === 'grid' ? 'top-2 left-2' : 'left-3')}>
           <Checkbox checked={isSelected} className="bg-background" />
         </div>
 
@@ -399,7 +408,9 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>{formatBytes(asset.file_size)}</span>
                 {asset.width && asset.height && (
-                  <span>{asset.width}×{asset.height}</span>
+                  <span>
+                    {asset.width}×{asset.height}
+                  </span>
                 )}
                 <Badge variant="outline" className="text-xs">
                   {getMediaType(asset.mime_type)}
@@ -608,7 +619,9 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Media</DialogTitle>
-            <DialogDescription>Update media metadata and accessibility information.</DialogDescription>
+            <DialogDescription>
+              Update media metadata and accessibility information.
+            </DialogDescription>
           </DialogHeader>
 
           {editingAsset && (
@@ -617,9 +630,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                 <Label>Title</Label>
                 <Input
                   value={editingAsset.title || ''}
-                  onChange={(e) =>
-                    setEditingAsset({ ...editingAsset, title: e.target.value })
-                  }
+                  onChange={(e) => setEditingAsset({ ...editingAsset, title: e.target.value })}
                   placeholder="Enter a title"
                 />
               </div>
@@ -630,9 +641,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                 </Label>
                 <Input
                   value={editingAsset.alt_text || ''}
-                  onChange={(e) =>
-                    setEditingAsset({ ...editingAsset, alt_text: e.target.value })
-                  }
+                  onChange={(e) => setEditingAsset({ ...editingAsset, alt_text: e.target.value })}
                   placeholder="Describe the image for accessibility"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -656,9 +665,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                 <Label>Caption</Label>
                 <Input
                   value={editingAsset.caption || ''}
-                  onChange={(e) =>
-                    setEditingAsset({ ...editingAsset, caption: e.target.value })
-                  }
+                  onChange={(e) => setEditingAsset({ ...editingAsset, caption: e.target.value })}
                   placeholder="Caption text"
                 />
               </div>
@@ -685,9 +692,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
               }}
               disabled={updateMutation.isPending}
             >
-              {updateMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Save Changes
             </Button>
           </DialogFooter>
@@ -700,8 +705,8 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Media?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deletingAsset?.original_name}"? This action
-              cannot be undone.
+              Are you sure you want to delete "{deletingAsset?.original_name}"? This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -746,6 +751,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                   <video
                     src={previewAsset.public_url || ''}
                     controls
+                    aria-label={previewAsset.alt_text || previewAsset.original_name}
                     className="max-w-full max-h-full"
                   />
                 ) : (

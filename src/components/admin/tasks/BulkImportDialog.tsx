@@ -322,11 +322,7 @@ export const BulkImportDialog = ({
                 <Download className="mr-2 h-4 w-4" />
                 Download Sample CSV
               </Button>
-              {/* The hidden file input is a direct child, so the label is correctly
-                  associated by nesting. jsx-a11y misses it because the label's text
-                  sits inside Button > span, deeper than the rule's default depth. */}
-              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-              <label className="flex-1">
+              <label htmlFor="bulk-import-csv" className="flex-1">
                 <Button
                   variant="default"
                   disabled={(!selectedProject && !createProject) || isImporting}
@@ -339,8 +335,10 @@ export const BulkImportDialog = ({
                   </span>
                 </Button>
                 <input
+                  id="bulk-import-csv"
                   type="file"
                   accept=".csv"
+                  aria-label="Upload CSV"
                   onChange={handleFileUpload}
                   className="hidden"
                   disabled={(!selectedProject && !createProject) || isImporting}
