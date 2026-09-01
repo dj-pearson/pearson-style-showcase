@@ -14,7 +14,7 @@ scope, and leaves judgement calls for Dj. Verified with `npm run typecheck`,
 | C   | Edge functions: auth, input validation, error handling, secrets                    | first pass done |
 | D   | Security: RLS, CSRF, sanitization, auth flows                                      | first pass done |
 | E   | Accessibility and mobile                                                           | first pass done |
-| F   | Performance: bundle budgets, lazy loading, re-renders                              | not started     |
+| F   | Performance: bundle budgets, lazy loading, re-renders                              | first pass done |
 | G   | Data layer: migrations vs. generated types                                         | not started     |
 
 ## Baseline
@@ -384,3 +384,75 @@ same controls as `label-has-associated-control` with a worse message.
   and `animate-pulse` outright.
 - `LoadingSpinner` carries `role="status"`, `aria-busy` and an sr-only label, and after
   the area A pass every loading state in the app routes through it.
+
+## F. Performance
+
+Nothing fixed in this pass. The one substantive finding needs a build investigation
+rather than a config guess, and an attempted fix was measured and backed out.
+
+### The entry chunk drags in 337 kB gzip of vendor code the homepage never uses
+
+The built entry statically imports six vendor chunks, and `dist/index.html`
+modulepreloads all six. Two of them have no business there:
+
+- `charts-vendor` - 403.30 kB raw, 109.34 kB gzip. The entry imports exactly one
+  symbol from it (`import{c as Lf}from"./charts-vendor-*.js"`).
+- `three-vendor` - 849.11 kB raw, 228.52 kB gzip. The entry imports two symbols.
+
+Neither package is reachable from the eager graph in source. `Interactive3DOrb` is
+lazy at `src/pages/Index.tsx:27`, and every recharts consumer (`RevenueChart`,
+`AmazonAffiliateStats`, `FinancialOverview`, `AIBillingTracker`, `ui/chart.tsx`,
+`AmazonPriceTracker`) sits behind the lazily loaded admin dashboards. So these are
+shared transitive helpers that Rollup placed inside those named chunks; reaching them
+now costs the whole chunk. Because the imports are static, the browser must fetch both
+before the entry can execute.
+
+This also contradicts what `CLAUDE.md` claims for the architecture ("Three.js
+lazy-loaded only when needed", "Main bundle ~45KB gzipped"). The main bundle is
+177.63 kB gzip.
+
+Attempted and reverted: rewriting `manualChunks` from the object form to a path-matching
+function form. It did shrink the entry, 589.05 to 511.58 kB raw and 150.2 to 124.53 kB
+brotli, but the entry still statically imported both vendor chunks afterwards, and all
+six modulepreload hints disappeared from `index.html`. Same bytes required, discovered
+later - a regression, so it was backed out and the build verified back to baseline.
+
+Pinning the real cause wants `npm run build:analyze`, which this repo already has wired
+to rollup-plugin-visualizer. That is the next step here, not another config guess.
+
+### react-syntax-highlighter ships every language
+
+`src/components/MarkdownRenderer.tsx:4` imports `{ Prism as SyntaxHighlighter } from
+'react-syntax-highlighter'`, which is the full build with roughly 200 language
+definitions. It is most of `markdown-vendor` at 778.51 kB raw, and that chunk sits at
+218.16 kB of its 240 kB brotli budget - 91% full, the tightest budget in the project.
+
+Two ways out, both with a real trade-off, so neither was applied unilaterally:
+
+- Switch to `prism-light` and `registerLanguage` for a fixed set. Only `json` appears
+  in the seeded article content, but articles are generated at runtime, so any language
+  not registered silently loses highlighting.
+- Lazy-load the highlighter inside `MarkdownRenderer` so it loads only for articles
+  that actually contain a fenced code block. No loss of language coverage, but it makes
+  code-block rendering async on the site's primary content type.
+
+### Budgets are close to their ceilings
+
+All four pass, two with little room: `three-vendor` 186.53 kB of 200 kB (93%),
+`markdown-vendor` 218.16 kB of 240 kB (91%). `main bundle` 150.2 kB of 250 kB and
+`react-vendor` 47.34 kB of 50 kB (95%). A single dependency bump could turn CI red.
+
+### Checked and sound
+
+- Route splitting. Every page except the homepage is lazily imported; the largest
+  route chunks are `AccountingDashboard` at 50.64 kB gzip and `SupportTicketDashboard`
+  at 14.40 kB.
+- React Query defaults at `src/App.tsx:64` are deliberate and sensible: 5 minute
+  `staleTime`, 10 minute `gcTime`, `retry: 1`, `refetchOnWindowFocus: false`.
+- Polling is bounded and documented. `refetchInterval` appears seven times, all on
+  admin or status views at 60 seconds or 5 minutes. React Query does not refetch on an
+  interval while the tab is unfocused, so a backgrounded admin tab is not polling.
+- React Query DevTools are behind `import.meta.env.DEV` (`src/App.tsx:13`), so the
+  dynamic import is statically dropped from production.
+- Production builds emit no source maps unless they are being uploaded to Sentry and
+  deleted afterwards (`vite.config.ts:95`).
