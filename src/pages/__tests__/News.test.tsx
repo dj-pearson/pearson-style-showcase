@@ -68,6 +68,55 @@ describe('News listing', () => {
     expect(unique.size).toBeLessThanOrEqual(12);
   });
 
+  /**
+   * The filters used to run over the current page only, so a category with no
+   * article among the visible twelve looked empty even with matches elsewhere.
+   * Filtering now happens before paging, in the database or over the merged
+   * set, so a category filter narrows the whole archive.
+   */
+  it('filters the whole set, not just the visible page', async () => {
+    mock.setTableResult('articles', { data: [], error: null });
+    const { unmount } = render(<News />, { initialEntries: ['/news'] });
+
+    await waitFor(
+      () => expect(document.querySelectorAll('a[href^="/news/"]').length).toBeGreaterThan(5),
+      { timeout: 5000 }
+    );
+    const unfiltered = new Set(
+      [...document.querySelectorAll('a[href^="/news/"]')].map((a) => a.getAttribute('href'))
+    ).size;
+    unmount();
+
+    // Every built-in article is category CRM, so filtering to a category that
+    // matches nothing must empty the list rather than leave the page as-is.
+    localStorage.setItem('newsFilters_category', 'Nonexistent Category');
+    render(<News />, { initialEntries: ['/news'] });
+
+    await waitFor(() => expect(document.querySelectorAll('a[href^="/news/"]').length).toBe(0), {
+      timeout: 5000,
+    });
+    expect(unfiltered).toBeGreaterThan(0);
+    localStorage.removeItem('newsFilters_category');
+  });
+
+  it('searches beyond the visible page', async () => {
+    mock.setTableResult('articles', { data: [], error: null });
+    // A term that appears in a built-in article's title.
+    localStorage.setItem('newsFilters_search', 'zapier');
+    render(<News />, { initialEntries: ['/news'] });
+
+    await waitFor(
+      () => {
+        const hrefs = [...document.querySelectorAll('a[href^="/news/"]')].map((a) =>
+          a.getAttribute('href')
+        );
+        expect(hrefs.some((href) => href?.includes('zapier'))).toBe(true);
+      },
+      { timeout: 5000 }
+    );
+    localStorage.removeItem('newsFilters_search');
+  });
+
   it('surfaces an error state when the query fails', async () => {
     mock.setTableResult('articles', { data: null, error: { message: 'boom' } });
     render(<News />, { initialEntries: ['/news'] });

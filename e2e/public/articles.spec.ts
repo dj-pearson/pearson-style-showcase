@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/test-base';
+import { STATIC_ARTICLE_SLUGS } from '../../src/lib/static-articles';
 
 /**
  * E2E coverage for the article reading flow:
@@ -8,6 +9,11 @@ import { test, expect } from '../fixtures/test-base';
  * the exact count and a GET for the page of rows. The Article detail page uses
  * `.maybeSingle()`, which sets `Accept: application/vnd.pgrst.object+json`, so
  * we can distinguish the single-row fetch from the list fetch by that header.
+ *
+ * These tests describe the seeded state, so the slug lookup that decides
+ * whether any built-in article is missing (US-084) answers with all of them
+ * present and the merge no-ops. The unseeded state is covered separately, in
+ * "News listing with an empty database" below.
  */
 
 const ARTICLE = {
@@ -36,6 +42,17 @@ test.describe('Article reading flow', () => {
       const request = route.request();
       const method = request.method();
       const accept = request.headers()['accept'] || '';
+
+      // The "which built-in articles are already seeded" lookup: answer that
+      // every one of them is, so this spec exercises plain server pagination.
+      const select = new URL(request.url()).searchParams.get('select');
+      if (method === 'GET' && select === 'slug') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(STATIC_ARTICLE_SLUGS.map((slug) => ({ slug }))),
+        });
+      }
 
       // Count query (HEAD, `count: exact`, `head: true`).
       if (method === 'HEAD') {

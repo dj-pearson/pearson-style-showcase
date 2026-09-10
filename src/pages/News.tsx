@@ -18,11 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Search, Filter, X, Loader2, RefreshCw, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  mergeStaticArticles,
-  sortArticleListing,
-  STATIC_ARTICLE_SLUGS,
-} from '@/lib/static-articles';
+import { sanitizeSearchQuery } from '@/lib/security';
+import { mergeStaticArticles, STATIC_ARTICLE_SLUGS } from '@/lib/static-articles';
 
 /** The columns a listing card needs. Named once so both paths below agree. */
 const LISTING_COLUMNS =
@@ -35,6 +32,37 @@ import { invokeEdgeFunction } from '@/lib/edge-functions';
 type Article = Tables<'articles'>;
 
 const STORAGE_KEY_PREFIX = 'newsFilters';
+
+/**
+ * Applies the sort the reader chose. Kept next to the equivalent server-side
+ * ordering below so the two cannot drift: whichever branch the query takes, the
+ * reader sees the same order.
+ */
+function compareArticles(a: Article, b: Article, sortBy: string): number {
+  switch (sortBy) {
+    case 'oldest':
+      return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+    case 'most-viewed':
+      return (b.view_count || 0) - (a.view_count || 0);
+    case 'title':
+      return a.title.localeCompare(b.title);
+    case 'newest':
+    default:
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  }
+}
+
+/** The in-memory equivalent of the category and search filters below. */
+function matchesFilters(article: Article, search: string, category: string): boolean {
+  const needle = search.trim().toLowerCase();
+  const matchesSearch =
+    !needle ||
+    Boolean(article.title?.toLowerCase().includes(needle)) ||
+    Boolean(article.excerpt?.toLowerCase().includes(needle)) ||
+    Boolean(article.tags?.some((tag) => tag?.toLowerCase().includes(needle)));
+  const matchesCategory = category === 'all' || article.category === category;
+  return matchesSearch && matchesCategory;
+}
 
 const News = () => {
   const [email, setEmail] = useState('');
@@ -65,6 +93,20 @@ const News = () => {
   }, [sortBy]);
 
   const [currentPage, setCurrentPage] = useState(1);
+
+  // The search box drives a database query now, so it is debounced rather than
+  // firing one per keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Any filter change invalidates the page you were on: page 4 of an unfiltered
+  // archive is usually past the end of a filtered one.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, selectedCategory, sortBy]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const PAGE_SIZE = 12;
 
@@ -73,10 +115,55 @@ const News = () => {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['articles', currentPage],
+    queryKey: ['articles', currentPage, debouncedSearch, selectedCategory, sortBy],
     queryFn: async () => {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
+
+      // Narrows a query by the reader's category and search. The search term is
+      // escaped for PostgREST filter syntax before it is interpolated; tags are
+      // matched by containment, so an exact tag hits even when the title does
+      // not mention it.
+      const applyFilters = <T extends { eq: unknown }>(query: T): T => {
+        let next = query as unknown as {
+          eq: (column: string, value: string) => typeof next;
+          or: (filter: string) => typeof next;
+        };
+
+        if (selectedCategory !== 'all') {
+          next = next.eq('category', selectedCategory);
+        }
+
+        const needle = sanitizeSearchQuery(debouncedSearch);
+        if (needle) {
+          next = next.or(`title.ilike.%${needle}%,excerpt.ilike.%${needle}%,tags.cs.{"${needle}"}`);
+        }
+
+        return next as unknown as T;
+      };
+
+      // The mirror of compareArticles. 'newest' keeps featured articles first,
+      // which is the page's default presentation; an explicit sort does not.
+      const applyOrder = <T,>(query: T): T => {
+        const next = query as unknown as {
+          order: (column: string, options?: { ascending: boolean }) => typeof next;
+          range: (from: number, to: number) => unknown;
+        };
+
+        switch (sortBy) {
+          case 'oldest':
+            return next.order('created_at', { ascending: true }) as unknown as T;
+          case 'most-viewed':
+            return next.order('view_count', { ascending: false }) as unknown as T;
+          case 'title':
+            return next.order('title', { ascending: true }) as unknown as T;
+          case 'newest':
+          default:
+            return next
+              .order('featured', { ascending: false })
+              .order('created_at', { ascending: false }) as unknown as T;
+        }
+      };
 
       // Which articles built into the site have no row yet? Bounded to the
       // handful of known slugs, so this is a cheap lookup, and it returns
@@ -101,16 +188,25 @@ const News = () => {
       if (countError) throw countError;
 
       if (missingCount === 0) {
-        const { data, error } = await supabase
-          .from('articles')
-          .select(LISTING_COLUMNS)
-          .eq('published', true)
-          .order('featured', { ascending: false })
-          .order('created_at', { ascending: false })
-          .range(from, to);
+        // Filtering and ordering happen in the database, so the controls cover
+        // every published article rather than the twelve currently on screen.
+        // The count query carries the same filters, or the pager would offer
+        // pages the filtered set does not have.
+        const { count: matchingCount, error: filteredCountError } = await applyFilters(
+          supabase
+            .from('articles')
+            .select('*', { count: 'exact', head: true })
+            .eq('published', true)
+        );
+
+        if (filteredCountError) throw filteredCountError;
+
+        const { data, error } = await applyOrder(
+          applyFilters(supabase.from('articles').select(LISTING_COLUMNS).eq('published', true))
+        ).range(from, to);
 
         if (error) throw error;
-        return { articles: data as Article[], totalCount: count || 0 };
+        return { articles: data as Article[], totalCount: matchingCount ?? count ?? 0 };
       }
 
       // Degraded state (US-074): some articles the site publishes are not in
@@ -129,9 +225,12 @@ const News = () => {
 
       if (error) throw error;
 
-      const merged = sortArticleListing(mergeStaticArticles(data));
+      const merged = (mergeStaticArticles(data) as Article[])
+        .filter((article) => matchesFilters(article, debouncedSearch, selectedCategory))
+        .sort((a, b) => compareArticles(a, b, sortBy));
+
       return {
-        articles: merged.slice(from, to + 1) as Article[],
+        articles: merged.slice(from, to + 1),
         totalCount: merged.length,
       };
     },
@@ -151,45 +250,33 @@ const News = () => {
     return PAGE_SIZE;
   }, [totalCount, currentPage]);
 
-  // Get unique categories for filtering - memoized to prevent recalculation
+  // Categories come from their own query rather than from the current page.
+  // Deriving them from `articles` meant the dropdown only ever offered the
+  // categories that happened to appear on the twelve articles on screen.
+  const { data: categoryRows } = useQuery({
+    queryKey: ['articles', 'categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('category')
+        .eq('published', true);
+
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
   const allCategories = useMemo(() => {
-    if (!articles) return [];
-    return Array.from(new Set(articles.map((a) => a.category))).sort();
-  }, [articles]);
+    const fromDatabase = (categoryRows || []).map((row) => row.category);
+    const fromBuiltIn = mergeStaticArticles([]).map((article) => article.category);
+    return Array.from(new Set([...fromDatabase, ...fromBuiltIn].filter(Boolean))).sort();
+  }, [categoryRows]);
 
-  // Filter articles - memoized to prevent recalculation on every render
-  const filteredArticles = useMemo(() => {
-    if (!articles) return [];
-
-    const searchLower = searchTerm.toLowerCase();
-
-    return articles.filter((article) => {
-      const matchesSearch =
-        article.title?.toLowerCase().includes(searchLower) ||
-        article.excerpt?.toLowerCase().includes(searchLower) ||
-        article.tags?.some((tag) => tag?.toLowerCase().includes(searchLower));
-      const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [articles, searchTerm, selectedCategory]);
-
-  // Sort articles - memoized separately for performance
-  const sortedArticles = useMemo(() => {
-    return [...filteredArticles].sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        case 'oldest':
-          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-        case 'most-viewed':
-          return (b.view_count || 0) - (a.view_count || 0);
-        case 'title':
-          return a.title.localeCompare(b.title);
-        default:
-          return 0;
-      }
-    });
-  }, [filteredArticles, sortBy]);
+  // Both query branches return data already filtered, ordered and paged, so
+  // there is nothing left to do here. Re-filtering the page in the browser is
+  // what made the controls only ever see the twelve articles on screen.
+  const sortedArticles = articles ?? [];
 
   const clearFilters = () => {
     setSearchTerm('');
