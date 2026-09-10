@@ -100,6 +100,42 @@ describe('Article page', () => {
     );
   });
 
+  it('falls back to the prerendered markdown when the row is missing', async () => {
+    // The live state of production for every CRM article (US-074): the page is
+    // prerendered but the database has no row for it.
+    mock.setTableResult('articles', { data: null, error: null });
+    renderArticleAt('why-ai-crm-projects-fail');
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('heading', { name: /Why AI CRM Projects Fail/i })
+        ).toBeInTheDocument(),
+      { timeout: 5000 }
+    );
+    expect(screen.queryByText(/Article Not Found/i)).not.toBeInTheDocument();
+  });
+
+  it('falls back to the prerendered markdown when the fetch fails', async () => {
+    mock.setTableResult('articles', { data: null, error: { message: 'network down' } });
+    renderArticleAt('why-ai-crm-projects-fail');
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('heading', { name: /Why AI CRM Projects Fail/i })
+        ).toBeInTheDocument(),
+      { timeout: 5000 }
+    );
+    expect(screen.queryByText(/didn't load/i)).not.toBeInTheDocument();
+  });
+
+  it('still shows not-found for a slug with no prerendered copy', async () => {
+    mock.setTableResult('articles', { data: null, error: null });
+    renderArticleAt('does-not-exist-anywhere');
+    await waitFor(() => expect(screen.getByText(/Article Not Found/i)).toBeInTheDocument());
+  });
+
   it('injects structured data (JSON-LD) for the article', async () => {
     mock.setTableResult('articles', { data: articleFixture(), error: null });
     renderArticleAt('automating-with-ai');

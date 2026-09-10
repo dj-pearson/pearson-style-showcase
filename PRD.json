@@ -1348,6 +1348,22 @@
       "notes": "The axe guard in e2e/public/accessibility.spec.ts covered six routes and missed the commercial page entirely, along with the topic hub and the two footer links (/faq, /ai-tools) that appear on every page of the site. Extended to ten; all ten pass with zero serious or critical violations.\n\nThen ran a wider one-off audit at every impact level including best-practice tags, which surfaced one real defect the serious/critical gate would never have caught: /connect went from h1 straight to h3, so the four contact cards and the contact form heading were a skipped level for anyone navigating by heading. Promoted all five to h2 - they are siblings directly under the page h1, and the size comes from the mobile-heading-sm class, so nothing moved visually. Re-ran the wider audit across seven routes at every impact level: no violations at all.\n\nVerified: 29 public E2E specs pass, 511 unit tests pass, typecheck clean, 0 lint errors.",
       "id": "US-081",
       "priority": 63
+    },
+    {
+      "title": "Render prerendered articles from markdown when the database has no row",
+      "description": "As a reader following a link to a CRM article, I need the page to show me the article, so that a database that has not been seeded or cannot be reached does not turn a live page into a dead end.",
+      "acceptanceCriteria": [
+        "A prerendered slug with no database row renders the same markdown the page was built from",
+        "A failed fetch falls back to that markdown before showing an error screen",
+        "A slug with no prerendered copy still renders the not-found state",
+        "None of the article bodies reach the initial bundle",
+        "The generated module is committed and a stale one fails the test suite",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "This is the code-side answer to US-074, which is still the live state of production: all twelve CRM articles are prerendered, sitemapped and in the feed, and none exist in the database, so each URL serves a complete article to a crawler and Article Not Found to a human the moment React mounts. Applying the seed migrations remains the right fix and is Dj's to run; this makes the page correct either way, including when Supabase is simply down.\n\nAdded scripts/generate-article-fallback.mjs, which emits src/content/crm-articles.generated.ts from the same content/crm markdown the prerenderer and the seed SQL read, so the three cannot disagree. The article query now resolves in three steps: a row from the database wins; a null row falls back to the markdown; a failed fetch falls back to the markdown before surfacing the error from US-073. A slug with no prerendered copy still gets the not-found state, so the fallback cannot mask a genuinely dead URL.\n\nImported with a dynamic import, so it lands in its own chunk (crm-articles.generated-*.js, 148.65 kB / 48.97 kB gzip) that is fetched only on the fallback path - the entry bundle is unchanged at 118.72 kB brotli against its 250 kB budget, and all five size-limit budgets still pass. The generated file is committed so dev and test runs need no build step, and scripts/__tests__/article-fallback.test.ts regenerates and byte-compares it, so stale copy fails the suite rather than being served to a reader. Added the generate:fallback npm script.\n\nVerified: 518 tests pass across 47 files (7 new), including three that drive the article page with an empty and a failing database and assert the real article renders; article E2E specs pass; build succeeds; typecheck clean; 0 lint errors.",
+      "id": "US-082",
+      "priority": 64
     }
   ]
 }

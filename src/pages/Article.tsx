@@ -33,6 +33,32 @@ import OptimizedImage from '../components/OptimizedImage';
 
 type Article = Tables<'articles'>;
 
+/**
+ * Loads the build-time copy of a prerendered article and shapes it like a row
+ * from the articles table. Imported dynamically so none of the article bodies
+ * reach the initial bundle - the chunk is only fetched on the fallback path.
+ */
+async function loadStaticArticle(slug: string): Promise<Article | null> {
+  try {
+    const { findStaticArticle } = await import('@/content/crm-articles.generated');
+    const staticArticle = findStaticArticle(slug);
+    if (!staticArticle) return null;
+
+    return {
+      ...staticArticle,
+      id: `static-${staticArticle.slug}`,
+      published: true,
+      created_at: `${staticArticle.published_at}T12:00:00.000Z`,
+      updated_at: `${staticArticle.updated_at}T12:00:00.000Z`,
+      image_url: null,
+      social_image_url: null,
+      view_count: 0,
+    } as unknown as Article;
+  } catch {
+    return null;
+  }
+}
+
 const Article = () => {
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const { toast } = useToast();
@@ -56,7 +82,22 @@ const Article = () => {
         .eq('published', true)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        // The prerendered markdown is a usable answer even when the database
+        // is unreachable, so a fetch failure falls through to it rather than
+        // straight to an error screen.
+        const fallback = await loadStaticArticle(slug);
+        if (fallback) return fallback;
+        throw error;
+      }
+
+      // A prerendered slug with no row behind it is the live state of
+      // production for all twelve CRM articles (US-074): the page serves a
+      // complete article to a crawler and, without this, "Article Not Found"
+      // to the human reading it. Render the same markdown the page was built
+      // from instead.
+      if (!data) return (await loadStaticArticle(slug)) ?? null;
+
       return data as Article | null;
     },
     enabled: !!slug,
