@@ -98,7 +98,36 @@ test.describe('Article reading flow', () => {
     await page.goto(`/news/${ARTICLE.slug}`);
     // The detail page provides a link back to the news listing. The link's
     // accessible name comes from its aria-label ("Return to all articles").
-    await page.getByRole('link', { name: /all articles/i }).first().click();
+    await page
+      .getByRole('link', { name: /all articles/i })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/news$/);
+  });
+});
+
+/**
+ * With the default fixture every table returns [], which is the state of
+ * production for the twelve CRM articles (US-074). /news must still list them:
+ * before US-084 the page paginated a server range and the built-in articles
+ * appeared nowhere.
+ */
+test.describe('News listing with an empty database', () => {
+  test('lists the built-in articles', async ({ page }) => {
+    await page.goto('/news');
+    await page.locator('main, h1').first().waitFor({ timeout: 15000 });
+
+    const articleLinks = page.locator('main a[href^="/news/"]');
+    await expect.poll(() => articleLinks.count(), { timeout: 15000 }).toBeGreaterThan(5);
+  });
+
+  test('an article opened from the listing renders its body', async ({ page }) => {
+    await page.goto('/news');
+    const first = page.locator('main a[href^="/news/"]').first();
+    await first.waitFor({ timeout: 15000 });
+    await first.click();
+
+    await expect(page.locator('main h1')).toBeVisible();
+    await expect(page.getByText(/Article Not Found/i)).toHaveCount(0);
   });
 });

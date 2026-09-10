@@ -57,6 +57,9 @@ export function mergeStaticArticles<T extends { slug: string }>(
   return [...fromDatabase, ...missing];
 }
 
+/** Every slug the site can serve from its own build. */
+export const STATIC_ARTICLE_SLUGS: string[] = CRM_ARTICLE_INDEX.map((article) => article.slug);
+
 /**
  * Featured first, then newest. The database queries already order this way, so
  * a merged list has to be re-sorted or the appended entries all land at the end

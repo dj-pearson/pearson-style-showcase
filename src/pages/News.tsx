@@ -18,6 +18,15 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Search, Filter, X, Loader2, RefreshCw, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  mergeStaticArticles,
+  sortArticleListing,
+  STATIC_ARTICLE_SLUGS,
+} from '@/lib/static-articles';
+
+/** The columns a listing card needs. Named once so both paths below agree. */
+const LISTING_COLUMNS =
+  'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +78,20 @@ const News = () => {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      // Which articles built into the site have no row yet? Bounded to the
+      // handful of known slugs, so this is a cheap lookup, and it returns
+      // nothing once the seed migrations have been applied - at which point
+      // every branch below collapses back to plain server-side pagination.
+      const { data: seeded, error: seededError } = await supabase
+        .from('articles')
+        .select('slug')
+        .in('slug', STATIC_ARTICLE_SLUGS);
+
+      if (seededError) throw seededError;
+
+      const seededSlugs = new Set((seeded || []).map((row) => row.slug));
+      const missingCount = STATIC_ARTICLE_SLUGS.filter((slug) => !seededSlugs.has(slug)).length;
+
       // Get total count for pagination
       const { count, error: countError } = await supabase
         .from('articles')
@@ -77,18 +100,40 @@ const News = () => {
 
       if (countError) throw countError;
 
+      if (missingCount === 0) {
+        const { data, error } = await supabase
+          .from('articles')
+          .select(LISTING_COLUMNS)
+          .eq('published', true)
+          .order('featured', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        return { articles: data as Article[], totalCount: count || 0 };
+      }
+
+      // Degraded state (US-074): some articles the site publishes are not in
+      // the database, so a page of rows cannot be paginated on the server -
+      // the additions belong at positions the server knows nothing about.
+      // Fetch the listing columns for everything and page in memory instead.
+      // That is one bounded query over a few hundred small rows, it only runs
+      // while rows are genuinely missing, and it keeps page boundaries exact
+      // rather than approximately right.
       const { data, error } = await supabase
         .from('articles')
-        .select(
-          'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'
-        )
+        .select(LISTING_COLUMNS)
         .eq('published', true)
         .order('featured', { ascending: false })
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return { articles: data as Article[], totalCount: count || 0 };
+
+      const merged = sortArticleListing(mergeStaticArticles(data));
+      return {
+        articles: merged.slice(from, to + 1) as Article[],
+        totalCount: merged.length,
+      };
     },
   });
 
