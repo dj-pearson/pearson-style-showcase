@@ -18,6 +18,7 @@ excerpt: 'You do not get reps to use the CRM by asking harder. Every lever most 
 read_time: '9 min read'
 featured: false
 published: true
+published_at: 2026-08-11
 author: Dan Pearson
 ---
 

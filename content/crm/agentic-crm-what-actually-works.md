@@ -19,6 +19,7 @@ excerpt: 'Agentic CRM works today for narrow, bounded, reviewable tasks and fail
 read_time: '14 min read'
 featured: true
 published: true
+published_at: 2026-08-14
 author: Dan Pearson
 ---
 

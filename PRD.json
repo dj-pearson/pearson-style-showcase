@@ -1166,6 +1166,24 @@
       "notes": "src/pages/Search.tsx. Added relevanceScore/sortByRelevance (exported for test) with TYPE_ORDER tie-break. Article .or() filter now includes content.ilike so body text is searchable (content is filtered on, not selected, so the payload is unchanged). Added a latestRequest ref: each debounced search takes a monotonic id and only applies setResults/setIsLoading when it is still the newest, which fixes results flickering back to a stale set when a short query resolves after a longer one. New debounced effect (400ms) syncs the trimmed query into ?q= with replace:true, using the functional setSearchParams form and a no-op guard when the value is unchanged. window.open for ai_tool results now passes 'noopener,noreferrer'. Three sortByRelevance tests added to src/pages/__tests__/Search.test.tsx. Verified: typecheck clean, 492 tests pass across 45 files, eslint clean on the touched files (one pre-existing autoFocus warning).",
       "id": "US-069",
       "priority": 51
+    },
+    {
+      "title": "Serve a real RSS feed and date every article",
+      "description": "As a reader who subscribes in a feed reader, I need /rss.xml to return a valid RSS document, and as a search crawler I need each article to carry a publication date, so that subscriptions work and articles are ranked with the right recency.",
+      "acceptanceCriteria": [
+        "dist/rss.xml is written at build time as a valid RSS 2.0 document containing every published article",
+        "index.html advertises the feed with link rel=alternate type=application/rss+xml",
+        "public/_headers serves /rss.xml as application/rss+xml and /sitemap.xml as application/xml",
+        "public/_redirects excludes /rss.xml from the SPA catch-all",
+        "Every article carries a published_at date in frontmatter, validated as YYYY-MM-DD at parse time",
+        "Article JSON-LD includes datePublished and dateModified",
+        "Sitemap lastmod for an article reflects its own date, not the build date",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "The React route at src/pages/RSSFeed.tsx could never serve a subscriber: Cloudflare Pages answered /rss.xml with the SPA shell as text/html, so every feed reader got a parse error, and index.html had a comment saying the rel=alternate link was removed for exactly that reason. scripts/prerender.mjs now has writeFeed(), building dist/rss.xml from the same content/crm markdown the pages come from (12 items), with an escapeXml helper kept separate from escapeHtml, deduped categories, and pubDate at 12:00Z so the date does not slide a day west of Greenwich. Backfilled published_at into all 12 markdown files from each file's git add date; scripts/lib/content.mjs now requires published_at and rejects anything that is not YYYY-MM-DD (updated_at is optional, same check). Article schema gained datePublished/dateModified - it previously had neither, which Google asks for on Article rich results. Sitemap <lastmod> for an article now uses its own date instead of the build date. Restored the rel=alternate link in index.html and added _headers content types plus a 1h cache for both XML documents. The /rss.xml and /feed React routes are left in place for in-app navigation; the static file wins in production. Verified: npm run build succeeds (15 routes, 23 sitemap URLs, 12 feed items), dist/rss.xml parses with minidom, typecheck clean, 505 tests pass across 45 files (13 new date assertions), 0 lint errors.",
+      "id": "US-070",
+      "priority": 52
     }
   ]
 }

@@ -19,6 +19,7 @@ excerpt: 'Most AI CRM projects fail for a single reason: they automate the repor
 read_time: '11 min read'
 featured: true
 published: true
+published_at: 2026-08-11
 author: Dan Pearson
 ---
 

@@ -19,6 +19,7 @@ excerpt: 'For most teams under 50 seats, HubSpot Breeze is the better buy — bu
 read_time: '12 min read'
 featured: true
 published: true
+published_at: 2026-08-11
 author: Dan Pearson
 ---
 

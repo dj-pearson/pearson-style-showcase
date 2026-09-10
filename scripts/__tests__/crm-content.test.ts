@@ -13,6 +13,7 @@ interface Article {
     seo_keywords: string[];
     target_keyword: string;
     published: boolean;
+    published_at: string;
   };
   body: string;
 }
@@ -151,5 +152,27 @@ describe('extractFaqs', () => {
 
   it('returns nothing for an article with no FAQ section', () => {
     expect(extractFaqs('## Something else\n\nBody copy.')).toEqual([]);
+  });
+});
+
+/**
+ * published_at is what dates the Article schema, the sitemap <lastmod> and the
+ * RSS <pubDate>. A missing or malformed one ships a feed item dated to the
+ * build, which pushes every old article back to the top of a reader.
+ */
+describe('article dates', () => {
+  it.each(articles.map((a) => [a.meta.slug, a] as const))(
+    '%s carries an ISO published_at',
+    (_slug, article) => {
+      expect(article.meta.published_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isNaN(Date.parse(article.meta.published_at))).toBe(false);
+    }
+  );
+
+  it('has no article dated in the future', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    for (const article of articles) {
+      expect(article.meta.published_at <= today).toBe(true);
+    }
   });
 });

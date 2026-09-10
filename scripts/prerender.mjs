@@ -29,6 +29,9 @@ const DIST = 'dist';
 const SITE = 'https://danpearson.net';
 const IMAGE = `${SITE}/android-chrome-512x512.png`;
 const AUTHOR = 'Dan Pearson';
+const FEED_TITLE = 'Dan Pearson - AI CRM Automation';
+const FEED_DESCRIPTION =
+  'Field notes and teardowns on AI CRM automation: capture-layer automation for revenue teams, and why most AI CRM projects fail.';
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -49,6 +52,19 @@ const escapeHtml = (value) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+
+/**
+ * XML text escaping. Unlike escapeHtml this also escapes the apostrophe, which
+ * matters inside XML attribute values, and it is deliberately kept separate so
+ * a change made for HTML cannot silently produce an invalid feed.
+ */
+const escapeXml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 
 /** Markdown link syntax stripped back to plain text, for schema string fields. */
 const plainText = (value) =>
@@ -170,6 +186,8 @@ function articlePage({ meta, body }) {
       author: { '@id': `${SITE}/#dan-pearson` },
       publisher: { '@id': `${SITE}/#dan-pearson` },
       image: IMAGE,
+      datePublished: meta.published_at,
+      dateModified: meta.updated_at || meta.published_at,
       articleSection: meta.category,
       keywords: meta.seo_keywords.join(', '),
       about: plainText(meta.target_keyword),
@@ -206,6 +224,15 @@ function articlePage({ meta, body }) {
     type: 'article',
     schemas,
     content,
+    lastmod: meta.updated_at || meta.published_at,
+    feed: {
+      title: meta.title,
+      description: meta.excerpt,
+      category: meta.category,
+      tags: meta.tags,
+      author: meta.author,
+      published_at: meta.published_at,
+    },
     sitemap: { priority: meta.featured ? '0.9' : '0.8', changefreq: 'monthly' },
   };
 }
@@ -462,7 +489,7 @@ function writeSitemap(pages) {
     const loc = page.path === '/' ? SITE : `${SITE}${page.path}`;
     entries.set(loc, {
       loc,
-      lastmod: today,
+      lastmod: page.lastmod || today,
       changefreq: page.sitemap.changefreq,
       priority: page.sitemap.priority,
     });
@@ -504,6 +531,70 @@ ${urls.join('\n')}
   return urls.length;
 }
 
+
+// --- feed -----------------------------------------------------------------
+
+/**
+ * Writes dist/rss.xml from the same markdown the pages are built from.
+ *
+ * Why here and not the React route at src/pages/RSSFeed.tsx: a feed reader
+ * issues one HTTP GET and parses the bytes. On Cloudflare Pages the SPA
+ * fallback answers /rss.xml with index.html as text/html, so that route only
+ * ever ran for a human who clicked through in the browser - every actual
+ * subscriber got a parse error. A file in dist is served before the fallback
+ * and with the right content type.
+ */
+function writeFeed(pages) {
+  const items = pages
+    .filter((page) => page.feed)
+    .sort((a, b) => b.feed.published_at.localeCompare(a.feed.published_at))
+    .map((page) => {
+      const url = `${SITE}${page.path}`;
+      // Midday UTC, so the date does not slide backwards a day for readers
+      // west of Greenwich.
+      const pubDate = new Date(`${page.feed.published_at}T12:00:00Z`).toUTCString();
+      const categories = [...new Set([page.feed.category, ...(page.feed.tags || [])])]
+        .filter(Boolean)
+        .map((name) => `      <category>${escapeXml(name)}</category>`)
+        .join('\n');
+
+      return `    <item>
+      <title>${escapeXml(page.feed.title)}</title>
+      <link>${url}</link>
+      <guid isPermaLink="true">${url}</guid>
+      <pubDate>${pubDate}</pubDate>
+      <dc:creator>${escapeXml(page.feed.author)}</dc:creator>
+      <description>${escapeXml(plainText(page.feed.description))}</description>
+${categories}
+    </item>`;
+    });
+
+  const built = new Date().toUTCString();
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>${escapeXml(FEED_TITLE)}</title>
+    <link>${SITE}</link>
+    <description>${escapeXml(FEED_DESCRIPTION)}</description>
+    <language>en-us</language>
+    <lastBuildDate>${built}</lastBuildDate>
+    <ttl>60</ttl>
+    <atom:link href="${SITE}/rss.xml" rel="self" type="application/rss+xml" />
+    <image>
+      <url>${IMAGE}</url>
+      <title>${escapeXml(FEED_TITLE)}</title>
+      <link>${SITE}</link>
+    </image>
+    <copyright>Copyright ${new Date().getFullYear()} ${AUTHOR}. All rights reserved.</copyright>
+${items.join('\n')}
+  </channel>
+</rss>
+`;
+
+  writeFileSync(join(DIST, 'rss.xml'), xml);
+  return items.length;
+}
+
 // --- main -----------------------------------------------------------------
 
 const templatePath = join(DIST, 'index.html');
@@ -543,4 +634,7 @@ for (const page of pages) {
 }
 
 const urlCount = writeSitemap(pages);
-console.log(`prerender: ${pages.length} routes, ${urlCount} sitemap URLs`);
+const itemCount = writeFeed(pages);
+console.log(
+  `prerender: ${pages.length} routes, ${urlCount} sitemap URLs, ${itemCount} feed items`
+);

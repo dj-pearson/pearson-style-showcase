@@ -19,6 +19,7 @@ excerpt: 'Start on Zapier, move to Make when the logic branches, run n8n when yo
 read_time: '12 min read'
 featured: false
 published: true
+published_at: 2026-08-14
 author: Dan Pearson
 ---
 
