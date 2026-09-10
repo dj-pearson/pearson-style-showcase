@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error - plain .mjs build script, no types
-import { renderModule } from '../generate-article-fallback.mjs';
+import { renderModule, renderIndexModule } from '../generate-article-fallback.mjs';
 // @ts-expect-error - plain .mjs helper shared with the build scripts, no types
 import { readArticles } from '../lib/content.mjs';
 import { readFileSync } from 'node:fs';
@@ -15,6 +15,16 @@ describe('crm-articles.generated.ts', () => {
   it('is up to date with content/crm', () => {
     const onDisk = readFileSync('src/content/crm-articles.generated.ts', 'utf8');
     expect(onDisk).toBe(renderModule(readArticles()));
+  });
+
+  it('keeps the bodyless index in step with the markdown too', () => {
+    const onDisk = readFileSync('src/content/crm-article-index.generated.ts', 'utf8');
+    expect(onDisk).toBe(renderIndexModule(readArticles()));
+  });
+
+  it('keeps article bodies out of the index module', () => {
+    const onDisk = readFileSync('src/content/crm-article-index.generated.ts', 'utf8');
+    expect(onDisk).not.toContain('"content"');
   });
 
   it('carries every published article', () => {

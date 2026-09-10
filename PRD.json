@@ -1364,6 +1364,36 @@
       "notes": "This is the code-side answer to US-074, which is still the live state of production: all twelve CRM articles are prerendered, sitemapped and in the feed, and none exist in the database, so each URL serves a complete article to a crawler and Article Not Found to a human the moment React mounts. Applying the seed migrations remains the right fix and is Dj's to run; this makes the page correct either way, including when Supabase is simply down.\n\nAdded scripts/generate-article-fallback.mjs, which emits src/content/crm-articles.generated.ts from the same content/crm markdown the prerenderer and the seed SQL read, so the three cannot disagree. The article query now resolves in three steps: a row from the database wins; a null row falls back to the markdown; a failed fetch falls back to the markdown before surfacing the error from US-073. A slug with no prerendered copy still gets the not-found state, so the fallback cannot mask a genuinely dead URL.\n\nImported with a dynamic import, so it lands in its own chunk (crm-articles.generated-*.js, 148.65 kB / 48.97 kB gzip) that is fetched only on the fallback path - the entry bundle is unchanged at 118.72 kB brotli against its 250 kB budget, and all five size-limit budgets still pass. The generated file is committed so dev and test runs need no build step, and scripts/__tests__/article-fallback.test.ts regenerates and byte-compares it, so stale copy fails the suite rather than being served to a reader. Added the generate:fallback npm script.\n\nVerified: 518 tests pass across 47 files (7 new), including three that drive the article page with an empty and a failing database and assert the real article renders; article E2E specs pass; build succeeds; typecheck clean; 0 lint errors.",
       "id": "US-082",
       "priority": 64
+    },
+    {
+      "title": "List the built-in articles on the topic hub when the database has no rows",
+      "description": "As a reader browsing the AI CRM automation hub, I need to see the articles the site publishes, so that content whose pages render is actually discoverable rather than reachable only by direct link.",
+      "acceptanceCriteria": [
+        "The hub lists articles built into the site that have no database row",
+        "A database row wins over the built-in copy on a slug collision",
+        "An article with no row reports zero views rather than a fabricated number",
+        "Article bodies do not end up in the hub's route chunk",
+        "An E2E test drives the hub against an empty database and follows a link through to a rendered body",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "US-082 made the article pages render without a database row, but every listing on the site still came straight from Supabase, so the twelve CRM articles were reachable only by typing the URL - the hub the commercial page links to was empty. Added src/lib/static-articles.ts with mergeStaticArticles (database row wins on slug, static entries fill the gaps) and sortArticleListing (featured first then newest, since appending to an already-ordered query would otherwise dump the additions at the end), wired into TopicHub.\n\nSplit the generator's output in two for this: crm-articles.generated.ts keeps the bodies for the article page's dynamic import, and a new crm-article-index.generated.ts carries the same articles without them, 15KB instead of 150KB, so a listing page can import it statically. TopicHub's route chunk came out at 22.89 kB / 6.97 kB gzip and the entry bundle is unchanged at 118.73 kB brotli. A test asserts the index module contains no bodies, and both generated files are byte-compared against a fresh render so neither can go stale.\n\nView counts for a row-less article are reported as 0 rather than invented, so the hub's popularity ordering stays honest.\n\nVerified: 526 tests across 48 files (14 new), two new E2E specs that drive the hub against the empty-database fixture - which is the actual state of production - and follow a link through to a rendered article body, plus the 11 accessibility specs still pass. Typecheck clean, 0 lint errors, all size budgets pass.",
+      "id": "US-083",
+      "priority": 65
+    },
+    {
+      "title": "Show the built-in articles on the paginated /news listing",
+      "description": "As a reader browsing all articles, I need the built-in CRM articles to appear in the /news list, so that the main index is not missing twelve published articles.",
+      "acceptanceCriteria": [
+        "/news includes articles that have no database row",
+        "Pagination stays correct: no duplicated or skipped article across page boundaries, and the total count includes them",
+        "Ordering across pages matches the ordering within a page",
+        "Typecheck passes"
+      ],
+      "passes": false,
+      "notes": "NEXT ITERATION CANDIDATE. US-083 merged the built-in articles into TopicHub, which has no pagination and was therefore straightforward. /news is the harder half and was deliberately left alone rather than half-done: src/pages/News.tsx runs a head:true count query for the total and then a .range(from, to) page query, so appending entries client-side after the range has been applied puts them on whichever page happens to be showing and makes the total wrong. Doing it correctly means deciding where the merge happens - either fetch all published rows and paginate client-side (fine at 155 articles, worse as that grows), or keep server pagination and offset the range by the number of static articles that sort ahead of the current page, which is fiddly but keeps the query bounded. Same choice applies to CategoryArchive, TagArchive, AuthorArchive and DateArchive, all of which have the same gap. mergeStaticArticles and sortArticleListing in src/lib/static-articles.ts already exist and are tested; this is about where to call them.",
+      "id": "US-084",
+      "priority": 66
     }
   ]
 }

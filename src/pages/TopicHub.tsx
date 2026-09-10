@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, BookOpen, TrendingUp, Clock, ArrowRight, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { mergeStaticArticles, sortArticleListing } from '@/lib/static-articles';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
@@ -142,8 +143,13 @@ const TopicHub = () => {
 
       if (error) throw error;
 
+      // Include articles that are built into the site but have no database row
+      // yet, so the hub is not empty for content whose pages already render
+      // (US-074/US-082). A database row wins on a slug collision.
+      const merged = sortArticleListing(mergeStaticArticles(data));
+
       // Filter articles that match topic's categories or tags
-      const relevantArticles = (data || []).filter((article) => {
+      const relevantArticles = merged.filter((article) => {
         const matchesCategory = topicConfig.relatedCategories.some(
           (cat) => article.category?.toLowerCase() === cat.toLowerCase()
         );
