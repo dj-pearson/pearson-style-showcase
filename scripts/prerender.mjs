@@ -626,8 +626,14 @@ for (const page of pages) {
     page.content
   );
 
+  // Written as `<route>.html`, not `<route>/index.html`. Cloudflare Pages
+  // serves the first at /route with a 200 and redirects the second to
+  // /route/ - which meant every prerendered page (the money page, the topic
+  // hub, all twelve articles) answered its own canonical URL with a 308 to a
+  // URL the canonical tag and the sitemap do not name. One redirect hop on
+  // exactly the pages built for crawlers that may not follow one.
   const outPath =
-    page.path === '/' ? join(DIST, 'index.html') : join(DIST, page.path.slice(1), 'index.html');
+    page.path === '/' ? join(DIST, 'index.html') : join(DIST, `${page.path.slice(1)}.html`);
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, html);
