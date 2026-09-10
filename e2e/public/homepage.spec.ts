@@ -12,14 +12,16 @@ test.describe('Homepage', () => {
   test('featured content section loads', async ({ page }) => {
     await page.goto('/');
     // The homepage renders its highlighted services/featured content statically.
-    await expect(page.getByText(/Sales Leadership/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Current Ventures/i })).toBeVisible();
   });
 
   test('navigation menu has all expected links', async ({ page }) => {
     await page.goto('/');
     const nav = page.locator('nav').first();
     await expect(nav).toBeVisible();
-    for (const path of ['/about', '/projects', '/news', '/ai-tools', '/connect']) {
+    // Mirrors navItems in src/components/Navigation.tsx. /ai-tools lives in the
+    // footer rather than the primary nav and is covered by the footer test.
+    for (const path of ['/ai-crm-automation', '/projects', '/news', '/about', '/connect']) {
       await expect(nav.locator(`a[href="${path}"]`).first()).toHaveCount(1);
     }
   });
@@ -32,12 +34,12 @@ test.describe('Homepage', () => {
     expect(await footer.locator('a').count()).toBeGreaterThan(0);
   });
 
-  test('passes basic accessibility checks (no serious/critical axe violations)', async ({ page }) => {
+  test('passes basic accessibility checks (no serious/critical axe violations)', async ({
+    page,
+  }) => {
     await page.goto('/');
     await page.locator('h1').first().waitFor();
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
     const serious = results.violations.filter(
       (v) => v.impact === 'serious' || v.impact === 'critical'
     );

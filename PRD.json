@@ -1261,6 +1261,22 @@
       "notes": "Measured against production first: https://danpearson.net/ai-crm-automation, /topics/ai-crm-automation and all twelve /news/<slug> URLs answered 308 to their trailing-slash form, while the canonical tag on the page and the entry in sitemap.xml both name the non-slash URL. So every prerendered page - the money page, the topic hub, the whole CRM set, exactly the pages built for AI crawlers that may not follow a redirect - cost a hop and pointed a crawler back at the URL that had just redirected it. Cause: the prerenderer wrote dist/<route>/index.html, and Cloudflare Pages redirects a directory index to /route/ while serving <route>.html at /route directly (confirmed in their serving-pages docs). One-line change in scripts/prerender.mjs to emit <route>.html; mkdirSync on the dirname already handled the nested /news path.\n\nVerified with `wrangler pages dev dist`, i.e. the real Pages routing runtime rather than a guess: /ai-crm-automation 200 no redirect, /news/why-ai-crm-projects-fail 200 no redirect, and the old /ai-crm-automation/ now 308s to the canonical form so anything already indexed consolidates instead of breaking. The same run also confirmed /rss.xml serves as application/rss+xml, which checks the _headers rule added in US-070. Build output: 15 routes, 23 sitemap URLs, 12 feed items. Typecheck clean, 511 tests pass, 0 lint errors.",
       "id": "US-075",
       "priority": 57
+    },
+    {
+      "title": "Make the E2E suite runnable and green again",
+      "description": "As a developer, I need the Playwright suite to launch and pass, so that it is a signal rather than a wall of red that everyone learns to ignore.",
+      "acceptanceCriteria": [
+        "playwright.config.ts finds a system Chromium automatically when Playwright's pinned build is absent",
+        "The service worker registers only in production builds",
+        "A worker and caches left by a production visit are torn down on a development boot",
+        "All 25 public E2E specs pass under chromium",
+        "Assertions match the current navigation and homepage copy",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "The suite could not start at all: Playwright 1.57 wants chromium_headless_shell-1200 and this image ships 1194, so all 25 public specs failed with 'run npx playwright install' - advice that is wrong in an image that blocks the download. playwright.config.ts now has resolveChromium(), which prefers PLAYWRIGHT_CHROMIUM_PATH, then the highest-numbered chromium build under PLAYWRIGHT_BROWSERS_PATH, then Playwright's own.\n\nWith it running, 4 specs still failed. Three of those were one real defect: src/lib/registerSW.ts called navigator.serviceWorker.register unconditionally, so a service worker was live under `npm run dev`. It intercepted fetches before Playwright's page.route could see them, so the Supabase mocks never applied and the search page sat on 'Searching...' forever - reproduced with a scripted browser session showing the API calls returning 503 from the worker and never reaching the route handler. It is also the classic cause of 'my change isn't showing up' in dev. registerServiceWorker now returns early unless import.meta.env.PROD, and on a dev boot tears down any worker and pearson-portfolio-* cache left by a production visit on the same origin (no reload - that would loop). Confirmed the same failures exist on main, so this was not caused by earlier work in this branch.\n\nThe remaining failures were test rot against a nav that has since changed: the primary nav no longer carries /ai-tools (it is in the footer) and the homepage no longer says 'Sales Leadership'; the mobile menu link is 'About', not 'About Me'. Assertions updated to mirror navItems in src/components/Navigation.tsx.\n\nVerified: 25/25 public E2E specs pass under chromium, 511 unit tests pass, typecheck clean, 0 lint errors.",
+      "id": "US-076",
+      "priority": 58
     }
   ]
 }
