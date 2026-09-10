@@ -1,0 +1,84 @@
+{
+  "project": "pearson-style-showcase",
+  "initiative": "SEO iterative loop",
+  "branchName": "claude/seo-iterative-loop-qemmdz",
+  "description": "One SEO defect fixed per iteration, 15 iterations. Work too large for a single iteration is recorded here with grounded evidence so the next iteration can pick it up without re-auditing. Note: the repo root PRD.json belongs to a separate enterprise-readiness initiative and must not be edited by this loop.",
+  "iterationsPlanned": 15,
+  "iterationsCompleted": 1,
+  "stories": [
+    {
+      "id": "SEO-001",
+      "title": "Fix meta-tag manager: repeated tags, stale tags, clobbered viewport",
+      "status": "done",
+      "iteration": 1,
+      "evidence": "src/components/SEO.tsx wrote article:tag through updateMetaTag in a forEach, which reuses the first matching element, so an article with 5 tags shipped 1. Article and citation meta survived navigation to non-article routes. The effect rewrote name=viewport on every route, dropping viewport-fit=cover from index.html:5. The tags prop was in the effect dependency array by array identity, rerunning the whole DOM write on every render.",
+      "resolution": "Added setMetaTagList for repeatable tags, removeMetaTags (querySelectorAll, not querySelector), an ARTICLE_META_TAGS clear list, unconditional clearing of citation_publication_date/citation_source/abstract, removal of the viewport write, and a content-keyed memo for tags. Covered by src/components/__tests__/SEO.test.tsx (5 tests)."
+    },
+    {
+      "id": "SEO-002",
+      "title": "Replace the stale static sitemap with a generated one",
+      "status": "todo",
+      "priority": 1,
+      "evidence": "public/sitemap.xml holds 9 URLs with lastmod values from 2025-07-15 to 2025-07-24 and no articles. robots.txt points crawlers at https://danpearson.net/sitemap.xml and public/_redirects:10 maps that path to the static file with a 200, so the SitemapXML.tsx route never serves. Every article published since July 2025 is absent from the sitemap Google reads.",
+      "acceptanceCriteria": [
+        "Decide between a build-time generator writing public/sitemap.xml and routing /sitemap.xml to the app; only one source of truth remains",
+        "Generated sitemap includes homepage, main pages, every published article, and the topic/tag/author/category archives",
+        "lastmod reflects each article's updated_at, not the build date",
+        "robots.txt Sitemap line matches the served URL",
+        "Static and dynamic sitemaps cannot disagree - the losing one is deleted",
+        "Typecheck, lint and tests pass"
+      ],
+      "notes": "Likely spans more than one iteration: the generator needs Supabase access at build time or a scheduled edge function. If so, split into SEO-002a (generator) and SEO-002b (wire-up + robots)."
+    },
+    {
+      "id": "SEO-003",
+      "title": "Add SEO meta to the four indexable pages that ship none",
+      "status": "todo",
+      "priority": 2,
+      "evidence": "src/pages/CookiePolicy.tsx, PrivacyPolicy.tsx, TermsOfService.tsx and DateArchive.tsx render no <SEO> component, so each inherits whatever meta the previously viewed route left in the head. RSSFeed.tsx, RobotsTxt.tsx and SitemapXML.tsx also lack it but serve non-HTML and are correctly excluded.",
+      "acceptanceCriteria": [
+        "Each of the four pages renders <SEO> with a title, description and canonical URL specific to that page",
+        "DateArchive builds its title and description from the year/month route params",
+        "Legal pages are indexable; thin or duplicate date archives use noIndex where appropriate",
+        "Typecheck, lint and tests pass"
+      ]
+    },
+    {
+      "id": "SEO-004",
+      "title": "Audit robots.txt Disallow rules for false positives",
+      "status": "todo",
+      "priority": 3,
+      "evidence": "public/robots.txt disallows /2023/ and /2025/. If DateArchive or any legacy article URL lives under a year path, live content is being blocked from indexing. Needs confirmation against App.tsx routes and published article slugs before changing anything.",
+      "acceptanceCriteria": [
+        "Every Disallow rule is matched against the real route table in src/App.tsx",
+        "Rules that block indexable content are removed or narrowed",
+        "Rules that block genuinely thin pages stay, with a comment saying which route they cover"
+      ]
+    },
+    {
+      "id": "SEO-005",
+      "title": "Scope the Google Scholar citation_* meta to article pages",
+      "status": "todo",
+      "priority": 4,
+      "evidence": "src/components/SEO.tsx writes citation_title, citation_author and citation_site_title on every route including the homepage and the contact page. These are Highwire Press tags for scholarly articles; emitting them site-wide is noise at best.",
+      "acceptanceCriteria": [
+        "citation_* tags are emitted only when type === 'article'",
+        "They are cleared on non-article routes",
+        "Test coverage added to src/components/__tests__/SEO.test.tsx"
+      ]
+    },
+    {
+      "id": "SEO-006",
+      "title": "Audit StructuredData output against Google's Rich Results requirements",
+      "status": "todo",
+      "priority": 5,
+      "evidence": "src/components/SEO/StructuredData.tsx is 590 lines covering 14 schema types. Not yet validated - required properties, @id linking between Person/Organization/Article, and duplicate JSON-LD blocks across nested SEO usages are all unverified.",
+      "acceptanceCriteria": [
+        "Each emitted schema type is checked against its required-property list",
+        "Only one JSON-LD script per schema type per page",
+        "Article schema links author and publisher by @id rather than repeating them inline"
+      ],
+      "notes": "Too large for one iteration. Split per schema family: article/person/organization first, then faq/howto/product, then the rest."
+    }
+  ]
+}

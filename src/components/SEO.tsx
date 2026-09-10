@@ -40,6 +40,20 @@ interface SEOProps {
   contentSummary?: string;
 }
 
+// Unlikely to appear inside a tag, so it is safe as a join delimiter.
+const TAG_SEPARATOR = '\u0000';
+
+// Every article-scoped meta tag this component owns. Cleared whenever the
+// current page is not an article so a stale section or publish date from a
+// previously viewed article cannot leak into the next page's markup.
+const ARTICLE_META_TAGS = [
+  'article:published_time',
+  'article:modified_time',
+  'article:section',
+  'article:author',
+  'article:tag',
+] as const;
+
 const SEO = ({
   title = SEO_CONFIG.defaultTitle,
   description = SEO_CONFIG.defaultDescription,
@@ -69,6 +83,12 @@ const SEO = ({
     return truncateDescription(description, 160);
   }, [description]);
 
+  // `tags` arrives as a fresh array on almost every render (callers write
+  // `tags={article.tags || []}`), which would rerun the whole meta-tag effect
+  // each time. Key on the contents instead.
+  const tagsKey = useMemo(() => tags.filter(Boolean).join(TAG_SEPARATOR), [tags]);
+  const tagList = useMemo(() => (tagsKey ? tagsKey.split(TAG_SEPARATOR) : []), [tagsKey]);
+
   // Validate and ensure image URL is absolute
   const absoluteImageUrl = useMemo(() => {
     if (!image) return SEO_CONFIG.defaultImage;
@@ -82,9 +102,15 @@ const SEO = ({
 
     // Helper to update or create meta tags
     const updateMetaTag = (name: string, content: string, isProperty = false) => {
-      if (!content) return; // Skip empty content
-
       const attribute = isProperty ? 'property' : 'name';
+
+      // An empty value means the tag does not apply to this page. Removing it
+      // beats leaving the previous page's value in place.
+      if (!content) {
+        removeMetaTags(name, isProperty);
+        return;
+      }
+
       let element = document.querySelector(`meta[${attribute}="${name}"]`);
 
       if (element) {
@@ -97,13 +123,27 @@ const SEO = ({
       }
     };
 
-    // Helper to remove a meta tag
-    const removeMetaTag = (name: string, isProperty = false) => {
+    // Helper to remove every meta tag with a given name. Repeatable tags such
+    // as article:tag legitimately appear more than once, so this cannot stop
+    // at the first match.
+    function removeMetaTags(name: string, isProperty = false) {
       const attribute = isProperty ? 'property' : 'name';
-      const element = document.querySelector(`meta[${attribute}="${name}"]`);
-      if (element) {
-        element.remove();
-      }
+      document.querySelectorAll(`meta[${attribute}="${name}"]`).forEach((el) => el.remove());
+    }
+
+    // Helper for repeatable tags. Open Graph allows several article:tag
+    // entries, one per keyword; writing them through updateMetaTag would
+    // overwrite the same element and leave only the last tag.
+    const setMetaTagList = (name: string, values: readonly string[], isProperty = false) => {
+      removeMetaTags(name, isProperty);
+      const attribute = isProperty ? 'property' : 'name';
+      values.forEach((value) => {
+        if (!value) return;
+        const element = document.createElement('meta');
+        element.setAttribute(attribute, name);
+        element.setAttribute('content', value);
+        document.head.appendChild(element);
+      });
     };
 
     // Standard meta tags
@@ -111,7 +151,8 @@ const SEO = ({
     updateMetaTag('keywords', keywords);
     updateMetaTag('author', author);
     updateMetaTag('robots', noIndex ? 'noindex, nofollow' : 'index, follow');
-    updateMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+    // The viewport tag is set once in index.html and carries viewport-fit=cover
+    // for iPhone safe areas. Rewriting it per route dropped that.
 
     // Open Graph tags
     updateMetaTag('og:title', title, true);
@@ -135,16 +176,11 @@ const SEO = ({
       if (section) {
         updateMetaTag('article:section', section, true);
       }
-      tags.forEach((tag, index) => {
-        updateMetaTag(`article:tag`, tag, true);
-      });
+      setMetaTagList('article:tag', tagList, true);
       updateMetaTag('article:author', author, true);
     } else {
       // Clean up article tags when not on an article page
-      removeMetaTag('article:published_time', true);
-      removeMetaTag('article:modified_time', true);
-      removeMetaTag('article:section', true);
-      removeMetaTag('article:author', true);
+      ARTICLE_META_TAGS.forEach((name) => removeMetaTags(name, true));
     }
 
     // Twitter Card tags
@@ -160,15 +196,11 @@ const SEO = ({
     updateMetaTag('citation_title', title);
     updateMetaTag('citation_author', author);
     updateMetaTag('citation_site_title', SEO_CONFIG.siteName);
-    if (publishedTime) {
-      updateMetaTag('citation_publication_date', publishedTime);
-    }
-    if (citationSource) {
-      updateMetaTag('citation_source', citationSource);
-    }
-    if (contentSummary) {
-      updateMetaTag('abstract', contentSummary);
-    }
+    // Passing '' clears the tag, so a date or abstract from the last article
+    // does not follow the reader onto the next page.
+    updateMetaTag('citation_publication_date', publishedTime || '');
+    updateMetaTag('citation_source', citationSource || '');
+    updateMetaTag('abstract', contentSummary || '');
 
     // AI attribution: helps LLMs identify content origin
     updateMetaTag('source_organization', SEO_CONFIG.author.company);
@@ -188,10 +220,7 @@ const SEO = ({
     // Cleanup function to remove article-specific meta tags when unmounting
     return () => {
       if (type === 'article') {
-        removeMetaTag('article:published_time', true);
-        removeMetaTag('article:modified_time', true);
-        removeMetaTag('article:section', true);
-        removeMetaTag('article:author', true);
+        ARTICLE_META_TAGS.forEach((name) => removeMetaTags(name, true));
       }
     };
   }, [
@@ -206,7 +235,7 @@ const SEO = ({
     publishedTime,
     modifiedTime,
     section,
-    tags,
+    tagList,
     citationSource,
     contentSummary,
   ]);
