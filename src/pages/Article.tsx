@@ -7,7 +7,17 @@ import MarkdownRenderer from '../components/MarkdownRenderer';
 import { ReadingProgress } from '../components/ReadingProgress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Eye, ArrowLeft, Share2, ExternalLink } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  Eye,
+  ArrowLeft,
+  Share2,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Search as SearchIcon,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
@@ -31,7 +41,9 @@ const Article = () => {
   const {
     data: article,
     isLoading,
+    isFetching,
     error,
+    refetch,
   } = useQuery({
     queryKey: ['article', slug],
     queryFn: async () => {
@@ -163,9 +175,69 @@ const Article = () => {
     );
   }
 
-  if (error || !article) {
+  // A failed fetch and a missing article are different things and used to
+  // share one screen. Telling a reader on a dropped connection that the article
+  // "doesn't exist" is wrong, sends them away from a page that is fine, and -
+  // because the prerendered HTML has already been replaced by this point -
+  // turns a transient outage into a soft 404 for a crawler that renders JS.
+  if (error) {
     return (
       <div className="min-h-screen flex flex-col">
+        <SEO
+          title="Article | Dan Pearson"
+          description="Read the latest insights on AI automation, business development, and technology from Dan Pearson."
+          url={`https://danpearson.net/news/${slug}`}
+          type="article"
+        />
+        <Navigation />
+        <main id="main-content" className="flex-1 pt-20 px-4 md:px-6" role="main">
+          <div className="container mx-auto max-w-4xl">
+            <div className="text-center py-16" role="alert">
+              <h1 className="text-2xl font-bold mb-4">This article didn't load</h1>
+              <p className="text-muted-foreground mb-8">
+                Something went wrong on the way to the server. The article is still there.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button onClick={() => refetch()} disabled={isFetching}>
+                  {isFetching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                      Retrying
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" />
+                      Try again
+                    </>
+                  )}
+                </Button>
+                <Link to="/news" aria-label="Return to news listing">
+                  <Button variant="outline">
+                    <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
+                    Back to News
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!article) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        {/* noIndex: the URL resolved but there is nothing here, so it must not
+            be indexed as a thin page. */}
+        <SEO
+          title="Article Not Found | Dan Pearson"
+          description="The article you're looking for doesn't exist or has been removed."
+          url={`https://danpearson.net/news/${slug}`}
+          type="website"
+          noIndex={true}
+        />
         <Navigation />
         <main id="main-content" className="flex-1 pt-20 px-4 md:px-6" role="main">
           <div className="container mx-auto max-w-4xl">
@@ -174,12 +246,20 @@ const Article = () => {
               <p className="text-muted-foreground mb-8">
                 The article you're looking for doesn't exist or has been removed.
               </p>
-              <Link to="/news" aria-label="Return to news listing">
-                <Button>
-                  <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
-                  Back to News
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link to="/news" aria-label="Return to news listing">
+                  <Button>
+                    <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
+                    Back to News
+                  </Button>
+                </Link>
+                <Link to={`/search?q=${encodeURIComponent(slug)}`}>
+                  <Button variant="outline">
+                    <SearchIcon className="w-4 h-4 mr-2" aria-hidden="true" />
+                    Search for it
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </main>

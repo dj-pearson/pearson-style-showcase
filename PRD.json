@@ -1215,6 +1215,22 @@
       "notes": "BLOCKED ON A DESIGN DECISION - do not implement unilaterally. Sites: index.css:370 (.hero-gradient-text, used on nearly every page heading), Showcase.css:829, AuthorArchive.tsx:137, CategoryArchive.tsx:97, TagArchive.tsx:112, and the Inter stack at index.css:130. Gradient headings are the site's current identity and swapping them is a whole-site visual change; the same goes for the typeface. Both need Dj's call before any code moves. Left out of US-071 for that reason. NEXT ITERATION NOTE: ask rather than implement, or scope it to a single page as a proposal.",
       "id": "US-072",
       "priority": 54
+    },
+    {
+      "title": "Stop telling readers an article does not exist when the fetch failed",
+      "description": "As a reader whose connection or the database hiccuped, I need the article page to say the load failed and offer a retry, so that I am not sent away from a page that is perfectly fine.",
+      "acceptanceCriteria": [
+        "A failed query renders a distinct 'didn't load' state with a working Try again button",
+        "The retry state keeps the article's SEO tags and is not marked noIndex",
+        "A genuinely missing article still renders Article Not Found",
+        "The not-found state is marked noIndex and offers a search for the slug",
+        "Tests cover the failure state, the recovery after a successful retry, and the missing-article state",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "src/pages/Article.tsx had one branch for `error || !article`, so a dropped connection or a Supabase outage told the reader the article doesn't exist and pointed them at /news. That is wrong twice over: the prerendered HTML has already been replaced by the time this renders, so a crawler that executes JS sees a soft 404 for a live article, and the reader is pushed off a working page. Split into two branches: `error` renders a 'This article didn't load' state with a Try again button wired to react-query's refetch (spinner while isFetching) and keeps the article SEO tags; `!article` renders the real not-found state, now with noIndex set and a second button that searches for the slug instead of dead-ending at /news. Both keep role=alert. Four new lucide icons imported (Loader2, RefreshCw, Search). Added two tests: the failure state shows the retry and never shows 'Article Not Found', and clicking Try again after the mock recovers renders the article. Verified: typecheck clean, 507 tests pass, 0 lint errors.",
+      "id": "US-073",
+      "priority": 55
     }
   ]
 }
