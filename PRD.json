@@ -1277,6 +1277,21 @@
       "notes": "The suite could not start at all: Playwright 1.57 wants chromium_headless_shell-1200 and this image ships 1194, so all 25 public specs failed with 'run npx playwright install' - advice that is wrong in an image that blocks the download. playwright.config.ts now has resolveChromium(), which prefers PLAYWRIGHT_CHROMIUM_PATH, then the highest-numbered chromium build under PLAYWRIGHT_BROWSERS_PATH, then Playwright's own.\n\nWith it running, 4 specs still failed. Three of those were one real defect: src/lib/registerSW.ts called navigator.serviceWorker.register unconditionally, so a service worker was live under `npm run dev`. It intercepted fetches before Playwright's page.route could see them, so the Supabase mocks never applied and the search page sat on 'Searching...' forever - reproduced with a scripted browser session showing the API calls returning 503 from the worker and never reaching the route handler. It is also the classic cause of 'my change isn't showing up' in dev. registerServiceWorker now returns early unless import.meta.env.PROD, and on a dev boot tears down any worker and pearson-portfolio-* cache left by a production visit on the same origin (no reload - that would loop). Confirmed the same failures exist on main, so this was not caused by earlier work in this branch.\n\nThe remaining failures were test rot against a nav that has since changed: the primary nav no longer carries /ai-tools (it is in the footer) and the homepage no longer says 'Sales Leadership'; the mobile menu link is 'About', not 'About Me'. Assertions updated to mirror navItems in src/components/Navigation.tsx.\n\nVerified: 25/25 public E2E specs pass under chromium, 511 unit tests pass, typecheck clean, 0 lint errors.",
       "id": "US-076",
       "priority": 58
+    },
+    {
+      "title": "Run the E2E suite in CI",
+      "description": "As a developer, I need Playwright to run on every pull request, so that browser-level breakage is caught by the build instead of discovered months later.",
+      "acceptanceCriteria": [
+        "A separate e2e job runs on pull requests and pushes to main",
+        "It installs chromium with its system dependencies and runs the suite",
+        "The Playwright HTML report is uploaded as an artifact when the run fails",
+        "The job runs in parallel with the existing lint/typecheck/test/build job",
+        "The exact command the job runs passes locally with CI=1"
+      ],
+      "passes": true,
+      "notes": "The suite existed but had never been wired into .github/workflows/ci.yml, which is exactly how it ended up with four specs failing against a navigation that had changed months earlier (US-076). Added an `e2e` job alongside `validate` so it runs in parallel rather than lengthening the critical path: checkout, Node from .nvmrc, npm ci, `npx playwright install --with-deps chromium`, then `npx playwright test --project=chromium`. playwright.config.ts already starts and stops the dev server itself with dummy Supabase env, and every spec mocks its network calls, so no services are needed on the runner. On failure the e2e-results HTML report uploads as an artifact with a 7-day retention - without it a CI-only failure is undiagnosable, since that is where the trace, screenshot and page snapshot live.\n\nChromium only. Firefox roughly doubles wall clock and has not caught anything chromium missed on this codebase; if that changes, add it as a matrix entry. Verified by running the job's exact command with CI=1 locally: 38/38 specs pass in 4.6 minutes, and the workflow file parses with both jobs and all six steps present.",
+      "id": "US-077",
+      "priority": 59
     }
   ]
 }
