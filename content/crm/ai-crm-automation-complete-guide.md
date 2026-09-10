@@ -20,6 +20,7 @@ excerpt: 'AI CRM automation means using language models and agents to do the CRM
 read_time: '14 min read'
 featured: true
 published: true
+published_at: 2026-08-11
 author: Dan Pearson
 ---
 

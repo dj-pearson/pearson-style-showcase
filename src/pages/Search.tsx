@@ -1,5 +1,5 @@
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
@@ -33,12 +33,41 @@ interface SearchResult {
   image_url?: string;
 }
 
+// Ordering weights: an exact title hit should always beat a body-text hit,
+// and within the same weight articles come before projects and tools.
+const TYPE_ORDER: Record<SearchResult['type'], number> = {
+  article: 0,
+  project: 1,
+  ai_tool: 2,
+};
+
+function relevanceScore(result: SearchResult, needle: string): number {
+  const title = result.title?.toLowerCase() ?? '';
+  if (title === needle) return 0;
+  if (title.startsWith(needle)) return 1;
+  if (title.includes(needle)) return 2;
+  if (result.tags?.some((tag) => tag.toLowerCase().includes(needle))) return 3;
+  const body = (result.excerpt || result.description || '').toLowerCase();
+  if (body.includes(needle)) return 4;
+  return 5;
+}
+
+export function sortByRelevance(results: SearchResult[], needle: string): SearchResult[] {
+  return [...results].sort((a, b) => {
+    const diff = relevanceScore(a, needle) - relevanceScore(b, needle);
+    return diff !== 0 ? diff : TYPE_ORDER[a.type] - TYPE_ORDER[b.type];
+  });
+}
+
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [query, setQuery] = useState((searchParams.get('q') || '').trim().substring(0, 200));
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Monotonic id for the in-flight search. A slow earlier query must never
+  // overwrite the results of a later one.
+  const latestRequest = useRef(0);
 
   // Update query from URL parameter (with length bounds)
   useEffect(() => {
@@ -56,6 +85,7 @@ const Search = () => {
         return;
       }
 
+      const requestId = ++latestRequest.current;
       setIsLoading(true);
 
       try {
@@ -79,7 +109,9 @@ const Search = () => {
           .from('articles')
           .select('id, title, excerpt, slug, category, tags, image_url')
           .eq('published', true)
-          .or(`title.ilike.%${sanitized}%,excerpt.ilike.%${sanitized}%`)
+          .or(
+            `title.ilike.%${sanitized}%,excerpt.ilike.%${sanitized}%,content.ilike.%${sanitized}%`
+          )
           .limit(10);
 
         if (articlesError) logger.error('Search articles query failed:', articlesError);
@@ -115,12 +147,13 @@ const Search = () => {
           ...(aiTools?.map((t) => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
         ];
 
-        setResults(combined);
+        if (requestId !== latestRequest.current) return;
+        setResults(sortByRelevance(combined, query.trim().toLowerCase()));
       } catch (error) {
         logger.error('Search error:', error);
-        setResults([]);
+        if (requestId === latestRequest.current) setResults([]);
       } finally {
-        setIsLoading(false);
+        if (requestId === latestRequest.current) setIsLoading(false);
       }
     };
 
@@ -130,6 +163,30 @@ const Search = () => {
 
     return () => clearTimeout(timer);
   }, [query]);
+
+  // Keep ?q= in step with what has been typed, so a result list can be
+  // shared, bookmarked, or reached again with the back button.
+  useEffect(() => {
+    const trimmed = query.trim();
+    const timer = setTimeout(() => {
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          if (trimmed) {
+            if (next.get('q') === trimmed) return next;
+            next.set('q', trimmed);
+          } else {
+            if (!next.has('q')) return next;
+            next.delete('q');
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [query, setSearchParams]);
 
   // Handle search submit
   const handleSearch = (e: React.FormEvent) => {
@@ -146,7 +203,7 @@ const Search = () => {
     } else if (result.type === 'project') {
       navigate(`/projects#project-${result.id}`);
     } else if (result.type === 'ai_tool' && result.url) {
-      window.open(result.url, '_blank');
+      window.open(result.url, '_blank', 'noopener,noreferrer');
     }
   };
 

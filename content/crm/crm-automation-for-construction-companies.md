@@ -28,6 +28,7 @@ excerpt: 'Construction breaks generic CRM automation for three specific reasons:
 read_time: '13 min read'
 featured: false
 published: true
+published_at: 2026-08-14
 author: Dan Pearson
 ---
 

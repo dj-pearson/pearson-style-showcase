@@ -4,6 +4,17 @@
  */
 
 export function registerServiceWorker() {
+  // Production only. A worker running under `npm run dev` serves the app shell
+  // and assets from its own cache, which is how "my change isn't showing up"
+  // happens, and it intercepts fetches before Playwright's page.route can see
+  // them - which silently broke the Supabase mocking the E2E suite depends on.
+  // Anything left behind by a production visit on the same origin is torn down
+  // here rather than left running.
+  if (!import.meta.env.PROD) {
+    void teardownDevelopmentWorker();
+    return;
+  }
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
@@ -225,6 +236,32 @@ async function performStaleAssetsRecovery() {
     console.error('[SW] Recovery failed:', error);
     // Fallback to simple reload
     window.location.reload();
+  }
+}
+
+/**
+ * Removes any service worker and its caches on this origin. Called on every
+ * non-production boot so a worker registered by a production build (or an
+ * earlier dev session) cannot keep serving stale assets or swallowing
+ * requests. Deliberately does not reload: a reload here would loop.
+ */
+async function teardownDevelopmentWorker() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      if (registrations.length) {
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        console.log('[SW] Development build: unregistered', registrations.length, 'worker(s)');
+      }
+    }
+
+    if ('caches' in window) {
+      const names = await caches.keys();
+      const ours = names.filter((name) => name.startsWith('pearson-portfolio-'));
+      await Promise.all(ours.map((name) => caches.delete(name)));
+    }
+  } catch (error) {
+    console.warn('[SW] Development teardown failed:', error);
   }
 }
 

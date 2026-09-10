@@ -102,11 +102,18 @@ const HeroSection = () => {
       );
 
       // Animate Description
+      //
+      // Slide only, no opacity. This paragraph is the page's LCP element, and
+      // it sits one second deep in the timeline: fading it from 0 held the
+      // largest text on the homepage invisible until ~1s after hydration and
+      // pushed LCP to 5.3s against 3.4s for pages with no hero animation at
+      // all. It also meant the prerendered copy, already painted, blanked and
+      // faded back in on hydration. Sliding an element that is already visible
+      // reads the same and paints immediately.
       tl.from(
         descRef.current,
         {
           y: 30,
-          opacity: 0,
           duration: 1,
           ease: 'power2.out',
         },

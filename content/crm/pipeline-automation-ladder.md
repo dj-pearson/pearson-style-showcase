@@ -19,6 +19,7 @@ excerpt: 'Five rungs, from a CRM nobody updates to a revenue system that maintai
 read_time: '13 min read'
 featured: true
 published: true
+published_at: 2026-08-14
 author: Dan Pearson
 ---
 

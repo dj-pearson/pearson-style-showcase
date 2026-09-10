@@ -22,6 +22,7 @@ const REQUIRED_FIELDS = [
   'read_time',
   'featured',
   'published',
+  'published_at',
   'seo_title',
   'seo_description',
   'seo_keywords',
@@ -125,6 +126,15 @@ export function parseFrontmatter(raw, file) {
   }
   if (!body.trim()) {
     throw new Error(`${file}: empty body`);
+  }
+  // published_at feeds datePublished in the Article schema, <lastmod> in the
+  // sitemap and <pubDate> in the RSS feed, all of which are date-typed. A
+  // free-form string there would ship a malformed feed rather than fail here.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(meta.published_at)) {
+    throw new Error(`${file}: published_at must be YYYY-MM-DD, got "${meta.published_at}"`);
+  }
+  if (meta.updated_at !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(meta.updated_at)) {
+    throw new Error(`${file}: updated_at must be YYYY-MM-DD, got "${meta.updated_at}"`);
   }
 
   return { meta, body: body.trim() };

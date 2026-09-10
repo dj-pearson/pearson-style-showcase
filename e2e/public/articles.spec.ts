@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/test-base';
+import { STATIC_ARTICLE_SLUGS } from '../../src/lib/static-articles';
 
 /**
  * E2E coverage for the article reading flow:
@@ -8,6 +9,11 @@ import { test, expect } from '../fixtures/test-base';
  * the exact count and a GET for the page of rows. The Article detail page uses
  * `.maybeSingle()`, which sets `Accept: application/vnd.pgrst.object+json`, so
  * we can distinguish the single-row fetch from the list fetch by that header.
+ *
+ * These tests describe the seeded state, so the slug lookup that decides
+ * whether any built-in article is missing (US-084) answers with all of them
+ * present and the merge no-ops. The unseeded state is covered separately, in
+ * "News listing with an empty database" below.
  */
 
 const ARTICLE = {
@@ -36,6 +42,17 @@ test.describe('Article reading flow', () => {
       const request = route.request();
       const method = request.method();
       const accept = request.headers()['accept'] || '';
+
+      // The "which built-in articles are already seeded" lookup: answer that
+      // every one of them is, so this spec exercises plain server pagination.
+      const select = new URL(request.url()).searchParams.get('select');
+      if (method === 'GET' && select === 'slug') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(STATIC_ARTICLE_SLUGS.map((slug) => ({ slug }))),
+        });
+      }
 
       // Count query (HEAD, `count: exact`, `head: true`).
       if (method === 'HEAD') {
@@ -98,7 +115,36 @@ test.describe('Article reading flow', () => {
     await page.goto(`/news/${ARTICLE.slug}`);
     // The detail page provides a link back to the news listing. The link's
     // accessible name comes from its aria-label ("Return to all articles").
-    await page.getByRole('link', { name: /all articles/i }).first().click();
+    await page
+      .getByRole('link', { name: /all articles/i })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/news$/);
+  });
+});
+
+/**
+ * With the default fixture every table returns [], which is the state of
+ * production for the twelve CRM articles (US-074). /news must still list them:
+ * before US-084 the page paginated a server range and the built-in articles
+ * appeared nowhere.
+ */
+test.describe('News listing with an empty database', () => {
+  test('lists the built-in articles', async ({ page }) => {
+    await page.goto('/news');
+    await page.locator('main, h1').first().waitFor({ timeout: 15000 });
+
+    const articleLinks = page.locator('main a[href^="/news/"]');
+    await expect.poll(() => articleLinks.count(), { timeout: 15000 }).toBeGreaterThan(5);
+  });
+
+  test('an article opened from the listing renders its body', async ({ page }) => {
+    await page.goto('/news');
+    const first = page.locator('main a[href^="/news/"]').first();
+    await first.waitFor({ timeout: 15000 });
+    await first.click();
+
+    await expect(page.locator('main h1')).toBeVisible();
+    await expect(page.getByText(/Article Not Found/i)).toHaveCount(0);
   });
 });

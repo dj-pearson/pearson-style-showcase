@@ -52,7 +52,7 @@ const Connect = () => {
               {/* Contact Information */}
               <div className="order-1 lg:order-2 space-y-5">
                 <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
-                  <h3 className="mobile-heading-sm mb-3">Email</h3>
+                  <h2 className="mobile-heading-sm mb-3">Email</h2>
                   <p className="text-base sm:text-base text-muted-foreground mb-4 leading-relaxed">
                     Drop me an email for project inquiries or collaboration opportunities.
                   </p>
@@ -65,7 +65,7 @@ const Connect = () => {
                 </div>
 
                 <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
-                  <h3 className="mobile-heading-sm mb-3">LinkedIn</h3>
+                  <h2 className="mobile-heading-sm mb-3">LinkedIn</h2>
                   <p className="text-base sm:text-base text-muted-foreground mb-4 leading-relaxed">
                     Connect with me professionally and see my latest updates.
                   </p>
@@ -86,7 +86,7 @@ const Connect = () => {
                 </div>
 
                 <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
-                  <h3 className="mobile-heading-sm mb-3">Response Time</h3>
+                  <h2 className="mobile-heading-sm mb-3">Response Time</h2>
                   <p className="text-base sm:text-base text-muted-foreground leading-relaxed">
                     I typically respond to messages within 24 hours. For urgent matters, feel free
                     to reach out directly via email.
@@ -97,7 +97,7 @@ const Connect = () => {
                 <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
                   <CardContent className="mobile-card text-center">
                     <Calendar className="w-12 h-12 mx-auto mb-4 text-primary" />
-                    <h3 className="mobile-heading-sm mb-3">Schedule a Call</h3>
+                    <h2 className="mobile-heading-sm mb-3">Schedule a Call</h2>
                     <p className="text-base text-muted-foreground mb-4">
                       Prefer to talk? Book a 15-minute intro call to discuss your project.
                     </p>

@@ -73,3 +73,47 @@ jobs:
           VITE_SUPABASE_URL: http://localhost:54321
           VITE_SUPABASE_ANON_KEY: test-anon-key
           VITE_FUNCTIONS_URL: http://localhost:54321/functions/v1
+
+  # The Playwright suite covers what the unit tests structurally cannot: the app
+  # booting in a real browser, GSAP-animated menus settling visible, axe-core on
+  # every public route, and the admin auth redirects. It had never run here, and
+  # by the time it was next executed four specs were failing against a
+  # navigation that had changed months earlier (US-076). A suite nobody runs is
+  # not a safety net. Chromium only - Firefox doubles the wall clock and has
+  # never caught a failure chromium missed on this codebase.
+  e2e:
+    name: E2E (Playwright, chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --with-deps pulls the system libraries the browser needs on the runner.
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts starts and stops the dev server itself, with dummy
+      # Supabase env; the specs mock every network call.
+      - name: Run E2E tests
+        run: npx playwright test --project=chromium
+
+      # The HTML report is where a CI-only failure is actually diagnosable:
+      # it carries the trace, the screenshot and the page snapshot.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e-results
+          retention-days: 7

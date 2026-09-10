@@ -855,14 +855,26 @@
     animation: fadeIn 0.2s ease-in-out;
   }
 
+  /* Severity reads from the tint and the border hue, not from a thick side
+     rule. One hairline border carries the whole edge. */
   .status-message[role='alert'] {
-    border-left: 4px solid hsl(0 90% 60%);
+    border: 1px solid hsl(0 90% 60% / 0.45);
     background: hsl(0 90% 60% / 0.1);
+    color: hsl(0 75% 35%);
   }
 
   .status-message[role='status'] {
-    border-left: 4px solid hsl(195 100% 50%);
+    border: 1px solid hsl(195 100% 50% / 0.45);
     background: hsl(195 100% 50% / 0.1);
+    color: hsl(195 90% 25%);
+  }
+
+  .dark .status-message[role='alert'] {
+    color: hsl(0 90% 82%);
+  }
+
+  .dark .status-message[role='status'] {
+    color: hsl(195 90% 80%);
   }
 
   @keyframes fadeIn {

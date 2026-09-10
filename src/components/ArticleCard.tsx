@@ -38,7 +38,7 @@ export const ArticleCard = React.memo(
             {article.featured && (
               <Badge
                 variant="secondary"
-                className="absolute top-2 right-2 bg-yellow-500/90 text-yellow-900 border-yellow-500 text-xs"
+                className="absolute top-2 right-2 bg-yellow-500/90 text-yellow-950 border-yellow-500 text-xs"
               >
                 Featured
               </Badge>
@@ -57,7 +57,7 @@ export const ArticleCard = React.memo(
             {!article.image_url && article.featured && (
               <Badge
                 variant="secondary"
-                className="bg-yellow-500/90 text-yellow-900 border-yellow-500 text-xs"
+                className="bg-yellow-500/90 text-yellow-950 border-yellow-500 text-xs"
               >
                 Featured
               </Badge>
@@ -76,7 +76,7 @@ export const ArticleCard = React.memo(
         <CardContent className="p-3 sm:p-4 pt-0">
           <div className="space-y-3 sm:space-y-4">
             {/* Meta info - Mobile optimized with wrapping */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-400">
               <div className="flex items-center gap-1">
                 <Calendar className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                 <span className="truncate">{formatDate(article.created_at!)}</span>

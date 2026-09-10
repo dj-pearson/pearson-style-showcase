@@ -11,6 +11,8 @@
     "build": "vite build && node scripts/prerender.mjs",
     "build:analyze": "ANALYZE=true vite build",
     "prerender": "node scripts/prerender.mjs",
+    "verify:content": "node scripts/verify-content.mjs",
+    "generate:fallback": "node scripts/generate-article-fallback.mjs",
     "build:dev": "vite build --mode development",
     "build:pages": "npm ci && vite build && node scripts/prerender.mjs",
     "lint": "eslint .",

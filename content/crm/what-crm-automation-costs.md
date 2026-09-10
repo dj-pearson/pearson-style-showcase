@@ -19,6 +19,7 @@ excerpt: 'A first capture-layer build for a 20-seat team lands somewhere between
 read_time: '12 min read'
 featured: false
 published: true
+published_at: 2026-08-14
 author: Dan Pearson
 ---
 

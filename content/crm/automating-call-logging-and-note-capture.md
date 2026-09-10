@@ -19,6 +19,7 @@ excerpt: 'Call and meeting capture is the first path worth automating, and rough
 read_time: '14 min read'
 featured: true
 published: true
+published_at: 2026-08-14
 author: Dan Pearson
 ---
 

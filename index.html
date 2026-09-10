@@ -114,16 +114,17 @@
     <!-- Canonical URL (default, updated by React for specific pages) -->
     <link rel="canonical" href="https://danpearson.net" />
 
-    <!-- RSS Feed:
-      The former <link rel="alternate" href="/rss.xml"> was removed because no
-      valid RSS document is deployed at that path. The RSS feed is generated
-      client-side from the database (src/pages/RSSFeed.tsx) and, on a static
-      SPA host (Cloudflare Pages) with no SSR/edge rendering, /rss.xml only
-      returns the HTML app shell with a text/html content-type - which RSS
-      readers cannot parse. Advertising it produced a broken feed contract.
-      The human-facing feed remains reachable at /feed. Re-add this link only
-      once /rss.xml is served as real application/rss+xml (e.g. a Supabase edge
-      function or a build-time snapshot). -->
+    <!-- RSS Feed: scripts/prerender.mjs writes a real RSS 2.0 document to
+      dist/rss.xml at build time, which Cloudflare Pages serves as a static
+      asset ahead of the SPA fallback. This link was previously removed because
+      /rss.xml only returned the HTML app shell; it is safe to advertise now
+      that a valid feed is deployed there. -->
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Dan Pearson - AI CRM Automation"
+      href="/rss.xml"
+    />
 
     <!-- Default SEO meta tags (used by crawlers that don't execute JS) -->
     <meta name="keywords" content="AI CRM automation, CRM automation consultant, capture-layer automation, agentic CRM, CRM data quality, RevOps, sales automation, HubSpot automation, Salesforce automation, pipeline forecasting" />

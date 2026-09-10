@@ -1149,6 +1149,268 @@
       "priority": 48,
       "passes": true,
       "notes": "Documentation and env-var accuracy fixes:\nAC1: Verified .env.example already documents all six named VITE_ vars (VITE_SENTRY_DSN, VITE_ERROR_TRACKING_ENDPOINT, VITE_ERROR_SAMPLE_RATE, VITE_LOG_LEVEL, VITE_BUILD_VERSION, VITE_ERROR_TRACKING_DEV) plus the rest actually referenced in code (VITE_SUPABASE_URL/ANON_KEY, VITE_FUNCTIONS_URL, VITE_SENTRY_ENVIRONMENT, VITE_LOG_ENDPOINT) and the build-time-only Sentry secrets. Cross-checked every `import.meta.env.VITE_*` reference in src/ (11 distinct vars) against .env.example — all present and commented with placeholders. No additions needed.\nAC2: Fixed README.md Cloudflare deploy section which falsely claimed 'No environment variables required for basic deployment' / 'Supabase configuration is handled via hardcoded public keys'. src/integrations/supabase/client.ts throws on startup if VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is unset, so the section now states these vars are REQUIRED (set in Cloudflare Pages env settings and locally in .env) and links to the Environment Variables section and .env.example.\nAC3: Fixed tools/automated-testing/README.md which assumed the Vite dev port is 5173. vite.config.ts sets server.port = 8080. Replaced all http://localhost:5173 command examples with :8080 (20 occurrences), updated the 'Usually runs on ... for Vite' comment to note this project overrides the port to 8080, updated the 'port already in use' troubleshooting commands (Windows Get-NetTCPConnection / Mac-Linux lsof) to 8080, and clarified the Common-ports reference bullet to 'Vite (this project): 8080 (Vite's own default is 5173)'. The lone remaining 5173 is that intentional note.\nAC4: Deduplicated robots.txt — removed the root ./robots.txt (a stale 272-byte duplicate with malformed repeated User-agent blocks that was never deployed) and kept public/robots.txt. Vite uses the default publicDir='public', so only public/robots.txt is copied to dist/ and served; confirmed via a build that dist/robots.txt is byte-identical to public/robots.txt.\nAC5: Verified fresh-clone runnability from docs alone: README Prerequisites (Node 20/22 LTS), added the previously-missing REQUIRED env step to the Quick Start ('cp .env.example .env' then edit) before 'npm run dev', since the app throws without Supabase vars; dev-server URL corrected to http://localhost:8080. A new contributor can now clone, install, configure env, and run using only README + .env.example.\nAC6: tsc --noEmit passes; production build succeeds and emits robots.txt from public/."
+    },
+    {
+      "title": "Make site search return the right result first",
+      "description": "As a visitor, I need search results ordered by how well they match what I typed, drawn from the full article body, and reachable by URL, so that I find the page I want without scrolling past weaker matches.",
+      "acceptanceCriteria": [
+        "Results are ordered: exact title match, title prefix, title substring, tag match, then excerpt/description match",
+        "Ties within a rank order articles, then projects, then AI tools",
+        "Article search also matches the article body (content), not just title and excerpt",
+        "A slow earlier request can never overwrite the results of a later one",
+        "The ?q= parameter tracks what has been typed, so a result list is shareable and back-navigable",
+        "External AI tool links open with noopener,noreferrer",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "src/pages/Search.tsx. Added relevanceScore/sortByRelevance (exported for test) with TYPE_ORDER tie-break. Article .or() filter now includes content.ilike so body text is searchable (content is filtered on, not selected, so the payload is unchanged). Added a latestRequest ref: each debounced search takes a monotonic id and only applies setResults/setIsLoading when it is still the newest, which fixes results flickering back to a stale set when a short query resolves after a longer one. New debounced effect (400ms) syncs the trimmed query into ?q= with replace:true, using the functional setSearchParams form and a no-op guard when the value is unchanged. window.open for ai_tool results now passes 'noopener,noreferrer'. Three sortByRelevance tests added to src/pages/__tests__/Search.test.tsx. Verified: typecheck clean, 492 tests pass across 45 files, eslint clean on the touched files (one pre-existing autoFocus warning).",
+      "id": "US-069",
+      "priority": 51
+    },
+    {
+      "title": "Serve a real RSS feed and date every article",
+      "description": "As a reader who subscribes in a feed reader, I need /rss.xml to return a valid RSS document, and as a search crawler I need each article to carry a publication date, so that subscriptions work and articles are ranked with the right recency.",
+      "acceptanceCriteria": [
+        "dist/rss.xml is written at build time as a valid RSS 2.0 document containing every published article",
+        "index.html advertises the feed with link rel=alternate type=application/rss+xml",
+        "public/_headers serves /rss.xml as application/rss+xml and /sitemap.xml as application/xml",
+        "public/_redirects excludes /rss.xml from the SPA catch-all",
+        "Every article carries a published_at date in frontmatter, validated as YYYY-MM-DD at parse time",
+        "Article JSON-LD includes datePublished and dateModified",
+        "Sitemap lastmod for an article reflects its own date, not the build date",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "The React route at src/pages/RSSFeed.tsx could never serve a subscriber: Cloudflare Pages answered /rss.xml with the SPA shell as text/html, so every feed reader got a parse error, and index.html had a comment saying the rel=alternate link was removed for exactly that reason. scripts/prerender.mjs now has writeFeed(), building dist/rss.xml from the same content/crm markdown the pages come from (12 items), with an escapeXml helper kept separate from escapeHtml, deduped categories, and pubDate at 12:00Z so the date does not slide a day west of Greenwich. Backfilled published_at into all 12 markdown files from each file's git add date; scripts/lib/content.mjs now requires published_at and rejects anything that is not YYYY-MM-DD (updated_at is optional, same check). Article schema gained datePublished/dateModified - it previously had neither, which Google asks for on Article rich results. Sitemap <lastmod> for an article now uses its own date instead of the build date. Restored the rel=alternate link in index.html and added _headers content types plus a 1h cache for both XML documents. The /rss.xml and /feed React routes are left in place for in-app navigation; the static file wins in production. Verified: npm run build succeeds (15 routes, 23 sitemap URLs, 12 feed items), dist/rss.xml parses with minidom, typecheck clean, 505 tests pass across 45 files (13 new date assertions), 0 lint errors.",
+      "id": "US-070",
+      "priority": 52
+    },
+    {
+      "title": "Clear the mechanical UI anti-patterns impeccable detects",
+      "description": "As the owner of a portfolio that is itself a work sample, I need the interface to stop carrying the stock AI-UI tells, so that the site reads as designed rather than generated.",
+      "acceptanceCriteria": [
+        "No component uses a thick colored border on one side of a card or alert to carry severity",
+        "Severity is expressed with one hairline border plus a tint, in both themes",
+        "No bounce or elastic easing on hover affordances",
+        "No violet/indigo gradient buttons",
+        "npx impeccable detect src reports no side-tab, bounce-easing, or gradient-button findings",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "impeccable detect src went from 17 findings to 8. Fixed: border-l-4 severity tabs in OddTrafficMonitor, SecurityAlertsDashboard (all three severities) and TicketDetailView, and in the .status-message rules in index.css - each now declares one 1px tinted border plus a background wash, with dark-mode text colors added so secondary text is tinted from the surface hue rather than left gray on color. MarkdownRenderer's blockquote dropped from a 4px primary rule to a 2px border rule (a blockquote rule is a typographic convention, but 4px in the brand color was the tell). ReadingProgress's scroll-to-top arrow swapped group-hover:animate-bounce for a 200ms ease-out translate. TasksManager's AI Generate button lost its violet-to-indigo gradient and now uses the default primary button.\n\nThe 8 remaining findings are deliberately left: index.css:1207 is a false positive (animate-bounce appears there only inside the .a11y-reduced-motion rule that disables it); FinancialReports:781 text-purple-700 is one entry in a five-way semantic color key for the balance sheet (green revenue, red expenses, blue assets, orange liabilities, purple equity); and the five gradient-text findings plus the Inter type choice are brand decisions, not mechanical tells - see the follow-up story on the site's visual identity.\n\nVerified: typecheck clean, 505 tests pass, 0 lint errors.",
+      "id": "US-071",
+      "priority": 53
+    },
+    {
+      "title": "Decide the site's visual identity: gradient headings and the type choice",
+      "description": "As the owner, I need a decision on the two remaining stock-look signals - gradient text on headings and Inter as the typeface - so that the look is chosen rather than inherited from a template.",
+      "acceptanceCriteria": [
+        "A decision is recorded for hero-gradient-text: keep as brand, or replace headings with a solid color and weight/size hierarchy",
+        "A decision is recorded for the body/display typeface",
+        "If replaced, the change is applied consistently across index.css, Showcase.css, AuthorArchive, CategoryArchive and TagArchive",
+        "impeccable detect src reports no gradient-text or overused-font findings, or the exceptions are documented as intentional",
+        "Typecheck passes"
+      ],
+      "passes": false,
+      "notes": "BLOCKED ON A DESIGN DECISION - do not implement unilaterally. Sites: index.css:370 (.hero-gradient-text, used on nearly every page heading), Showcase.css:829, AuthorArchive.tsx:137, CategoryArchive.tsx:97, TagArchive.tsx:112, and the Inter stack at index.css:130. Gradient headings are the site's current identity and swapping them is a whole-site visual change; the same goes for the typeface. Both need Dj's call before any code moves. Left out of US-071 for that reason. NEXT ITERATION NOTE: ask rather than implement, or scope it to a single page as a proposal.",
+      "id": "US-072",
+      "priority": 54
+    },
+    {
+      "title": "Stop telling readers an article does not exist when the fetch failed",
+      "description": "As a reader whose connection or the database hiccuped, I need the article page to say the load failed and offer a retry, so that I am not sent away from a page that is perfectly fine.",
+      "acceptanceCriteria": [
+        "A failed query renders a distinct 'didn't load' state with a working Try again button",
+        "The retry state keeps the article's SEO tags and is not marked noIndex",
+        "A genuinely missing article still renders Article Not Found",
+        "The not-found state is marked noIndex and offers a search for the slug",
+        "Tests cover the failure state, the recovery after a successful retry, and the missing-article state",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "src/pages/Article.tsx had one branch for `error || !article`, so a dropped connection or a Supabase outage told the reader the article doesn't exist and pointed them at /news. That is wrong twice over: the prerendered HTML has already been replaced by the time this renders, so a crawler that executes JS sees a soft 404 for a live article, and the reader is pushed off a working page. Split into two branches: `error` renders a 'This article didn't load' state with a Try again button wired to react-query's refetch (spinner while isFetching) and keeps the article SEO tags; `!article` renders the real not-found state, now with noIndex set and a second button that searches for the slug instead of dead-ending at /news. Both keep role=alert. Four new lucide icons imported (Loader2, RefreshCw, Search). Added two tests: the failure state shows the retry and never shows 'Article Not Found', and clicking Try again after the mock recovers renders the article. Verified: typecheck clean, 507 tests pass, 0 lint errors.",
+      "id": "US-073",
+      "priority": 55
+    },
+    {
+      "title": "Catch prerendered articles that are missing from the database",
+      "description": "As the owner, I need a command that tells me when an article the site prerenders is not readable in the running app, so that a page cannot serve perfect HTML to a crawler and Article Not Found to a human.",
+      "acceptanceCriteria": [
+        "npm run verify:content compares every published markdown slug against the live articles table",
+        "It reports slugs missing from the database and slugs present but unpublished, and names the remedy",
+        "It reads credentials from env or wrangler.toml and exits 2 when it cannot reach the database, so a network problem is not reported as a content failure",
+        "The comparison is a pure exported function with unit tests",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "FINDING - PRODUCTION IS AFFECTED RIGHT NOW: all 12 CRM articles are prerendered into dist, listed in sitemap.xml and (as of US-070) in rss.xml, and none of them exist in the production database. Verified against https://api.danpearson.net: the articles table holds 155 rows and not one of the 12 CRM slugs is among them, while https://danpearson.net/news/why-ai-crm-projects-fail returns 200 with the full prerendered article. So a crawler reads the article and a human gets Article Not Found the instant React mounts - the entire money topic, invisible to the build, the tests and every check that does not execute JS against production.\n\nThe SQL already exists and simply has not been applied: all 12 slugs are covered by supabase/migrations/20260811000002_seed_crm_pillar_articles.sql, 20260814000000_seed_crm_commercial_articles.sql and 20260814000003_seed_crm_industry_articles.sql. Applying those three against the self-hosted database fixes it; the inserts are idempotent on slug so re-running is safe. That is an ops action on the database and is deliberately not automated from here.\n\nShipped scripts/verify-content.mjs plus the verify:content npm script so the gap is detectable instead of silent, with diffArticles exported and unit tested (4 tests). Kept out of the CI gate on purpose - it depends on live production state and would make CI flaky. Verified: the script correctly reports all 12 as missing today, typecheck clean, 511 tests pass, 0 lint errors.",
+      "id": "US-074",
+      "priority": 56
+    },
+    {
+      "title": "Serve prerendered pages at their canonical URL without a redirect",
+      "description": "As a crawler or a reader hitting a prerendered page directly, I need the canonical URL to answer 200, so that the page is not one redirect hop away from the URL its own canonical tag and the sitemap name.",
+      "acceptanceCriteria": [
+        "The prerenderer writes <route>.html rather than <route>/index.html",
+        "Every prerendered canonical URL returns 200 with no redirect",
+        "The previously served trailing-slash URLs redirect to the canonical form rather than breaking",
+        "Verified against the Cloudflare Pages runtime, not assumed",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "Measured against production first: https://danpearson.net/ai-crm-automation, /topics/ai-crm-automation and all twelve /news/<slug> URLs answered 308 to their trailing-slash form, while the canonical tag on the page and the entry in sitemap.xml both name the non-slash URL. So every prerendered page - the money page, the topic hub, the whole CRM set, exactly the pages built for AI crawlers that may not follow a redirect - cost a hop and pointed a crawler back at the URL that had just redirected it. Cause: the prerenderer wrote dist/<route>/index.html, and Cloudflare Pages redirects a directory index to /route/ while serving <route>.html at /route directly (confirmed in their serving-pages docs). One-line change in scripts/prerender.mjs to emit <route>.html; mkdirSync on the dirname already handled the nested /news path.\n\nVerified with `wrangler pages dev dist`, i.e. the real Pages routing runtime rather than a guess: /ai-crm-automation 200 no redirect, /news/why-ai-crm-projects-fail 200 no redirect, and the old /ai-crm-automation/ now 308s to the canonical form so anything already indexed consolidates instead of breaking. The same run also confirmed /rss.xml serves as application/rss+xml, which checks the _headers rule added in US-070. Build output: 15 routes, 23 sitemap URLs, 12 feed items. Typecheck clean, 511 tests pass, 0 lint errors.",
+      "id": "US-075",
+      "priority": 57
+    },
+    {
+      "title": "Make the E2E suite runnable and green again",
+      "description": "As a developer, I need the Playwright suite to launch and pass, so that it is a signal rather than a wall of red that everyone learns to ignore.",
+      "acceptanceCriteria": [
+        "playwright.config.ts finds a system Chromium automatically when Playwright's pinned build is absent",
+        "The service worker registers only in production builds",
+        "A worker and caches left by a production visit are torn down on a development boot",
+        "All 25 public E2E specs pass under chromium",
+        "Assertions match the current navigation and homepage copy",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "The suite could not start at all: Playwright 1.57 wants chromium_headless_shell-1200 and this image ships 1194, so all 25 public specs failed with 'run npx playwright install' - advice that is wrong in an image that blocks the download. playwright.config.ts now has resolveChromium(), which prefers PLAYWRIGHT_CHROMIUM_PATH, then the highest-numbered chromium build under PLAYWRIGHT_BROWSERS_PATH, then Playwright's own.\n\nWith it running, 4 specs still failed. Three of those were one real defect: src/lib/registerSW.ts called navigator.serviceWorker.register unconditionally, so a service worker was live under `npm run dev`. It intercepted fetches before Playwright's page.route could see them, so the Supabase mocks never applied and the search page sat on 'Searching...' forever - reproduced with a scripted browser session showing the API calls returning 503 from the worker and never reaching the route handler. It is also the classic cause of 'my change isn't showing up' in dev. registerServiceWorker now returns early unless import.meta.env.PROD, and on a dev boot tears down any worker and pearson-portfolio-* cache left by a production visit on the same origin (no reload - that would loop). Confirmed the same failures exist on main, so this was not caused by earlier work in this branch.\n\nThe remaining failures were test rot against a nav that has since changed: the primary nav no longer carries /ai-tools (it is in the footer) and the homepage no longer says 'Sales Leadership'; the mobile menu link is 'About', not 'About Me'. Assertions updated to mirror navItems in src/components/Navigation.tsx.\n\nVerified: 25/25 public E2E specs pass under chromium, 511 unit tests pass, typecheck clean, 0 lint errors.",
+      "id": "US-076",
+      "priority": 58
+    },
+    {
+      "title": "Run the E2E suite in CI",
+      "description": "As a developer, I need Playwright to run on every pull request, so that browser-level breakage is caught by the build instead of discovered months later.",
+      "acceptanceCriteria": [
+        "A separate e2e job runs on pull requests and pushes to main",
+        "It installs chromium with its system dependencies and runs the suite",
+        "The Playwright HTML report is uploaded as an artifact when the run fails",
+        "The job runs in parallel with the existing lint/typecheck/test/build job",
+        "The exact command the job runs passes locally with CI=1"
+      ],
+      "passes": true,
+      "notes": "The suite existed but had never been wired into .github/workflows/ci.yml, which is exactly how it ended up with four specs failing against a navigation that had changed months earlier (US-076). Added an `e2e` job alongside `validate` so it runs in parallel rather than lengthening the critical path: checkout, Node from .nvmrc, npm ci, `npx playwright install --with-deps chromium`, then `npx playwright test --project=chromium`. playwright.config.ts already starts and stops the dev server itself with dummy Supabase env, and every spec mocks its network calls, so no services are needed on the runner. On failure the e2e-results HTML report uploads as an artifact with a 7-day retention - without it a CI-only failure is undiagnosable, since that is where the trace, screenshot and page snapshot live.\n\nChromium only. Firefox roughly doubles wall clock and has not caught anything chromium missed on this codebase; if that changes, add it as a matrix entry. Verified by running the job's exact command with CI=1 locally: 38/38 specs pass in 4.6 minutes, and the workflow file parses with both jobs and all six steps present.",
+      "id": "US-077",
+      "priority": 59
+    },
+    {
+      "title": "Stop the hero animation from holding the homepage LCP element invisible",
+      "description": "As a visitor, I need the homepage's largest text to paint as soon as the page does, so that the site does not appear a second and a half slower than it is.",
+      "acceptanceCriteria": [
+        "The hero description animates position only, not opacity",
+        "Homepage LCP equals FCP rather than trailing it by ~2 seconds",
+        "Lighthouse performance on / improves measurably over three runs",
+        "The prerendered hero copy no longer blanks and fades back in on hydration",
+        "Accessibility stays at 100 and the E2E homepage specs still pass"
+      ],
+      "passes": true,
+      "notes": "Measured with lhci over three runs before touching anything: / scored 67-69 performance with LCP 5.33-5.39s, while /about (no hero animation) scored 84-85 with LCP 3.40s. Lighthouse named the LCP element as the hero description paragraph. The GSAP timeline in HeroSection.tsx placed that paragraph's tween about 1s deep and animated it from opacity 0 over another second, so the largest text on the page was deliberately invisible until ~2s after hydration - and because the homepage is prerendered, the copy had already painted and then blanked and faded back in for a real reader. Changed that one tween to slide only (y: 30, no opacity); an element that is already visible sliding into place reads the same.\n\nAfter, same three-run measurement: performance 82-85, LCP 2.92-2.94s, and LCP now equals FCP exactly - the paragraph paints with the rest of the page. That is 2.4s off LCP on the site's front door. Left the opacity fades on the name, surname, subtitle and CTA: none of them is the LCP candidate, and they start at t=0 so they register a paint immediately.\n\nStill failing its budget: FCP at ~2.92s against a 2000ms assertion, on every route including ones with no hero at all - that is JavaScript boot cost, not this animation. Filed separately. Verified: 511 unit tests pass, homepage and mobile-nav E2E specs pass (axe still clean, 100 accessibility), typecheck clean, 0 lint errors.",
+      "id": "US-078",
+      "priority": 60
+    },
+    {
+      "title": "Make the Lighthouse budgets truthful and cover the commercial page",
+      "description": "As a developer, I need the Lighthouse gate to assert numbers this app can actually hit and to measure the page that earns the money, so that a red check means a regression rather than a standing condition.",
+      "acceptanceCriteria": [
+        "The cause of the FCP failure is established from the trace, not guessed at",
+        "The FCP assertion reflects measured reality with headroom, and says why in the file",
+        "/ai-crm-automation is included in the measured routes",
+        "npm run lighthouse passes across every route",
+        "The path to earning a tighter budget back is recorded as its own story"
+      ],
+      "passes": true,
+      "notes": "Investigated rather than optimized blind, and the premise turned out to be wrong. Lighthouse reports observedFirstContentfulPaint of 126ms; the ~2.9s figure is entirely its simulated slow-4G lantern model (requestLatencyMs 562.5, 1.47 Mbps, 4x CPU slowdown), where the HTML round trip followed by the render-blocking stylesheet costs roughly 1.7s before any CSS parses. First suspicion was that this sandbox cannot reach fonts.googleapis.com and googletagmanager.com, so I re-ran with those origins explicitly blocked: FCP did not move (2914-2917ms), so it is not an artifact of the unreachable third parties either. Measured across four routes twice each: 2909-2943ms, uniform - it is the app boot cost, not any one page.\n\nSo the 2000ms assertion was never reachable, which means the Lighthouse job has been failing on every pull request to main since it was added. A gate that always fails teaches people to ignore a red check, which is precisely how the E2E suite rotted (US-076). Set FCP to 3200 (measured plus headroom, still catches a real regression) with the numbers and the reasoning written into lighthouserc.cjs, and added /ai-crm-automation to the URL list - the commercial page was the one key route nobody was measuring. Left every other assertion untouched; LCP 3000 now passes on all four routes thanks to US-078.\n\nVerified: npm run lighthouse passes, 4 URLs x 3 runs, all assertions green. Perf 89-90, LCP equal to FCP, TBT 0, CLS 0, SEO 100, accessibility 100 on every route. The way to earn a tighter FCP budget back is US-080.",
+      "id": "US-079",
+      "priority": 61
+    },
+    {
+      "title": "Splitting the admin stylesheet out: measured, not worth it",
+      "description": "As a visitor reading an article, I need to download only the CSS that page uses, so that the one render-blocking request on the critical path is not mostly the admin dashboard's styles.",
+      "acceptanceCriteria": [
+        "The size of the saving is measured before the split is built",
+        "A decision is recorded either way, with the numbers behind it"
+      ],
+      "passes": true,
+      "notes": "Measured before building anything, and the answer was no. Added negated content globs to tailwind.config.ts excluding src/components/admin/** and src/pages/Admin*.tsx (fast-glob negation does work in Tailwind content arrays) and rebuilt: the stylesheet went from 131.0 KB raw / 22.7 KB gzip to 113.4 KB / 19.8 KB. That is 14%, about 3 KB gzipped on the critical path - worth perhaps 20-40ms under the lantern model, against splitting a Tailwind build across a component library that both surfaces share (src/components/ui) where a missed glob shows up as silently unstyled UI in production. Reverted.\n\nThe 96.9% unused figure that motivated this does not mean 96.9% is removable: axe... rather, Lighthouse counts every rule not exercised by that one page, which includes the other public routes, the base layer and the component layer. The genuinely large win would be per-page critical CSS inlining, which is a different and much larger project with real FOUC risk - not something to slip in under a performance story. Not scheduling it. The FCP budget stays at 3200 (US-079).",
+      "id": "US-080",
+      "priority": 62
+    },
+    {
+      "title": "Guard accessibility on the commercial page and the footer routes",
+      "description": "As a visitor using assistive technology, I need the pages that sell the service and the ones linked from every footer to be checked for violations, so that a regression there is caught rather than shipped.",
+      "acceptanceCriteria": [
+        "The axe regression guard covers /ai-crm-automation, /topics/ai-crm-automation, /faq and /ai-tools",
+        "All covered routes have zero serious or critical violations",
+        "The heading order on /connect does not skip a level",
+        "A full-impact audit of the key routes reports no violations at any level"
+      ],
+      "passes": true,
+      "notes": "The axe guard in e2e/public/accessibility.spec.ts covered six routes and missed the commercial page entirely, along with the topic hub and the two footer links (/faq, /ai-tools) that appear on every page of the site. Extended to ten; all ten pass with zero serious or critical violations.\n\nThen ran a wider one-off audit at every impact level including best-practice tags, which surfaced one real defect the serious/critical gate would never have caught: /connect went from h1 straight to h3, so the four contact cards and the contact form heading were a skipped level for anyone navigating by heading. Promoted all five to h2 - they are siblings directly under the page h1, and the size comes from the mobile-heading-sm class, so nothing moved visually. Re-ran the wider audit across seven routes at every impact level: no violations at all.\n\nVerified: 29 public E2E specs pass, 511 unit tests pass, typecheck clean, 0 lint errors.",
+      "id": "US-081",
+      "priority": 63
+    },
+    {
+      "title": "Render prerendered articles from markdown when the database has no row",
+      "description": "As a reader following a link to a CRM article, I need the page to show me the article, so that a database that has not been seeded or cannot be reached does not turn a live page into a dead end.",
+      "acceptanceCriteria": [
+        "A prerendered slug with no database row renders the same markdown the page was built from",
+        "A failed fetch falls back to that markdown before showing an error screen",
+        "A slug with no prerendered copy still renders the not-found state",
+        "None of the article bodies reach the initial bundle",
+        "The generated module is committed and a stale one fails the test suite",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "This is the code-side answer to US-074, which is still the live state of production: all twelve CRM articles are prerendered, sitemapped and in the feed, and none exist in the database, so each URL serves a complete article to a crawler and Article Not Found to a human the moment React mounts. Applying the seed migrations remains the right fix and is Dj's to run; this makes the page correct either way, including when Supabase is simply down.\n\nAdded scripts/generate-article-fallback.mjs, which emits src/content/crm-articles.generated.ts from the same content/crm markdown the prerenderer and the seed SQL read, so the three cannot disagree. The article query now resolves in three steps: a row from the database wins; a null row falls back to the markdown; a failed fetch falls back to the markdown before surfacing the error from US-073. A slug with no prerendered copy still gets the not-found state, so the fallback cannot mask a genuinely dead URL.\n\nImported with a dynamic import, so it lands in its own chunk (crm-articles.generated-*.js, 148.65 kB / 48.97 kB gzip) that is fetched only on the fallback path - the entry bundle is unchanged at 118.72 kB brotli against its 250 kB budget, and all five size-limit budgets still pass. The generated file is committed so dev and test runs need no build step, and scripts/__tests__/article-fallback.test.ts regenerates and byte-compares it, so stale copy fails the suite rather than being served to a reader. Added the generate:fallback npm script.\n\nVerified: 518 tests pass across 47 files (7 new), including three that drive the article page with an empty and a failing database and assert the real article renders; article E2E specs pass; build succeeds; typecheck clean; 0 lint errors.",
+      "id": "US-082",
+      "priority": 64
+    },
+    {
+      "title": "List the built-in articles on the topic hub when the database has no rows",
+      "description": "As a reader browsing the AI CRM automation hub, I need to see the articles the site publishes, so that content whose pages render is actually discoverable rather than reachable only by direct link.",
+      "acceptanceCriteria": [
+        "The hub lists articles built into the site that have no database row",
+        "A database row wins over the built-in copy on a slug collision",
+        "An article with no row reports zero views rather than a fabricated number",
+        "Article bodies do not end up in the hub's route chunk",
+        "An E2E test drives the hub against an empty database and follows a link through to a rendered body",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "US-082 made the article pages render without a database row, but every listing on the site still came straight from Supabase, so the twelve CRM articles were reachable only by typing the URL - the hub the commercial page links to was empty. Added src/lib/static-articles.ts with mergeStaticArticles (database row wins on slug, static entries fill the gaps) and sortArticleListing (featured first then newest, since appending to an already-ordered query would otherwise dump the additions at the end), wired into TopicHub.\n\nSplit the generator's output in two for this: crm-articles.generated.ts keeps the bodies for the article page's dynamic import, and a new crm-article-index.generated.ts carries the same articles without them, 15KB instead of 150KB, so a listing page can import it statically. TopicHub's route chunk came out at 22.89 kB / 6.97 kB gzip and the entry bundle is unchanged at 118.73 kB brotli. A test asserts the index module contains no bodies, and both generated files are byte-compared against a fresh render so neither can go stale.\n\nView counts for a row-less article are reported as 0 rather than invented, so the hub's popularity ordering stays honest.\n\nVerified: 526 tests across 48 files (14 new), two new E2E specs that drive the hub against the empty-database fixture - which is the actual state of production - and follow a link through to a rendered article body, plus the 11 accessibility specs still pass. Typecheck clean, 0 lint errors, all size budgets pass.",
+      "id": "US-083",
+      "priority": 65
+    },
+    {
+      "title": "Show the built-in articles on the paginated /news listing",
+      "description": "As a reader browsing all articles, I need the built-in CRM articles to appear in the /news list, so that the main index is not missing twelve published articles.",
+      "acceptanceCriteria": [
+        "/news includes articles that have no database row",
+        "Pagination stays correct: no duplicated or skipped article across page boundaries, and the total count includes them",
+        "Ordering across pages matches the ordering within a page",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "Done. src/pages/News.tsx now branches on whether anything is actually missing: one bounded lookup asks which of the twelve known slugs have rows (a .in() over a fixed list, so it stays cheap), and when none are missing the page keeps its existing server-side range pagination completely unchanged - the whole mechanism disappears the moment the seed migrations are applied. When rows are missing, the page fetches the listing columns for all published articles in one query and pages in memory. Rejected the alternative of offsetting the server range by the number of static articles sorting ahead of the current page: it is exact only if you also track the merged index of the window boundary, and getting that subtly wrong means an article silently skipped between two pages. A single bounded query over a few hundred small rows, only in the degraded state, is the better trade. Extracted LISTING_COLUMNS so both branches select identically.\n\nThe freshness test from US-082 earned its place immediately: it failed on the full run because the lint-staged prettier hook reformats *.ts on commit, so the committed generated files no longer matched a fresh render. Added src/content/*.generated.ts to .prettierignore and regenerated. Without that byte-comparison this would have sat there silently.\n\nNot done: the category filter and search box on /news operate on the current page only, in both branches. That predates this work and is filed as US-085.\n\nVerified: 530 tests across 49 files, including four new unit tests that render the page against an empty database and assert one page of unique articles, plus two new E2E specs that list from /news and open an article through to a rendered body. Typecheck clean, 0 lint errors.",
+      "id": "US-084",
+      "priority": 66
+    },
+    {
+      "title": "Make the /news category filter and search cover every article, not just the visible page",
+      "description": "As a reader filtering the news index, I need the category and search controls to search all articles, so that a filter does not appear to find nothing when matches exist on another page.",
+      "acceptanceCriteria": [
+        "Selecting a category returns matches from every page, not only the current one",
+        "The search box searches all published articles",
+        "The category list is built from all articles rather than the twelve on screen",
+        "Sorting orders the whole set rather than reordering one page",
+        "Pagination reflects the filtered result count and resets on a filter change",
+        "Article cards meet 4.5:1 contrast",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "src/pages/News.tsx derived allCategories from one page of 12 and filtered and sorted that same page, so with 155 published articles across 13 pages the controls could only ever see 8% of the archive: a category present elsewhere was not offered, a search for an article on page 4 found nothing from page 1, and \"most viewed\" reordered twelve rows rather than ranking the archive. Filtering and ordering moved into the query - category as .eq, search as .or over title, excerpt and tag containment with the term escaped through sanitizeSearchQuery, and a sort-to-order mapping whose in-memory twin (compareArticles) is defined directly above it so the two branches cannot drift. The count query carries the same filters, or the pager would offer pages the filtered set does not have, and a filter change resets to page 1. Search is debounced 300ms now that it hits the database. Categories come from their own cached query unioned with the built-in set. The unseeded branch from US-084 applies the same filter and sort in memory before paging. The client-side re-filter is gone entirely - it was the bug.\n\nThen the E2E accessibility guard caught something the empty state had been hiding: with /news finally rendering cards against the empty-database fixture, axe reported serious color-contrast failures on every one. ArticleCard metadata was text-gray-500 on a bg-gray-800/50 card at 3.46:1, and the Featured badge was text-yellow-900 on yellow-500/90 at 3.77:1, both against a 4.5:1 requirement. Moved to text-gray-400 and text-yellow-950. This predates all of this work; it was simply invisible while the list was empty.\n\nAlso fixed the articles E2E spec, which mocked every GET on the table and so accidentally answered the seeded-slug lookup with an unrelated article, forcing the merge branch and pushing its fixture onto page 2. It now answers that lookup with the full slug list, so it exercises plain server pagination while the new specs cover the unseeded state.\n\nVerified: 46/46 E2E specs pass under CI=1, 532 unit tests across 49 files (6 new on News, including one that filters to a category matching nothing and one that searches for an article that is not on the first page), typecheck clean, 0 lint errors, entry bundle 118.77 kB brotli against its 250 kB budget.",
+      "id": "US-085",
+      "priority": 67
     }
   ]
 }

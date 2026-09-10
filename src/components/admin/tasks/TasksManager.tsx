@@ -3,10 +3,26 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Upload, Download, Search, X, FileText, CheckCircle, RotateCcw, Sparkles } from 'lucide-react';
+import {
+  Plus,
+  Upload,
+  Download,
+  Search,
+  X,
+  FileText,
+  CheckCircle,
+  RotateCcw,
+  Sparkles,
+} from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { TaskFormDialog } from './TaskFormDialog';
@@ -21,7 +37,11 @@ interface TasksManagerProps {
   showArchived?: boolean;
 }
 
-export const TasksManager = ({ selectedProject, onSelectProject, showArchived = false }: TasksManagerProps) => {
+export const TasksManager = ({
+  selectedProject,
+  onSelectProject,
+  showArchived = false,
+}: TasksManagerProps) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isTextExportOpen, setIsTextExportOpen] = useState(false);
@@ -50,11 +70,13 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
     queryFn: async () => {
       let query = supabase
         .from('tasks')
-        .select(`
+        .select(
+          `
           *,
           project:task_projects(id, name, color, platform),
           subtasks(*)
-        `)
+        `
+        )
         .order('created_at', { ascending: false });
 
       if (selectedProject) {
@@ -75,56 +97,65 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
 
     // Archive filter - completed tasks go to archive
     if (showArchived) {
-      filtered = filtered.filter(t => t.status === 'completed');
+      filtered = filtered.filter((t) => t.status === 'completed');
     } else {
-      filtered = filtered.filter(t => t.status !== 'completed');
+      filtered = filtered.filter((t) => t.status !== 'completed');
     }
 
     // Status filter (only apply if not showing archived, since archived = completed)
     if (statusFilter !== 'all' && !showArchived) {
-      filtered = filtered.filter(t => t.status === statusFilter);
+      filtered = filtered.filter((t) => t.status === statusFilter);
     }
 
     // Priority filter
     if (priorityFilter !== 'all') {
-      filtered = filtered.filter(t => t.priority === priorityFilter);
+      filtered = filtered.filter((t) => t.priority === priorityFilter);
     }
 
     // Category filter
     if (categoryFilter !== 'all') {
-      filtered = filtered.filter(t => t.category === categoryFilter);
+      filtered = filtered.filter((t) => t.category === categoryFilter);
     }
 
     // Source filter
     if (sourceFilter !== 'all') {
-      filtered = filtered.filter(t => t.source === sourceFilter);
+      filtered = filtered.filter((t) => t.source === sourceFilter);
     }
 
     // Search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.title?.toLowerCase().includes(query) ||
-        t.description?.toLowerCase().includes(query) ||
-        t.category?.toLowerCase().includes(query) ||
-        t.dependencies?.toLowerCase().includes(query) ||
-        t.effort?.toLowerCase().includes(query) ||
-        t.original_priority?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (t) =>
+          t.title?.toLowerCase().includes(query) ||
+          t.description?.toLowerCase().includes(query) ||
+          t.category?.toLowerCase().includes(query) ||
+          t.dependencies?.toLowerCase().includes(query) ||
+          t.effort?.toLowerCase().includes(query) ||
+          t.original_priority?.toLowerCase().includes(query)
       );
     }
 
     return filtered;
-  }, [tasks, statusFilter, priorityFilter, categoryFilter, sourceFilter, searchQuery, showArchived]);
+  }, [
+    tasks,
+    statusFilter,
+    priorityFilter,
+    categoryFilter,
+    sourceFilter,
+    searchQuery,
+    showArchived,
+  ]);
 
   // Extract unique values for filters
   const uniqueCategories = useMemo(() => {
     if (!tasks) return [];
-    return Array.from(new Set(tasks.map(t => t.category).filter(Boolean))).sort();
+    return Array.from(new Set(tasks.map((t) => t.category).filter(Boolean))).sort();
   }, [tasks]);
 
   const uniqueSources = useMemo(() => {
     if (!tasks) return [];
-    return Array.from(new Set(tasks.map(t => t.source).filter(Boolean))).sort();
+    return Array.from(new Set(tasks.map((t) => t.source).filter(Boolean))).sort();
   }, [tasks]);
 
   const handleEdit = (task: any) => {
@@ -144,7 +175,10 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
   };
 
   const handleUpdateField = async (taskId: string, field: string, value: any) => {
-    const { error } = await supabase.from('tasks').update({ [field]: value }).eq('id', taskId);
+    const { error } = await supabase
+      .from('tasks')
+      .update({ [field]: value })
+      .eq('id', taskId);
     if (error) {
       toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' });
     } else {
@@ -165,9 +199,16 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
     if (error) {
       toast({ title: 'Error', description: 'Failed to update tasks', variant: 'destructive' });
     } else if (!data || data.length === 0) {
-      toast({ title: 'Error', description: 'No tasks were updated. Please try again.', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'No tasks were updated. Please try again.',
+        variant: 'destructive',
+      });
     } else {
-      toast({ title: 'Success', description: `${data.length} task(s) marked as done and archived` });
+      toast({
+        title: 'Success',
+        description: `${data.length} task(s) marked as done and archived`,
+      });
       setSelectedTasks(new Set());
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
@@ -186,7 +227,11 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
     if (error) {
       toast({ title: 'Error', description: 'Failed to restore tasks', variant: 'destructive' });
     } else if (!data || data.length === 0) {
-      toast({ title: 'Error', description: 'No tasks were restored. Please try again.', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'No tasks were restored. Please try again.',
+        variant: 'destructive',
+      });
     } else {
       toast({ title: 'Success', description: `${data.length} task(s) restored from archive` });
       setSelectedTasks(new Set());
@@ -196,13 +241,28 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
 
   const handleExport = () => {
     if (!filteredTasks || filteredTasks.length === 0) {
-      toast({ title: 'No tasks to export', description: 'Apply filters to select tasks for export' });
+      toast({
+        title: 'No tasks to export',
+        description: 'Apply filters to select tasks for export',
+      });
       return;
     }
 
     // Create CSV content
-    const headers = ['Title', 'Category', 'Priority', 'Status', 'Description', 'Effort', 'Dependencies', 'Source', 'Project', 'Due Date', 'Created'];
-    const rows = filteredTasks.map(task => [
+    const headers = [
+      'Title',
+      'Category',
+      'Priority',
+      'Status',
+      'Description',
+      'Effort',
+      'Dependencies',
+      'Source',
+      'Project',
+      'Due Date',
+      'Created',
+    ];
+    const rows = filteredTasks.map((task) => [
       task.title || '',
       task.category || '',
       task.original_priority || task.priority || '',
@@ -213,12 +273,12 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
       task.source || '',
       task.project?.name || '',
       task.due_date || '',
-      task.created_at ? new Date(task.created_at).toLocaleDateString() : ''
+      task.created_at ? new Date(task.created_at).toLocaleDateString() : '',
     ]);
 
     const csvContent = [
-      headers.map(h => `"${h}"`).join(','),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      headers.map((h) => `"${h}"`).join(','),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -247,7 +307,7 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
     categoryFilter !== 'all',
     sourceFilter !== 'all',
     searchQuery.trim() !== '',
-    selectedProject !== null
+    selectedProject !== null,
   ].filter(Boolean).length;
 
   if (isLoading) return <TableSkeleton rows={8} columns={7} />;
@@ -261,8 +321,13 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               <div>
                 <CardTitle>{showArchived ? 'Archived Tasks' : 'Tasks'}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {filteredTasks.length} {showArchived ? 'archived' : 'active'} task{filteredTasks.length !== 1 ? 's' : ''}
-                  {activeFilterCount > 0 && <Badge variant="secondary" className="ml-2">{activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}</Badge>}
+                  {filteredTasks.length} {showArchived ? 'archived' : 'active'} task
+                  {filteredTasks.length !== 1 ? 's' : ''}
+                  {activeFilterCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}
+                    </Badge>
+                  )}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -287,24 +352,34 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
                 )}
                 {!showArchived && (
                   <>
-                    <Button
-                      variant="default"
-                      onClick={() => setIsAIGeneratorOpen(true)}
-                      className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
-                    >
+                    <Button variant="default" onClick={() => setIsAIGeneratorOpen(true)}>
                       <Sparkles className="mr-2 h-4 w-4" />
                       <span className="hidden sm:inline">AI Generate</span>
                       <span className="sm:hidden">AI</span>
                     </Button>
-                    <Button variant="outline" onClick={() => setIsImportOpen(true)} className="hidden sm:flex">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsImportOpen(true)}
+                      className="hidden sm:flex"
+                    >
                       <Upload className="mr-2 h-4 w-4" />
                       Import CSV
                     </Button>
-                    <Button variant="outline" onClick={handleExport} disabled={filteredTasks.length === 0} className="hidden sm:flex">
+                    <Button
+                      variant="outline"
+                      onClick={handleExport}
+                      disabled={filteredTasks.length === 0}
+                      className="hidden sm:flex"
+                    >
                       <Download className="mr-2 h-4 w-4" />
                       Export CSV
                     </Button>
-                    <Button onClick={() => { setEditingTask(null); setIsFormOpen(true); }}>
+                    <Button
+                      onClick={() => {
+                        setEditingTask(null);
+                        setIsFormOpen(true);
+                      }}
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       <span className="hidden sm:inline">New Task</span>
                       <span className="sm:hidden">New</span>
@@ -337,7 +412,10 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
 
             {/* Filters - Mobile Optimized Grid */}
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-              <Select value={selectedProject || 'all'} onValueChange={(v) => onSelectProject(v === 'all' ? null : v)}>
+              <Select
+                value={selectedProject || 'all'}
+                onValueChange={(v) => onSelectProject(v === 'all' ? null : v)}
+              >
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="All Projects" />
                 </SelectTrigger>
@@ -346,7 +424,10 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
                   {projects?.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: project.color }}
+                        />
                         <span className="truncate">{project.name}</span>
                       </div>
                     </SelectItem>
@@ -409,7 +490,12 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
               </Select>
 
               {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="col-span-2 sm:col-span-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="col-span-2 sm:col-span-1"
+                >
                   <X className="mr-2 h-4 w-4" />
                   Clear Filters
                 </Button>
@@ -454,7 +540,7 @@ export const TasksManager = ({ selectedProject, onSelectProject, showArchived = 
       <TextExportDialog
         open={isTextExportOpen}
         onOpenChange={setIsTextExportOpen}
-        tasks={filteredTasks?.filter(t => selectedTasks.has(t.id)) || []}
+        tasks={filteredTasks?.filter((t) => selectedTasks.has(t.id)) || []}
       />
 
       <AITaskGeneratorDialog
