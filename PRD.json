@@ -1231,6 +1231,21 @@
       "notes": "src/pages/Article.tsx had one branch for `error || !article`, so a dropped connection or a Supabase outage told the reader the article doesn't exist and pointed them at /news. That is wrong twice over: the prerendered HTML has already been replaced by the time this renders, so a crawler that executes JS sees a soft 404 for a live article, and the reader is pushed off a working page. Split into two branches: `error` renders a 'This article didn't load' state with a Try again button wired to react-query's refetch (spinner while isFetching) and keeps the article SEO tags; `!article` renders the real not-found state, now with noIndex set and a second button that searches for the slug instead of dead-ending at /news. Both keep role=alert. Four new lucide icons imported (Loader2, RefreshCw, Search). Added two tests: the failure state shows the retry and never shows 'Article Not Found', and clicking Try again after the mock recovers renders the article. Verified: typecheck clean, 507 tests pass, 0 lint errors.",
       "id": "US-073",
       "priority": 55
+    },
+    {
+      "title": "Catch prerendered articles that are missing from the database",
+      "description": "As the owner, I need a command that tells me when an article the site prerenders is not readable in the running app, so that a page cannot serve perfect HTML to a crawler and Article Not Found to a human.",
+      "acceptanceCriteria": [
+        "npm run verify:content compares every published markdown slug against the live articles table",
+        "It reports slugs missing from the database and slugs present but unpublished, and names the remedy",
+        "It reads credentials from env or wrangler.toml and exits 2 when it cannot reach the database, so a network problem is not reported as a content failure",
+        "The comparison is a pure exported function with unit tests",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "FINDING - PRODUCTION IS AFFECTED RIGHT NOW: all 12 CRM articles are prerendered into dist, listed in sitemap.xml and (as of US-070) in rss.xml, and none of them exist in the production database. Verified against https://api.danpearson.net: the articles table holds 155 rows and not one of the 12 CRM slugs is among them, while https://danpearson.net/news/why-ai-crm-projects-fail returns 200 with the full prerendered article. So a crawler reads the article and a human gets Article Not Found the instant React mounts - the entire money topic, invisible to the build, the tests and every check that does not execute JS against production.\n\nThe SQL already exists and simply has not been applied: all 12 slugs are covered by supabase/migrations/20260811000002_seed_crm_pillar_articles.sql, 20260814000000_seed_crm_commercial_articles.sql and 20260814000003_seed_crm_industry_articles.sql. Applying those three against the self-hosted database fixes it; the inserts are idempotent on slug so re-running is safe. That is an ops action on the database and is deliberately not automated from here.\n\nShipped scripts/verify-content.mjs plus the verify:content npm script so the gap is detectable instead of silent, with diffArticles exported and unit tested (4 tests). Kept out of the CI gate on purpose - it depends on live production state and would make CI flaky. Verified: the script correctly reports all 12 as missing today, typecheck clean, 511 tests pass, 0 lint errors.",
+      "id": "US-074",
+      "priority": 56
     }
   ]
 }
