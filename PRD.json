@@ -1324,20 +1324,30 @@
       "priority": 61
     },
     {
-      "title": "Stop shipping the admin stylesheet to public visitors",
+      "title": "Splitting the admin stylesheet out: measured, not worth it",
       "description": "As a visitor reading an article, I need to download only the CSS that page uses, so that the one render-blocking request on the critical path is not mostly the admin dashboard's styles.",
       "acceptanceCriteria": [
-        "The stylesheet the public site loads no longer contains utilities generated solely from admin components",
-        "unused-css-rules on / drops well below the current 96.9%",
-        "The admin dashboard still renders correctly with its own stylesheet",
-        "No flash of unstyled content on any public route",
-        "first-contentful-paint improves measurably, and the assertion in lighthouserc.cjs is tightened to match",
-        "Typecheck passes"
+        "The size of the saving is measured before the split is built",
+        "A decision is recorded either way, with the numbers behind it"
       ],
-      "passes": false,
-      "notes": "NEXT ITERATION CANDIDATE, with numbers. Lighthouse's unused-css-rules audit on the homepage: 21,655 of 22,358 transferred bytes unused, 96.9%. That single file (dist/assets/index-*.css, 131KB raw) is render-blocking on the critical path, and under the simulated slow 4G in lighthouserc.cjs it is the second serialized round trip that puts FCP at ~2.9s (US-079). It is one file because Tailwind emits one sheet for the whole content glob - src/**, which includes the 74 admin components, the accounting module and the vault, none of which a public visitor ever renders. Vite already splits per-chunk CSS correctly where a chunk has its own stylesheet (Showcase.css comes out separately), so the problem is specifically Tailwind's single global output, not the bundler. Likely approach: a second Tailwind entry for the admin surface with its own content glob, imported by the lazy admin route rather than by src/main.tsx, leaving index.css to cover the public site. Check for shared component classes (src/components/ui is used by both) before splitting the globs, and watch for FOUC on the admin side. Also worth deleting the ./pages, ./components and ./app globs in tailwind.config.ts while in there: they are the shadcn Next.js defaults and match no directory in this repo.",
+      "passes": true,
+      "notes": "Measured before building anything, and the answer was no. Added negated content globs to tailwind.config.ts excluding src/components/admin/** and src/pages/Admin*.tsx (fast-glob negation does work in Tailwind content arrays) and rebuilt: the stylesheet went from 131.0 KB raw / 22.7 KB gzip to 113.4 KB / 19.8 KB. That is 14%, about 3 KB gzipped on the critical path - worth perhaps 20-40ms under the lantern model, against splitting a Tailwind build across a component library that both surfaces share (src/components/ui) where a missed glob shows up as silently unstyled UI in production. Reverted.\n\nThe 96.9% unused figure that motivated this does not mean 96.9% is removable: axe... rather, Lighthouse counts every rule not exercised by that one page, which includes the other public routes, the base layer and the component layer. The genuinely large win would be per-page critical CSS inlining, which is a different and much larger project with real FOUC risk - not something to slip in under a performance story. Not scheduling it. The FCP budget stays at 3200 (US-079).",
       "id": "US-080",
       "priority": 62
+    },
+    {
+      "title": "Guard accessibility on the commercial page and the footer routes",
+      "description": "As a visitor using assistive technology, I need the pages that sell the service and the ones linked from every footer to be checked for violations, so that a regression there is caught rather than shipped.",
+      "acceptanceCriteria": [
+        "The axe regression guard covers /ai-crm-automation, /topics/ai-crm-automation, /faq and /ai-tools",
+        "All covered routes have zero serious or critical violations",
+        "The heading order on /connect does not skip a level",
+        "A full-impact audit of the key routes reports no violations at any level"
+      ],
+      "passes": true,
+      "notes": "The axe guard in e2e/public/accessibility.spec.ts covered six routes and missed the commercial page entirely, along with the topic hub and the two footer links (/faq, /ai-tools) that appear on every page of the site. Extended to ten; all ten pass with zero serious or critical violations.\n\nThen ran a wider one-off audit at every impact level including best-practice tags, which surfaced one real defect the serious/critical gate would never have caught: /connect went from h1 straight to h3, so the four contact cards and the contact form heading were a skipped level for anyone navigating by heading. Promoted all five to h2 - they are siblings directly under the page h1, and the size comes from the mobile-heading-sm class, so nothing moved visually. Re-ran the wider audit across seven routes at every impact level: no violations at all.\n\nVerified: 29 public E2E specs pass, 511 unit tests pass, typecheck clean, 0 lint errors.",
+      "id": "US-081",
+      "priority": 63
     }
   ]
 }

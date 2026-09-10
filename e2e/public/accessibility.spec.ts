@@ -9,16 +9,32 @@ import AxeBuilder from '@axe-core/playwright';
  * results if this list ever needs tightening.
  */
 
-const PUBLIC_PAGES = ['/', '/about', '/news', '/projects', '/connect', '/search'];
+// /ai-crm-automation is the commercial page, /topics/ai-crm-automation the hub
+// that feeds it, and /faq and /ai-tools are linked from the footer on every
+// page - none of them were covered, so a violation there would have shipped.
+const PUBLIC_PAGES = [
+  '/',
+  '/about',
+  '/news',
+  '/projects',
+  '/connect',
+  '/search',
+  '/ai-crm-automation',
+  '/topics/ai-crm-automation',
+  '/faq',
+  '/ai-tools',
+];
 
 for (const path of PUBLIC_PAGES) {
   test(`no serious/critical accessibility violations on ${path}`, async ({ page }) => {
     await page.goto(path);
-    await page.locator('main, h1').first().waitFor({ timeout: 15000 }).catch(() => {});
+    await page
+      .locator('main, h1')
+      .first()
+      .waitFor({ timeout: 15000 })
+      .catch(() => {});
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 
     const seriousOrCritical = results.violations.filter(
       (v) => v.impact === 'serious' || v.impact === 'critical'

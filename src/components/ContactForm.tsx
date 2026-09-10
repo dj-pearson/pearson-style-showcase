@@ -148,7 +148,7 @@ const ContactForm = () => {
         {/* Form Completion Indicator */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="mobile-heading-sm">Send a Message</h3>
+            <h2 className="mobile-heading-sm">Send a Message</h2>
             <span className="text-sm text-muted-foreground font-medium">
               {completionPercentage()}% complete
             </span>
