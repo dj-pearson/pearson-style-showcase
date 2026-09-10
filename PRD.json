@@ -1292,6 +1292,35 @@
       "notes": "The suite existed but had never been wired into .github/workflows/ci.yml, which is exactly how it ended up with four specs failing against a navigation that had changed months earlier (US-076). Added an `e2e` job alongside `validate` so it runs in parallel rather than lengthening the critical path: checkout, Node from .nvmrc, npm ci, `npx playwright install --with-deps chromium`, then `npx playwright test --project=chromium`. playwright.config.ts already starts and stops the dev server itself with dummy Supabase env, and every spec mocks its network calls, so no services are needed on the runner. On failure the e2e-results HTML report uploads as an artifact with a 7-day retention - without it a CI-only failure is undiagnosable, since that is where the trace, screenshot and page snapshot live.\n\nChromium only. Firefox roughly doubles wall clock and has not caught anything chromium missed on this codebase; if that changes, add it as a matrix entry. Verified by running the job's exact command with CI=1 locally: 38/38 specs pass in 4.6 minutes, and the workflow file parses with both jobs and all six steps present.",
       "id": "US-077",
       "priority": 59
+    },
+    {
+      "title": "Stop the hero animation from holding the homepage LCP element invisible",
+      "description": "As a visitor, I need the homepage's largest text to paint as soon as the page does, so that the site does not appear a second and a half slower than it is.",
+      "acceptanceCriteria": [
+        "The hero description animates position only, not opacity",
+        "Homepage LCP equals FCP rather than trailing it by ~2 seconds",
+        "Lighthouse performance on / improves measurably over three runs",
+        "The prerendered hero copy no longer blanks and fades back in on hydration",
+        "Accessibility stays at 100 and the E2E homepage specs still pass"
+      ],
+      "passes": true,
+      "notes": "Measured with lhci over three runs before touching anything: / scored 67-69 performance with LCP 5.33-5.39s, while /about (no hero animation) scored 84-85 with LCP 3.40s. Lighthouse named the LCP element as the hero description paragraph. The GSAP timeline in HeroSection.tsx placed that paragraph's tween about 1s deep and animated it from opacity 0 over another second, so the largest text on the page was deliberately invisible until ~2s after hydration - and because the homepage is prerendered, the copy had already painted and then blanked and faded back in for a real reader. Changed that one tween to slide only (y: 30, no opacity); an element that is already visible sliding into place reads the same.\n\nAfter, same three-run measurement: performance 82-85, LCP 2.92-2.94s, and LCP now equals FCP exactly - the paragraph paints with the rest of the page. That is 2.4s off LCP on the site's front door. Left the opacity fades on the name, surname, subtitle and CTA: none of them is the LCP candidate, and they start at t=0 so they register a paint immediately.\n\nStill failing its budget: FCP at ~2.92s against a 2000ms assertion, on every route including ones with no hero at all - that is JavaScript boot cost, not this animation. Filed separately. Verified: 511 unit tests pass, homepage and mobile-nav E2E specs pass (axe still clean, 100 accessibility), typecheck clean, 0 lint errors.",
+      "id": "US-078",
+      "priority": 60
+    },
+    {
+      "title": "Bring first contentful paint under the 2s budget",
+      "description": "As a visitor on a mid-range device, I need the first paint to arrive under two seconds, so that the site meets the performance budget the project already asserts.",
+      "acceptanceCriteria": [
+        "first-contentful-paint under 2000ms on /, /about and /news in the lighthouserc.cjs assertion",
+        "The cause is identified from a trace rather than guessed at",
+        "No regression in LCP, TBT or the accessibility score",
+        "Typecheck passes"
+      ],
+      "passes": false,
+      "notes": "NEXT ITERATION CANDIDATE - measured, not speculative. After US-078 fixed LCP, FCP is the only remaining Lighthouse failure and it fails on every route: ~2.92s on /, ~3.05s on /about, ~3.06s on /news, against the 2000ms assertion in lighthouserc.cjs. Uniform across routes with and without a hero animation, so it is the cost of booting the app, not any one page. Signals already collected: render-blocking CSS (assets/index-*.css, 22.7KB, ~460ms), unused-javascript reporting 277KB of savings with index-*.js at 58% unused and ui-vendor at 84% unused, and third-party time measuring zero so it is not analytics. Worth checking how much of this is Lighthouse's default 4x CPU throttle in a sandboxed runner before optimizing - take a baseline on real hardware first, then look at inlining critical CSS and trimming the entry chunk. Note that CI only runs Lighthouse on pull requests targeting main, so this assertion may already be failing there.",
+      "id": "US-079",
+      "priority": 61
     }
   ]
 }
