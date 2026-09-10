@@ -494,8 +494,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                 response.is_internal
                   ? 'border-yellow-500/50 bg-yellow-500/5'
                   : response.author_type === 'agent' || response.author_type === 'admin'
-                    ? 'border-l-4 border-l-blue-500 bg-blue-500/5'
-                    : 'border-l-4 border-l-primary'
+                    ? 'border-blue-500/50 bg-blue-500/5'
+                    : 'border-primary/50 bg-primary/5'
               }
             >
               <CardContent className="pt-6">

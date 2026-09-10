@@ -1184,6 +1184,37 @@
       "notes": "The React route at src/pages/RSSFeed.tsx could never serve a subscriber: Cloudflare Pages answered /rss.xml with the SPA shell as text/html, so every feed reader got a parse error, and index.html had a comment saying the rel=alternate link was removed for exactly that reason. scripts/prerender.mjs now has writeFeed(), building dist/rss.xml from the same content/crm markdown the pages come from (12 items), with an escapeXml helper kept separate from escapeHtml, deduped categories, and pubDate at 12:00Z so the date does not slide a day west of Greenwich. Backfilled published_at into all 12 markdown files from each file's git add date; scripts/lib/content.mjs now requires published_at and rejects anything that is not YYYY-MM-DD (updated_at is optional, same check). Article schema gained datePublished/dateModified - it previously had neither, which Google asks for on Article rich results. Sitemap <lastmod> for an article now uses its own date instead of the build date. Restored the rel=alternate link in index.html and added _headers content types plus a 1h cache for both XML documents. The /rss.xml and /feed React routes are left in place for in-app navigation; the static file wins in production. Verified: npm run build succeeds (15 routes, 23 sitemap URLs, 12 feed items), dist/rss.xml parses with minidom, typecheck clean, 505 tests pass across 45 files (13 new date assertions), 0 lint errors.",
       "id": "US-070",
       "priority": 52
+    },
+    {
+      "title": "Clear the mechanical UI anti-patterns impeccable detects",
+      "description": "As the owner of a portfolio that is itself a work sample, I need the interface to stop carrying the stock AI-UI tells, so that the site reads as designed rather than generated.",
+      "acceptanceCriteria": [
+        "No component uses a thick colored border on one side of a card or alert to carry severity",
+        "Severity is expressed with one hairline border plus a tint, in both themes",
+        "No bounce or elastic easing on hover affordances",
+        "No violet/indigo gradient buttons",
+        "npx impeccable detect src reports no side-tab, bounce-easing, or gradient-button findings",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "impeccable detect src went from 17 findings to 8. Fixed: border-l-4 severity tabs in OddTrafficMonitor, SecurityAlertsDashboard (all three severities) and TicketDetailView, and in the .status-message rules in index.css - each now declares one 1px tinted border plus a background wash, with dark-mode text colors added so secondary text is tinted from the surface hue rather than left gray on color. MarkdownRenderer's blockquote dropped from a 4px primary rule to a 2px border rule (a blockquote rule is a typographic convention, but 4px in the brand color was the tell). ReadingProgress's scroll-to-top arrow swapped group-hover:animate-bounce for a 200ms ease-out translate. TasksManager's AI Generate button lost its violet-to-indigo gradient and now uses the default primary button.\n\nThe 8 remaining findings are deliberately left: index.css:1207 is a false positive (animate-bounce appears there only inside the .a11y-reduced-motion rule that disables it); FinancialReports:781 text-purple-700 is one entry in a five-way semantic color key for the balance sheet (green revenue, red expenses, blue assets, orange liabilities, purple equity); and the five gradient-text findings plus the Inter type choice are brand decisions, not mechanical tells - see the follow-up story on the site's visual identity.\n\nVerified: typecheck clean, 505 tests pass, 0 lint errors.",
+      "id": "US-071",
+      "priority": 53
+    },
+    {
+      "title": "Decide the site's visual identity: gradient headings and the type choice",
+      "description": "As the owner, I need a decision on the two remaining stock-look signals - gradient text on headings and Inter as the typeface - so that the look is chosen rather than inherited from a template.",
+      "acceptanceCriteria": [
+        "A decision is recorded for hero-gradient-text: keep as brand, or replace headings with a solid color and weight/size hierarchy",
+        "A decision is recorded for the body/display typeface",
+        "If replaced, the change is applied consistently across index.css, Showcase.css, AuthorArchive, CategoryArchive and TagArchive",
+        "impeccable detect src reports no gradient-text or overused-font findings, or the exceptions are documented as intentional",
+        "Typecheck passes"
+      ],
+      "passes": false,
+      "notes": "BLOCKED ON A DESIGN DECISION - do not implement unilaterally. Sites: index.css:370 (.hero-gradient-text, used on nearly every page heading), Showcase.css:829, AuthorArchive.tsx:137, CategoryArchive.tsx:97, TagArchive.tsx:112, and the Inter stack at index.css:130. Gradient headings are the site's current identity and swapping them is a whole-site visual change; the same goes for the typeface. Both need Dj's call before any code moves. Left out of US-071 for that reason. NEXT ITERATION NOTE: ask rather than implement, or scope it to a single page as a proposal.",
+      "id": "US-072",
+      "priority": 54
     }
   ]
 }

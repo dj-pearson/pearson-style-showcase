@@ -101,7 +101,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
 
     blockquote({ children }: MarkdownComponentProps) {
       return (
-        <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground my-4">
+        <blockquote className="border-l-2 border-border pl-4 italic text-muted-foreground my-4">
           {children}
         </blockquote>
       );

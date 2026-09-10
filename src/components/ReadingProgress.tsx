@@ -25,7 +25,7 @@ export const ReadingProgress = () => {
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
-      behavior: 'smooth'
+      behavior: 'smooth',
     });
   };
 
@@ -54,7 +54,7 @@ export const ReadingProgress = () => {
           className="fixed bottom-8 right-8 z-50 shadow-lg rounded-full w-12 h-12 transition-all duration-200 hover:scale-110 group"
           aria-label="Scroll to top"
         >
-          <ArrowUp className="w-5 h-5 group-hover:animate-bounce" />
+          <ArrowUp className="w-5 h-5 transition-transform duration-200 ease-out group-hover:-translate-y-0.5" />
         </Button>
       )}
     </>

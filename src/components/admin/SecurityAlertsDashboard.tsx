@@ -62,14 +62,17 @@ const SEVERITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const SecurityAlertsDashboard: React.FC = () => {
-  
   const canManageAlerts = usePermission(PERMISSIONS.ALERTS_MANAGE);
   const canViewActivity = usePermission(PERMISSIONS.ACTIVITY_LOG_VIEW);
 
   const [activeTab, setActiveTab] = useState('alerts');
 
   // Generate alerts from activity log analysis
-  const { data: generatedAlerts, isLoading: alertsLoading, refetch: refetchAlerts } = useQuery({
+  const {
+    data: generatedAlerts,
+    isLoading: alertsLoading,
+    refetch: refetchAlerts,
+  } = useQuery({
     queryKey: ['security-alerts'],
     queryFn: async () => {
       const alerts: SecurityAlert[] = [];
@@ -95,20 +98,32 @@ const SecurityAlertsDashboard: React.FC = () => {
       if (roleChangesError) throw roleChangesError;
 
       if (roleChanges && roleChanges.length > 0) {
-        roleChanges.forEach((change: { id: string; action: string; admin_email: string; timestamp: string; new_values: Record<string, unknown> | null }) => {
-          alerts.push({
-            id: `role-${change.id}`,
-            type: 'role_change',
-            severity: change.action === 'DELETE' ? 'warning' : 'info',
-            title: `Role ${change.action?.toLowerCase() || 'changed'}`,
-            message: `${change.admin_email} ${change.action?.toLowerCase() || 'changed'}d a role assignment`,
-            metadata: { action: change.action, admin: change.admin_email, details: change.new_values },
-            created_at: change.timestamp,
-            acknowledged: false,
-            acknowledged_by: null,
-            acknowledged_at: null,
-          });
-        });
+        roleChanges.forEach(
+          (change: {
+            id: string;
+            action: string;
+            admin_email: string;
+            timestamp: string;
+            new_values: Record<string, unknown> | null;
+          }) => {
+            alerts.push({
+              id: `role-${change.id}`,
+              type: 'role_change',
+              severity: change.action === 'DELETE' ? 'warning' : 'info',
+              title: `Role ${change.action?.toLowerCase() || 'changed'}`,
+              message: `${change.admin_email} ${change.action?.toLowerCase() || 'changed'}d a role assignment`,
+              metadata: {
+                action: change.action,
+                admin: change.admin_email,
+                details: change.new_values,
+              },
+              created_at: change.timestamp,
+              acknowledged: false,
+              acknowledged_by: null,
+              acknowledged_at: null,
+            });
+          }
+        );
       }
 
       // Check for whitelist changes in last 24 hours
@@ -121,20 +136,32 @@ const SecurityAlertsDashboard: React.FC = () => {
       if (whitelistChangesError) throw whitelistChangesError;
 
       if (whitelistChanges && whitelistChanges.length > 0) {
-        whitelistChanges.forEach((change: { id: string; action: string; admin_email: string; timestamp: string; new_values: Record<string, unknown> | null }) => {
-          alerts.push({
-            id: `whitelist-${change.id}`,
-            type: 'whitelist_change',
-            severity: change.action === 'DELETE' ? 'critical' : 'warning',
-            title: `Whitelist ${change.action?.toLowerCase() || 'changed'}`,
-            message: `${change.admin_email} ${change.action?.toLowerCase() || 'changed'}d a whitelist entry`,
-            metadata: { action: change.action, admin: change.admin_email, details: change.new_values },
-            created_at: change.timestamp,
-            acknowledged: false,
-            acknowledged_by: null,
-            acknowledged_at: null,
-          });
-        });
+        whitelistChanges.forEach(
+          (change: {
+            id: string;
+            action: string;
+            admin_email: string;
+            timestamp: string;
+            new_values: Record<string, unknown> | null;
+          }) => {
+            alerts.push({
+              id: `whitelist-${change.id}`,
+              type: 'whitelist_change',
+              severity: change.action === 'DELETE' ? 'critical' : 'warning',
+              title: `Whitelist ${change.action?.toLowerCase() || 'changed'}`,
+              message: `${change.admin_email} ${change.action?.toLowerCase() || 'changed'}d a whitelist entry`,
+              metadata: {
+                action: change.action,
+                admin: change.admin_email,
+                details: change.new_values,
+              },
+              created_at: change.timestamp,
+              acknowledged: false,
+              acknowledged_by: null,
+              acknowledged_at: null,
+            });
+          }
+        );
       }
 
       // Check for mass deletions (5+ deletes in 10 minutes)
@@ -236,9 +263,7 @@ const SecurityAlertsDashboard: React.FC = () => {
     return (
       <Alert>
         <Bell className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to view security alerts.
-        </AlertDescription>
+        <AlertDescription>You don't have permission to view security alerts.</AlertDescription>
       </Alert>
     );
   }
@@ -355,9 +380,7 @@ const SecurityAlertsDashboard: React.FC = () => {
                 <div className="text-center py-12">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                   <h3 className="text-lg font-medium">All Clear</h3>
-                  <p className="text-muted-foreground">
-                    No security alerts at this time.
-                  </p>
+                  <p className="text-muted-foreground">No security alerts at this time.</p>
                 </div>
               ) : (
                 <ScrollArea className="h-[500px]">
@@ -365,13 +388,13 @@ const SecurityAlertsDashboard: React.FC = () => {
                     {generatedAlerts.map((alert) => (
                       <Alert
                         key={alert.id}
-                        className={`border-l-4 ${
+                        className={
                           alert.severity === 'critical'
-                            ? 'border-l-red-500'
+                            ? 'border-red-500/40 bg-red-500/5'
                             : alert.severity === 'warning'
-                            ? 'border-l-yellow-500'
-                            : 'border-l-blue-500'
-                        }`}
+                              ? 'border-yellow-500/40 bg-yellow-500/5'
+                              : 'border-blue-500/40 bg-blue-500/5'
+                        }
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3">
@@ -385,9 +408,7 @@ const SecurityAlertsDashboard: React.FC = () => {
                                   {alert.severity}
                                 </Badge>
                               </AlertTitle>
-                              <AlertDescription className="mt-1">
-                                {alert.message}
-                              </AlertDescription>
+                              <AlertDescription className="mt-1">{alert.message}</AlertDescription>
                               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
@@ -427,9 +448,7 @@ const SecurityAlertsDashboard: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Alert Rules</CardTitle>
-              <CardDescription>
-                Configure when alerts should be triggered.
-              </CardDescription>
+              <CardDescription>Configure when alerts should be triggered.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -443,9 +462,7 @@ const SecurityAlertsDashboard: React.FC = () => {
                         <h4 className="font-medium">{rule.name}</h4>
                         <Badge variant="outline">{rule.type}</Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {rule.description}
-                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">{rule.description}</p>
                       <p className="text-xs text-muted-foreground mt-2">
                         Threshold: {rule.threshold}{' '}
                         {rule.window_minutes > 0 && `within ${rule.window_minutes} minutes`}

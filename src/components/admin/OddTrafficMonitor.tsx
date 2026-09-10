@@ -90,11 +90,7 @@ const OddTrafficMonitor: React.FC = () => {
   const { data: rules } = useQuery<TrafficRulesRow | null>({
     queryKey: ['odd-traffic-rules'],
     queryFn: async () => {
-      const { data, error } = await db
-        .from('traffic_rules')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await db.from('traffic_rules').select('*').limit(1).maybeSingle();
       if (error) throw error;
       return data as TrafficRulesRow | null;
     },
@@ -255,7 +251,9 @@ const OddTrafficMonitor: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Flagged</p>
-                <p className="text-2xl font-bold text-yellow-600">{analysis.flagged.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {analysis.flagged.toLocaleString()}
+                </p>
               </div>
               <Flag className="h-8 w-8 text-yellow-500" />
             </div>
@@ -291,7 +289,8 @@ const OddTrafficMonitor: React.FC = () => {
         </Badge>
         <Badge variant="outline">{modeLabel}</Badge>
         <span>
-          Expecting: {(rules?.allowed_countries ?? DEFAULT_RULES.allowed_countries).join(', ') || '—'}
+          Expecting:{' '}
+          {(rules?.allowed_countries ?? DEFAULT_RULES.allowed_countries).join(', ') || '—'}
         </span>
       </div>
 
@@ -315,16 +314,17 @@ const OddTrafficMonitor: React.FC = () => {
         <TabsContent value="overview" className="mt-4 space-y-6">
           {/* Spike alerts */}
           {analysis.spikes.length > 0 && (
-            <Alert className="border-l-4 border-l-red-500">
+            <Alert className="border-red-500/40 bg-red-500/5">
               <AlertTriangle className="h-4 w-4 text-red-500" />
               <AlertTitle>Volume spike detected</AlertTitle>
               <AlertDescription>
                 <ul className="mt-2 space-y-1 text-sm">
                   {analysis.spikes.map((s) => (
                     <li key={`${s.kind}-${s.label}`}>
-                      {s.count.toLocaleString()} visits from {s.kind === 'country' ? 'country' : 'source'}{' '}
-                      <code className="font-mono">{s.label}</code> in the last {analysis.windowMin} min
-                      (threshold {analysis.threshold}).
+                      {s.count.toLocaleString()} visits from{' '}
+                      {s.kind === 'country' ? 'country' : 'source'}{' '}
+                      <code className="font-mono">{s.label}</code> in the last {analysis.windowMin}{' '}
+                      min (threshold {analysis.threshold}).
                     </li>
                   ))}
                 </ul>
@@ -347,16 +347,16 @@ const OddTrafficMonitor: React.FC = () => {
                 </div>
               ) : analysis.countries.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
-                  No visits recorded yet. Data appears here once the migration is applied and the site
-                  receives traffic.
+                  No visits recorded yet. Data appears here once the migration is applied and the
+                  site receives traffic.
                 </p>
               ) : (
                 <ScrollArea className="h-[320px]">
                   <div className="space-y-1">
                     {analysis.countries.map((c) => {
-                      const allowed = (rules?.allowed_countries ?? DEFAULT_RULES.allowed_countries).includes(
-                        c.code
-                      );
+                      const allowed = (
+                        rules?.allowed_countries ?? DEFAULT_RULES.allowed_countries
+                      ).includes(c.code);
                       const pct = analysis.total ? Math.round((c.total / analysis.total) * 100) : 0;
                       return (
                         <div
@@ -368,7 +368,10 @@ const OddTrafficMonitor: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-medium w-16">{c.code}</span>
                             {!allowed && c.code !== 'Unknown' && (
-                              <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                              <Badge
+                                variant="outline"
+                                className="text-yellow-600 border-yellow-600"
+                              >
                                 unexpected
                               </Badge>
                             )}
@@ -378,7 +381,9 @@ const OddTrafficMonitor: React.FC = () => {
                               <span className="text-yellow-600">{c.flagged} flagged</span>
                             )}
                             <span className="text-muted-foreground w-10 text-right">{pct}%</span>
-                            <span className="font-medium w-16 text-right">{c.total.toLocaleString()}</span>
+                            <span className="font-medium w-16 text-right">
+                              {c.total.toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       );
@@ -406,7 +411,9 @@ const OddTrafficMonitor: React.FC = () => {
                         className="flex items-center justify-between text-sm p-2 border-b last:border-0"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-mono font-medium w-10">{v.country_code || '??'}</span>
+                          <span className="font-mono font-medium w-10">
+                            {v.country_code || '??'}
+                          </span>
                           <span className="truncate text-muted-foreground">{v.path || '/'}</span>
                         </div>
                         <span className="text-xs text-muted-foreground shrink-0">
@@ -472,7 +479,9 @@ const OddTrafficMonitor: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="allowed-countries">Expected countries (ISO codes, comma-separated)</Label>
+                <Label htmlFor="allowed-countries">
+                  Expected countries (ISO codes, comma-separated)
+                </Label>
                 <Input
                   id="allowed-countries"
                   value={form.allowedCountries}
@@ -515,8 +524,8 @@ const OddTrafficMonitor: React.FC = () => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground -mt-2">
-                A spike alert fires when more than the threshold of visits arrive from a single country
-                or source within the window.
+                A spike alert fires when more than the threshold of visits arrive from a single
+                country or source within the window.
               </p>
 
               <div className="flex justify-end">
@@ -546,21 +555,26 @@ const OddTrafficMonitor: React.FC = () => {
                 Truly preventing the visits (Cloudflare edge)
               </CardTitle>
               <CardDescription>
-                This dashboard detects and soft-handles odd traffic in the browser. To stop the requests
-                from reaching the site at all, add a firewall rule at the Cloudflare edge.
+                This dashboard detects and soft-handles odd traffic in the browser. To stop the
+                requests from reaching the site at all, add a firewall rule at the Cloudflare edge.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <p>
-                The in-app layer can't block a request — the page is already served before JavaScript
-                runs. Hard blocking lives in Cloudflare, in front of the site:
+                The in-app layer can't block a request — the page is already served before
+                JavaScript runs. Hard blocking lives in Cloudflare, in front of the site:
               </p>
               <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                <li>Cloudflare dashboard → your domain → <strong>Security → WAF → Custom rules</strong>.</li>
-                <li>Create a rule, e.g. <em>Block</em> when:</li>
+                <li>
+                  Cloudflare dashboard → your domain →{' '}
+                  <strong>Security → WAF → Custom rules</strong>.
+                </li>
+                <li>
+                  Create a rule, e.g. <em>Block</em> when:
+                </li>
               </ol>
               <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs">
-{`(ip.geoip.country eq "SG") and not http.request.uri.path contains "/admin"`}
+                {`(ip.geoip.country eq "SG") and not http.request.uri.path contains "/admin"`}
               </pre>
               <p className="text-muted-foreground">
                 Or choose the <strong>Managed Challenge</strong> action instead of Block to let real
@@ -572,8 +586,8 @@ const OddTrafficMonitor: React.FC = () => {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   Blocking an entire country also blocks real visitors there (travelers, VPN users).
-                  For a portfolio, <strong>Managed Challenge</strong> is usually safer than an outright
-                  block.
+                  For a portfolio, <strong>Managed Challenge</strong> is usually safer than an
+                  outright block.
                 </AlertDescription>
               </Alert>
             </CardContent>
