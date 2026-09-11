@@ -1468,6 +1468,21 @@
       ],
       "passes": true,
       "notes": "Done. src/components/GlobalSearch.tsx holds an activeIndex, handles the keys on the input so the caret never leaves the field, and marks the results up as role=listbox/option. The footer promised 'Enter to select' with nothing implementing it. 4 new tests; src/test/setup.ts gains a scrollIntoView stub, which jsdom does not implement."
+    },
+    {
+      "title": "Actually count article views",
+      "description": "As the site owner, I need view_count to reflect real reads, so that the numbers on every article card and the popular ordering on the topic hubs mean something.",
+      "acceptanceCriteria": [
+        "Opening an article and staying five seconds adds one view",
+        "A reader who leaves sooner is not counted",
+        "Reopening the same article in one browser session does not count again",
+        "Anonymous readers can increment, but cannot otherwise write to articles",
+        "An article served from the build-time markdown, which has no row, is skipped",
+        "A failed or absent RPC never surfaces an error to the reader",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done in code; the migration still has to be applied. supabase/migrations/20260911000001_article_view_counter.sql adds a SECURITY DEFINER increment_article_view(slug) granted to anon and authenticated (rollback alongside it), and src/hooks/useArticleView.ts calls it after a five-second dwell with a per-session sessionStorage guard. Deliberately a vanity counter: anyone can call it in a loop, which the migration comment says out loud - making it trustworthy needs an edge function that can see the caller's address. 6 new tests."
     }
   ]
 }

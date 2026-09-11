@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
+import { useArticleView } from '@/hooks/useArticleView';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { useToast } from '@/hooks/use-toast';
 import { validateUrlParam } from '@/lib/security';
@@ -108,6 +109,10 @@ const Article = () => {
 
   // Track affiliate link clicks
   useAffiliateTracking(article?.id || '');
+
+  // Count the read. Skipped for an article served from the build-time markdown:
+  // there is no row behind it, so there is nothing to count yet.
+  useArticleView(slug, Boolean(article) && !article?.id?.startsWith('static-'));
 
   const handleShare = async (platform: string) => {
     const url = window.location.href;
