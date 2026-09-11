@@ -12,14 +12,23 @@ import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { validateUrlParam } from '@/lib/security';
+import {
+  fetchSeededStaticSlugs,
+  selectStaticArticles,
+  sortArticleListing,
+} from '@/lib/static-articles';
 
-type Article = Tables<"articles">;
+type Article = Tables<'articles'>;
 
 const TagArchive = () => {
   const { tag: rawTag } = useParams<{ tag: string }>();
   const tag = rawTag ? validateUrlParam(rawTag) : null;
 
-  const { data: articles, isLoading, error } = useQuery({
+  const {
+    data: articles,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['articles', 'tag', tag],
     queryFn: async () => {
       if (!tag) throw new Error('No tag provided');
@@ -27,7 +36,9 @@ const TagArchive = () => {
       // Fetch published articles with a reasonable limit and filter by tag
       const { data, error } = await supabase
         .from('articles')
-        .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
+        .select(
+          'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'
+        )
         .eq('published', true)
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false })
@@ -37,24 +48,35 @@ const TagArchive = () => {
 
       // Filter articles that have this tag (case-insensitive)
       const tagLower = tag.toLowerCase();
-      const filtered = (data as Article[]).filter(article =>
-        article.tags?.some(t => t.toLowerCase().replace(/\s+/g, '-') === tagLower)
-      );
+      const hasTag = (article: { tags?: string[] | null }) =>
+        article.tags?.some((t) => t.toLowerCase().replace(/\s+/g, '-') === tagLower) ?? false;
 
-      return filtered;
+      const filtered = (data as Article[]).filter(hasTag);
+
+      // Articles built into the site with no row yet carry tags too, and an
+      // article page links straight here - without them the link from a
+      // prerendered article lands on an empty archive (US-074/US-082).
+      const builtIn = selectStaticArticles(hasTag, await fetchSeededStaticSlugs());
+
+      return sortArticleListing([...filtered, ...builtIn]) as Article[];
     },
     enabled: !!tag,
   });
 
   // Get unique categories from articles with this tag
   const tagCategories = articles
-    ? Array.from(new Set(articles.map(a => a.category).filter(Boolean))).sort()
+    ? Array.from(new Set(articles.map((a) => a.category).filter(Boolean))).sort()
     : [];
 
   // Get related tags
   const relatedTags = articles
-    ? Array.from(new Set(articles.flatMap(a => a.tags || [])
-        .filter(t => t.toLowerCase().replace(/\s+/g, '-') !== tag?.toLowerCase())))
+    ? Array.from(
+        new Set(
+          articles
+            .flatMap((a) => a.tags || [])
+            .filter((t) => t.toLowerCase().replace(/\s+/g, '-') !== tag?.toLowerCase())
+        )
+      )
         .sort()
         .slice(0, 8)
     : [];
@@ -66,7 +88,7 @@ const TagArchive = () => {
   // Format tag name for display
   const tagDisplay = tag
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
   // Generate SEO-friendly description
@@ -76,7 +98,7 @@ const TagArchive = () => {
   const breadcrumbItems = [
     { label: 'Home', path: '/' },
     { label: 'News', path: '/news' },
-    { label: tagDisplay, path: `/news/tag/${tag}` }
+    { label: tagDisplay, path: `/news/tag/${tag}` },
   ];
 
   const breadcrumbStructuredData = breadcrumbItems.map((item) => ({
@@ -94,7 +116,7 @@ const TagArchive = () => {
         type="website"
         structuredData={{
           type: 'breadcrumb',
-          data: { items: breadcrumbStructuredData }
+          data: { items: breadcrumbStructuredData },
         }}
       />
 
@@ -113,21 +135,22 @@ const TagArchive = () => {
                 {tagDisplay}
               </h1>
             </div>
-            <p className="text-xl text-gray-400 mb-6">
-              {tagDescription}
-            </p>
+            <p className="text-xl text-gray-400 mb-6">{tagDescription}</p>
 
             {/* Categories */}
             {tagCategories.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 <span className="text-sm text-gray-500">Categories:</span>
-                {tagCategories.map(category => (
-                  <Link
-                    key={category}
-                    to={`/news/category/${category}`}
-                  >
-                    <Badge variant="secondary" className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer">
-                      {category?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                {tagCategories.map((category) => (
+                  <Link key={category} to={`/news/category/${category}`}>
+                    <Badge
+                      variant="secondary"
+                      className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer"
+                    >
+                      {category
+                        ?.split('-')
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(' ')}
                     </Badge>
                   </Link>
                 ))}
@@ -138,12 +161,15 @@ const TagArchive = () => {
             {relatedTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 <span className="text-sm text-gray-500">Related tags:</span>
-                {relatedTags.map(relatedTag => (
+                {relatedTags.map((relatedTag) => (
                   <Link
                     key={relatedTag}
                     to={`/news/tag/${relatedTag.toLowerCase().replace(/\s+/g, '-')}`}
                   >
-                    <Badge variant="outline" className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer">
+                    <Badge
+                      variant="outline"
+                      className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer"
+                    >
                       {relatedTag}
                     </Badge>
                   </Link>
@@ -167,9 +193,7 @@ const TagArchive = () => {
           {error && (
             <div className="text-center py-12">
               <p className="text-red-400 mb-4">Failed to load articles</p>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
+              <Button onClick={() => window.location.reload()}>Try Again</Button>
             </div>
           )}
 
@@ -198,7 +222,8 @@ const TagArchive = () => {
 
               {/* Article Count */}
               <div className="mt-12 text-center text-gray-500">
-                Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} tagged with {tagDisplay}
+                Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} tagged
+                with {tagDisplay}
               </div>
             </>
           )}

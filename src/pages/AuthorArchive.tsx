@@ -14,14 +14,23 @@ import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { SEO_CONFIG, getCanonicalUrl, getArchiveMetadata } from '@/lib/seo';
 import { validateUrlParam } from '@/lib/security';
+import {
+  fetchSeededStaticSlugs,
+  selectStaticArticles,
+  sortArticleListing,
+} from '@/lib/static-articles';
 
-type Article = Tables<"articles">;
+type Article = Tables<'articles'>;
 
 const AuthorArchive = () => {
   const { author: rawAuthor } = useParams<{ author: string }>();
   const author = rawAuthor ? validateUrlParam(rawAuthor) : null;
 
-  const { data: articles, isLoading, error } = useQuery({
+  const {
+    data: articles,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['articles', 'author', author],
     queryFn: async () => {
       if (!author) throw new Error('No author provided');
@@ -29,12 +38,14 @@ const AuthorArchive = () => {
       // Convert slug back to author name format
       const authorName = author
         .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
 
       const { data, error } = await supabase
         .from('articles')
-        .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
+        .select(
+          'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'
+        )
         .eq('published', true)
         .ilike('author', authorName)
         .order('featured', { ascending: false })
@@ -42,7 +53,16 @@ const AuthorArchive = () => {
         .limit(50);
 
       if (error) throw error;
-      return data as Article[];
+
+      // Same as the other archives: the built-in articles have an author and
+      // are linked from their own pages, so they belong here too.
+      const authorLower = authorName.toLowerCase();
+      const builtIn = selectStaticArticles(
+        (article) => article.author?.toLowerCase() === authorLower,
+        await fetchSeededStaticSlugs()
+      );
+
+      return sortArticleListing([...(data as Article[]), ...builtIn]) as Article[];
     },
     enabled: !!author,
   });
@@ -54,15 +74,15 @@ const AuthorArchive = () => {
   // Format author name for display
   const authorDisplay = author
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
   // Get unique categories and tags from this author's articles
   const authorCategories = articles
-    ? Array.from(new Set(articles.map(a => a.category).filter(Boolean)))
+    ? Array.from(new Set(articles.map((a) => a.category).filter(Boolean)))
     : [];
   const authorTags = articles
-    ? Array.from(new Set(articles.flatMap(a => a.tags || []))).slice(0, 10)
+    ? Array.from(new Set(articles.flatMap((a) => a.tags || []))).slice(0, 10)
     : [];
 
   // Generate SEO metadata
@@ -71,14 +91,14 @@ const AuthorArchive = () => {
   // Breadcrumb items for visual component (label/path format)
   const breadcrumbItems = [
     { label: 'News', path: '/news' },
-    { label: authorDisplay, path: `/author/${author}` }
+    { label: authorDisplay, path: `/author/${author}` },
   ];
 
   // Breadcrumb items for structured data (name/url format)
   const structuredBreadcrumbs = [
     { name: 'Home', url: getCanonicalUrl('/') },
     { name: 'News', url: getCanonicalUrl('/news') },
-    { name: authorDisplay, url: getCanonicalUrl(`/author/${author}`) }
+    { name: authorDisplay, url: getCanonicalUrl(`/author/${author}`) },
   ];
 
   // Check if this is the main author (Dan Pearson)
@@ -95,10 +115,7 @@ const AuthorArchive = () => {
       />
 
       {/* Breadcrumb Schema */}
-      <StructuredData
-        type="breadcrumb"
-        data={{ items: structuredBreadcrumbs }}
-      />
+      <StructuredData type="breadcrumb" data={{ items: structuredBreadcrumbs }} />
 
       {/* Author/Person Schema for E-E-A-T */}
       <StructuredData
@@ -168,12 +185,12 @@ const AuthorArchive = () => {
             {authorCategories.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 <span className="text-sm text-gray-500">Writes about:</span>
-                {authorCategories.map(category => (
-                  <Link
-                    key={category}
-                    to={`/news/category/${category}`}
-                  >
-                    <Badge variant="secondary" className="hover:bg-tech-cyan/10 transition-colors cursor-pointer">
+                {authorCategories.map((category) => (
+                  <Link key={category} to={`/news/category/${category}`}>
+                    <Badge
+                      variant="secondary"
+                      className="hover:bg-tech-cyan/10 transition-colors cursor-pointer"
+                    >
                       {category}
                     </Badge>
                   </Link>
@@ -185,12 +202,12 @@ const AuthorArchive = () => {
             {authorTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 <span className="text-sm text-gray-500">Topics:</span>
-                {authorTags.map(tag => (
-                  <Link
-                    key={tag}
-                    to={`/news/tag/${tag.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    <Badge variant="outline" className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer">
+                {authorTags.map((tag) => (
+                  <Link key={tag} to={`/news/tag/${tag.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <Badge
+                      variant="outline"
+                      className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer"
+                    >
                       {tag}
                     </Badge>
                   </Link>
@@ -214,9 +231,7 @@ const AuthorArchive = () => {
           {error && (
             <div className="text-center py-12">
               <p className="text-red-400 mb-4">Failed to load articles</p>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
+              <Button onClick={() => window.location.reload()}>Try Again</Button>
             </div>
           )}
 
@@ -246,7 +261,8 @@ const AuthorArchive = () => {
 
               {/* Article Count */}
               <div className="mt-12 text-center text-gray-500">
-                Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} by {authorDisplay}
+                Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} by{' '}
+                {authorDisplay}
               </div>
             </>
           )}

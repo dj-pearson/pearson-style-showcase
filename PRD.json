@@ -1424,6 +1424,21 @@
       ],
       "passes": true,
       "notes": "Done. src/lib/static-articles.ts gains searchStaticArticles(), which matches title/excerpt/category/tags over the build-time index and takes an excludeSlugs set so a seeded slug is never listed twice. Wired into src/pages/Search.tsx and src/components/GlobalSearch.tsx, in both cases merged before the existing sort so ordering is unchanged. 7 new unit tests."
+    },
+    {
+      "title": "Show the built-in articles on the tag, category and author archives",
+      "description": "As a reader following a tag, category or author link from a prerendered article, I need that archive to list the article I came from, so that the link is not a dead end onto an empty page.",
+      "acceptanceCriteria": [
+        "A tag link from a built-in article lands on an archive that lists it",
+        "The category archive lists built-in articles in that category",
+        "The author archive lists built-in articles by that author",
+        "A built-in article that has since been seeded shows once, from its database row, with no stale build-time copy beside it",
+        "A failed seeded-slug lookup leaves the archive populated rather than empty",
+        "Ordering matches the rest of the site: featured first, then newest",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. selectStaticArticles() and fetchSeededStaticSlugs() added to src/lib/static-articles.ts; the three archives merge built-in matches after their query and re-sort with sortArticleListing. The seeded-slug lookup is one bounded .in() over the twelve known slugs and fails open. 6 new unit tests."
     }
   ]
 }

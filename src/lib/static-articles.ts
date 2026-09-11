@@ -2,6 +2,8 @@ import {
   CRM_ARTICLE_INDEX,
   type StaticArticleSummary,
 } from '@/content/crm-article-index.generated';
+import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 /**
  * The shape a listing page needs from an article, whichever source it came
@@ -64,6 +66,45 @@ export function mergeStaticArticles<T extends { slug: string }>(
   const missing = CRM_ARTICLE_INDEX.filter((article) => !seen.has(article.slug)).map(toListing);
 
   return [...fromDatabase, ...missing];
+}
+
+/**
+ * The built-in articles matching a predicate, minus any slug the caller already
+ * has covered. Listing pages that filter server-side (a category archive, an
+ * author archive) have no merged list to filter, so they select from the index
+ * directly.
+ */
+export function selectStaticArticles(
+  predicate: (article: ArticleListing) => boolean,
+  excludeSlugs?: Iterable<string>
+): ArticleListing[] {
+  const excluded = new Set(excludeSlugs ?? []);
+  return CRM_ARTICLE_INDEX.filter((article) => !excluded.has(article.slug))
+    .map(toListing)
+    .filter(predicate);
+}
+
+/**
+ * Which built-in slugs already exist as database rows, whatever category or
+ * author that row now carries. Bounded to the known slugs, so it is one cheap
+ * lookup, and it lets an archive drop the build-time copy of an article that
+ * has since been seeded and edited rather than showing stale metadata beside
+ * the live row.
+ */
+export async function fetchSeededStaticSlugs(): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('articles')
+    .select('slug')
+    .in('slug', STATIC_ARTICLE_SLUGS);
+
+  if (error) {
+    // A failed lookup must not empty the archive: fall back to showing the
+    // build-time copies, which is the behaviour when nothing is seeded.
+    logger.error('Seeded static slug lookup failed:', error);
+    return new Set();
+  }
+
+  return new Set((data ?? []).map((row) => row.slug));
 }
 
 /**
