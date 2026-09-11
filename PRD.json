@@ -1551,8 +1551,8 @@
         "It is announced sensibly to a screen reader and is keyboard navigable",
         "Typecheck and tests pass"
       ],
-      "passes": false,
-      "notes": "Not started. Unblocked by the heading ids shipped alongside this entry; the headings have to be extracted from the markdown source rather than the DOM so the panel renders with the article rather than after it."
+      "passes": true,
+      "notes": "Done. src/lib/markdown-headings.ts extracts headings from the markdown source (skipping fenced code blocks, stripping inline markup) and owns the slug and duplicate rules, which src/components/MarkdownRenderer.tsx now shares - the two sides derive ids independently otherwise, and a disagreement makes every entry a dead anchor. src/components/article/TableOfContents.tsx renders a <details>, collapsed on a phone and open above 768px, lists h2 and h3 only, hides itself below four sections, and marks the current section with aria-current via an IntersectionObserver. 18 unit tests plus an e2e check that every link on a real article resolves to a heading on the page."
     }
   ]
 }

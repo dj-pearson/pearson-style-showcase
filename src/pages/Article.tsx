@@ -30,6 +30,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
 import RelatedArticles from '../components/article/RelatedArticles';
 import KeyTakeaways, { extractKeyTakeaways } from '../components/article/KeyTakeaways';
+import TableOfContents from '../components/article/TableOfContents';
 import OptimizedImage from '../components/OptimizedImage';
 
 type Article = Tables<'articles'>;
@@ -548,6 +549,8 @@ const Article = () => {
             )}
 
             {/* Article Content */}
+            <TableOfContents content={article.content ?? ''} />
+
             <div className="prose prose-invert max-w-none" itemProp="articleBody">
               {article.content ? (
                 <>

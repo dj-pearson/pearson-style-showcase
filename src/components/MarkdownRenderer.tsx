@@ -3,6 +3,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DOMPurify from 'dompurify';
 import { validateUrl } from '@/lib/security';
+import { createHeadingIds, headingSlug } from '@/lib/markdown-headings';
+
+// Re-exported so callers keep importing the slug rule from the renderer.
+export { headingSlug };
 
 // Prism ships roughly 200 language definitions, about 780 kB raw. Loading it
 // lazily means an article only pays for it when it actually contains a fenced
@@ -25,22 +29,6 @@ interface MarkdownComponentProps {
   alt?: string;
 }
 
-/**
- * Turns the text of a heading into a URL fragment: lowercase, words joined by
- * hyphens, anything else dropped. Matches how GitHub and most markdown
- * renderers slug headings, so links written against those conventions land.
- */
-export function headingSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
-
 /** The visible text of a heading, whatever inline markup it is built from. */
 function nodeText(node: React.ReactNode): string {
   if (node === null || node === undefined || typeof node === 'boolean') return '';
@@ -59,16 +47,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
    * deduped within one article; the counter is rebuilt on every render pass so
    * the same heading always gets the same id.
    */
-  const usedHeadingIds = new Map<string, number>();
-
-  const headingId = (children: React.ReactNode): string | undefined => {
-    const base = headingSlug(nodeText(children));
-    if (!base) return undefined;
-
-    const seen = usedHeadingIds.get(base) ?? 0;
-    usedHeadingIds.set(base, seen + 1);
-    return seen === 0 ? base : `${base}-${seen + 1}`;
-  };
+  const nextHeadingId = createHeadingIds();
+  const headingId = (children: React.ReactNode): string | undefined =>
+    nextHeadingId(nodeText(children));
 
   // Allowed style values for custom components (whitelist approach)
   const ALLOWED_BUTTON_STYLES = ['primary', 'secondary', 'outline', 'destructive'];
