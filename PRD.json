@@ -1524,6 +1524,35 @@
       ],
       "passes": true,
       "notes": "Two faults, one section. src/components/article/RelatedArticles.tsx passed currentArticleId straight into .neq('id', ...): on a built-in article that is 'static-<slug>', PostgREST rejects it against a uuid column, the query throws, and the whole Related Articles block silently disappears. Even with the query working, the candidate pool was database-only, so the twelve CRM articles - each other's closest matches - could never appear. The id filter is now conditional on the id being a uuid, the current article is excluded by slug, and built-in candidates join the pool via selectStaticArticles/fetchSeededStaticSlugs before scoring. 4 new tests."
+    },
+    {
+      "title": "Make article sections linkable",
+      "description": "As a reader who wants to send someone a particular part of an article, I need headings to have ids and a link to copy, so that I can point at a section rather than the whole page.",
+      "acceptanceCriteria": [
+        "Every heading rendered from markdown carries an id derived from its text",
+        "Two headings with the same text get distinct ids",
+        "A heading containing bold or other inline markup slugs from its visible text",
+        "Accents are folded rather than dropping the word, and punctuation is dropped",
+        "Section headings offer a link, revealed on hover and on keyboard focus, with a label naming the section",
+        "A linked heading is not hidden behind the fixed navigation bar when scrolled to",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/MarkdownRenderer.tsx exports headingSlug() and ids h1 through h4, deduping within one article; h2 and h3 also render a '#' anchor that appears on hover or focus, and scroll-mt-24 keeps the target clear of the fixed navbar. This is the prerequisite for a table of contents, which nothing has yet - worth its own story. 8 new tests."
+    },
+    {
+      "title": "Add a table of contents to long articles",
+      "description": "As a reader opening a long CRM article, I need a contents panel, so that I can see the shape of the piece and jump to the part I came for.",
+      "acceptanceCriteria": [
+        "Articles above a length threshold show a contents list built from their h2 and h3 headings",
+        "Entries link to the heading ids MarkdownRenderer now emits",
+        "The current section is indicated as the reader scrolls",
+        "It collapses out of the way on a phone rather than pushing the article down",
+        "It is announced sensibly to a screen reader and is keyboard navigable",
+        "Typecheck and tests pass"
+      ],
+      "passes": false,
+      "notes": "Not started. Unblocked by the heading ids shipped alongside this entry; the headings have to be extracted from the markdown source rather than the DOM so the panel renders with the article rather than after it."
     }
   ]
 }

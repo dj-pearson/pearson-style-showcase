@@ -25,7 +25,51 @@ interface MarkdownComponentProps {
   alt?: string;
 }
 
+/**
+ * Turns the text of a heading into a URL fragment: lowercase, words joined by
+ * hyphens, anything else dropped. Matches how GitHub and most markdown
+ * renderers slug headings, so links written against those conventions land.
+ */
+export function headingSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+/** The visible text of a heading, whatever inline markup it is built from. */
+function nodeText(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join('');
+  if (React.isValidElement(node)) {
+    return nodeText((node.props as { children?: React.ReactNode }).children);
+  }
+  return '';
+}
+
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+  /*
+   * Headings had no ids, so no section of an article could be linked to, shared
+   * or listed in a contents panel. Ids are derived from the heading text and
+   * deduped within one article; the counter is rebuilt on every render pass so
+   * the same heading always gets the same id.
+   */
+  const usedHeadingIds = new Map<string, number>();
+
+  const headingId = (children: React.ReactNode): string | undefined => {
+    const base = headingSlug(nodeText(children));
+    if (!base) return undefined;
+
+    const seen = usedHeadingIds.get(base) ?? 0;
+    usedHeadingIds.set(base, seen + 1);
+    return seen === 0 ? base : `${base}-${seen + 1}`;
+  };
+
   // Allowed style values for custom components (whitelist approach)
   const ALLOWED_BUTTON_STYLES = ['primary', 'secondary', 'outline', 'destructive'];
   const ALLOWED_ALERT_TYPES = ['info', 'warning', 'success', 'error'];
@@ -126,19 +170,58 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
     },
 
     h1({ children }: MarkdownComponentProps) {
-      return <h1 className="text-3xl font-bold mt-8 mb-4 first:mt-0">{children}</h1>;
+      return (
+        <h1
+          id={headingId(children)}
+          className="text-3xl font-bold mt-8 mb-4 first:mt-0 scroll-mt-24"
+        >
+          {children}
+        </h1>
+      );
     },
 
     h2({ children }: MarkdownComponentProps) {
-      return <h2 className="text-2xl font-semibold mt-6 mb-3">{children}</h2>;
+      const id = headingId(children);
+      return (
+        <h2 id={id} className="text-2xl font-semibold mt-6 mb-3 scroll-mt-24 group">
+          {children}
+          {id && (
+            <a
+              href={`#${id}`}
+              className="ml-2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Link to this section: ${nodeText(children)}`}
+            >
+              #
+            </a>
+          )}
+        </h2>
+      );
     },
 
     h3({ children }: MarkdownComponentProps) {
-      return <h3 className="text-xl font-semibold mt-5 mb-2">{children}</h3>;
+      const id = headingId(children);
+      return (
+        <h3 id={id} className="text-xl font-semibold mt-5 mb-2 scroll-mt-24 group">
+          {children}
+          {id && (
+            <a
+              href={`#${id}`}
+              className="ml-2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Link to this section: ${nodeText(children)}`}
+            >
+              #
+            </a>
+          )}
+        </h3>
+      );
     },
 
     h4({ children }: MarkdownComponentProps) {
-      return <h4 className="text-lg font-semibold mt-4 mb-2">{children}</h4>;
+      return (
+        <h4 id={headingId(children)} className="text-lg font-semibold mt-4 mb-2 scroll-mt-24">
+          {children}
+        </h4>
+      );
     },
 
     p({ children }: MarkdownComponentProps) {
