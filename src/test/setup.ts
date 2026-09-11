@@ -1,4 +1,4 @@
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 // Registers the jest-dom matchers on Vitest's `expect` AND augments the
 // TypeScript types (toBeInTheDocument, toHaveValue, ...) globally for all tests.
@@ -28,6 +28,10 @@ global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
 } as any;
+
+// jsdom implements no layout, so scrollIntoView is missing entirely. Components
+// that keep a highlighted row visible call it during an effect.
+Element.prototype.scrollIntoView = vi.fn();
 
 // Mock matchMedia for responsive components
 Object.defineProperty(window, 'matchMedia', {

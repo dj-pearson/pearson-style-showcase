@@ -1453,6 +1453,21 @@
       ],
       "passes": true,
       "notes": "Done. src/components/ContactForm.tsx replaces /^[a-zA-Z\\s]+$/ with a Unicode-property rule: a letter first, then letters, combining marks, spaces, hyphens, apostrophes (U+0027 and U+2019) and periods. The edge function already validated permissively, so nothing server-side needed changing. 12 new schema tests."
+    },
+    {
+      "title": "Make the Cmd+K search palette usable from the keyboard",
+      "description": "As someone who opened search with Cmd+K, I need to pick a result with the arrow keys and Enter, so that the shortcut does not hand me back to the mouse.",
+      "acceptanceCriteria": [
+        "Enter opens the highlighted result; with none moved to, that is the first",
+        "Arrow Up and Down move the highlight and wrap at both ends, Home and End jump to either end",
+        "The highlighted row is visibly distinct and scrolls into view",
+        "The input exposes the highlight to screen readers via aria-activedescendant over a listbox of options",
+        "Hovering a row makes it the highlighted one, so mouse and keyboard agree",
+        "The footer hint names the arrow keys alongside Esc and Enter",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/GlobalSearch.tsx holds an activeIndex, handles the keys on the input so the caret never leaves the field, and marks the results up as role=listbox/option. The footer promised 'Enter to select' with nothing implementing it. 4 new tests; src/test/setup.ts gains a scrollIntoView stub, which jsdom does not implement."
     }
   ]
 }
