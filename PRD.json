@@ -1580,6 +1580,20 @@
       ],
       "passes": true,
       "notes": "Done. Seven raw <img> tags across CurrentVentures, Testimonials, About, Search, GlobalSearch and RelatedArticles had no loading, decoding or dimensions - they competed with the largest paint and each one could shift the layout as it arrived. OptimizedImage already handles this for the images that use it; these were the ones that do not."
+    },
+    {
+      "title": "Finish the newsletter signup form",
+      "description": "As a reader subscribing from the homepage, I need the field named, its error tied to it, and an honest answer when I am already subscribed, so that the form is usable by screen reader and truthful to everyone.",
+      "acceptanceCriteria": [
+        "The email field carries a real label rather than leaning on its placeholder",
+        "A validation error is announced and referenced by the field via aria-describedby and aria-invalid",
+        "The field offers the browser's email autofill",
+        "An address the list already holds is answered as such, not as a fresh subscription",
+        "A genuine new subscription still reads as a success",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/NewsletterSignup.tsx gains an sr-only label, autocomplete, aria-invalid and aria-describedby, and reads the edge function's message: it answers a known address with 200 and 'You're already subscribed!', which the client was titling 'Successfully subscribed!'. 4 new tests. Worth knowing for future tests here: a malformed address never reaches the schema, because the browser's own validation on a type=email field blocks the submit first; the empty field is the case that exercises it."
     }
   ]
 }
