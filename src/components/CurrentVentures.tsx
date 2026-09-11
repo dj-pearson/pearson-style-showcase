@@ -28,7 +28,7 @@ const statusColors = {
   beta: 'bg-blue-500',
   live: 'bg-green-500',
   maintenance: 'bg-orange-500',
-  archived: 'bg-gray-400'
+  archived: 'bg-gray-400',
 };
 
 const statusLabels = {
@@ -37,7 +37,7 @@ const statusLabels = {
   beta: 'Beta',
   live: 'Live',
   maintenance: 'Maintenance',
-  archived: 'Archived'
+  archived: 'Archived',
 };
 
 const CurrentVentures = () => {
@@ -56,7 +56,11 @@ const CurrentVentures = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-label="Loading ventures">
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        role="status"
+        aria-label="Loading ventures"
+      >
         {[1, 2, 3].map((i) => (
           <Card key={i} className="overflow-hidden">
             <CardContent className="p-0">
@@ -110,17 +114,21 @@ const CurrentVentures = () => {
     <div className="space-y-8">
       {/* Featured ventures in grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-        {ventures.filter(v => v.featured).map((venture) => (
-          <VentureCard key={venture.id} venture={venture} featured />
-        ))}
+        {ventures
+          .filter((v) => v.featured)
+          .map((venture) => (
+            <VentureCard key={venture.id} venture={venture} featured />
+          ))}
       </div>
 
       {/* Non-featured ventures in smaller grid */}
-      {ventures.filter(v => !v.featured).length > 0 && (
+      {ventures.filter((v) => !v.featured).length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {ventures.filter(v => !v.featured).map((venture) => (
-            <VentureCard key={venture.id} venture={venture} />
-          ))}
+          {ventures
+            .filter((v) => !v.featured)
+            .map((venture) => (
+              <VentureCard key={venture.id} venture={venture} />
+            ))}
         </div>
       )}
     </div>
@@ -129,7 +137,9 @@ const CurrentVentures = () => {
 
 const VentureCard = ({ venture, featured = false }: { venture: Venture; featured?: boolean }) => {
   return (
-    <Card className={`group hover:shadow-2xl transition-all duration-500 bg-card/50 border-border hover:border-primary/50 overflow-hidden ${featured ? 'md:col-span-1' : ''}`}>
+    <Card
+      className={`group hover:shadow-2xl transition-all duration-500 bg-card/50 border-border hover:border-primary/50 overflow-hidden ${featured ? 'md:col-span-1' : ''}`}
+    >
       <CardContent className="p-0">
         {/* Screenshot/Logo */}
         {venture.screenshot_url && (
@@ -137,10 +147,16 @@ const VentureCard = ({ venture, featured = false }: { venture: Venture; featured
             <img
               src={venture.screenshot_url}
               alt={venture.name}
+              loading="lazy"
+              decoding="async"
+              width={640}
+              height={192}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute top-3 right-3">
-              <Badge className={`${statusColors[venture.status as keyof typeof statusColors]} text-white`}>
+              <Badge
+                className={`${statusColors[venture.status as keyof typeof statusColors]} text-white`}
+              >
                 {statusLabels[venture.status as keyof typeof statusLabels]}
               </Badge>
             </div>
@@ -155,15 +171,17 @@ const VentureCard = ({ venture, featured = false }: { venture: Venture; featured
                 {venture.name}
               </h3>
               {venture.tagline && (
-                <p className="text-sm text-muted-foreground italic">
-                  {venture.tagline}
-                </p>
+                <p className="text-sm text-muted-foreground italic">{venture.tagline}</p>
               )}
             </div>
             {venture.logo_url && (
               <img
                 src={venture.logo_url}
                 alt={`${venture.name} logo`}
+                loading="lazy"
+                decoding="async"
+                width={40}
+                height={40}
                 className="w-10 h-10 rounded object-contain"
               />
             )}
@@ -198,11 +216,14 @@ const VentureCard = ({ venture, featured = false }: { venture: Venture; featured
           {venture.metrics && Object.keys(venture.metrics).length > 0 && (
             <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
               <TrendingUp className="w-4 h-4 text-primary" />
-              {Object.entries(venture.metrics).slice(0, 2).map(([key, value]) => (
-                <span key={key}>
-                  <span className="font-semibold text-foreground">{value}</span> {key.replace('_', ' ')}
-                </span>
-              ))}
+              {Object.entries(venture.metrics)
+                .slice(0, 2)
+                .map(([key, value]) => (
+                  <span key={key}>
+                    <span className="font-semibold text-foreground">{value}</span>{' '}
+                    {key.replace('_', ' ')}
+                  </span>
+                ))}
             </div>
           )}
 

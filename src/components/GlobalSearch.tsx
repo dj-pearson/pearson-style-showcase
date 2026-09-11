@@ -387,6 +387,10 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
                           <img
                             src={result.image_url}
                             alt={result.title}
+                            loading="lazy"
+                            decoding="async"
+                            width={48}
+                            height={48}
                             className="w-12 h-12 rounded object-cover flex-shrink-0"
                           />
                         )}

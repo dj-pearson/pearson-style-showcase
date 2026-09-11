@@ -76,6 +76,10 @@ const Testimonials = () => {
                 <img
                   src={testimonial.client_photo_url}
                   alt={testimonial.client_name}
+                  loading="lazy"
+                  decoding="async"
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-full object-cover border-2 border-primary/20"
                 />
               ) : (
@@ -87,9 +91,7 @@ const Testimonials = () => {
               )}
 
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-foreground truncate">
-                  {testimonial.client_name}
-                </p>
+                <p className="font-semibold text-foreground truncate">{testimonial.client_name}</p>
                 {testimonial.client_title && (
                   <p className="text-sm text-muted-foreground truncate">
                     {testimonial.client_title}
@@ -97,9 +99,7 @@ const Testimonials = () => {
                   </p>
                 )}
                 {testimonial.project_type && (
-                  <p className="text-xs text-primary mt-1">
-                    {testimonial.project_type}
-                  </p>
+                  <p className="text-xs text-primary mt-1">{testimonial.project_type}</p>
                 )}
               </div>
             </div>

@@ -166,6 +166,9 @@ const RelatedArticles = ({
                     alt={relatedArticle.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    decoding="async"
+                    width={640}
+                    height={360}
                     itemProp="image"
                   />
                 </div>

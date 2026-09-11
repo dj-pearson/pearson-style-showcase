@@ -375,6 +375,10 @@ const Search = () => {
                               <img
                                 src={result.image_url}
                                 alt={result.title}
+                                loading="lazy"
+                                decoding="async"
+                                width={96}
+                                height={96}
                                 className="w-24 h-24 rounded-lg object-cover"
                               />
                             </div>

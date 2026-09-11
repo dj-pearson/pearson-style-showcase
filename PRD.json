@@ -1567,6 +1567,19 @@
       ],
       "passes": true,
       "notes": "Done. src/components/admin/ArticleManager.tsx selected '*' with no limit, pulling every article's markdown (tens of kilobytes each) on every visit to the tab, to render titles and badges. LIST_COLUMNS names every column except content, social_long_form and social_short_form; editArticle() refetches the row and only then opens the dialog - the ordering is the point, since a form bound to a body-less row would save a blank over the article. The test mock's single()/maybeSingle() now unwrap an array result the way PostgREST returns one row. 2 new tests."
+    },
+    {
+      "title": "Lazy-load and size the images the public pages load eagerly",
+      "description": "As a reader on a slow connection, I need below-the-fold images to wait their turn and to reserve their space, so that the page paints sooner and does not jump under my thumb.",
+      "acceptanceCriteria": [
+        "Venture screenshots and logos, testimonial photos and search result thumbnails load lazily",
+        "Every one of those images declares width and height so its box is reserved before it arrives",
+        "Images decode off the main thread",
+        "The portrait near the top of /about stays eager, since it is that page's largest paint",
+        "Build and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. Seven raw <img> tags across CurrentVentures, Testimonials, About, Search, GlobalSearch and RelatedArticles had no loading, decoding or dimensions - they competed with the largest paint and each one could shift the layout as it arrived. OptimizedImage already handles this for the images that use it; these were the ones that do not."
     }
   ]
 }
