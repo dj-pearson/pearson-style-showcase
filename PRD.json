@@ -351,7 +351,7 @@
       ],
       "priority": 20,
       "passes": true,
-      "notes": "Implemented E2E tests for critical public user flows using Playwright (chromium project; run via PLAYWRIGHT_CHROMIUM_PATH pointing at the preinstalled Chromium 1194 in this environment). Added four spec files under e2e/public/: homepage.spec.ts (hero/h1 renders, featured 'Sales Leadership' content loads, nav has links to /about /projects /news /ai-tools /connect, footer has links, and an axe-core scan asserting no serious/critical wcag2a/wcag2aa violations via @axe-core/playwright), articles.spec.ts (news page lists published articles, clicking a card navigates to /news/:slug, detail page renders markdown body, detail page sets an article-specific <title>, back-to-articles navigation returns to /news), search.spec.ts (empty-prompt state before typing, typing a query shows mocked results, clicking a result navigates to the article, and a no-match query shows the no-results state), and contact.spec.ts (all fields render, empty submit shows zod validation errors, valid submit shows the mocked success toast). Tests rely on the existing e2e/fixtures/test-base.ts mockSupabase auto-fixture (intercepts /auth/v1, /rest/v1, /functions/v1) with per-test route overrides; the articles/search specs distinguish list vs maybeSingle fetches via the 'Accept: application/vnd.pgrst.object+json' header and serve HEAD count via a Content-Range header. @axe-core/playwright (4.12.1) is in devDependencies. BUG FIX surfaced by these tests: src/components/Breadcrumbs.tsx rendered <SEO> solely to inject breadcrumb JSON-LD, but SEO's effect unconditionally overwrites document.title and all meta tags with defaults when no title/description props are supplied — clobbering the real page title on every page that renders breadcrumbs (article pages showed the site default title instead of the article title). Fixed by injecting the breadcrumb structured data directly via <StructuredData type=\"breadcrumb\"> so no title/meta side effects occur. Verification: all 22 E2E specs pass (e2e/public + e2e/smoke) on chromium; 351 unit tests across 33 files still pass; 'npm run typecheck' is clean."
+      "notes": "Implemented E2E tests for critical public user flows using Playwright (chromium project; run via PLAYWRIGHT_CHROMIUM_PATH pointing at the preinstalled Chromium 1194 in this environment). Added four spec files under e2e/public/: homepage.spec.ts (hero/h1 renders, featured 'Sales Leadership' content loads, nav has links to /about /projects /news /ai-tools /connect, footer has links, and an axe-core scan asserting no serious/critical wcag2a/wcag2aa violations via @axe-core/playwright), articles.spec.ts (news page lists published articles, clicking a card navigates to /news/:slug, detail page renders markdown body, detail page sets an article-specific <title>, back-to-articles navigation returns to /news), search.spec.ts (empty-prompt state before typing, typing a query shows mocked results, clicking a result navigates to the article, and a no-match query shows the no-results state), and contact.spec.ts (all fields render, empty submit shows zod validation errors, valid submit shows the mocked success toast). Tests rely on the existing e2e/fixtures/test-base.ts mockSupabase auto-fixture (intercepts /auth/v1, /rest/v1, /functions/v1) with per-test route overrides; the articles/search specs distinguish list vs maybeSingle fetches via the 'Accept: application/vnd.pgrst.object+json' header and serve HEAD count via a Content-Range header. @axe-core/playwright (4.12.1) is in devDependencies. BUG FIX surfaced by these tests: src/components/Breadcrumbs.tsx rendered <SEO> solely to inject breadcrumb JSON-LD, but SEO's effect unconditionally overwrites document.title and all meta tags with defaults when no title/description props are supplied \u2014 clobbering the real page title on every page that renders breadcrumbs (article pages showed the site default title instead of the article title). Fixed by injecting the breadcrumb structured data directly via <StructuredData type=\"breadcrumb\"> so no title/meta side effects occur. Verification: all 22 E2E specs pass (e2e/public + e2e/smoke) on chromium; 351 unit tests across 33 files still pass; 'npm run typecheck' is clean."
     },
     {
       "id": "US-021",
@@ -933,7 +933,7 @@
         "Fix src/pages/Search.tsx projects query (lines ~78-81): it filters '.eq('published', true)' and selects a 'slug' column, but the projects table has neither (it uses a 'status' column and has no slug)",
         "Change the filter to the correct column (e.g. .eq('status','active')) matching Projects.tsx which selects 'status'",
         "Remove the non-existent 'slug' from the select and fix the result navigation ('/projects#${slug}') to use a valid identifier/anchor",
-        "Surface query errors: the code destructures only { data }, silently hiding failures — check and handle 'error'",
+        "Surface query errors: the code destructures only { data }, silently hiding failures \u2014 check and handle 'error'",
         "Verify searching a known project term returns it and navigates correctly",
         "Typecheck passes"
       ],
@@ -946,9 +946,9 @@
       "title": "[HIGH] Deploy advertised static assets (sitemap.xml, rss.xml, SW icon)",
       "description": "As an SEO/operator, I need advertised URLs to actually resolve so that crawlers and the service worker don't hit 404s.",
       "acceptanceCriteria": [
-        "sitemap.xml exists only at repo root, not in public/, so it is absent from dist/ while robots.txt and _redirects advertise /sitemap.xml — ensure the sitemap is generated into/served from public/ (or via the existing SitemapXML route) and resolves 200 in production",
-        "index.html advertises an RSS alternate at /rss.xml, but no such file is deployed — either generate/serve rss.xml (RSSFeed route) at that path or remove the <link rel=alternate> reference",
-        "public/sw.js push handler references '/icon-192.png' which does not exist (only android-chrome-192x192.png) — fix the icon/badge path",
+        "sitemap.xml exists only at repo root, not in public/, so it is absent from dist/ while robots.txt and _redirects advertise /sitemap.xml \u2014 ensure the sitemap is generated into/served from public/ (or via the existing SitemapXML route) and resolves 200 in production",
+        "index.html advertises an RSS alternate at /rss.xml, but no such file is deployed \u2014 either generate/serve rss.xml (RSSFeed route) at that path or remove the <link rel=alternate> reference",
+        "public/sw.js push handler references '/icon-192.png' which does not exist (only android-chrome-192x192.png) \u2014 fix the icon/badge path",
         "Remove or fix the unreferenced public/site.webmanifest (empty name/short_name) that duplicates public/manifest.json",
         "Verify each advertised URL (/sitemap.xml, /rss.xml) returns 200 from a production build/preview",
         "Typecheck passes"
@@ -978,8 +978,8 @@
       "title": "[HIGH] Reconcile CSP divergence and COEP breakage",
       "description": "As a security engineer, I need one authoritative CSP and safe cross-origin headers so that policies are consistent and don't silently break analytics/fonts.",
       "acceptanceCriteria": [
-        "index.html meta CSP and public/_headers CSP diverge (e.g. index.html has frame-src 'none'; _headers omits it) — consolidate to a single source of truth (prefer _headers for Cloudflare Pages) and remove or align the duplicate",
-        "Evaluate 'Cross-Origin-Embedder-Policy: require-corp' in public/_headers: it can block cross-origin subresources (Google Analytics, Google Fonts, Cloudflare Insights) that don't return CORP headers — remove it or add required CORP handling",
+        "index.html meta CSP and public/_headers CSP diverge (e.g. index.html has frame-src 'none'; _headers omits it) \u2014 consolidate to a single source of truth (prefer _headers for Cloudflare Pages) and remove or align the duplicate",
+        "Evaluate 'Cross-Origin-Embedder-Policy: require-corp' in public/_headers: it can block cross-origin subresources (Google Analytics, Google Fonts, Cloudflare Insights) that don't return CORP headers \u2014 remove it or add required CORP handling",
         "Verify Google Analytics, Google Fonts, and Cloudflare Insights still load with the reconciled headers in a production preview",
         "Confirm connect-src still covers api.danpearson.net (https+wss) and functions.danpearson.net",
         "Typecheck passes"
@@ -1044,7 +1044,7 @@
       "acceptanceCriteria": [
         "Run 'npm run lint' and fix the 9 current errors: no-useless-catch in src/integrations/supabase/client.ts, prefer-const and no-case-declarations in tools/automated-testing/",
         "Run 'npm run lint -- --fix' for auto-fixable issues and manually resolve the rest",
-        "Fix the stale test in src/lib/__tests__/csrf.test.ts (~line 132): it expects the token's first segment to be a base36 timestamp, but the token format was hardened to 'nonce.hash' (US-028) — update the assertion to the current format",
+        "Fix the stale test in src/lib/__tests__/csrf.test.ts (~line 132): it expects the token's first segment to be a base36 timestamp, but the token format was hardened to 'nonce.hash' (US-028) \u2014 update the assertion to the current format",
         "Consider enabling linting for the currently-ignored supabase/ edge-function dirs (coordinate with US-042)",
         "Confirm 'npm run lint' reports 0 errors and 'npm test -- --run' passes the csrf test",
         "Typecheck passes"
@@ -1073,7 +1073,7 @@
       "title": "[MEDIUM] Surface swallowed Supabase query errors",
       "description": "As a user/operator, I need failed queries to be reported so that exports aren't silently empty and health cards aren't falsely green.",
       "acceptanceCriteria": [
-        "Fix the five export functions in src/components/admin/accounting/DataExporter.tsx (~lines 334, 357, 378, 398, 424) that destructure only { data } and 'return (data || [])' — check 'error' and surface it so a failed query does not produce a silent empty CSV",
+        "Fix the five export functions in src/components/admin/accounting/DataExporter.tsx (~lines 334, 357, 378, 398, 424) that destructure only { data } and 'return (data || [])' \u2014 check 'error' and surface it so a failed query does not produce a silent empty CSV",
         "Fix src/services/contacts/import-export.ts (~line 388) which drops the query error",
         "Fix src/components/admin/command-center/SystemHealthCard.tsx (~lines 67, 77) so a non-throwing query error is not treated as 'zero metrics' (which can make an unhealthy system read as healthy)",
         "Audit remaining '{ data }'-only destructures for the same pattern and add error handling",
@@ -1088,11 +1088,11 @@
       "title": "[MEDIUM] Lock down wildcard CORS in oauth-proxy and shared helpers",
       "description": "As a security engineer, I need edge-function CORS restricted to the allow-list so that no function emits Access-Control-Allow-Origin: *.",
       "acceptanceCriteria": [
-        "supabase/functions/oauth-proxy/index.ts (~line 17) hardcodes 'Access-Control-Allow-Origin': '*' — replace with the shared allow-list from _shared/cors.ts",
-        "supabase/functions/_shared/validation.ts (~line 61) createCorsHeaders() falls back to '*' when ALLOWED_ORIGIN is unset — default to the production allow-list instead",
-        "supabase/functions/_shared/rate-limiter.ts (~line 316) falls back to origin || '*' — align with the shared allow-list",
+        "supabase/functions/oauth-proxy/index.ts (~line 17) hardcodes 'Access-Control-Allow-Origin': '*' \u2014 replace with the shared allow-list from _shared/cors.ts",
+        "supabase/functions/_shared/validation.ts (~line 61) createCorsHeaders() falls back to '*' when ALLOWED_ORIGIN is unset \u2014 default to the production allow-list instead",
+        "supabase/functions/_shared/rate-limiter.ts (~line 316) falls back to origin || '*' \u2014 align with the shared allow-list",
         "Migrate functions that reimplement CORS (admin-auth, newsletter-signup, optimize-image) to import the shared _shared/cors.ts helper for consistency",
-        "Review oauth-proxy's OAUTH_STATE_SECRET → SUPABASE_SERVICE_ROLE_KEY fallback and require a dedicated secret",
+        "Review oauth-proxy's OAUTH_STATE_SECRET \u2192 SUPABASE_SERVICE_ROLE_KEY fallback and require a dedicated secret",
         "Verify OAuth and other flows still work from allowed origins and are rejected from others",
         "Typecheck passes"
       ],
@@ -1116,15 +1116,15 @@
       ],
       "priority": 45,
       "passes": true,
-      "notes": "Implemented dead-code / duplication cleanup:\nAC1: Removed orphaned src/components/RelatedArticles.tsx (root). Confirmed no importers; the app uses src/components/article/RelatedArticles.tsx (imported by pages/Article.tsx).\nAC2: Removed unused OAuth-state generators from src/lib/oauth-state.ts (generateOAuthState, storeOAuthState, createOAuthState) and the deprecated retrieveOAuthState. Only verifyOAuthState is consumed externally (AuthCallback.tsx); it and its helpers (retrieveOAuthStateAndMeta, generateBindingHash, timingSafeEqual, clearStoredOAuthState) are retained. Also removed now-unused generateRandomString, the getCSRFToken import, and STATE_EXPIRY_MS. Removed unused CSRF fetch helpers (csrfFetch, createCSRFProtectedFetch, useCSRFToken) from src/lib/csrf.ts — US-049 adopted transparent header attachment in the supabase client fetch + invokeEdgeFunction (getStoredCSRFTokenSync/getCSRFHeaders/requiresCSRFProtection/CSRF_HEADER_NAME), never these wrappers (zero references anywhere incl. tests). Kept getCSRFToken/refreshCSRFToken/clearCSRFToken (token lifecycle, still tested/used).\nAC3: Removed the unreachable 'manager' role from ROLE_HIERARCHY in src/lib/authorization.ts. AppRole (contexts/AuthContext.tsx) and the DB app_role enum only allow admin|editor|viewer, so 'manager' was never assignable. Repointed admin.inherits from ['manager'] to ['editor']; admin holds the '*' wildcard so its effective permissions are unchanged for every assignable role.\nAC4: Removed all 19 dead errorElement props from src/App.tsx. The app uses <BrowserRouter> + declarative <Routes>, where errorElement is a data-router-only (createBrowserRouter) feature and is silently ignored. Also deleted the now-orphaned src/components/RouteErrorBoundary.tsx (it relied on useRouteError(), which only works in a data router and was never invoked). Per-route render errors are already handled by the ErrorBoundary wrapper around <Routes>. Normalized formatting with prettier.\nAC5: Evaluated the legacy ai-content-generator edge function: it is NOT removable — still actively invoked by ArticleManager, ProjectManager, and AIToolsManager via invokeEdgeFunction('ai-content-generator'). Instead hardened its security issue: stopped logging raw request bodies (removed 'Raw request body'/'Raw body length'/'Raw body that failed to parse' logs and the receivedData echo in the 400 response) by switching to req.json(), and reduced the direct-request log to prompt length rather than full prompt content. Duplicate CREATE TABLE migrations (admin_whitelist in 20251125000001 & 20251125212612; support_tickets in 20251108000002 & 20251119023055; secure_vault_items in 20251210000001 & 20251202184405) were intentionally LEFT INTACT: every duplicate uses CREATE TABLE IF NOT EXISTS (idempotent, no runtime harm), and deleting/rewriting already-applied historical migrations would risk migration-history divergence between the repo and the live production database — a net negative for a maintainability story. Documented here rather than performing a risky edit to applied migration history.\nAC6: Removed the stale '/.supabase.co/' NETWORK_FIRST cache rule from public/sw.js ROUTE_STRATEGIES — the app uses self-hosted Supabase at api.danpearson.net/functions.danpearson.net, so *.supabase.co never occurs.\nAC7/AC8: Verification — tsc --noEmit clean; eslint 0 errors (293 pre-existing warnings, baseline unchanged); vitest 365 passed / 35 files; production build succeeds; Deno _shared tests 31 passed."
+      "notes": "Implemented dead-code / duplication cleanup:\nAC1: Removed orphaned src/components/RelatedArticles.tsx (root). Confirmed no importers; the app uses src/components/article/RelatedArticles.tsx (imported by pages/Article.tsx).\nAC2: Removed unused OAuth-state generators from src/lib/oauth-state.ts (generateOAuthState, storeOAuthState, createOAuthState) and the deprecated retrieveOAuthState. Only verifyOAuthState is consumed externally (AuthCallback.tsx); it and its helpers (retrieveOAuthStateAndMeta, generateBindingHash, timingSafeEqual, clearStoredOAuthState) are retained. Also removed now-unused generateRandomString, the getCSRFToken import, and STATE_EXPIRY_MS. Removed unused CSRF fetch helpers (csrfFetch, createCSRFProtectedFetch, useCSRFToken) from src/lib/csrf.ts \u2014 US-049 adopted transparent header attachment in the supabase client fetch + invokeEdgeFunction (getStoredCSRFTokenSync/getCSRFHeaders/requiresCSRFProtection/CSRF_HEADER_NAME), never these wrappers (zero references anywhere incl. tests). Kept getCSRFToken/refreshCSRFToken/clearCSRFToken (token lifecycle, still tested/used).\nAC3: Removed the unreachable 'manager' role from ROLE_HIERARCHY in src/lib/authorization.ts. AppRole (contexts/AuthContext.tsx) and the DB app_role enum only allow admin|editor|viewer, so 'manager' was never assignable. Repointed admin.inherits from ['manager'] to ['editor']; admin holds the '*' wildcard so its effective permissions are unchanged for every assignable role.\nAC4: Removed all 19 dead errorElement props from src/App.tsx. The app uses <BrowserRouter> + declarative <Routes>, where errorElement is a data-router-only (createBrowserRouter) feature and is silently ignored. Also deleted the now-orphaned src/components/RouteErrorBoundary.tsx (it relied on useRouteError(), which only works in a data router and was never invoked). Per-route render errors are already handled by the ErrorBoundary wrapper around <Routes>. Normalized formatting with prettier.\nAC5: Evaluated the legacy ai-content-generator edge function: it is NOT removable \u2014 still actively invoked by ArticleManager, ProjectManager, and AIToolsManager via invokeEdgeFunction('ai-content-generator'). Instead hardened its security issue: stopped logging raw request bodies (removed 'Raw request body'/'Raw body length'/'Raw body that failed to parse' logs and the receivedData echo in the 400 response) by switching to req.json(), and reduced the direct-request log to prompt length rather than full prompt content. Duplicate CREATE TABLE migrations (admin_whitelist in 20251125000001 & 20251125212612; support_tickets in 20251108000002 & 20251119023055; secure_vault_items in 20251210000001 & 20251202184405) were intentionally LEFT INTACT: every duplicate uses CREATE TABLE IF NOT EXISTS (idempotent, no runtime harm), and deleting/rewriting already-applied historical migrations would risk migration-history divergence between the repo and the live production database \u2014 a net negative for a maintainability story. Documented here rather than performing a risky edit to applied migration history.\nAC6: Removed the stale '/.supabase.co/' NETWORK_FIRST cache rule from public/sw.js ROUTE_STRATEGIES \u2014 the app uses self-hosted Supabase at api.danpearson.net/functions.danpearson.net, so *.supabase.co never occurs.\nAC7/AC8: Verification \u2014 tsc --noEmit clean; eslint 0 errors (293 pre-existing warnings, baseline unchanged); vitest 365 passed / 35 files; production build succeeds; Deno _shared tests 31 passed."
     },
     {
       "id": "US-067",
       "title": "[LOW] Update outdated dependencies and fix dependency placement",
       "description": "As a developer, I need dependencies current and correctly categorized so that we get fixes and don't ship type-only packages to production.",
       "acceptanceCriteria": [
-        "Batch-update outdated packages (e.g. @supabase/supabase-js 2.51→latest, @tanstack/react-query, ~30 @radix-ui packages) after verifying no breaking changes; run build + tests after each batch",
-        "Evaluate the React-Three major upgrades (@react-three/fiber 8→9, @react-three/drei 9→10) separately due to breaking changes",
+        "Batch-update outdated packages (e.g. @supabase/supabase-js 2.51\u2192latest, @tanstack/react-query, ~30 @radix-ui packages) after verifying no breaking changes; run build + tests after each batch",
+        "Evaluate the React-Three major upgrades (@react-three/fiber 8\u21929, @react-three/drei 9\u219210) separately due to breaking changes",
         "Normalize edge-function dependency pinning (Deno std 0.168.0/0.190.0 and supabase-js @2/2.7.1/2.39.0/2.39.3/2.51.0 are all in use) to consistent versions",
         "Move type-only packages from dependencies to devDependencies: @types/qrcode, @types/three, @types/react-syntax-highlighter",
         "Verify 'npm run build' and 'npm test -- --run' pass after changes",
@@ -1132,7 +1132,7 @@
       ],
       "priority": 45,
       "passes": true,
-      "notes": "Updated dependencies and fixed placement:\nAC1: Ran `npm update` to batch-upgrade all outdated packages to their latest in-range (same-major) versions — no breaking major crossings. Notable: @supabase/supabase-js 2.51.0->2.110.7, @tanstack/react-query 5.56->5.101.2, ~28 @radix-ui/* packages to latest (e.g. react-dialog 1.1.2->1.1.19, react-select 2.1.2->2.3.3, react-checkbox 1.1.2->1.3.7), react-hook-form 7.60->7.81, cmdk 1.0->1.1.1, embla-carousel-react 8.3->8.6, input-otp 1.2.4->1.4.2, autoprefixer 10.4->10.5, typescript-eslint 8.11->8.64. Lockfile (package-lock.json) reflects the resolved versions; caret ranges already permitted them. Then bumped a small set of same-major latests that caret ranges had capped: gsap 3.13->3.15, @testing-library/react 16.3.0->16.3.2, tsx 4.21->4.23.1. Build + tests + typecheck run and pass after the updates.\nAC2: Evaluated the React-Three majors separately and DEFERRED them: @react-three/fiber 8->9 and @react-three/drei 9->10 require React 19 (fiber v9 drops React 18 support), which would force a full React 18->19 migration across the app (react/react-dom, @types/react 18->19, plus knock-on changes). Out of scope for a low-risk dependency-maintenance pass; three.js/@types/three intentionally held at 0.178.x to stay compatible with fiber 8. Other majors (react 19, react-router-dom 7, zod 4, tailwindcss 4, vite 8, recharts 3, date-fns 4, eslint 10, sonner 2, etc.) likewise left for dedicated migration stories.\nAC3: Normalized edge-function dependency pinning across all 22 functions: Deno std unified to std@0.190.0 (was a mix of 0.168.0 and 0.190.0; http/server.ts and encoding/base64.ts both exist at 0.190.0) and @supabase/supabase-js unified to esm.sh/@supabase/supabase-js@2.51.0 (was a mix of @2, @2.7.1, @2.39.0, @2.39.3, @2.51.0), matching the frontend client version. Now 25 references each at a single version.\nAC4: Moved the three type-only packages @types/qrcode, @types/three, @types/react-syntax-highlighter from dependencies to devDependencies so type-only packages are no longer shipped as production deps.\nAC5/AC6: Verification — tsc --noEmit clean; production build succeeds; vitest 365 passed / 35 files; Playwright chromium E2E 38 passed (firefox project skipped: browser not preinstalled in this env; requires PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome); Deno _shared tests 31 passed; eslint 0 errors (290 warnings, down from 293)."
+      "notes": "Updated dependencies and fixed placement:\nAC1: Ran `npm update` to batch-upgrade all outdated packages to their latest in-range (same-major) versions \u2014 no breaking major crossings. Notable: @supabase/supabase-js 2.51.0->2.110.7, @tanstack/react-query 5.56->5.101.2, ~28 @radix-ui/* packages to latest (e.g. react-dialog 1.1.2->1.1.19, react-select 2.1.2->2.3.3, react-checkbox 1.1.2->1.3.7), react-hook-form 7.60->7.81, cmdk 1.0->1.1.1, embla-carousel-react 8.3->8.6, input-otp 1.2.4->1.4.2, autoprefixer 10.4->10.5, typescript-eslint 8.11->8.64. Lockfile (package-lock.json) reflects the resolved versions; caret ranges already permitted them. Then bumped a small set of same-major latests that caret ranges had capped: gsap 3.13->3.15, @testing-library/react 16.3.0->16.3.2, tsx 4.21->4.23.1. Build + tests + typecheck run and pass after the updates.\nAC2: Evaluated the React-Three majors separately and DEFERRED them: @react-three/fiber 8->9 and @react-three/drei 9->10 require React 19 (fiber v9 drops React 18 support), which would force a full React 18->19 migration across the app (react/react-dom, @types/react 18->19, plus knock-on changes). Out of scope for a low-risk dependency-maintenance pass; three.js/@types/three intentionally held at 0.178.x to stay compatible with fiber 8. Other majors (react 19, react-router-dom 7, zod 4, tailwindcss 4, vite 8, recharts 3, date-fns 4, eslint 10, sonner 2, etc.) likewise left for dedicated migration stories.\nAC3: Normalized edge-function dependency pinning across all 22 functions: Deno std unified to std@0.190.0 (was a mix of 0.168.0 and 0.190.0; http/server.ts and encoding/base64.ts both exist at 0.190.0) and @supabase/supabase-js unified to esm.sh/@supabase/supabase-js@2.51.0 (was a mix of @2, @2.7.1, @2.39.0, @2.39.3, @2.51.0), matching the frontend client version. Now 25 references each at a single version.\nAC4: Moved the three type-only packages @types/qrcode, @types/three, @types/react-syntax-highlighter from dependencies to devDependencies so type-only packages are no longer shipped as production deps.\nAC5/AC6: Verification \u2014 tsc --noEmit clean; production build succeeds; vitest 365 passed / 35 files; Playwright chromium E2E 38 passed (firefox project skipped: browser not preinstalled in this env; requires PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome); Deno _shared tests 31 passed; eslint 0 errors (290 warnings, down from 293)."
     },
     {
       "id": "US-068",
@@ -1142,13 +1142,13 @@
         "Add the undocumented VITE_ vars to .env.example (commented, with placeholders): VITE_SENTRY_DSN, VITE_ERROR_TRACKING_ENDPOINT, VITE_ERROR_SAMPLE_RATE, VITE_LOG_LEVEL, VITE_BUILD_VERSION, VITE_ERROR_TRACKING_DEV",
         "Fix README.md claims that contradict code: it states 'no environment variables required' / 'hardcoded public keys', but src/integrations/supabase/client.ts throws if VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY are unset",
         "Fix tools/automated-testing/README.md which assumes the Vite dev port is 5173, whereas vite.config.ts sets port 8080",
-        "Deduplicate the two robots.txt files (root vs public/) — keep only the deployed public/ copy",
+        "Deduplicate the two robots.txt files (root vs public/) \u2014 keep only the deployed public/ copy",
         "Verify a fresh clone can be configured and run using only the updated docs",
         "Typecheck passes"
       ],
       "priority": 48,
       "passes": true,
-      "notes": "Documentation and env-var accuracy fixes:\nAC1: Verified .env.example already documents all six named VITE_ vars (VITE_SENTRY_DSN, VITE_ERROR_TRACKING_ENDPOINT, VITE_ERROR_SAMPLE_RATE, VITE_LOG_LEVEL, VITE_BUILD_VERSION, VITE_ERROR_TRACKING_DEV) plus the rest actually referenced in code (VITE_SUPABASE_URL/ANON_KEY, VITE_FUNCTIONS_URL, VITE_SENTRY_ENVIRONMENT, VITE_LOG_ENDPOINT) and the build-time-only Sentry secrets. Cross-checked every `import.meta.env.VITE_*` reference in src/ (11 distinct vars) against .env.example — all present and commented with placeholders. No additions needed.\nAC2: Fixed README.md Cloudflare deploy section which falsely claimed 'No environment variables required for basic deployment' / 'Supabase configuration is handled via hardcoded public keys'. src/integrations/supabase/client.ts throws on startup if VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is unset, so the section now states these vars are REQUIRED (set in Cloudflare Pages env settings and locally in .env) and links to the Environment Variables section and .env.example.\nAC3: Fixed tools/automated-testing/README.md which assumed the Vite dev port is 5173. vite.config.ts sets server.port = 8080. Replaced all http://localhost:5173 command examples with :8080 (20 occurrences), updated the 'Usually runs on ... for Vite' comment to note this project overrides the port to 8080, updated the 'port already in use' troubleshooting commands (Windows Get-NetTCPConnection / Mac-Linux lsof) to 8080, and clarified the Common-ports reference bullet to 'Vite (this project): 8080 (Vite's own default is 5173)'. The lone remaining 5173 is that intentional note.\nAC4: Deduplicated robots.txt — removed the root ./robots.txt (a stale 272-byte duplicate with malformed repeated User-agent blocks that was never deployed) and kept public/robots.txt. Vite uses the default publicDir='public', so only public/robots.txt is copied to dist/ and served; confirmed via a build that dist/robots.txt is byte-identical to public/robots.txt.\nAC5: Verified fresh-clone runnability from docs alone: README Prerequisites (Node 20/22 LTS), added the previously-missing REQUIRED env step to the Quick Start ('cp .env.example .env' then edit) before 'npm run dev', since the app throws without Supabase vars; dev-server URL corrected to http://localhost:8080. A new contributor can now clone, install, configure env, and run using only README + .env.example.\nAC6: tsc --noEmit passes; production build succeeds and emits robots.txt from public/."
+      "notes": "Documentation and env-var accuracy fixes:\nAC1: Verified .env.example already documents all six named VITE_ vars (VITE_SENTRY_DSN, VITE_ERROR_TRACKING_ENDPOINT, VITE_ERROR_SAMPLE_RATE, VITE_LOG_LEVEL, VITE_BUILD_VERSION, VITE_ERROR_TRACKING_DEV) plus the rest actually referenced in code (VITE_SUPABASE_URL/ANON_KEY, VITE_FUNCTIONS_URL, VITE_SENTRY_ENVIRONMENT, VITE_LOG_ENDPOINT) and the build-time-only Sentry secrets. Cross-checked every `import.meta.env.VITE_*` reference in src/ (11 distinct vars) against .env.example \u2014 all present and commented with placeholders. No additions needed.\nAC2: Fixed README.md Cloudflare deploy section which falsely claimed 'No environment variables required for basic deployment' / 'Supabase configuration is handled via hardcoded public keys'. src/integrations/supabase/client.ts throws on startup if VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is unset, so the section now states these vars are REQUIRED (set in Cloudflare Pages env settings and locally in .env) and links to the Environment Variables section and .env.example.\nAC3: Fixed tools/automated-testing/README.md which assumed the Vite dev port is 5173. vite.config.ts sets server.port = 8080. Replaced all http://localhost:5173 command examples with :8080 (20 occurrences), updated the 'Usually runs on ... for Vite' comment to note this project overrides the port to 8080, updated the 'port already in use' troubleshooting commands (Windows Get-NetTCPConnection / Mac-Linux lsof) to 8080, and clarified the Common-ports reference bullet to 'Vite (this project): 8080 (Vite's own default is 5173)'. The lone remaining 5173 is that intentional note.\nAC4: Deduplicated robots.txt \u2014 removed the root ./robots.txt (a stale 272-byte duplicate with malformed repeated User-agent blocks that was never deployed) and kept public/robots.txt. Vite uses the default publicDir='public', so only public/robots.txt is copied to dist/ and served; confirmed via a build that dist/robots.txt is byte-identical to public/robots.txt.\nAC5: Verified fresh-clone runnability from docs alone: README Prerequisites (Node 20/22 LTS), added the previously-missing REQUIRED env step to the Quick Start ('cp .env.example .env' then edit) before 'npm run dev', since the app throws without Supabase vars; dev-server URL corrected to http://localhost:8080. A new contributor can now clone, install, configure env, and run using only README + .env.example.\nAC6: tsc --noEmit passes; production build succeeds and emits robots.txt from public/."
     },
     {
       "title": "Make site search return the right result first",
@@ -1411,6 +1411,202 @@
       "notes": "src/pages/News.tsx derived allCategories from one page of 12 and filtered and sorted that same page, so with 155 published articles across 13 pages the controls could only ever see 8% of the archive: a category present elsewhere was not offered, a search for an article on page 4 found nothing from page 1, and \"most viewed\" reordered twelve rows rather than ranking the archive. Filtering and ordering moved into the query - category as .eq, search as .or over title, excerpt and tag containment with the term escaped through sanitizeSearchQuery, and a sort-to-order mapping whose in-memory twin (compareArticles) is defined directly above it so the two branches cannot drift. The count query carries the same filters, or the pager would offer pages the filtered set does not have, and a filter change resets to page 1. Search is debounced 300ms now that it hits the database. Categories come from their own cached query unioned with the built-in set. The unseeded branch from US-084 applies the same filter and sort in memory before paging. The client-side re-filter is gone entirely - it was the bug.\n\nThen the E2E accessibility guard caught something the empty state had been hiding: with /news finally rendering cards against the empty-database fixture, axe reported serious color-contrast failures on every one. ArticleCard metadata was text-gray-500 on a bg-gray-800/50 card at 3.46:1, and the Featured badge was text-yellow-900 on yellow-500/90 at 3.77:1, both against a 4.5:1 requirement. Moved to text-gray-400 and text-yellow-950. This predates all of this work; it was simply invisible while the list was empty.\n\nAlso fixed the articles E2E spec, which mocked every GET on the table and so accidentally answered the seeded-slug lookup with an unrelated article, forcing the merge branch and pushing its fixture onto page 2. It now answers that lookup with the full slug list, so it exercises plain server pagination while the new specs cover the unseeded state.\n\nVerified: 46/46 E2E specs pass under CI=1, 532 unit tests across 49 files (6 new on News, including one that filters to a category matching nothing and one that searches for an article that is not on the first page), typecheck clean, 0 lint errors, entry bundle 118.77 kB brotli against its 250 kB budget.",
       "id": "US-085",
       "priority": 67
+    },
+    {
+      "title": "Make site search find the built-in articles",
+      "description": "As a reader searching the site, I need the prerendered CRM articles to appear in search results, so that an article whose page is live and linked from /news is not unfindable by its own title.",
+      "acceptanceCriteria": [
+        "Searching a built-in article's title returns it, on /search and in the Cmd+K palette",
+        "Category and tag terms match as well as the title",
+        "A built-in article that has since been seeded into the database appears once, from the database",
+        "Relevance ordering on /search treats built-in hits the same as database hits",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/lib/static-articles.ts gains searchStaticArticles(), which matches title/excerpt/category/tags over the build-time index and takes an excludeSlugs set so a seeded slug is never listed twice. Wired into src/pages/Search.tsx and src/components/GlobalSearch.tsx, in both cases merged before the existing sort so ordering is unchanged. 7 new unit tests."
+    },
+    {
+      "title": "Show the built-in articles on the tag, category and author archives",
+      "description": "As a reader following a tag, category or author link from a prerendered article, I need that archive to list the article I came from, so that the link is not a dead end onto an empty page.",
+      "acceptanceCriteria": [
+        "A tag link from a built-in article lands on an archive that lists it",
+        "The category archive lists built-in articles in that category",
+        "The author archive lists built-in articles by that author",
+        "A built-in article that has since been seeded shows once, from its database row, with no stale build-time copy beside it",
+        "A failed seeded-slug lookup leaves the archive populated rather than empty",
+        "Ordering matches the rest of the site: featured first, then newest",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. selectStaticArticles() and fetchSeededStaticSlugs() added to src/lib/static-articles.ts; the three archives merge built-in matches after their query and re-sort with sortArticleListing. The seeded-slug lookup is one bounded .in() over the twelve known slugs and fails open. 6 new unit tests."
+    },
+    {
+      "title": "Stop the contact form rejecting most of the world's names",
+      "description": "As someone whose name has an apostrophe, a hyphen, an accent, or is not written in Latin letters, I need the contact form to accept it, so that I can send a message at all.",
+      "acceptanceCriteria": [
+        "O'Brien, Mary-Jane, Jose spelled with its accent, Muller and a name in another script all submit",
+        "The curly apostrophe a phone keyboard inserts is accepted alongside the straight one",
+        "Initials with periods are accepted",
+        "Digits, markup and email addresses are still rejected, as is a name not starting with a letter",
+        "The length bounds are unchanged",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/ContactForm.tsx replaces /^[a-zA-Z\\s]+$/ with a Unicode-property rule: a letter first, then letters, combining marks, spaces, hyphens, apostrophes (U+0027 and U+2019) and periods. The edge function already validated permissively, so nothing server-side needed changing. 12 new schema tests."
+    },
+    {
+      "title": "Make the Cmd+K search palette usable from the keyboard",
+      "description": "As someone who opened search with Cmd+K, I need to pick a result with the arrow keys and Enter, so that the shortcut does not hand me back to the mouse.",
+      "acceptanceCriteria": [
+        "Enter opens the highlighted result; with none moved to, that is the first",
+        "Arrow Up and Down move the highlight and wrap at both ends, Home and End jump to either end",
+        "The highlighted row is visibly distinct and scrolls into view",
+        "The input exposes the highlight to screen readers via aria-activedescendant over a listbox of options",
+        "Hovering a row makes it the highlighted one, so mouse and keyboard agree",
+        "The footer hint names the arrow keys alongside Esc and Enter",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/GlobalSearch.tsx holds an activeIndex, handles the keys on the input so the caret never leaves the field, and marks the results up as role=listbox/option. The footer promised 'Enter to select' with nothing implementing it. 4 new tests; src/test/setup.ts gains a scrollIntoView stub, which jsdom does not implement."
+    },
+    {
+      "title": "Actually count article views",
+      "description": "As the site owner, I need view_count to reflect real reads, so that the numbers on every article card and the popular ordering on the topic hubs mean something.",
+      "acceptanceCriteria": [
+        "Opening an article and staying five seconds adds one view",
+        "A reader who leaves sooner is not counted",
+        "Reopening the same article in one browser session does not count again",
+        "Anonymous readers can increment, but cannot otherwise write to articles",
+        "An article served from the build-time markdown, which has no row, is skipped",
+        "A failed or absent RPC never surfaces an error to the reader",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done in code; the migration still has to be applied. supabase/migrations/20260911000001_article_view_counter.sql adds a SECURITY DEFINER increment_article_view(slug) granted to anon and authenticated (rollback alongside it), and src/hooks/useArticleView.ts calls it after a five-second dwell with a per-session sessionStorage guard. Deliberately a vanity counter: anyone can call it in a loop, which the migration comment says out loud - making it trustworthy needs an edge function that can see the caller's address. 6 new tests."
+    },
+    {
+      "title": "Give phones a way to search the site",
+      "description": "As a reader on a phone, I need a search control I can reach, so that finding an article does not require a keyboard shortcut and a 1024px screen.",
+      "acceptanceCriteria": [
+        "A search button sits in the mobile header, beside the menu button",
+        "Tapping it opens the same dialog the desktop bar and Cmd+K open",
+        "Opening search closes the mobile menu rather than stacking two overlays",
+        "The dialog fits a phone screen: it sizes to the viewport instead of a fixed 500px result list",
+        "The button meets the 44px touch target the rest of the header uses",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. The trigger in src/components/Navigation.tsx lived inside the hidden lg:flex desktop bar, and Cmd+K is the only other way in, so below 1024px there was no route to search at all - /search is not linked from the nav or footer either. The dialog in src/components/GlobalSearch.tsx also had a fixed h-[500px] list under a max-h-[80vh] shell, which overflowed a short phone; both are viewport-relative now, in dvh so the address bar is accounted for. 2 new tests."
+    },
+    {
+      "title": "Cover the article page, the archives and the search dialog in the accessibility guard",
+      "description": "As a reader using assistive technology, I need the pages I actually spend time on to be inside the WCAG regression guard, so that a violation there cannot ship unnoticed.",
+      "acceptanceCriteria": [
+        "The axe sweep covers an article page, the tag, category and author archives, and /topics",
+        "The open search dialog is swept as well, not just the page behind it",
+        "The article slug used is a built-in one, so the check does not depend on a database",
+        "Every covered route reports zero serious or critical violations",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. e2e/public/accessibility.spec.ts went from ten routes to fifteen plus a dialog case; 17 tests pass against Chromium. The five new routes and the dialog were clean as found, so this is a guard rather than a fix - the article page is the most-read page on the site and nothing was watching it."
+    },
+    {
+      "title": "Give built-in articles a Related Articles list",
+      "description": "As a reader finishing one of the prerendered CRM articles, I need related articles at the end of it, so that the site offers somewhere to go next instead of stopping dead.",
+      "acceptanceCriteria": [
+        "A built-in article shows related articles, drawn from the other built-in ones when the database has none",
+        "The article being read is never offered as related to itself",
+        "A synthetic static- id is not sent to the uuid id column, which failed the whole query and hid the section",
+        "A database article still excludes itself by id, as before",
+        "Scoring by tag overlap, category and recency is unchanged",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Two faults, one section. src/components/article/RelatedArticles.tsx passed currentArticleId straight into .neq('id', ...): on a built-in article that is 'static-<slug>', PostgREST rejects it against a uuid column, the query throws, and the whole Related Articles block silently disappears. Even with the query working, the candidate pool was database-only, so the twelve CRM articles - each other's closest matches - could never appear. The id filter is now conditional on the id being a uuid, the current article is excluded by slug, and built-in candidates join the pool via selectStaticArticles/fetchSeededStaticSlugs before scoring. 4 new tests."
+    },
+    {
+      "title": "Make article sections linkable",
+      "description": "As a reader who wants to send someone a particular part of an article, I need headings to have ids and a link to copy, so that I can point at a section rather than the whole page.",
+      "acceptanceCriteria": [
+        "Every heading rendered from markdown carries an id derived from its text",
+        "Two headings with the same text get distinct ids",
+        "A heading containing bold or other inline markup slugs from its visible text",
+        "Accents are folded rather than dropping the word, and punctuation is dropped",
+        "Section headings offer a link, revealed on hover and on keyboard focus, with a label naming the section",
+        "A linked heading is not hidden behind the fixed navigation bar when scrolled to",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/MarkdownRenderer.tsx exports headingSlug() and ids h1 through h4, deduping within one article; h2 and h3 also render a '#' anchor that appears on hover or focus, and scroll-mt-24 keeps the target clear of the fixed navbar. This is the prerequisite for a table of contents, which nothing has yet - worth its own story. 8 new tests."
+    },
+    {
+      "title": "Add a table of contents to long articles",
+      "description": "As a reader opening a long CRM article, I need a contents panel, so that I can see the shape of the piece and jump to the part I came for.",
+      "acceptanceCriteria": [
+        "Articles above a length threshold show a contents list built from their h2 and h3 headings",
+        "Entries link to the heading ids MarkdownRenderer now emits",
+        "The current section is indicated as the reader scrolls",
+        "It collapses out of the way on a phone rather than pushing the article down",
+        "It is announced sensibly to a screen reader and is keyboard navigable",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/lib/markdown-headings.ts extracts headings from the markdown source (skipping fenced code blocks, stripping inline markup) and owns the slug and duplicate rules, which src/components/MarkdownRenderer.tsx now shares - the two sides derive ids independently otherwise, and a disagreement makes every entry a dead anchor. src/components/article/TableOfContents.tsx renders a <details>, collapsed on a phone and open above 768px, lists h2 and h3 only, hides itself below four sections, and marks the current section with aria-current via an IntersectionObserver. 18 unit tests plus an e2e check that every link on a real article resolves to a heading on the page."
+    },
+    {
+      "title": "Stop the admin article list downloading every article body",
+      "description": "As an admin opening the Articles tab, I need the list to load the columns it shows, so that the tab does not transfer every article's full markdown to render a table of titles.",
+      "acceptanceCriteria": [
+        "The list query selects the columns the list renders, not the body or the generated social copy",
+        "Opening the editor fetches the full row first, so the form always has the body",
+        "A failed fetch leaves the editor shut rather than binding the form to a partial row",
+        "The Edit button shows progress while the body loads",
+        "Saving an edited article still writes the whole record",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/admin/ArticleManager.tsx selected '*' with no limit, pulling every article's markdown (tens of kilobytes each) on every visit to the tab, to render titles and badges. LIST_COLUMNS names every column except content, social_long_form and social_short_form; editArticle() refetches the row and only then opens the dialog - the ordering is the point, since a form bound to a body-less row would save a blank over the article. The test mock's single()/maybeSingle() now unwrap an array result the way PostgREST returns one row. 2 new tests."
+    },
+    {
+      "title": "Lazy-load and size the images the public pages load eagerly",
+      "description": "As a reader on a slow connection, I need below-the-fold images to wait their turn and to reserve their space, so that the page paints sooner and does not jump under my thumb.",
+      "acceptanceCriteria": [
+        "Venture screenshots and logos, testimonial photos and search result thumbnails load lazily",
+        "Every one of those images declares width and height so its box is reserved before it arrives",
+        "Images decode off the main thread",
+        "The portrait near the top of /about stays eager, since it is that page's largest paint",
+        "Build and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. Seven raw <img> tags across CurrentVentures, Testimonials, About, Search, GlobalSearch and RelatedArticles had no loading, decoding or dimensions - they competed with the largest paint and each one could shift the layout as it arrived. OptimizedImage already handles this for the images that use it; these were the ones that do not."
+    },
+    {
+      "title": "Finish the newsletter signup form",
+      "description": "As a reader subscribing from the homepage, I need the field named, its error tied to it, and an honest answer when I am already subscribed, so that the form is usable by screen reader and truthful to everyone.",
+      "acceptanceCriteria": [
+        "The email field carries a real label rather than leaning on its placeholder",
+        "A validation error is announced and referenced by the field via aria-describedby and aria-invalid",
+        "The field offers the browser's email autofill",
+        "An address the list already holds is answered as such, not as a fresh subscription",
+        "A genuine new subscription still reads as a success",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/NewsletterSignup.tsx gains an sr-only label, autocomplete, aria-invalid and aria-describedby, and reads the edge function's message: it answers a known address with 200 and 'You're already subscribed!', which the client was titling 'Successfully subscribed!'. 4 new tests. Worth knowing for future tests here: a malformed address never reaches the schema, because the browser's own validation on a type=email field blocks the submit first; the empty field is the case that exercises it."
+    },
+    {
+      "title": "Stop the contact form inventing a progress percentage",
+      "description": "As someone sending a message, I need the form to tell me it is sending, not to show a bar measuring nothing, so that what I see matches what is happening.",
+      "acceptanceCriteria": [
+        "While the message is in flight the form says it is sending, in a live region",
+        "No progress bar claims a percentage for the request itself",
+        "The completion meter over the four fields, which measures something real, stays",
+        "The sending notice clears when the request settles, whether it succeeded or failed",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/ContactForm.tsx set submitProgress to 25 on submit and 100 on response: two invented numbers either side of a request with no progress to report. The spinner and the message stay, in a role=status region; the state is gone. 2 new tests, the first component tests this form has had."
     }
   ]
 }

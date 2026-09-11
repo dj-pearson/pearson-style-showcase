@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeSearchQuery } from '@/lib/security';
+import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,8 +37,13 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Which result Enter would open. The footer has always promised "Enter to
+  // select"; nothing implemented it, so a palette opened with Cmd+K could only
+  // be finished with the mouse.
+  const [activeIndex, setActiveIndex] = useState(0);
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -52,6 +59,18 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
+
+  // A new result set starts at the top, so Enter always opens the best match.
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [results]);
+
+  // Keep the highlighted row visible while arrowing through a long list.
+  useEffect(() => {
+    listRef.current
+      ?.querySelector(`[data-index="${activeIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
 
   // Save search to recent searches
   const saveToRecent = (searchQuery: string) => {
@@ -136,9 +155,27 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
         )
         .limit(3);
 
+      // Prerendered articles with no database row yet never come back from the
+      // query above; search them from the build-time index instead, minus any
+      // slug the database already returned.
+      const builtIn = searchStaticArticles(searchQuery, {
+        limit: 5,
+        excludeSlugs: (articles ?? []).map((a) => a.slug),
+      });
+
       // Combine and format results
       const combined: SearchResult[] = [
         ...(articles?.map((a) => ({ ...a, type: 'article' as const })) || []),
+        ...builtIn.map((a) => ({
+          id: a.id,
+          title: a.title,
+          excerpt: a.excerpt ?? undefined,
+          slug: a.slug,
+          category: a.category ?? undefined,
+          tags: a.tags ?? undefined,
+          image_url: a.image_url ?? undefined,
+          type: 'article' as const,
+        })),
         ...(projects?.map((p) => ({ ...p, type: 'project' as const })) || []),
         ...(aiTools?.map((t) => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
       ];
@@ -183,6 +220,30 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
     setQuery(recentQuery);
   };
 
+  // Arrow keys move the highlight, Enter opens it. Held in the input rather
+  // than on each row so the caret never leaves the field while browsing.
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (results.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((current) => (current + 1) % results.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((current) => (current - 1 + results.length) % results.length);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setActiveIndex(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setActiveIndex(results.length - 1);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const result = results[activeIndex] ?? results[0];
+      if (result) handleResultClick(result);
+    }
+  };
+
   // Get icon for result type
   const getIcon = (type: SearchResult['type']) => {
     switch (type) {
@@ -209,7 +270,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] p-0">
+      <DialogContent className="max-w-2xl max-h-[85dvh] p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="sr-only">Search</DialogTitle>
           <div className="relative">
@@ -220,7 +281,16 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
               placeholder="Search articles, projects, AI tools..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="pl-11 pr-11 h-12 text-lg border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              aria-label="Search articles, projects, AI tools"
+              role="combobox"
+              aria-expanded={results.length > 0}
+              aria-controls="global-search-results"
+              aria-activedescendant={
+                results.length > 0 ? `global-search-result-${activeIndex}` : undefined
+              }
+              autoComplete="off"
             />
             {query && (
               <Button
@@ -235,7 +305,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
           </div>
         </DialogHeader>
 
-        <ScrollArea className="h-[500px]">
+        <ScrollArea className="h-[min(60dvh,500px)]">
           <div className="px-6 py-4">
             {/* Loading state - skeleton cards that mirror the result rows */}
             {isLoading && (
@@ -291,61 +361,76 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
 
             {/* Results */}
             {!isLoading && results.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm font-medium mb-3">
-                  <TrendingUp className="w-4 h-4" />
+              <div className="space-y-1" ref={listRef}>
+                <div className="flex items-center gap-2 text-sm font-medium mb-3" role="status">
+                  <TrendingUp className="w-4 h-4" aria-hidden="true" />
                   {results.length} result{results.length !== 1 ? 's' : ''}
                 </div>
-                {results.map((result) => (
-                  <button
-                    key={`${result.type}-${result.id}`}
-                    onClick={() => handleResultClick(result)}
-                    className="w-full text-left px-3 py-3 rounded-md hover:bg-accent transition-colors group"
-                  >
-                    <div className="flex items-start gap-3">
-                      {result.image_url && (
-                        <img
-                          src={result.image_url}
-                          alt={result.title}
-                          className="w-12 h-12 rounded object-cover flex-shrink-0"
-                        />
+                <div id="global-search-results" role="listbox" aria-label="Search results">
+                  {results.map((result, index) => (
+                    <button
+                      key={`${result.type}-${result.id}`}
+                      id={`global-search-result-${index}`}
+                      data-index={index}
+                      role="option"
+                      aria-selected={index === activeIndex}
+                      tabIndex={-1}
+                      onClick={() => handleResultClick(result)}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      className={cn(
+                        'w-full text-left px-3 py-3 rounded-md transition-colors group',
+                        index === activeIndex ? 'bg-accent' : 'hover:bg-accent'
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {getIcon(result.type)}
-                          <Badge variant="outline" className="text-xs">
-                            {getTypeLabel(result.type)}
-                          </Badge>
-                          {result.category && (
-                            <Badge variant="secondary" className="text-xs">
-                              {result.category}
+                    >
+                      <div className="flex items-start gap-3">
+                        {result.image_url && (
+                          <img
+                            src={result.image_url}
+                            alt={result.title}
+                            loading="lazy"
+                            decoding="async"
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded object-cover flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {getIcon(result.type)}
+                            <Badge variant="outline" className="text-xs">
+                              {getTypeLabel(result.type)}
                             </Badge>
+                            {result.category && (
+                              <Badge variant="secondary" className="text-xs">
+                                {result.category}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="font-medium mb-1 group-hover:text-primary transition-colors line-clamp-1">
+                            {result.title}
+                          </div>
+                          {(result.excerpt || result.description) && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {result.excerpt || result.description}
+                            </p>
+                          )}
+                          {result.tags && result.tags.length > 0 && (
+                            <div className="flex gap-1 mt-2 flex-wrap">
+                              {result.tags.slice(0, 3).map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className="text-xs px-2 py-0.5 bg-secondary rounded-full"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        <div className="font-medium mb-1 group-hover:text-primary transition-colors line-clamp-1">
-                          {result.title}
-                        </div>
-                        {(result.excerpt || result.description) && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {result.excerpt || result.description}
-                          </p>
-                        )}
-                        {result.tags && result.tags.length > 0 && (
-                          <div className="flex gap-1 mt-2 flex-wrap">
-                            {result.tags.slice(0, 3).map((tag, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs px-2 py-0.5 bg-secondary rounded-full"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -354,6 +439,9 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
         {/* Footer hint */}
         <div className="px-6 py-3 border-t bg-muted/50 text-xs text-muted-foreground">
           <kbd className="px-2 py-1 bg-background rounded border">Esc</kbd> to close
+          <span className="mx-2">·</span>
+          <kbd className="px-2 py-1 bg-background rounded border">Up</kbd>
+          <kbd className="ml-1 px-2 py-1 bg-background rounded border">Down</kbd> to move
           <span className="mx-2">·</span>
           <kbd className="px-2 py-1 bg-background rounded border">Enter</kbd> to select
         </div>

@@ -12,21 +12,32 @@ import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { validateUrlParam } from '@/lib/security';
+import {
+  fetchSeededStaticSlugs,
+  selectStaticArticles,
+  sortArticleListing,
+} from '@/lib/static-articles';
 
-type Article = Tables<"articles">;
+type Article = Tables<'articles'>;
 
 const CategoryArchive = () => {
   const { category: rawCategory } = useParams<{ category: string }>();
   const category = rawCategory ? validateUrlParam(rawCategory) : null;
 
-  const { data: articles, isLoading, error } = useQuery({
+  const {
+    data: articles,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['articles', 'category', category],
     queryFn: async () => {
       if (!category) throw new Error('No category provided');
 
       const { data, error } = await supabase
         .from('articles')
-        .select('id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author')
+        .select(
+          'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'
+        )
         .eq('published', true)
         .eq('category', category)
         .order('featured', { ascending: false })
@@ -34,14 +45,23 @@ const CategoryArchive = () => {
         .limit(50);
 
       if (error) throw error;
-      return data as Article[];
+
+      // The query above can only see rows, so a category archive reached from a
+      // prerendered article would come back empty (US-074/US-082).
+      const categoryLower = category.toLowerCase();
+      const builtIn = selectStaticArticles(
+        (article) => article.category?.toLowerCase() === categoryLower,
+        await fetchSeededStaticSlugs()
+      );
+
+      return sortArticleListing([...(data as Article[]), ...builtIn]) as Article[];
     },
     enabled: !!category,
   });
 
   // Get unique tags from articles in this category
   const categoryTags = articles
-    ? Array.from(new Set(articles.flatMap(a => a.tags || []))).sort()
+    ? Array.from(new Set(articles.flatMap((a) => a.tags || []))).sort()
     : [];
 
   if (!category) {
@@ -51,7 +71,7 @@ const CategoryArchive = () => {
   // Format category name for display
   const categoryDisplay = category
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
   // Generate SEO-friendly description
@@ -61,7 +81,7 @@ const CategoryArchive = () => {
   const breadcrumbItems = [
     { label: 'Home', path: '/' },
     { label: 'News', path: '/news' },
-    { label: categoryDisplay, path: `/news/category/${category}` }
+    { label: categoryDisplay, path: `/news/category/${category}` },
   ];
 
   const breadcrumbStructuredData = breadcrumbItems.map((item) => ({
@@ -79,7 +99,7 @@ const CategoryArchive = () => {
         type="website"
         structuredData={{
           type: 'breadcrumb',
-          data: { items: breadcrumbStructuredData }
+          data: { items: breadcrumbStructuredData },
         }}
       />
 
@@ -98,20 +118,18 @@ const CategoryArchive = () => {
                 {categoryDisplay}
               </h1>
             </div>
-            <p className="text-xl text-gray-400 mb-6">
-              {categoryDescription}
-            </p>
+            <p className="text-xl text-gray-400 mb-6">{categoryDescription}</p>
 
             {/* Category Tags */}
             {categoryTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 <span className="text-sm text-gray-500">Related topics:</span>
-                {categoryTags.slice(0, 8).map(tag => (
-                  <Link
-                    key={tag}
-                    to={`/news/tag/${tag.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    <Badge variant="outline" className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer">
+                {categoryTags.slice(0, 8).map((tag) => (
+                  <Link key={tag} to={`/news/tag/${tag.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <Badge
+                      variant="outline"
+                      className="hover:bg-tech-cyan/10 hover:border-tech-cyan transition-colors cursor-pointer"
+                    >
                       {tag}
                     </Badge>
                   </Link>
@@ -135,9 +153,7 @@ const CategoryArchive = () => {
           {error && (
             <div className="text-center py-12">
               <p className="text-red-400 mb-4">Failed to load articles</p>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
+              <Button onClick={() => window.location.reload()}>Try Again</Button>
             </div>
           )}
 
@@ -166,7 +182,8 @@ const CategoryArchive = () => {
 
               {/* Article Count */}
               <div className="mt-12 text-center text-gray-500">
-                Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} in {categoryDisplay}
+                Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} in{' '}
+                {categoryDisplay}
               </div>
             </>
           )}

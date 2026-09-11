@@ -162,6 +162,11 @@ const About = () => {
                     <img
                       src={profile?.profile_photo_url || '/placeholder.svg'}
                       alt="Dan Pearson"
+                      /* Near the top of /about and a candidate for its largest
+                         paint, so this one stays eager while the rest wait. */
+                      decoding="async"
+                      width={192}
+                      height={192}
                       className="w-48 h-48 rounded-full object-cover border-4 border-primary/20 shadow-2xl shadow-primary/20"
                     />
                   )}

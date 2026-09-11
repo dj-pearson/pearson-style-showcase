@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeStaticArticles, sortArticleListing } from '../static-articles';
+import { mergeStaticArticles, searchStaticArticles, sortArticleListing } from '../static-articles';
 import { CRM_ARTICLE_INDEX } from '@/content/crm-article-index.generated';
 
 describe('mergeStaticArticles', () => {
@@ -46,5 +46,43 @@ describe('sortArticleListing', () => {
     ];
     sortArticleListing(input);
     expect(input.map((a) => a.slug)).toEqual(['a', 'b']);
+  });
+});
+
+describe('searchStaticArticles', () => {
+  const sample = CRM_ARTICLE_INDEX[0];
+
+  it('matches a built-in article by title', () => {
+    const hits = searchStaticArticles(sample.title);
+    expect(hits.some((a) => a.slug === sample.slug)).toBe(true);
+  });
+
+  it('matches on category and tags, not just the title', () => {
+    expect(searchStaticArticles(sample.category).length).toBeGreaterThan(0);
+    expect(searchStaticArticles(sample.tags[0]).length).toBeGreaterThan(0);
+  });
+
+  it('ignores case', () => {
+    expect(searchStaticArticles(sample.title.toUpperCase())).toEqual(
+      searchStaticArticles(sample.title.toLowerCase())
+    );
+  });
+
+  it('skips slugs the database already returned, so nothing is listed twice', () => {
+    const hits = searchStaticArticles(sample.title, { excludeSlugs: [sample.slug] });
+    expect(hits.some((a) => a.slug === sample.slug)).toBe(false);
+  });
+
+  it('returns nothing for a query too short to be meaningful', () => {
+    expect(searchStaticArticles('a')).toEqual([]);
+    expect(searchStaticArticles('   ')).toEqual([]);
+  });
+
+  it('returns nothing when no built-in article matches', () => {
+    expect(searchStaticArticles('zzzzz-no-such-article')).toEqual([]);
+  });
+
+  it('honours the limit', () => {
+    expect(searchStaticArticles(sample.category, { limit: 1 })).toHaveLength(1);
   });
 });

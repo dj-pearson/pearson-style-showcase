@@ -83,6 +83,33 @@ describe('ArticleManager', () => {
     );
   });
 
+  it('loads the body before opening the editor, since the list does not carry it', async () => {
+    mock.setTableResult('articles', { data: [article()], error: null });
+    render(<ArticleManager />);
+    await waitFor(() => expect(screen.getByText('My First Post')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit article' }));
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Enter article title')).toHaveValue('My First Post')
+    );
+    // The editor binds to the refetched row, body included.
+    expect(screen.getByDisplayValue('# hello')).toBeInTheDocument();
+  });
+
+  it('keeps the editor shut when the body cannot be loaded, rather than saving a blank over it', async () => {
+    mock.setTableResult('articles', { data: [article()], error: null });
+    render(<ArticleManager />);
+    await waitFor(() => expect(screen.getByText('My First Post')).toBeInTheDocument());
+
+    mock.setTableResult('articles', { data: null, error: { message: 'unreachable' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit article' }));
+
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText('Enter article title')).not.toBeInTheDocument()
+    );
+  });
+
   it('asks for confirmation before deleting an article', async () => {
     mock.setTableResult('articles', { data: [article()], error: null });
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);

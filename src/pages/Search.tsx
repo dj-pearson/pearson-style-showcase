@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeSearchQuery } from '@/lib/security';
+import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -140,9 +141,26 @@ const Search = () => {
 
         if (aiToolsError) logger.error('Search ai_tools query failed:', aiToolsError);
 
+        // Articles that are prerendered but have no database row yet are
+        // invisible to the query above, so search them from the build-time
+        // index and drop any slug the database already returned.
+        const builtIn = searchStaticArticles(query, {
+          excludeSlugs: (articles ?? []).map((a) => a.slug),
+        });
+
         // Combine and format results
         const combined: SearchResult[] = [
           ...(articles?.map((a) => ({ ...a, type: 'article' as const })) || []),
+          ...builtIn.map((a) => ({
+            id: a.id,
+            title: a.title,
+            excerpt: a.excerpt ?? undefined,
+            slug: a.slug,
+            category: a.category ?? undefined,
+            tags: a.tags ?? undefined,
+            image_url: a.image_url ?? undefined,
+            type: 'article' as const,
+          })),
           ...(projects?.map((p) => ({ ...p, type: 'project' as const })) || []),
           ...(aiTools?.map((t) => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
         ];
@@ -357,6 +375,10 @@ const Search = () => {
                               <img
                                 src={result.image_url}
                                 alt={result.title}
+                                loading="lazy"
+                                decoding="async"
+                                width={96}
+                                height={96}
                                 className="w-24 h-24 rounded-lg object-cover"
                               />
                             </div>

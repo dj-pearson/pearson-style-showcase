@@ -200,20 +200,36 @@ const Navigation = () => {
               </Link>
             </div>
 
-            {/* Mobile Menu Button - Touch Optimized */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
-              aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              aria-expanded={isMenuOpen}
-              aria-controls="mobile-navigation-menu"
-            >
-              {isMenuOpen ? (
-                <X size={24} aria-hidden="true" />
-              ) : (
-                <Menu size={24} aria-hidden="true" />
-              )}
-            </button>
+            {/* Mobile header controls. Search lived only in the desktop bar and
+                behind Cmd+K, neither of which exists on a phone, so search was
+                unreachable below 1024px. */}
+            <div className="flex items-center gap-1 lg:hidden">
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setIsSearchOpen(true);
+                }}
+                className="text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
+                aria-label="Open search"
+              >
+                <Search size={24} aria-hidden="true" />
+              </button>
+
+              {/* Mobile Menu Button - Touch Optimized */}
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
+                aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-expanded={isMenuOpen}
+                aria-controls="mobile-navigation-menu"
+              >
+                {isMenuOpen ? (
+                  <X size={24} aria-hidden="true" />
+                ) : (
+                  <Menu size={24} aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Mobile Navigation - Optimized for Touch & Swipe */}

@@ -47,10 +47,16 @@ const NewsletterSignup = () => {
       }
 
       trackNewsletterSignup('success');
+
+      // The function answers an address it already holds with 200 and a message
+      // saying so. Titling that "Successfully subscribed!" told the reader they
+      // had just done something they had not.
+      const message: string | undefined = result?.message;
+      const alreadySubscribed = typeof message === 'string' && /already/i.test(message);
+
       toast({
-        title: 'Successfully subscribed!',
-        description:
-          result.message || 'Thank you for subscribing. Check your inbox for a welcome email!',
+        title: alreadySubscribed ? "You're already on the list" : 'Successfully subscribed!',
+        description: message || 'Thank you for subscribing. Check your inbox for a welcome email!',
       });
 
       reset();
@@ -84,15 +90,28 @@ const NewsletterSignup = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
+              <label htmlFor="newsletter-email" className="sr-only">
+                Email address
+              </label>
               <Input
+                id="newsletter-email"
                 type="email"
+                autoComplete="email"
                 placeholder="Enter your email address"
                 {...register('email')}
                 disabled={isSubmitting}
+                aria-invalid={errors.email ? true : undefined}
+                aria-describedby={errors.email ? 'newsletter-email-error' : undefined}
                 className={errors.email ? 'border-destructive' : ''}
               />
               {errors.email && (
-                <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                <p
+                  id="newsletter-email-error"
+                  role="alert"
+                  className="text-sm text-destructive mt-1"
+                >
+                  {errors.email.message}
+                </p>
               )}
             </div>
             <Button type="submit" disabled={isSubmitting} className="whitespace-nowrap">

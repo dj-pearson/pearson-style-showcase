@@ -23,6 +23,15 @@ const PUBLIC_PAGES = [
   '/topics/ai-crm-automation',
   '/faq',
   '/ai-tools',
+  // An article page is the most-read page on the site and was not covered, nor
+  // was any of the archive templates a reader lands on from one. The slug is a
+  // built-in article, so the page renders from the prerendered markdown without
+  // needing a database.
+  '/news/agentic-crm-what-actually-works',
+  '/news/tag/crm',
+  '/news/category/CRM',
+  '/author/dan-pearson',
+  '/topics',
 ];
 
 for (const path of PUBLIC_PAGES) {
@@ -48,6 +57,25 @@ for (const path of PUBLIC_PAGES) {
 }
 
 test.describe('Accessibility affordances', () => {
+  // The search palette is an overlay, so it is invisible to a page-level sweep:
+  // axe only ever saw the page behind it. It is also the one place on the site a
+  // reader drives entirely from the keyboard.
+  test('no serious/critical violations in the open search dialog', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Open search' }).first().click();
+    await expect(page.getByRole('combobox')).toBeVisible();
+
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'serious' || v.impact === 'critical'
+    );
+
+    expect(
+      seriousOrCritical,
+      seriousOrCritical.map((v) => `${v.impact}:${v.id}`).join(', ')
+    ).toEqual([]);
+  });
+
   test('a skip-to-main-content link is present and targets the main region', async ({ page }) => {
     await page.goto('/');
     const skip = page.getByRole('link', { name: /skip to main content/i });

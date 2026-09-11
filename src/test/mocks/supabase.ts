@@ -74,9 +74,21 @@ function createQueryBuilder(getResult: () => SupabaseResult) {
     builder[method] = vi.fn(() => builder);
   }
 
-  // Terminal resolvers return a promise of the result.
-  builder.single = vi.fn(() => Promise.resolve(getResult()));
-  builder.maybeSingle = vi.fn(() => Promise.resolve(getResult()));
+  /*
+   * Terminal resolvers return a promise of the result. PostgREST returns one row
+   * from .single()/.maybeSingle(), never a list, so a table result configured as
+   * an array is unwrapped to its first row here - otherwise a component that
+   * lists rows and then fetches one of them cannot be tested against a single
+   * configured result.
+   */
+  const singleResult = (): SupabaseResult => {
+    const result = getResult();
+    if (!Array.isArray(result.data)) return result;
+    return { ...result, data: result.data[0] ?? null };
+  };
+
+  builder.single = vi.fn(() => Promise.resolve(singleResult()));
+  builder.maybeSingle = vi.fn(() => Promise.resolve(singleResult()));
   builder.csv = vi.fn(() => Promise.resolve(getResult()));
 
   // Make the builder awaitable so chains without a terminal method still resolve.
@@ -106,9 +118,7 @@ export function createSupabaseMock(options: SupabaseMockOptions = {}) {
     getSession: vi.fn(() =>
       Promise.resolve({ data: { session: options.session ?? null }, error: null })
     ),
-    getUser: vi.fn(() =>
-      Promise.resolve({ data: { user: null }, error: null })
-    ),
+    getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
     signInWithPassword: vi.fn(() =>
       Promise.resolve({ data: { session: options.session ?? null, user: null }, error: null })
     ),
@@ -125,9 +135,7 @@ export function createSupabaseMock(options: SupabaseMockOptions = {}) {
   };
 
   const functions = {
-    invoke: vi.fn(() =>
-      Promise.resolve(options.functionResult ?? { data: null, error: null })
-    ),
+    invoke: vi.fn(() => Promise.resolve(options.functionResult ?? { data: null, error: null })),
   };
 
   const channelObj = {

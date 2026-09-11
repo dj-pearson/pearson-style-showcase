@@ -77,11 +77,45 @@ interface Article {
   updated_at: string | null;
 }
 
+/*
+ * Every column except the three long ones: content, and the generated
+ * social_long_form / social_short_form copy. The list renders titles and badges
+ * and never reads a body, but `select('*')` pulled every article's full markdown
+ * on each visit to this tab - tens of kilobytes per row, for nothing.
+ *
+ * editArticle() refetches the whole row before opening the editor, so the form
+ * never binds to a record missing its body. That ordering matters: saving a
+ * partial row would blank the article.
+ */
+const LIST_COLUMNS = [
+  'id',
+  'title',
+  'slug',
+  'excerpt',
+  'category',
+  'tags',
+  'author',
+  'image_url',
+  'social_image_url',
+  'published',
+  'featured',
+  'read_time',
+  'view_count',
+  'seo_title',
+  'seo_description',
+  'seo_keywords',
+  'target_keyword',
+  'created_at',
+  'updated_at',
+].join(', ');
+
 export const ArticleManager: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  // The row whose body is being fetched, so its Edit button can show progress.
+  const [loadingArticleId, setLoadingArticleId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,11 +155,11 @@ export const ArticleManager: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('articles')
-        .select('*')
+        .select(LIST_COLUMNS)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setArticles(data || []);
+      setArticles((data || []) as unknown as Article[]);
     } catch (error) {
       logger.error('Error loading articles:', error);
       toast({
@@ -696,10 +730,34 @@ export const ArticleManager: React.FC = () => {
     }
   };
 
-  const editArticle = (article: Article) => {
-    setSelectedArticle(article);
-    setFormData(article);
-    initialFormRef.current = JSON.stringify(article);
+  const editArticle = async (article: Article) => {
+    setLoadingArticleId(article.id);
+
+    // The list carries no body, so fetch the full row first. On failure the
+    // editor stays shut: opening it on a partial record would save a blank
+    // article over a real one.
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('id', article.id)
+      .maybeSingle();
+
+    setLoadingArticleId(null);
+
+    if (error || !data) {
+      logger.error('Error loading article for editing:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Could not open the article',
+        description: 'The article could not be loaded for editing. Please try again.',
+      });
+      return;
+    }
+
+    const full = data as Article;
+    setSelectedArticle(full);
+    setFormData(full);
+    initialFormRef.current = JSON.stringify(full);
     setIsDialogOpen(true);
   };
 
@@ -1127,9 +1185,14 @@ export const ArticleManager: React.FC = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => editArticle(article)}
+                        disabled={loadingArticleId === article.id}
                         aria-label="Edit article"
                       >
-                        <Edit className="h-4 w-4" />
+                        {loadingArticleId === article.id ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                        ) : (
+                          <Edit className="h-4 w-4" />
+                        )}
                       </Button>
                       <Button
                         variant="outline"

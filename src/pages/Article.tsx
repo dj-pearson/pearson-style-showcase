@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
+import { useArticleView } from '@/hooks/useArticleView';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { useToast } from '@/hooks/use-toast';
 import { validateUrlParam } from '@/lib/security';
@@ -29,6 +30,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
 import RelatedArticles from '../components/article/RelatedArticles';
 import KeyTakeaways, { extractKeyTakeaways } from '../components/article/KeyTakeaways';
+import TableOfContents from '../components/article/TableOfContents';
 import OptimizedImage from '../components/OptimizedImage';
 
 type Article = Tables<'articles'>;
@@ -108,6 +110,10 @@ const Article = () => {
 
   // Track affiliate link clicks
   useAffiliateTracking(article?.id || '');
+
+  // Count the read. Skipped for an article served from the build-time markdown:
+  // there is no row behind it, so there is nothing to count yet.
+  useArticleView(slug, Boolean(article) && !article?.id?.startsWith('static-'));
 
   const handleShare = async (platform: string) => {
     const url = window.location.href;
@@ -543,6 +549,8 @@ const Article = () => {
             )}
 
             {/* Article Content */}
+            <TableOfContents content={article.content ?? ''} />
+
             <div className="prose prose-invert max-w-none" itemProp="articleBody">
               {article.content ? (
                 <>
@@ -640,6 +648,7 @@ const Article = () => {
           {/* Related Articles - Smart Tag-Based Matching for Internal Linking SEO */}
           <RelatedArticles
             currentArticleId={article.id}
+            currentArticleSlug={article.slug}
             category={article.category}
             tags={article.tags || []}
             maxArticles={3}

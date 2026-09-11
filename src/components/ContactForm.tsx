@@ -24,12 +24,24 @@ type WindowWithGtag = Window & {
   gtag?: (...args: unknown[]) => void;
 };
 
-const contactSchema = z.object({
+/*
+ * Letters from any script, plus the combining marks that accented and
+ * non-Latin names are built from, and the four separators real names use:
+ * space, hyphen, apostrophe (straight and the curly one phone keyboards
+ * insert), and the period in an initial.
+ *
+ * The previous rule was /^[a-zA-Z\s]+$/, which rejected O'Brien, Mary-Jane,
+ * Jose Garcia spelled with its accent, and every name not written in Latin
+ * letters - people who then had no way to send a message at all.
+ */
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'\u2019.-]*$/u;
+
+export const contactSchema = z.object({
   name: z
     .string()
     .min(2, 'Name must be at least 2 characters')
     .max(50, 'Name must be less than 50 characters')
-    .regex(/^[a-zA-Z\s]+$/, 'Name can only contain letters and spaces'),
+    .regex(NAME_PATTERN, 'Name must start with a letter and contain no digits or symbols'),
   email: z
     .string()
     .email('Please enter a valid email address')
@@ -48,7 +60,6 @@ type ContactFormData = z.infer<typeof contactSchema>;
 
 const ContactForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitProgress, setSubmitProgress] = useState(0);
   const { toast } = useToast();
 
   const form = useForm<ContactFormData>({
@@ -71,7 +82,6 @@ const ContactForm = () => {
 
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true);
-    setSubmitProgress(0);
 
     const windowWithGtag = window as WindowWithGtag;
 
@@ -84,8 +94,6 @@ const ContactForm = () => {
         });
       }
 
-      setSubmitProgress(25);
-
       // Send email via edge function
       const { error } = await invokeEdgeFunction('send-contact-email', {
         body: {
@@ -95,8 +103,6 @@ const ContactForm = () => {
           message: data.message,
         },
       });
-
-      setSubmitProgress(100);
 
       if (error) {
         throw error;
@@ -138,7 +144,6 @@ const ContactForm = () => {
       });
     } finally {
       setIsSubmitting(false);
-      setSubmitProgress(0);
     }
   };
 
@@ -160,18 +165,19 @@ const ContactForm = () => {
           />
         </div>
 
-        {/* Submission Progress */}
+        {/* Sending. The bar that used to sit here jumped to 25% on submit and
+            100% on response, which measured nothing - the request has no
+            progress to report. A spinner says the same thing honestly. */}
         {isSubmitting && (
-          <div className="mb-6 p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-3 mb-2">
-              <Loader2 className="w-5 h-5 animate-spin text-primary flex-shrink-0" />
-              <span className="text-base font-medium">Sending your message...</span>
-            </div>
-            <Progress
-              value={submitProgress}
-              className="h-2.5"
-              aria-label="Message submission progress"
+          <div
+            role="status"
+            className="mb-6 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4"
+          >
+            <Loader2
+              className="w-5 h-5 animate-spin text-primary flex-shrink-0"
+              aria-hidden="true"
             />
+            <span className="text-base font-medium">Sending your message...</span>
           </div>
         )}
 
