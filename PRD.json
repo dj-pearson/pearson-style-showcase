@@ -1553,6 +1553,20 @@
       ],
       "passes": true,
       "notes": "Done. src/lib/markdown-headings.ts extracts headings from the markdown source (skipping fenced code blocks, stripping inline markup) and owns the slug and duplicate rules, which src/components/MarkdownRenderer.tsx now shares - the two sides derive ids independently otherwise, and a disagreement makes every entry a dead anchor. src/components/article/TableOfContents.tsx renders a <details>, collapsed on a phone and open above 768px, lists h2 and h3 only, hides itself below four sections, and marks the current section with aria-current via an IntersectionObserver. 18 unit tests plus an e2e check that every link on a real article resolves to a heading on the page."
+    },
+    {
+      "title": "Stop the admin article list downloading every article body",
+      "description": "As an admin opening the Articles tab, I need the list to load the columns it shows, so that the tab does not transfer every article's full markdown to render a table of titles.",
+      "acceptanceCriteria": [
+        "The list query selects the columns the list renders, not the body or the generated social copy",
+        "Opening the editor fetches the full row first, so the form always has the body",
+        "A failed fetch leaves the editor shut rather than binding the form to a partial row",
+        "The Edit button shows progress while the body loads",
+        "Saving an edited article still writes the whole record",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/admin/ArticleManager.tsx selected '*' with no limit, pulling every article's markdown (tens of kilobytes each) on every visit to the tab, to render titles and badges. LIST_COLUMNS names every column except content, social_long_form and social_short_form; editArticle() refetches the row and only then opens the dialog - the ordering is the point, since a form bound to a body-less row would save a blank over the article. The test mock's single()/maybeSingle() now unwrap an array result the way PostgREST returns one row. 2 new tests."
     }
   ]
 }
