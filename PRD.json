@@ -1510,6 +1510,20 @@
       ],
       "passes": true,
       "notes": "Done. e2e/public/accessibility.spec.ts went from ten routes to fifteen plus a dialog case; 17 tests pass against Chromium. The five new routes and the dialog were clean as found, so this is a guard rather than a fix - the article page is the most-read page on the site and nothing was watching it."
+    },
+    {
+      "title": "Give built-in articles a Related Articles list",
+      "description": "As a reader finishing one of the prerendered CRM articles, I need related articles at the end of it, so that the site offers somewhere to go next instead of stopping dead.",
+      "acceptanceCriteria": [
+        "A built-in article shows related articles, drawn from the other built-in ones when the database has none",
+        "The article being read is never offered as related to itself",
+        "A synthetic static- id is not sent to the uuid id column, which failed the whole query and hid the section",
+        "A database article still excludes itself by id, as before",
+        "Scoring by tag overlap, category and recency is unchanged",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Two faults, one section. src/components/article/RelatedArticles.tsx passed currentArticleId straight into .neq('id', ...): on a built-in article that is 'static-<slug>', PostgREST rejects it against a uuid column, the query throws, and the whole Related Articles block silently disappears. Even with the query working, the candidate pool was database-only, so the twelve CRM articles - each other's closest matches - could never appear. The id filter is now conditional on the id being a uuid, the current article is excluded by slug, and built-in candidates join the pool via selectStaticArticles/fetchSeededStaticSlugs before scoring. 4 new tests."
     }
   ]
 }

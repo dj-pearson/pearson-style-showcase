@@ -645,6 +645,7 @@ const Article = () => {
           {/* Related Articles - Smart Tag-Based Matching for Internal Linking SEO */}
           <RelatedArticles
             currentArticleId={article.id}
+            currentArticleSlug={article.slug}
             category={article.category}
             tags={article.tags || []}
             maxArticles={3}

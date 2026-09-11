@@ -3,13 +3,23 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Eye, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchSeededStaticSlugs, selectStaticArticles } from '@/lib/static-articles';
 
 interface RelatedArticlesProps {
   currentArticleId: string;
+  /** Slug of the article being read, so a built-in one can exclude itself. */
+  currentArticleSlug?: string;
   category: string;
   tags: string[];
   maxArticles?: number;
 }
+
+/**
+ * A built-in article carries a synthetic id ("static-<slug>"), which is not a
+ * uuid. Sending one to PostgREST as a uuid comparison fails the whole query, so
+ * the id filter is only applied when the id really is one.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * RelatedArticles component for internal linking SEO
@@ -20,35 +30,52 @@ interface RelatedArticlesProps {
  */
 const RelatedArticles = ({
   currentArticleId,
+  currentArticleSlug,
   category,
   tags,
-  maxArticles = 3
+  maxArticles = 3,
 }: RelatedArticlesProps) => {
   const { data: relatedArticles, isLoading } = useQuery({
-    queryKey: ['related-articles-smart', currentArticleId, category, tags],
+    queryKey: ['related-articles-smart', currentArticleId, currentArticleSlug, category, tags],
     queryFn: async () => {
       // Fetch candidates from same category or with overlapping tags
-      const { data, error } = await supabase
+      let query = supabase
         .from('articles')
-        .select('id, slug, title, excerpt, category, image_url, created_at, read_time, view_count, tags')
-        .eq('published', true)
-        .neq('id', currentArticleId)
-        .order('created_at', { ascending: false })
-        .limit(20); // Fetch more to score and filter
+        .select(
+          'id, slug, title, excerpt, category, image_url, created_at, read_time, view_count, tags'
+        )
+        .eq('published', true);
+
+      if (UUID.test(currentArticleId)) {
+        query = query.neq('id', currentArticleId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false }).limit(20); // Fetch more to score and filter
 
       if (error) throw error;
-      if (!data) return [];
+
+      // The twelve built-in CRM articles are each other's closest matches, and
+      // none of them is visible to the query above until it is seeded. Without
+      // them a reader finishing one of those articles is offered nothing.
+      const seeded = await fetchSeededStaticSlugs();
+      const builtIn = selectStaticArticles(
+        (article) => article.slug !== currentArticleSlug,
+        seeded
+      );
+
+      const candidates = [
+        ...(data ?? []).filter((article) => article.slug !== currentArticleSlug),
+        ...builtIn,
+      ];
 
       // Score and rank articles by relevance
-      const scoredArticles = data.map(article => {
+      const scoredArticles = candidates.map((article) => {
         let score = 0;
 
         // Tag overlap scoring (highest weight)
         const articleTags = article.tags || [];
-        const tagOverlap = tags.filter(tag =>
-          articleTags.some((aTag: string) =>
-            aTag.toLowerCase() === tag.toLowerCase()
-          )
+        const tagOverlap = tags.filter((tag) =>
+          articleTags.some((aTag: string) => aTag.toLowerCase() === tag.toLowerCase())
         ).length;
         score += tagOverlap * 10;
 
@@ -72,7 +99,7 @@ const RelatedArticles = ({
 
       // Sort by score (descending) and take top N
       return scoredArticles
-        .filter(a => a.relevanceScore > 0) // Only show related content
+        .filter((a) => a.relevanceScore > 0) // Only show related content
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
         .slice(0, maxArticles);
     },
@@ -108,10 +135,7 @@ const RelatedArticles = ({
       aria-labelledby="related-articles-heading"
     >
       <div className="flex items-center justify-between mb-8">
-        <h2
-          id="related-articles-heading"
-          className="text-2xl md:text-3xl font-bold"
-        >
+        <h2 id="related-articles-heading" className="text-2xl md:text-3xl font-bold">
           Related Articles
         </h2>
         <Link
@@ -159,10 +183,7 @@ const RelatedArticles = ({
                 >
                   {relatedArticle.title}
                 </h3>
-                <p
-                  className="text-sm text-muted-foreground line-clamp-2"
-                  itemProp="description"
-                >
+                <p className="text-sm text-muted-foreground line-clamp-2" itemProp="description">
                   {relatedArticle.excerpt}
                 </p>
                 <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
