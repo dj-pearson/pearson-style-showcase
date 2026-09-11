@@ -270,7 +270,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] p-0">
+      <DialogContent className="max-w-2xl max-h-[85dvh] p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="sr-only">Search</DialogTitle>
           <div className="relative">
@@ -305,7 +305,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
           </div>
         </DialogHeader>
 
-        <ScrollArea className="h-[500px]">
+        <ScrollArea className="h-[min(60dvh,500px)]">
           <div className="px-6 py-4">
             {/* Loading state - skeleton cards that mirror the result rows */}
             {isLoading && (

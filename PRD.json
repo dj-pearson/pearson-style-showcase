@@ -1483,6 +1483,20 @@
       ],
       "passes": true,
       "notes": "Done in code; the migration still has to be applied. supabase/migrations/20260911000001_article_view_counter.sql adds a SECURITY DEFINER increment_article_view(slug) granted to anon and authenticated (rollback alongside it), and src/hooks/useArticleView.ts calls it after a five-second dwell with a per-session sessionStorage guard. Deliberately a vanity counter: anyone can call it in a loop, which the migration comment says out loud - making it trustworthy needs an edge function that can see the caller's address. 6 new tests."
+    },
+    {
+      "title": "Give phones a way to search the site",
+      "description": "As a reader on a phone, I need a search control I can reach, so that finding an article does not require a keyboard shortcut and a 1024px screen.",
+      "acceptanceCriteria": [
+        "A search button sits in the mobile header, beside the menu button",
+        "Tapping it opens the same dialog the desktop bar and Cmd+K open",
+        "Opening search closes the mobile menu rather than stacking two overlays",
+        "The dialog fits a phone screen: it sizes to the viewport instead of a fixed 500px result list",
+        "The button meets the 44px touch target the rest of the header uses",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. The trigger in src/components/Navigation.tsx lived inside the hidden lg:flex desktop bar, and Cmd+K is the only other way in, so below 1024px there was no route to search at all - /search is not linked from the nav or footer either. The dialog in src/components/GlobalSearch.tsx also had a fixed h-[500px] list under a max-h-[80vh] shell, which overflowed a short phone; both are viewport-relative now, in dvh so the address bar is accounted for. 2 new tests."
     }
   ]
 }
