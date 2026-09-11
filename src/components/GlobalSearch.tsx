@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeSearchQuery } from '@/lib/security';
+import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -136,9 +137,27 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
         )
         .limit(3);
 
+      // Prerendered articles with no database row yet never come back from the
+      // query above; search them from the build-time index instead, minus any
+      // slug the database already returned.
+      const builtIn = searchStaticArticles(searchQuery, {
+        limit: 5,
+        excludeSlugs: (articles ?? []).map((a) => a.slug),
+      });
+
       // Combine and format results
       const combined: SearchResult[] = [
         ...(articles?.map((a) => ({ ...a, type: 'article' as const })) || []),
+        ...builtIn.map((a) => ({
+          id: a.id,
+          title: a.title,
+          excerpt: a.excerpt ?? undefined,
+          slug: a.slug,
+          category: a.category ?? undefined,
+          tags: a.tags ?? undefined,
+          image_url: a.image_url ?? undefined,
+          type: 'article' as const,
+        })),
         ...(projects?.map((p) => ({ ...p, type: 'project' as const })) || []),
         ...(aiTools?.map((t) => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
       ];
