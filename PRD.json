@@ -1497,6 +1497,19 @@
       ],
       "passes": true,
       "notes": "Done. The trigger in src/components/Navigation.tsx lived inside the hidden lg:flex desktop bar, and Cmd+K is the only other way in, so below 1024px there was no route to search at all - /search is not linked from the nav or footer either. The dialog in src/components/GlobalSearch.tsx also had a fixed h-[500px] list under a max-h-[80vh] shell, which overflowed a short phone; both are viewport-relative now, in dvh so the address bar is accounted for. 2 new tests."
+    },
+    {
+      "title": "Cover the article page, the archives and the search dialog in the accessibility guard",
+      "description": "As a reader using assistive technology, I need the pages I actually spend time on to be inside the WCAG regression guard, so that a violation there cannot ship unnoticed.",
+      "acceptanceCriteria": [
+        "The axe sweep covers an article page, the tag, category and author archives, and /topics",
+        "The open search dialog is swept as well, not just the page behind it",
+        "The article slug used is a built-in one, so the check does not depend on a database",
+        "Every covered route reports zero serious or critical violations",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. e2e/public/accessibility.spec.ts went from ten routes to fifteen plus a dialog case; 17 tests pass against Chromium. The five new routes and the dialog were clean as found, so this is a guard rather than a fix - the article page is the most-read page on the site and nothing was watching it."
     }
   ]
 }
