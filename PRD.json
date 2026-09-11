@@ -1439,6 +1439,20 @@
       ],
       "passes": true,
       "notes": "Done. selectStaticArticles() and fetchSeededStaticSlugs() added to src/lib/static-articles.ts; the three archives merge built-in matches after their query and re-sort with sortArticleListing. The seeded-slug lookup is one bounded .in() over the twelve known slugs and fails open. 6 new unit tests."
+    },
+    {
+      "title": "Stop the contact form rejecting most of the world's names",
+      "description": "As someone whose name has an apostrophe, a hyphen, an accent, or is not written in Latin letters, I need the contact form to accept it, so that I can send a message at all.",
+      "acceptanceCriteria": [
+        "O'Brien, Mary-Jane, Jose spelled with its accent, Muller and a name in another script all submit",
+        "The curly apostrophe a phone keyboard inserts is accepted alongside the straight one",
+        "Initials with periods are accepted",
+        "Digits, markup and email addresses are still rejected, as is a name not starting with a letter",
+        "The length bounds are unchanged",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/ContactForm.tsx replaces /^[a-zA-Z\\s]+$/ with a Unicode-property rule: a letter first, then letters, combining marks, spaces, hyphens, apostrophes (U+0027 and U+2019) and periods. The edge function already validated permissively, so nothing server-side needed changing. 12 new schema tests."
     }
   ]
 }

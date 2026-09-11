@@ -24,12 +24,24 @@ type WindowWithGtag = Window & {
   gtag?: (...args: unknown[]) => void;
 };
 
-const contactSchema = z.object({
+/*
+ * Letters from any script, plus the combining marks that accented and
+ * non-Latin names are built from, and the four separators real names use:
+ * space, hyphen, apostrophe (straight and the curly one phone keyboards
+ * insert), and the period in an initial.
+ *
+ * The previous rule was /^[a-zA-Z\s]+$/, which rejected O'Brien, Mary-Jane,
+ * Jose Garcia spelled with its accent, and every name not written in Latin
+ * letters - people who then had no way to send a message at all.
+ */
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'\u2019.-]*$/u;
+
+export const contactSchema = z.object({
   name: z
     .string()
     .min(2, 'Name must be at least 2 characters')
     .max(50, 'Name must be less than 50 characters')
-    .regex(/^[a-zA-Z\s]+$/, 'Name can only contain letters and spaces'),
+    .regex(NAME_PATTERN, 'Name must start with a letter and contain no digits or symbols'),
   email: z
     .string()
     .email('Please enter a valid email address')
