@@ -60,7 +60,6 @@ type ContactFormData = z.infer<typeof contactSchema>;
 
 const ContactForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitProgress, setSubmitProgress] = useState(0);
   const { toast } = useToast();
 
   const form = useForm<ContactFormData>({
@@ -83,7 +82,6 @@ const ContactForm = () => {
 
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true);
-    setSubmitProgress(0);
 
     const windowWithGtag = window as WindowWithGtag;
 
@@ -96,8 +94,6 @@ const ContactForm = () => {
         });
       }
 
-      setSubmitProgress(25);
-
       // Send email via edge function
       const { error } = await invokeEdgeFunction('send-contact-email', {
         body: {
@@ -107,8 +103,6 @@ const ContactForm = () => {
           message: data.message,
         },
       });
-
-      setSubmitProgress(100);
 
       if (error) {
         throw error;
@@ -150,7 +144,6 @@ const ContactForm = () => {
       });
     } finally {
       setIsSubmitting(false);
-      setSubmitProgress(0);
     }
   };
 
@@ -172,18 +165,19 @@ const ContactForm = () => {
           />
         </div>
 
-        {/* Submission Progress */}
+        {/* Sending. The bar that used to sit here jumped to 25% on submit and
+            100% on response, which measured nothing - the request has no
+            progress to report. A spinner says the same thing honestly. */}
         {isSubmitting && (
-          <div className="mb-6 p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-3 mb-2">
-              <Loader2 className="w-5 h-5 animate-spin text-primary flex-shrink-0" />
-              <span className="text-base font-medium">Sending your message...</span>
-            </div>
-            <Progress
-              value={submitProgress}
-              className="h-2.5"
-              aria-label="Message submission progress"
+          <div
+            role="status"
+            className="mb-6 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4"
+          >
+            <Loader2
+              className="w-5 h-5 animate-spin text-primary flex-shrink-0"
+              aria-hidden="true"
             />
+            <span className="text-base font-medium">Sending your message...</span>
           </div>
         )}
 

@@ -1594,6 +1594,19 @@
       ],
       "passes": true,
       "notes": "Done. src/components/NewsletterSignup.tsx gains an sr-only label, autocomplete, aria-invalid and aria-describedby, and reads the edge function's message: it answers a known address with 200 and 'You're already subscribed!', which the client was titling 'Successfully subscribed!'. 4 new tests. Worth knowing for future tests here: a malformed address never reaches the schema, because the browser's own validation on a type=email field blocks the submit first; the empty field is the case that exercises it."
+    },
+    {
+      "title": "Stop the contact form inventing a progress percentage",
+      "description": "As someone sending a message, I need the form to tell me it is sending, not to show a bar measuring nothing, so that what I see matches what is happening.",
+      "acceptanceCriteria": [
+        "While the message is in flight the form says it is sending, in a live region",
+        "No progress bar claims a percentage for the request itself",
+        "The completion meter over the four fields, which measures something real, stays",
+        "The sending notice clears when the request settles, whether it succeeded or failed",
+        "Typecheck and tests pass"
+      ],
+      "passes": true,
+      "notes": "Done. src/components/ContactForm.tsx set submitProgress to 25 on submit and 100 on response: two invented numbers either side of a request with no progress to report. The spinner and the message stay, in a role=status region; the state is gone. 2 new tests, the first component tests this form has had."
     }
   ]
 }
