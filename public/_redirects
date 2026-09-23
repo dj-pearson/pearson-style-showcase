@@ -9,6 +9,9 @@
 /favicon.ico       /favicon.ico       200
 /sitemap.xml       /sitemap.xml       200
 /rss.xml           /rss.xml           200
+/news-sitemap.xml  /news-sitemap.xml  200
+/llms.txt          /llms.txt          200
+/d90917c1bdd64177234048c4f1dc5ff0.txt  /d90917c1bdd64177234048c4f1dc5ff0.txt  200
 
 # SPA catch-all: serve index.html for all other routes
 /*    /index.html    200

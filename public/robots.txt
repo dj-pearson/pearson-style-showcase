@@ -10,6 +10,7 @@ Disallow: /search?*
 
 # Sitemap location
 Sitemap: https://danpearson.net/sitemap.xml
+Sitemap: https://danpearson.net/news-sitemap.xml
 
 # ========================================
 # AI Search Crawlers (Beneficial - ALLOWED)
