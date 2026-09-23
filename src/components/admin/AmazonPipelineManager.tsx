@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
-import { logger } from "@/lib/logger";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { Loader2, Play, Settings, History, TrendingUp, BarChart3 } from "lucide-react";
-import { AmazonAffiliateStats } from "./AmazonAffiliateStats";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { Loader2, Play, Settings, History, TrendingUp, BarChart3 } from 'lucide-react';
+import { AmazonAffiliateStats } from './AmazonAffiliateStats';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 export const AmazonPipelineManager = () => {
@@ -19,7 +19,7 @@ export const AmazonPipelineManager = () => {
   const [runs, setRuns] = useState<any[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [niches, setNiches] = useState<string>("");
+  const [niches, setNiches] = useState<string>('');
   const [searchTermsCount, setSearchTermsCount] = useState<number>(0);
   const [unusedTermsCount, setUnusedTermsCount] = useState<number>(0);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -32,12 +32,12 @@ export const AmazonPipelineManager = () => {
 
   const loadSearchTermsStats = async () => {
     const { count: total } = await supabase
-      .from("amazon_search_terms")
-      .select("*", { count: 'exact', head: true });
-    
+      .from('amazon_search_terms')
+      .select('*', { count: 'exact', head: true });
+
     const { count: unused } = await supabase
-      .from("amazon_search_terms")
-      .select("*", { count: 'exact', head: true })
+      .from('amazon_search_terms')
+      .select('*', { count: 'exact', head: true })
       .is('used_at', null);
 
     setSearchTermsCount(total || 0);
@@ -45,29 +45,26 @@ export const AmazonPipelineManager = () => {
   };
 
   const loadSettings = async () => {
-    const { data, error } = await supabase
-      .from("amazon_pipeline_settings")
-      .select("*")
-      .single();
+    const { data, error } = await supabase.from('amazon_pipeline_settings').select('*').single();
 
     if (error) {
-      logger.error("Error loading settings:", error);
+      logger.error('Error loading settings:', error);
       return;
     }
 
     setSettings(data);
-    setNiches((data.niches as string[]).join(", "));
+    setNiches((data.niches as string[]).join(', '));
   };
 
   const loadRuns = async () => {
     const { data, error } = await supabase
-      .from("amazon_pipeline_runs")
-      .select("*")
-      .order("started_at", { ascending: false })
+      .from('amazon_pipeline_runs')
+      .select('*')
+      .order('started_at', { ascending: false })
       .limit(10);
 
     if (error) {
-      logger.error("Error loading runs:", error);
+      logger.error('Error loading runs:', error);
       return;
     }
 
@@ -79,10 +76,13 @@ export const AmazonPipelineManager = () => {
 
     setIsSaving(true);
     try {
-      const nichesArray = niches.split(",").map(n => n.trim()).filter(Boolean);
+      const nichesArray = niches
+        .split(',')
+        .map((n) => n.trim())
+        .filter(Boolean);
 
       const { error } = await supabase
-        .from("amazon_pipeline_settings")
+        .from('amazon_pipeline_settings')
         .update({
           niches: nichesArray,
           daily_post_count: settings.daily_post_count,
@@ -94,15 +94,17 @@ export const AmazonPipelineManager = () => {
           amazon_tag: settings.amazon_tag,
           cache_only_mode: settings.cache_only_mode,
         })
-        .eq("id", settings.id);
+        .eq('id', settings.id);
 
       if (error) throw error;
 
-      toast.success("Settings saved successfully");
+      toast.success('Settings saved successfully');
       loadSettings();
     } catch (error) {
-      logger.error("Error saving settings:", error);
-      toast.error("Failed to save settings: " + (error instanceof Error ? error.message : String(error)));
+      logger.error('Error saving settings:', error);
+      toast.error(
+        'Failed to save settings: ' + (error instanceof Error ? error.message : String(error))
+      );
     } finally {
       setIsSaving(false);
     }
@@ -117,7 +119,7 @@ export const AmazonPipelineManager = () => {
 
       const lines = csvText.split('\n').slice(1); // Skip header
       const terms = lines
-        .filter(line => line.trim())
+        .filter((line) => line.trim())
         .map((line, index) => {
           // More robust CSV parsing - handle quoted fields with commas
           const match = line.match(/^"?([^",]*)"?,\s*"?([^",]*)"?$/);
@@ -130,11 +132,12 @@ export const AmazonPipelineManager = () => {
           const [, search_term, category] = match;
           return {
             search_term: search_term?.trim(),
-            category: category?.trim()
+            category: category?.trim(),
           };
         })
-        .filter((t): t is { search_term: string; category: string } =>
-          t !== null && Boolean(t.search_term) && Boolean(t.category)
+        .filter(
+          (t): t is { search_term: string; category: string } =>
+            t !== null && Boolean(t.search_term) && Boolean(t.category)
         );
 
       if (terms.length === 0) {
@@ -146,10 +149,8 @@ export const AmazonPipelineManager = () => {
       let inserted = 0;
       for (let i = 0; i < terms.length; i += batchSize) {
         const batch = terms.slice(i, i + batchSize);
-        const { error } = await supabase
-          .from('amazon_search_terms')
-          .insert(batch);
-        
+        const { error } = await supabase.from('amazon_search_terms').insert(batch);
+
         if (error && !error.message.includes('duplicate')) {
           throw error;
         }
@@ -160,7 +161,9 @@ export const AmazonPipelineManager = () => {
       loadSearchTermsStats();
     } catch (error) {
       logger.error('Seed error:', error);
-      toast.error('Failed to seed search terms: ' + (error instanceof Error ? error.message : String(error)));
+      toast.error(
+        'Failed to seed search terms: ' + (error instanceof Error ? error.message : String(error))
+      );
     } finally {
       setIsSeeding(false);
     }
@@ -168,7 +171,7 @@ export const AmazonPipelineManager = () => {
 
   const resetSearchTerms = async () => {
     if (!confirm('Are you sure? This will reset all search terms to unused.')) return;
-    
+
     try {
       const { error } = await supabase
         .from('amazon_search_terms')
@@ -188,18 +191,26 @@ export const AmazonPipelineManager = () => {
   const runPipeline = async () => {
     setIsRunning(true);
     try {
-      const { data, error } = await invokeEdgeFunction("amazon-article-pipeline", {
-        body: { requestedCount: 1, runReason: "manual" },
+      const { data, error } = await invokeEdgeFunction('amazon-article-pipeline', {
+        // A manual run is a deliberate extra post, so it bypasses the daily quota
+        // the scheduled run respects.
+        body: { force: true },
       });
 
       if (error) throw error;
 
-      toast.success(`Article created: ${data.article.title}`);
+      if (data?.published) {
+        toast.success(`Published: ${data.article.title}`);
+      } else if (data?.article) {
+        toast.warning(`Saved as a draft: ${data.article.title}. Check the run note for why.`);
+      } else {
+        toast.error(data?.message || 'Pipeline finished without an article');
+      }
       loadRuns();
       loadSearchTermsStats();
     } catch (error) {
-      logger.error("Pipeline error:", error);
-      toast.error("Pipeline failed: " + (error instanceof Error ? error.message : String(error)));
+      logger.error('Pipeline error:', error);
+      toast.error('Pipeline failed: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsRunning(false);
     }
@@ -230,9 +241,10 @@ export const AmazonPipelineManager = () => {
         <CardContent>
           <Alert>
             <AlertDescription>
-              This pipeline automatically fetches Amazon products, analyzes SEO data, and generates
-              high-ranking affiliate articles. Configure your settings and run manually or integrate with
-              Make.com for daily automation.
+              Runs automatically every day at 15:00 UTC (Maintenance &gt; Daily Amazon Product
+              Guide), up to the Daily Post Count. Guides that fail the quality check, or run without
+              an Associates tag set, are saved as drafts instead of published. Run it here to make
+              one now.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -262,16 +274,21 @@ export const AmazonPipelineManager = () => {
           <Card>
             <CardHeader>
               <CardTitle>Search Terms Database</CardTitle>
-              <CardDescription>Manage CSV-based search terms for article generation</CardDescription>
+              <CardDescription>
+                Manage CSV-based search terms for article generation
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
                 <AlertDescription>
-                  The pipeline uses search terms from amazon_ideas.csv. Each term is used once to ensure unique articles.
+                  The pipeline uses search terms from amazon_ideas.csv. Each term is used once to
+                  ensure unique articles.
                   <div className="mt-2 flex gap-4 text-sm font-medium">
                     <span>Total Terms: {searchTermsCount}</span>
                     <span className="text-green-600">Unused: {unusedTermsCount}</span>
-                    <span className="text-amber-600">Used: {searchTermsCount - unusedTermsCount}</span>
+                    <span className="text-amber-600">
+                      Used: {searchTermsCount - unusedTermsCount}
+                    </span>
                   </div>
                 </AlertDescription>
               </Alert>
@@ -291,16 +308,18 @@ export const AmazonPipelineManager = () => {
           <Card>
             <CardHeader>
               <CardTitle>Pipeline Configuration</CardTitle>
-              <CardDescription>Configure niches, filters, and generation settings (fallback only)</CardDescription>
+              <CardDescription>
+                Configure niches, filters, and generation settings (fallback only)
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <Alert>
                 <AlertDescription className="text-xs">
-                  Note: These niches are now only used as fallback if CSV search terms are unavailable.
-                  The pipeline primarily uses terms from the CSV database.
+                  Note: These niches are now only used as fallback if CSV search terms are
+                  unavailable. The pipeline primarily uses terms from the CSV database.
                 </AlertDescription>
               </Alert>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="niches">Product Niches (comma-separated, fallback)</Label>
                 <Input
@@ -328,7 +347,9 @@ export const AmazonPipelineManager = () => {
                     id="word_count"
                     type="number"
                     value={settings.word_count_target}
-                    onChange={(e) => setSettings({ ...settings, word_count_target: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setSettings({ ...settings, word_count_target: parseInt(e.target.value) })
+                    }
                   />
                 </div>
 
@@ -339,7 +360,9 @@ export const AmazonPipelineManager = () => {
                     type="number"
                     step="0.1"
                     value={settings.min_rating}
-                    onChange={(e) => setSettings({ ...settings, min_rating: parseFloat(e.target.value) })}
+                    onChange={(e) =>
+                      setSettings({ ...settings, min_rating: parseFloat(e.target.value) })
+                    }
                   />
                 </div>
 
@@ -349,7 +372,9 @@ export const AmazonPipelineManager = () => {
                     id="daily_count"
                     type="number"
                     value={settings.daily_post_count}
-                    onChange={(e) => setSettings({ ...settings, daily_post_count: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setSettings({ ...settings, daily_post_count: parseInt(e.target.value) })
+                    }
                   />
                 </div>
 
@@ -358,8 +383,13 @@ export const AmazonPipelineManager = () => {
                   <Input
                     id="price_min"
                     type="number"
-                    value={settings.price_min || ""}
-                    onChange={(e) => setSettings({ ...settings, price_min: e.target.value ? parseFloat(e.target.value) : null })}
+                    value={settings.price_min || ''}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        price_min: e.target.value ? parseFloat(e.target.value) : null,
+                      })
+                    }
                   />
                 </div>
 
@@ -368,8 +398,13 @@ export const AmazonPipelineManager = () => {
                   <Input
                     id="price_max"
                     type="number"
-                    value={settings.price_max || ""}
-                    onChange={(e) => setSettings({ ...settings, price_max: e.target.value ? parseFloat(e.target.value) : null })}
+                    value={settings.price_max || ''}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        price_max: e.target.value ? parseFloat(e.target.value) : null,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -378,7 +413,9 @@ export const AmazonPipelineManager = () => {
                 <Switch
                   id="cache_only"
                   checked={settings.cache_only_mode || false}
-                  onCheckedChange={(checked) => setSettings({ ...settings, cache_only_mode: checked })}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, cache_only_mode: checked })
+                  }
                 />
                 <div className="flex flex-col">
                   <Label htmlFor="cache_only">Cache-only mode</Label>
@@ -392,7 +429,9 @@ export const AmazonPipelineManager = () => {
                 <Switch
                   id="review_required"
                   checked={settings.review_required}
-                  onCheckedChange={(checked) => setSettings({ ...settings, review_required: checked })}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, review_required: checked })
+                  }
                 />
                 <Label htmlFor="review_required">Require manual review before publishing</Label>
               </div>
@@ -468,23 +507,28 @@ export const AmazonPipelineManager = () => {
             <CardContent>
               <div className="space-y-3">
                 {runs.map((run) => (
-                  <div key={run.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div
+                    key={run.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant={
-                          run.status === 'success' ? 'default' :
-                          run.status === 'running' ? 'secondary' :
-                          'destructive'
-                        }>
+                        <Badge
+                          variant={
+                            run.status === 'success'
+                              ? 'default'
+                              : run.status === 'running'
+                                ? 'secondary'
+                                : 'destructive'
+                          }
+                        >
                           {run.status}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
                           {new Date(run.started_at).toLocaleString()}
                         </span>
                       </div>
-                      {run.note && (
-                        <p className="text-sm">{run.note}</p>
-                      )}
+                      {run.note && <p className="text-sm">{run.note}</p>}
                       {run.posts_created > 0 && (
                         <p className="text-sm text-muted-foreground">
                           Created: {run.posts_created} | Published: {run.posts_published}
