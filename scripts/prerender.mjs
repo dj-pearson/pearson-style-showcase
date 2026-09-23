@@ -24,14 +24,17 @@ import { join, dirname } from 'node:path';
 import { marked } from 'marked';
 import { transformSync } from 'esbuild';
 import { readArticles, extractFaqs } from './lib/content.mjs';
+import { fetchDbArticles, sanitizeArticleHtml, markAffiliateLinks } from './lib/db-articles.mjs';
 
 const DIST = 'dist';
 const SITE = 'https://danpearson.net';
 const IMAGE = `${SITE}/android-chrome-512x512.png`;
 const AUTHOR = 'Dan Pearson';
-const FEED_TITLE = 'Dan Pearson - AI CRM Automation';
+const FEED_TITLE = 'Dan Pearson - AI CRM Automation and AI News';
 const FEED_DESCRIPTION =
-  'Field notes and teardowns on AI CRM automation: capture-layer automation for revenue teams, and why most AI CRM projects fail.';
+  'Field notes and teardowns on AI CRM automation, plus a daily brief on the AI news that matters to businesses.';
+const FEED_LIMIT = 50;
+const NEWS_CATEGORY = 'AI News';
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -170,13 +173,21 @@ const faqPage = (faqs) => ({
 
 // --- page builders --------------------------------------------------------
 
+const isCrm = (meta) => meta.source !== 'database' || meta.category === 'CRM';
+const categoryPath = (category) => `/news/category/${encodeURIComponent(category)}`;
+const absoluteImage = (src) => (/^https:\/\//.test(src || '') ? src : IMAGE);
+
 function articlePage({ meta, body }) {
   const url = `${SITE}/news/${meta.slug}`;
   const faqs = extractFaqs(body);
+  const isNews = meta.category === NEWS_CATEGORY;
+  const crm = isCrm(meta);
 
   const schemas = [
     {
-      '@type': 'Article',
+      // NewsArticle for the daily brief makes it eligible for Top Stories and
+      // tells assistants it is time-bound reporting, not an evergreen guide.
+      '@type': isNews ? 'NewsArticle' : 'Article',
       '@id': `${url}#article`,
       headline: meta.title,
       description: meta.seo_description || meta.excerpt,
@@ -185,12 +196,12 @@ function articlePage({ meta, body }) {
       mainEntityOfPage: { '@type': 'WebPage', '@id': url },
       author: { '@id': `${SITE}/#dan-pearson` },
       publisher: { '@id': `${SITE}/#dan-pearson` },
-      image: IMAGE,
-      datePublished: meta.published_at,
+      image: absoluteImage(meta.image_url),
+      datePublished: meta.published_iso || meta.published_at,
       dateModified: meta.updated_at || meta.published_at,
       articleSection: meta.category,
-      keywords: meta.seo_keywords.join(', '),
-      about: plainText(meta.target_keyword),
+      keywords: (meta.seo_keywords || []).join(', '),
+      about: plainText(meta.target_keyword || meta.category),
       inLanguage: 'en',
       isAccessibleForFree: true,
     },
@@ -198,22 +209,35 @@ function articlePage({ meta, body }) {
     breadcrumb([
       { name: 'Home', path: '/' },
       { name: 'News', path: '/news' },
-      { name: 'AI CRM Automation', path: '/topics/ai-crm-automation' },
+      crm
+        ? { name: 'AI CRM Automation', path: '/topics/ai-crm-automation' }
+        : { name: meta.category, path: categoryPath(meta.category) },
       { name: meta.title, path: `/news/${meta.slug}` },
     ]),
   ];
 
   if (faqs.length) schemas.push(faqPage(faqs));
 
+  // Database bodies were written by a model, and older ones are raw HTML, so
+  // they are sanitized before they reach a static file. The markdown in
+  // content/ is reviewed in git and rendered as-is.
+  const rendered = marked.parse(body);
+  const html = meta.source === 'database' ? markAffiliateLinks(sanitizeArticleHtml(rendered)) : rendered;
+
+  const related = crm
+    ? `<a href="/topics/ai-crm-automation">All AI CRM automation writing</a>
+        <a href="/ai-crm-automation">CRM automation services and the 12-point audit</a>`
+    : `<a href="${categoryPath(meta.category)}">More ${escapeHtml(meta.category)}</a>
+        <a href="/ai-crm-automation">AI CRM automation consulting</a>`;
+
   const content = `
     <article>
       <h1>${escapeHtml(meta.title)}</h1>
       <p><strong>${escapeHtml(meta.excerpt)}</strong></p>
-      <p>By ${escapeHtml(meta.author)} &middot; ${escapeHtml(meta.read_time)} &middot; ${escapeHtml(meta.category)}</p>
-      ${marked.parse(body)}
+      <p>By ${escapeHtml(meta.author)} &middot; <time datetime="${escapeHtml(meta.published_at)}">${escapeHtml(meta.published_at)}</time>${meta.read_time ? ` &middot; ${escapeHtml(meta.read_time)}` : ''} &middot; ${escapeHtml(meta.category)}</p>
+      ${html}
       <nav aria-label="Related">
-        <a href="/topics/ai-crm-automation">All AI CRM automation writing</a>
-        <a href="/ai-crm-automation">CRM automation services and the 12-point audit</a>
+        ${related}
       </nav>
     </article>`;
 
@@ -232,8 +256,12 @@ function articlePage({ meta, body }) {
       tags: meta.tags,
       author: meta.author,
       published_at: meta.published_at,
+      published_iso: meta.published_iso,
     },
-    sitemap: { priority: meta.featured ? '0.9' : '0.8', changefreq: 'monthly' },
+    news: isNews ? { title: meta.title, published_iso: meta.published_iso || `${meta.published_at}T12:00:00Z` } : null,
+    sitemap: crm
+      ? { priority: meta.featured ? '0.9' : '0.8', changefreq: 'monthly' }
+      : { priority: isNews ? '0.6' : '0.5', changefreq: 'monthly' },
   };
 }
 
@@ -545,14 +573,16 @@ ${urls.join('\n')}
  * and with the right content type.
  */
 function writeFeed(pages) {
+  const feedTime = (page) => page.feed.published_iso || `${page.feed.published_at}T12:00:00Z`;
   const items = pages
     .filter((page) => page.feed)
-    .sort((a, b) => b.feed.published_at.localeCompare(a.feed.published_at))
+    .sort((a, b) => new Date(feedTime(b)) - new Date(feedTime(a)))
+    .slice(0, FEED_LIMIT)
     .map((page) => {
       const url = `${SITE}${page.path}`;
-      // Midday UTC, so the date does not slide backwards a day for readers
-      // west of Greenwich.
-      const pubDate = new Date(`${page.feed.published_at}T12:00:00Z`).toUTCString();
+      // Markdown articles carry a date only, so they get midday UTC and the date
+      // does not slide backwards a day for readers west of Greenwich.
+      const pubDate = new Date(feedTime(page)).toUTCString();
       const categories = [...new Set([page.feed.category, ...(page.feed.tags || [])])]
         .filter(Boolean)
         .map((name) => `      <category>${escapeXml(name)}</category>`)
@@ -595,6 +625,68 @@ ${items.join('\n')}
   return items.length;
 }
 
+// --- news sitemap ---------------------------------------------------------
+
+/**
+ * Google News sitemap for the daily brief. Google only reads entries from the
+ * last two days, so it stays small; the site rebuilds on every publish, which
+ * is what keeps it current. Written even when empty so the URL in robots.txt
+ * never 404s.
+ */
+function writeNewsSitemap(pages, now = Date.now()) {
+  const cutoff = now - 48 * 3600_000;
+  const entries = pages
+    .filter((page) => page.news && new Date(page.news.published_iso).getTime() >= cutoff)
+    .map(
+      (page) => `  <url>
+    <loc>${SITE}${page.path}</loc>
+    <news:news>
+      <news:publication>
+        <news:name>${escapeXml(AUTHOR)}</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>${new Date(page.news.published_iso).toISOString()}</news:publication_date>
+      <news:title>${escapeXml(page.news.title)}</news:title>
+    </news:news>
+  </url>`
+    );
+
+  writeFileSync(
+    join(DIST, 'news-sitemap.xml'),
+    `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+${entries.join('\n')}
+</urlset>
+`
+  );
+  return entries.length;
+}
+
+// --- llms.txt -------------------------------------------------------------
+
+/**
+ * llms.txt (llmstxt.org): a plain-text map of the site for language models
+ * and the agents that browse on their behalf. Cheap to produce, and the one
+ * file an assistant can read to learn what this site is authoritative on.
+ */
+function writeLlmsTxt(crm, crmArticles, dbArticles) {
+  const line = ({ meta }) => `- [${meta.title}](${SITE}/news/${meta.slug}): ${plainText(meta.excerpt)}`;
+  const news = dbArticles.filter(({ meta }) => meta.category === NEWS_CATEGORY).slice(0, 20);
+  const guides = dbArticles.filter(({ meta }) => meta.category === 'Product Reviews').slice(0, 10);
+
+  const sections = [
+    `# ${AUTHOR}`,
+    `> ${plainText(crm.POSITIONING_STATEMENT)}`,
+    plainText(crm.THESIS),
+    `## Services\n\n- [AI CRM automation consulting](${SITE}/ai-crm-automation): the Pipeline Automation Ladder, the 12-point audit and published pricing.\n- [Contact](${SITE}/connect)`,
+    `## AI CRM automation\n\n${crmArticles.map(line).join('\n')}`,
+  ];
+  if (news.length) sections.push(`## Daily AI news briefs (most recent)\n\n${news.map(line).join('\n')}`);
+  if (guides.length) sections.push(`## Optional\n\n${guides.map(line).join('\n')}`);
+
+  writeFileSync(join(DIST, 'llms.txt'), `${sections.join('\n\n')}\n`);
+}
+
 // --- main -----------------------------------------------------------------
 
 const templatePath = join(DIST, 'index.html');
@@ -606,12 +698,17 @@ if (!existsSync(templatePath)) {
 const template = readFileSync(templatePath, 'utf8');
 const crm = await loadCrmData();
 const articles = readArticles().filter(({ meta }) => meta.published);
+// The markdown copy wins when a slug exists in both: it is the reviewed source
+// the database row was seeded from.
+const markdownSlugs = new Set(articles.map(({ meta }) => meta.slug));
+const dbArticles = (await fetchDbArticles()).filter(({ meta }) => !markdownSlugs.has(meta.slug));
 
 const pages = [
   homePage(crm, articles),
   moneyPage(crm, articles),
   hubPage(articles),
   ...articles.map(articlePage),
+  ...dbArticles.map(articlePage),
 ];
 
 for (const page of pages) {
@@ -641,6 +738,8 @@ for (const page of pages) {
 
 const urlCount = writeSitemap(pages);
 const itemCount = writeFeed(pages);
+const newsCount = writeNewsSitemap(pages);
+writeLlmsTxt(crm, articles, dbArticles);
 console.log(
-  `prerender: ${pages.length} routes, ${urlCount} sitemap URLs, ${itemCount} feed items`
+  `prerender: ${pages.length} routes (${dbArticles.length} from the database), ${urlCount} sitemap URLs, ${itemCount} feed items, ${newsCount} news sitemap URLs`
 );

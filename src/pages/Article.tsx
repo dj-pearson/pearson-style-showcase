@@ -401,7 +401,7 @@ const Article = () => {
           },
           keywords: (article.tags || []).join(', '),
           articleSection: article.category,
-          wordCount: article.content?.length || 0,
+          wordCount: article.content ? article.content.trim().split(/\s+/).length : 0,
           slug: article.slug,
 
           // AI Search Optimization: Entity linking

@@ -30,6 +30,17 @@ interface MarkdownComponentProps {
 }
 
 /** The visible text of a heading, whatever inline markup it is built from. */
+/**
+ * rel for an outbound link. Amazon links are affiliate links, and Google's
+ * link-spam policy expects paid links to say so with rel="sponsored".
+ */
+function externalRel(href: string): string | undefined {
+  if (!href.startsWith('http')) return undefined;
+  return /^https?:\/\/(?:[a-z0-9-]+\.)*(?:amazon\.[a-z.]+|amzn\.to)(?:[/:?#]|$)/i.test(href)
+    ? 'sponsored nofollow noopener noreferrer'
+    : 'noopener noreferrer';
+}
+
 function nodeText(node: React.ReactNode): string {
   if (node === null || node === undefined || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
@@ -238,7 +249,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
           href={validatedHref}
           className="text-primary hover:text-primary/80 underline transition-colors"
           target={validatedHref.startsWith('http') ? '_blank' : undefined}
-          rel={validatedHref.startsWith('http') ? 'noopener noreferrer' : undefined}
+          rel={externalRel(validatedHref)}
         >
           {children}
         </a>
@@ -493,7 +504,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
         // Ensure external links open in new tab
         if (href?.startsWith('http')) {
           link.setAttribute('target', '_blank');
-          link.setAttribute('rel', 'noopener noreferrer');
+          link.setAttribute('rel', externalRel(href) as string);
         }
       });
     }, [sanitizedHtml]);

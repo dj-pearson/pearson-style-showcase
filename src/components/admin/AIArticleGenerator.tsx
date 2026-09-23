@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -10,22 +10,33 @@ import { invokeEdgeFunction } from '@/lib/edge-functions';
 export const AIArticleGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedArticle, setGeneratedArticle] = useState<any>(null);
+  const [skipReason, setSkipReason] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const generateArticle = async () => {
+  const generateArticle = async (force = false) => {
     setIsGenerating(true);
     setGeneratedArticle(null);
+    setSkipReason(null);
 
     try {
-      const { data, error } = await invokeEdgeFunction('generate-ai-article');
+      const { data, error } = await invokeEdgeFunction('generate-ai-article', {
+        body: { force },
+      });
 
       if (error) throw error;
 
+      if (data?.skipped) {
+        setSkipReason(data.reason);
+        return;
+      }
+
       if (data?.success) {
-        setGeneratedArticle(data.article);
+        setGeneratedArticle({ ...data.article, quality: data.quality });
         toast({
-          title: "Article Published!",
-          description: "AI has created and published a new article based on the latest AI news.",
+          title: data.published ? 'Brief published' : 'Brief saved as a draft',
+          description: data.published
+            ? "Today's AI news brief is live."
+            : 'It failed the quality gate. Review it in Articles before publishing.',
         });
       } else {
         throw new Error(data?.error || 'Failed to generate article');
@@ -34,9 +45,9 @@ export const AIArticleGenerator = () => {
       logger.error('Error generating article:', error);
       const message = error instanceof Error ? error.message : String(error);
       toast({
-        title: "Generation Failed",
+        title: 'Generation Failed',
         description: message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setIsGenerating(false);
@@ -57,13 +68,13 @@ export const AIArticleGenerator = () => {
       <CardContent className="space-y-4">
         <Alert>
           <AlertDescription>
-            This tool browses artificialintelligence-news.com, selects a random article, 
-            and uses AI to create a completely original, SEO-rich article with a unique perspective.
+            Runs automatically every day at 12:00 UTC (Maintenance &gt; Daily AI News Brief). Use
+            this to run it now. It makes one brief per day unless you force another.
           </AlertDescription>
         </Alert>
 
         <Button
-          onClick={generateArticle}
+          onClick={() => generateArticle(false)}
           disabled={isGenerating}
           className="w-full"
           size="lg"
@@ -76,10 +87,21 @@ export const AIArticleGenerator = () => {
           ) : (
             <>
               <Sparkles className="mr-2 h-4 w-4" />
-              Generate New Article
+              Generate Today's Brief
             </>
           )}
         </Button>
+
+        {skipReason && (
+          <Alert>
+            <AlertDescription className="flex flex-col gap-3">
+              <span>Skipped: {skipReason}.</span>
+              <Button variant="outline" size="sm" onClick={() => generateArticle(true)}>
+                Generate another anyway
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {generatedArticle && (
           <Card className="bg-muted/50">
@@ -97,7 +119,7 @@ export const AIArticleGenerator = () => {
                       {generatedArticle.read_time}
                     </span>
                     <span className="text-xs bg-muted px-2 py-1 rounded">
-                      Status: Published ✓
+                      {generatedArticle.published ? 'Published' : 'Draft'}
                     </span>
                   </div>
                   {generatedArticle.tags && (
@@ -111,9 +133,15 @@ export const AIArticleGenerator = () => {
                   )}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Article published and live on your blog!
-              </p>
+              {generatedArticle.quality?.issues?.length > 0 && (
+                <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
+                  {generatedArticle.quality.issues.map(
+                    (issue: { code: string; message: string }) => (
+                      <li key={issue.code}>{issue.message}</li>
+                    )
+                  )}
+                </ul>
+              )}
             </CardContent>
           </Card>
         )}
@@ -121,11 +149,11 @@ export const AIArticleGenerator = () => {
         <div className="text-xs text-muted-foreground space-y-1">
           <p className="font-medium">How it works:</p>
           <ul className="list-disc list-inside space-y-0.5 ml-2">
-            <li>Scrapes latest articles from AI news website</li>
-            <li>Selects a random trending topic</li>
-            <li>AI researches and writes a unique 800-1200 word article</li>
-            <li>Optimizes for SEO with keywords and metadata</li>
-            <li>Automatically publishes to your blog</li>
+            <li>Reads the AI news feeds configured on the maintenance task</li>
+            <li>Picks the story from the last 36 hours that matters most to businesses</li>
+            <li>Reads the source article and writes an 800-1300 word analysis with FAQs</li>
+            <li>Links only to the real sources and existing articles, then cites them</li>
+            <li>Publishes if it passes the quality gate, otherwise saves a draft</li>
           </ul>
         </div>
       </CardContent>

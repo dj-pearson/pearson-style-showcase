@@ -2,13 +2,27 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { isTaskDue } from '../_shared/cron.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { invokeFunction } from '../_shared/invoke-function.ts';
+
+const SITE = 'https://danpearson.net';
+// IndexNow keys are public by design: the search engine proves ownership by
+// fetching this same value from public/<key>.txt on the site.
+const INDEXNOW_KEY = Deno.env.get('INDEXNOW_KEY') || 'd90917c1bdd64177234048c4f1dc5ff0';
+
+/** Functions a content task may dispatch to. Nothing outside this list runs. */
+const CONTENT_FUNCTIONS = new Set(['generate-ai-article', 'amazon-article-pipeline']);
 
 /**
  * Run a single maintenance task by name and return its result payload.
  * Shared by the manual dispatch path and the scheduled `run_due` path.
  */
-async function runTask(taskName: string, supabase: any): Promise<any> {
+async function runTask(taskName: string, supabase: any, config: any = {}): Promise<any> {
   switch (taskName) {
+    case 'Daily AI News Brief':
+    case 'Daily Amazon Product Guide':
+      return await runContentPipeline(config);
+    case 'IndexNow Submission':
+      return await submitToIndexNow(supabase, config);
     case 'Daily Link Health Check':
       return await checkBrokenLinks(supabase);
     case 'Cleanup Old Sessions':
@@ -38,7 +52,7 @@ async function runDueTasks(supabase: any) {
 
   const { data: tasks, error } = await supabase
     .from('maintenance_tasks')
-    .select('id, task_name, schedule_cron, last_run_at, enabled')
+    .select('id, task_name, schedule_cron, last_run_at, enabled, config')
     .eq('enabled', true);
 
   if (error) throw error;
@@ -52,7 +66,7 @@ async function runDueTasks(supabase: any) {
   for (const task of due) {
     const startTime = Date.now();
     try {
-      const result = await runTask(task.task_name, supabase);
+      const result = await runTask(task.task_name, supabase, task.config || {});
       await supabase.rpc('record_maintenance_run', {
         p_task_id: task.id,
         p_status: 'success',
@@ -114,9 +128,14 @@ export default async (req: Request): Promise<Response> => {
       });
     }
 
-    // Manual path: run a single named task.
+    // Manual path: run a single named task, with its stored config.
+    const { data: taskRow } = await supabase
+      .from('maintenance_tasks')
+      .select('config')
+      .eq('task_name', taskName)
+      .maybeSingle();
     const startTime = Date.now();
-    const result: any = await runTask(taskName, supabase);
+    const result: any = await runTask(taskName, supabase, taskRow?.config || {});
     const duration = Date.now() - startTime;
 
     // Record the task execution
@@ -293,4 +312,97 @@ async function generateSitemap(supabase: any) {
     issuesFixed: 0,
     articlesIncluded: (articles?.length || 0) + (kbArticles?.length || 0),
   };
+}
+
+/**
+ * Dispatch a daily content pipeline and wait for it, so a failed run lands in
+ * maintenance_results like any other failed task. The pipelines are
+ * idempotent per day, so a retry on the next five-minute tick is harmless.
+ */
+async function runContentPipeline(config: any) {
+  const { function: fn, ...options } = config || {};
+  if (!CONTENT_FUNCTIONS.has(fn)) {
+    throw new Error(`Task config names no allowed content function (got ${fn ?? 'nothing'})`);
+  }
+
+  const { data, error } = await invokeFunction<any>(fn, options);
+  if (error) throw error;
+  if (data && data.success === false) {
+    throw new Error(data.message || data.error || `${fn} reported failure`);
+  }
+
+  return {
+    issuesFound: data?.quality?.issues?.filter((i: any) => i.blocking).length || 0,
+    issuesFixed: 0,
+    function: fn,
+    skipped: Boolean(data?.skipped),
+    reason: data?.reason,
+    published: Boolean(data?.published),
+    article: data?.article ? { slug: data.article.slug, url: data.article.url } : null,
+  };
+}
+
+/**
+ * Push recently published article URLs to IndexNow (Bing, Yandex, Seznam,
+ * Naver). Bing's index also feeds ChatGPT search and Copilot, so this is the
+ * fastest route for a daily brief to become citable there.
+ *
+ * Waits min_age_minutes after publication so the Cloudflare Pages rebuild the
+ * pipeline triggered has finished and the URL serves prerendered HTML, not
+ * the empty SPA shell. Each URL is submitted once, tracked in
+ * indexnow_submissions.
+ */
+async function submitToIndexNow(supabase: any, config: any) {
+  const minAge = Number(config?.min_age_minutes) || 20;
+  const newest = new Date(Date.now() - minAge * 60_000).toISOString();
+  const oldest = new Date(Date.now() - 48 * 3600_000).toISOString();
+
+  const { data: articles, error } = await supabase
+    .from('articles')
+    .select('id, slug')
+    .eq('published', true)
+    .gte('created_at', oldest)
+    .lte('created_at', newest);
+  if (error) throw error;
+
+  const urls = (articles || []).map((a: any) => ({ id: a.id, url: `${SITE}/news/${a.slug}` }));
+  if (!urls.length) return { issuesFound: 0, issuesFixed: 0, submitted: 0 };
+
+  const { data: done } = await supabase
+    .from('indexnow_submissions')
+    .select('url')
+    .in(
+      'url',
+      urls.map((u: any) => u.url)
+    );
+  const already = new Set((done || []).map((d: any) => d.url));
+  const pending = urls.filter((u: any) => !already.has(u.url));
+  if (!pending.length) return { issuesFound: 0, issuesFixed: 0, submitted: 0 };
+
+  const response = await fetch('https://api.indexnow.org/indexnow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({
+      host: new URL(SITE).host,
+      key: INDEXNOW_KEY,
+      keyLocation: `${SITE}/${INDEXNOW_KEY}.txt`,
+      urlList: pending.map((p: any) => p.url),
+    }),
+  });
+
+  // 200 and 202 both mean accepted. Anything else is left unrecorded so the
+  // next run retries it.
+  if (response.status !== 200 && response.status !== 202) {
+    throw new Error(
+      `IndexNow returned ${response.status}: ${(await response.text()).slice(0, 200)}`
+    );
+  }
+
+  await supabase
+    .from('indexnow_submissions')
+    .upsert(
+      pending.map((p: any) => ({ url: p.url, article_id: p.id, status_code: response.status }))
+    );
+
+  return { issuesFound: 0, issuesFixed: pending.length, submitted: pending.length };
 }

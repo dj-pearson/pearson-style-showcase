@@ -2,15 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Zap,
-  Play,
-  RefreshCw,
-  Send,
-  Trash2,
-  Download,
-  Globe,
-} from 'lucide-react';
+import { Zap, Play, RefreshCw, Send, Trash2, Download, Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +22,11 @@ export const QuickActionsPanel: React.FC = () => {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleAction = async (actionId: string, actionFn: () => Promise<void>, requiresConfirmation: boolean = false) => {
+  const handleAction = async (
+    actionId: string,
+    actionFn: () => Promise<void>,
+    requiresConfirmation: boolean = false
+  ) => {
     if (requiresConfirmation) {
       if (!confirm('Are you sure you want to perform this action?')) {
         return;
@@ -56,7 +52,7 @@ export const QuickActionsPanel: React.FC = () => {
       action: async () => {
         try {
           const { error } = await invokeEdgeFunction('amazon-article-pipeline', {
-            body: { manual: true }
+            body: { force: true },
           });
 
           if (error) throw error;
@@ -69,12 +65,12 @@ export const QuickActionsPanel: React.FC = () => {
           toast({
             title: 'Pipeline Failed',
             description: 'Failed to start the pipeline. Check console for details.',
-            variant: 'destructive'
+            variant: 'destructive',
           });
           throw error;
         }
       },
-      variant: 'default'
+      variant: 'default',
     },
     {
       id: 'test-webhook',
@@ -88,9 +84,10 @@ export const QuickActionsPanel: React.FC = () => {
               articleTitle: 'Test Article',
               articleUrl: 'https://example.com/test',
               shortForm: 'This is a test webhook notification from the Command Center!',
-              longForm: 'Testing the webhook integration to ensure notifications are working correctly.',
-              isTest: true
-            }
+              longForm:
+                'Testing the webhook integration to ensure notifications are working correctly.',
+              isTest: true,
+            },
           });
 
           if (error) throw error;
@@ -103,12 +100,12 @@ export const QuickActionsPanel: React.FC = () => {
           toast({
             title: 'Webhook Failed',
             description: 'Failed to send test webhook. Check webhook settings.',
-            variant: 'destructive'
+            variant: 'destructive',
           });
           throw error;
         }
       },
-      variant: 'outline'
+      variant: 'outline',
     },
     {
       id: 'generate-sitemap',
@@ -136,12 +133,12 @@ export const QuickActionsPanel: React.FC = () => {
           toast({
             title: 'Sitemap Failed',
             description: 'Failed to generate sitemap.',
-            variant: 'destructive'
+            variant: 'destructive',
           });
           throw error;
         }
       },
-      variant: 'outline'
+      variant: 'outline',
     },
     {
       id: 'export-analytics',
@@ -162,7 +159,7 @@ export const QuickActionsPanel: React.FC = () => {
           // Convert to CSV
           if (stats && stats.length > 0) {
             const headers = Object.keys(stats[0]).join(',');
-            const rows = stats.map(row => Object.values(row).join(','));
+            const rows = stats.map((row) => Object.values(row).join(','));
             const csv = [headers, ...rows].join('\n');
 
             // Download CSV
@@ -184,19 +181,19 @@ export const QuickActionsPanel: React.FC = () => {
             toast({
               title: 'No Data',
               description: 'No analytics data available to export.',
-              variant: 'destructive'
+              variant: 'destructive',
             });
           }
         } catch (error) {
           toast({
             title: 'Export Failed',
             description: 'Failed to export analytics data.',
-            variant: 'destructive'
+            variant: 'destructive',
           });
           throw error;
         }
       },
-      variant: 'outline'
+      variant: 'outline',
     },
     {
       id: 'cleanup-sessions',
@@ -223,13 +220,13 @@ export const QuickActionsPanel: React.FC = () => {
           toast({
             title: 'Cleanup Failed',
             description: 'Failed to cleanup sessions.',
-            variant: 'destructive'
+            variant: 'destructive',
           });
           throw error;
         }
       },
       variant: 'outline',
-      requiresConfirmation: true
+      requiresConfirmation: true,
     },
     {
       id: 'refresh-stats',
@@ -260,13 +257,13 @@ export const QuickActionsPanel: React.FC = () => {
           toast({
             title: 'Refresh Failed',
             description: 'Failed to refresh stats cache.',
-            variant: 'destructive'
+            variant: 'destructive',
           });
           throw error;
         }
       },
-      variant: 'secondary'
-    }
+      variant: 'secondary',
+    },
   ];
 
   return (
@@ -296,9 +293,7 @@ export const QuickActionsPanel: React.FC = () => {
                 )}
                 <span className="font-semibold text-sm">{action.label}</span>
               </div>
-              <span className="text-xs opacity-70 font-normal">
-                {action.description}
-              </span>
+              <span className="text-xs opacity-70 font-normal">{action.description}</span>
             </Button>
           ))}
         </div>
@@ -312,16 +307,16 @@ export const QuickActionsPanel: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <RefreshCw className="h-3 w-3 animate-spin" />
                   <span className="text-sm">
-                    {actions.find(a => a.id === loadingAction)?.label}
+                    {actions.find((a) => a.id === loadingAction)?.label}
                   </span>
                 </div>
-                <Badge variant="secondary" className="text-xs">Running</Badge>
+                <Badge variant="secondary" className="text-xs">
+                  Running
+                </Badge>
               </div>
             )}
             {!loadingAction && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No recent actions
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-4">No recent actions</p>
             )}
           </div>
         </div>
