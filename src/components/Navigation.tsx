@@ -138,7 +138,7 @@ const Navigation = () => {
             {/* Logo - Mobile First with larger touch target */}
             <Link
               to="/"
-              className="text-xl sm:text-xl lg:text-2xl font-bold hero-gradient-text touch-target"
+              className="text-xl sm:text-xl lg:text-2xl font-bold text-primary touch-target"
               onClick={() => setIsMenuOpen(false)}
             >
               Dan Pearson

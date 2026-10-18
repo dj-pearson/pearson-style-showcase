@@ -62,7 +62,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-8 lg:gap-10 mb-8">
           {/* Brand Section */}
           <div className="space-y-4 text-center sm:text-left">
-            <h3 className="text-xl sm:text-xl font-bold hero-gradient-text">Dan Pearson</h3>
+            <h3 className="text-xl sm:text-xl font-bold text-primary">Dan Pearson</h3>
             <p className="text-base sm:text-base text-primary font-semibold mb-2">
               AI CRM Automation Consultant
             </p>

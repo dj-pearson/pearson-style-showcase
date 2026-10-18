@@ -338,7 +338,7 @@ const News = () => {
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center py-8 sm:py-12 lg:py-16">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 hero-gradient-text leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-foreground leading-tight">
               News & Insights
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto px-2 leading-relaxed">

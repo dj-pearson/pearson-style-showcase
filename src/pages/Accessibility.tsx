@@ -42,7 +42,7 @@ const Accessibility = () => {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
                 <AccessibilityIcon className="w-8 h-8 text-primary" aria-hidden="true" />
               </div>
-              <h1 className="mobile-heading-lg hero-gradient-text mb-4">Accessibility Statement</h1>
+              <h1 className="mobile-heading-lg text-foreground mb-4">Accessibility Statement</h1>
               <p className="mobile-body text-muted-foreground max-w-2xl mx-auto">
                 Dan Pearson and Pearson Media LLC are committed to ensuring digital accessibility
                 for people with disabilities. We continually improve the user experience for

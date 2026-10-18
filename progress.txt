@@ -556,3 +556,19 @@
 - 4 CRITICAL, 10 HIGH, 10 MEDIUM, 4 LOW severity findings remediated
 - Categories covered: Input Validation, Injection, Information Leakage, SSRF, CORS,
   Rate Limiting, Authentication, DoS, Race Conditions, Data Protection, Spam Prevention, Reliability
+
+### Iteration - Visual identity decision (US-072)
+**Date**: 2026-10-18
+**Branch**: claude/open-prd-items-bxrq0r
+**Stories Completed**: 1
+
+#### US-072: Decide the site's visual identity [PASSED]
+- Owner decision: headings go solid color, Inter stays as the typeface
+- Removed .hero-gradient-text from index.css; 8 page h1s use text-foreground, nav/footer wordmark uses text-primary
+- AuthorArchive, CategoryArchive, TagArchive: dropped the white-to-gray clip-text gradient for text-foreground
+- Showcase.css: hero accent span and metric numbers are solid var(--cyan); sx-flow animation removed; class renamed sx-title__accent
+- impeccable detect src: gradient-text 5 -> 0; overused-font (Inter, index.css:130) kept as an intentional exception
+- tsc --noEmit passes, eslint clean on touched files, npm run build passes
+
+#### PRD STATUS
+- All 99 stories marked passes: true; no open items remain

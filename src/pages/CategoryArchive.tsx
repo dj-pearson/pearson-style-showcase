@@ -114,9 +114,7 @@ const CategoryArchive = () => {
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
               <FolderOpen className="w-8 h-8 text-tech-cyan" />
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                {categoryDisplay}
-              </h1>
+              <h1 className="text-4xl md:text-5xl font-bold text-foreground">{categoryDisplay}</h1>
             </div>
             <p className="text-xl text-gray-400 mb-6">{categoryDescription}</p>
 

@@ -46,7 +46,7 @@ const LegalPageLayout = ({
         <div className="container mx-auto mobile-section">
           <div className="max-w-3xl mx-auto">
             <header className="mb-10">
-              <h1 className="mobile-heading-lg hero-gradient-text mb-4">{title}</h1>
+              <h1 className="mobile-heading-lg text-foreground mb-4">{title}</h1>
               <p className="mobile-body text-muted-foreground">{intro}</p>
               <p className="text-sm text-muted-foreground mt-4">Last updated: {lastUpdated}</p>
             </header>

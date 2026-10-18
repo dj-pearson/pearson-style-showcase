@@ -679,7 +679,7 @@ const Showcase = () => {
             </span>
             <span className="sx-title__line">
               <span className="sx-title__reveal">
-                <span className="sx-title__grad">a Living Canvas</span>
+                <span className="sx-title__accent">a Living Canvas</span>
               </span>
             </span>
           </h1>

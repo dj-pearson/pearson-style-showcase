@@ -312,25 +312,9 @@
     translate: 0 0;
   }
 }
-.sx-title__grad {
+.sx-title__accent {
   display: inline-block;
-  background: linear-gradient(
-    100deg,
-    var(--cyan),
-    var(--violet) 40%,
-    var(--magenta) 70%,
-    var(--amber)
-  );
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: sx-flow 9s linear infinite;
-}
-@keyframes sx-flow {
-  to {
-    background-position: 220% 0;
-  }
+  color: var(--cyan);
 }
 
 .sx-hero__sub {
@@ -825,10 +809,7 @@
   letter-spacing: -0.04em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(120deg, var(--paper), var(--cyan));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--cyan);
 }
 .sx-metric__label {
   margin-top: 0.6rem;
