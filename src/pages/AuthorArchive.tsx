@@ -151,7 +151,7 @@ const AuthorArchive = () => {
 
               {/* Author Info */}
               <div className="flex-grow">
-                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2">
+                <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2">
                   {authorDisplay}
                 </h1>
 

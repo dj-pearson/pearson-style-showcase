@@ -189,7 +189,7 @@ const Projects = () => {
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center mobile-section">
-            <h1 className="mobile-heading-lg hero-gradient-text mb-4">My Projects</h1>
+            <h1 className="mobile-heading-lg text-foreground mb-4">My Projects</h1>
             <p className="mobile-body text-gray-400 max-w-2xl mx-auto">
               Seven SaaS platforms across construction, real estate, fitness and meal planning —
               four industries’ worth of real, messy revenue data, and where the CRM automation

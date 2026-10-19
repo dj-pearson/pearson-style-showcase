@@ -37,7 +37,7 @@ const Connect = () => {
         <div className="container mx-auto mobile-section">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <h1 className="mobile-heading-lg hero-gradient-text mb-4">Let's Connect</h1>
+              <h1 className="mobile-heading-lg text-foreground mb-4">Let's Connect</h1>
               <p className="mobile-body text-muted-foreground">
                 Ready to collaborate on your next project? I'd love to hear from you.
               </p>

@@ -1211,8 +1211,8 @@
         "impeccable detect src reports no gradient-text or overused-font findings, or the exceptions are documented as intentional",
         "Typecheck passes"
       ],
-      "passes": false,
-      "notes": "BLOCKED ON A DESIGN DECISION - do not implement unilaterally. Sites: index.css:370 (.hero-gradient-text, used on nearly every page heading), Showcase.css:829, AuthorArchive.tsx:137, CategoryArchive.tsx:97, TagArchive.tsx:112, and the Inter stack at index.css:130. Gradient headings are the site's current identity and swapping them is a whole-site visual change; the same goes for the typeface. Both need Dj's call before any code moves. Left out of US-071 for that reason. NEXT ITERATION NOTE: ask rather than implement, or scope it to a single page as a proposal.",
+      "passes": true,
+      "notes": "Decided 2026-10-18 by Dj: headings go solid, Inter stays. Removed .hero-gradient-text from index.css; page h1s now use text-foreground and the nav/footer wordmark uses text-primary. Archive pages (Author, Category, Tag) dropped the white-to-gray clip-text gradient for text-foreground. Showcase.css: hero accent span and metric numbers are solid var(--cyan), the sx-flow animation is gone and the class is renamed sx-title__accent. impeccable detect src: gradient-text 5 -> 0. The one overused-font finding (index.css:130, Inter) is an intentional exception by owner decision. ai-color-palette and bounce-easing findings are outside this story.",
       "id": "US-072",
       "priority": 54
     },

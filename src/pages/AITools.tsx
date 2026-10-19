@@ -6,25 +6,48 @@ import SEO from '../components/SEO';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { AIToolSubmissionForm } from '@/components/AIToolSubmissionForm';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
-import { Bot, Brain, Image, Code, FileText, Sparkles, Filter, ExternalLink, Plus } from 'lucide-react';
+import {
+  Bot,
+  Brain,
+  Image,
+  Code,
+  FileText,
+  Sparkles,
+  Filter,
+  ExternalLink,
+  Plus,
+} from 'lucide-react';
 
-type AITool = Tables<"ai_tools">;
+type AITool = Tables<'ai_tools'>;
 
 const AITools = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
-  
-  const { data: tools, isLoading, error } = useQuery({
+
+  const {
+    data: tools,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['ai_tools'],
     queryFn: async () => {
       // Only select fields needed for AI tools list view to reduce payload size
       const { data, error } = await supabase
         .from('ai_tools')
-        .select('id, title, description, category, features, link, pricing, complexity, status, sort_order, created_at')
+        .select(
+          'id, title, description, category, features, link, pricing, complexity, status, sort_order, created_at'
+        )
         .eq('status', 'Active')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
@@ -35,18 +58,25 @@ const AITools = () => {
   });
 
   // Filter tools based on selected category
-  const filteredTools = tools?.filter(tool => 
-    selectedCategory === 'all' || tool.category?.toLowerCase() === selectedCategory.toLowerCase()
-  ) || [];
+  const filteredTools =
+    tools?.filter(
+      (tool) =>
+        selectedCategory === 'all' ||
+        tool.category?.toLowerCase() === selectedCategory.toLowerCase()
+    ) || [];
 
   // Get unique categories for filter buttons
-  const categories = ['all', ...Array.from(new Set(tools?.map(tool => tool.category) || []))];
+  const categories = ['all', ...Array.from(new Set(tools?.map((tool) => tool.category) || []))];
 
   // Get category stats
-  const categoryStats = tools?.reduce((acc, tool) => {
-    acc[tool.category] = (acc[tool.category] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>) || {};
+  const categoryStats =
+    tools?.reduce(
+      (acc, tool) => {
+        acc[tool.category] = (acc[tool.category] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    ) || {};
 
   const getIcon = (category: string) => {
     switch (category?.toLowerCase()) {
@@ -67,7 +97,7 @@ const AITools = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SEO 
+      <SEO
         title="AI Tools & Services 2025 | Revolutionary AI Solutions & Business Automation"
         description="Discover 100+ revolutionary AI tools transforming business in 2025. From OpenAI Sora to Cursor IDE - comprehensive directory of AI solutions for content creation, development, automation, and more."
         keywords="AI tools 2025, artificial intelligence software, business automation, AI content creation, OpenAI Sora, Cursor IDE, DeepSeek, AI development tools, machine learning platforms, AI image generation, business AI solutions"
@@ -77,15 +107,16 @@ const AITools = () => {
           type: 'website',
           data: {
             name: 'AI Tools & Services Directory',
-            description: 'Comprehensive directory of revolutionary AI tools and services for business transformation in 2025',
+            description:
+              'Comprehensive directory of revolutionary AI tools and services for business transformation in 2025',
             url: 'https://danpearson.net/ai-tools',
             mainEntity: {
               '@type': 'ItemList',
               name: 'AI Tools Directory',
               description: 'Curated collection of the best AI tools for business professionals',
-              numberOfItems: tools?.length || 0
-            }
-          }
+              numberOfItems: tools?.length || 0,
+            },
+          },
         }}
       />
       <Navigation />
@@ -93,18 +124,19 @@ const AITools = () => {
         <div className="container mx-auto max-w-7xl">
           {/* Page Header */}
           <div className="text-center py-8 sm:py-12 lg:py-16">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 hero-gradient-text leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-foreground leading-tight">
               AI Tools & Services
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto mb-6 sm:mb-8 px-2 leading-relaxed">
-              Discover 100+ revolutionary AI tools transforming work in 2025. From agentic AI systems to specialized industry solutions.
+              Discover 100+ revolutionary AI tools transforming work in 2025. From agentic AI
+              systems to specialized industry solutions.
             </p>
-            
+
             {/* Submit Tool Button */}
             <div className="mb-6 sm:mb-8">
               <Dialog open={isSubmissionDialogOpen} onOpenChange={setIsSubmissionDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button 
+                  <Button
                     size="lg"
                     className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-[48px] sm:min-h-[52px] w-full sm:w-auto px-6 sm:px-8"
                   >
@@ -116,14 +148,15 @@ const AITools = () => {
                   <DialogHeader>
                     <DialogTitle className="text-lg sm:text-xl">Submit an AI Tool</DialogTitle>
                     <DialogDescription className="text-sm sm:text-base">
-                      Share your AI tool with our community. All submissions are reviewed before going live.
+                      Share your AI tool with our community. All submissions are reviewed before
+                      going live.
                     </DialogDescription>
                   </DialogHeader>
                   <AIToolSubmissionForm />
                 </DialogContent>
               </Dialog>
             </div>
-            
+
             {/* Statistics */}
             {tools && tools.length > 0 && (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto">
@@ -132,12 +165,18 @@ const AITools = () => {
                   <div className="text-xs sm:text-sm text-gray-400">Total Tools</div>
                 </div>
                 <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
-                  <div className="text-xl sm:text-2xl font-bold text-cyan-400">{categories.length - 1}</div>
+                  <div className="text-xl sm:text-2xl font-bold text-cyan-400">
+                    {categories.length - 1}
+                  </div>
                   <div className="text-xs sm:text-sm text-gray-400">Categories</div>
                 </div>
                 <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
                   <div className="text-xl sm:text-2xl font-bold text-cyan-400">
-                    {tools.filter(tool => tool.pricing?.includes('Free') || tool.pricing === 'Freemium').length}
+                    {
+                      tools.filter(
+                        (tool) => tool.pricing?.includes('Free') || tool.pricing === 'Freemium'
+                      ).length
+                    }
                   </div>
                   <div className="text-xs sm:text-sm text-gray-400">Free Tools</div>
                 </div>
@@ -155,28 +194,34 @@ const AITools = () => {
               <Button
                 variant={selectedCategory === 'all' ? 'default' : 'outline'}
                 onClick={() => setSelectedCategory('all')}
-                className={`min-h-[44px] text-sm sm:text-base ${selectedCategory === 'all' 
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600' 
-                  : 'border-gray-600 hover:border-cyan-500/50'
+                className={`min-h-[44px] text-sm sm:text-base ${
+                  selectedCategory === 'all'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                    : 'border-gray-600 hover:border-cyan-500/50'
                 }`}
               >
                 <Filter className="w-4 h-4 mr-2" />
                 All ({tools.length})
               </Button>
-              {categories.filter(cat => cat !== 'all').map((category) => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? 'default' : 'outline'}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`min-h-[44px] text-sm sm:text-base ${selectedCategory === category 
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600' 
-                    : 'border-gray-600 hover:border-cyan-500/50'
-                  }`}
-                >
-                  <span className="hidden sm:inline">{getIcon(category)}</span>
-                  <span className="sm:ml-2">{category} ({categoryStats[category] || 0})</span>
-                </Button>
-              ))}
+              {categories
+                .filter((cat) => cat !== 'all')
+                .map((category) => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? 'default' : 'outline'}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`min-h-[44px] text-sm sm:text-base ${
+                      selectedCategory === category
+                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                        : 'border-gray-600 hover:border-cyan-500/50'
+                    }`}
+                  >
+                    <span className="hidden sm:inline">{getIcon(category)}</span>
+                    <span className="sm:ml-2">
+                      {category} ({categoryStats[category] || 0})
+                    </span>
+                  </Button>
+                ))}
             </div>
           )}
 
@@ -190,12 +235,17 @@ const AITools = () => {
               </div>
             ) : error ? (
               <div className="text-center py-12 px-4">
-                <p className="text-base text-gray-400">Error loading AI tools. Please try again later.</p>
+                <p className="text-base text-gray-400">
+                  Error loading AI tools. Please try again later.
+                </p>
               </div>
             ) : filteredTools.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredTools.map((tool) => (
-                  <Card key={tool.id} className="group h-full bg-gray-800/50 border-gray-700 hover:border-cyan-500/50 transition-all duration-300 animate-fade-in">
+                  <Card
+                    key={tool.id}
+                    className="group h-full bg-gray-800/50 border-gray-700 hover:border-cyan-500/50 transition-all duration-300 animate-fade-in"
+                  >
                     <CardHeader>
                       <div className="flex items-center gap-4 mb-4">
                         <div className="p-3 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 rounded-lg text-cyan-400">
@@ -218,7 +268,10 @@ const AITools = () => {
                               </a>
                             )}
                           </div>
-                          <Badge variant="secondary" className="mt-1 bg-cyan-500/20 text-cyan-400 border-cyan-500/30">
+                          <Badge
+                            variant="secondary"
+                            className="mt-1 bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                          >
                             {tool.category}
                           </Badge>
                         </div>
@@ -231,26 +284,31 @@ const AITools = () => {
                       <div className="space-y-4">
                         {tool.features && tool.features.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-medium text-gray-300 mb-2">Key Features:</h4>
+                            <h4 className="text-sm font-medium text-gray-300 mb-2">
+                              Key Features:
+                            </h4>
                             <div className="flex flex-wrap gap-2">
                               {tool.features.slice(0, 4).map((feature, index) => (
-                                <Badge 
-                                  key={index} 
-                                  variant="outline" 
+                                <Badge
+                                  key={index}
+                                  variant="outline"
                                   className="border-gray-600 text-gray-300 text-xs"
                                 >
                                   {feature}
                                 </Badge>
                               ))}
                               {tool.features.length > 4 && (
-                                <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                                <Badge
+                                  variant="outline"
+                                  className="border-gray-600 text-gray-400 text-xs"
+                                >
                                   +{tool.features.length - 4} more
                                 </Badge>
                               )}
                             </div>
                           </div>
                         )}
-                        
+
                         <div className="flex justify-between items-center pt-2 border-t border-gray-700">
                           <div className="text-sm">
                             <span className="text-gray-500">Pricing: </span>
@@ -260,10 +318,15 @@ const AITools = () => {
                           </div>
                           <div className="text-sm">
                             <span className="text-gray-500">Level: </span>
-                            <span className={`font-medium ${
-                              tool.complexity === 'Beginner' ? 'text-green-400' :
-                              tool.complexity === 'Advanced' ? 'text-orange-400' : 'text-blue-400'
-                            }`}>
+                            <span
+                              className={`font-medium ${
+                                tool.complexity === 'Beginner'
+                                  ? 'text-green-400'
+                                  : tool.complexity === 'Advanced'
+                                    ? 'text-orange-400'
+                                    : 'text-blue-400'
+                              }`}
+                            >
                               {tool.complexity || 'Intermediate'}
                             </span>
                           </div>
@@ -275,9 +338,11 @@ const AITools = () => {
               </div>
             ) : (
               <div className="text-center py-12 px-4">
-                <p className="text-base text-gray-400 mb-4">No AI tools found in the {selectedCategory} category.</p>
-                <Button 
-                  variant="outline" 
+                <p className="text-base text-gray-400 mb-4">
+                  No AI tools found in the {selectedCategory} category.
+                </p>
+                <Button
+                  variant="outline"
                   className="mt-4 border-gray-600 hover:border-cyan-500/50 min-h-[48px]"
                   onClick={() => setSelectedCategory('all')}
                 >
@@ -290,26 +355,36 @@ const AITools = () => {
           {/* Benefits Section */}
           <div className="py-12 sm:py-16 border-t border-gray-800">
             <div className="bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-4xl mx-auto">
-              <h2 className="text-2xl sm:text-3xl font-bold mb-5 sm:mb-6 text-center text-white leading-tight">Why Choose AI Solutions?</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-5 sm:mb-6 text-center text-white leading-tight">
+                Why Choose AI Solutions?
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
-                    <span className="text-sm sm:text-base text-gray-300">Increased productivity and efficiency</span>
+                    <span className="text-sm sm:text-base text-gray-300">
+                      Increased productivity and efficiency
+                    </span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
-                    <span className="text-sm sm:text-base text-gray-300">Cost-effective automation solutions</span>
+                    <span className="text-sm sm:text-base text-gray-300">
+                      Cost-effective automation solutions
+                    </span>
                   </div>
                 </div>
                 <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
-                    <span className="text-sm sm:text-base text-gray-300">Competitive advantage through AI</span>
+                    <span className="text-sm sm:text-base text-gray-300">
+                      Competitive advantage through AI
+                    </span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-cyan-400 rounded-full flex-shrink-0" />
-                    <span className="text-sm sm:text-base text-gray-300">Scalable and future-proof implementations</span>
+                    <span className="text-sm sm:text-base text-gray-300">
+                      Scalable and future-proof implementations
+                    </span>
                   </div>
                 </div>
               </div>
@@ -319,23 +394,26 @@ const AITools = () => {
           {/* CTA Section */}
           <div className="text-center py-12 sm:py-16">
             <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-2xl mx-auto">
-              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">Ready to Transform Your Business?</h2>
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">
+                Ready to Transform Your Business?
+              </h2>
               <p className="text-base text-gray-400 mb-5 sm:mb-6 leading-relaxed">
-                Let's discuss how AI can revolutionize your operations and give you a competitive edge in today's market.
+                Let's discuss how AI can revolutionize your operations and give you a competitive
+                edge in today's market.
               </p>
               <div className="flex flex-col gap-3 justify-center">
-                <Button 
+                <Button
                   size="lg"
                   className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] sm:min-h-[52px] w-full"
-                  onClick={() => window.location.href = '/connect'}
+                  onClick={() => (window.location.href = '/connect')}
                 >
                   Schedule Consultation
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="lg"
                   className="border-gray-600 hover:border-cyan-500/50 hover:bg-cyan-500/10 min-h-[48px] sm:min-h-[52px] w-full"
-                  onClick={() => window.location.href = '/projects'}
+                  onClick={() => (window.location.href = '/projects')}
                 >
                   View Case Studies
                 </Button>

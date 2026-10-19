@@ -177,7 +177,7 @@ const About = () => {
               </div>
 
               <div className="flex-1 text-center md:text-left">
-                <h1 className="mobile-heading-lg hero-gradient-text mb-4">Dan Pearson</h1>
+                <h1 className="mobile-heading-lg text-foreground mb-4">Dan Pearson</h1>
                 {isProfileLoading ? (
                   <div className="space-y-4">
                     <Skeleton className="h-8 w-3/4 mx-auto md:mx-0" />

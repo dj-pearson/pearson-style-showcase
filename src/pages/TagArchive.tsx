@@ -131,9 +131,7 @@ const TagArchive = () => {
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
               <TagIcon className="w-8 h-8 text-tech-cyan" />
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                {tagDisplay}
-              </h1>
+              <h1 className="text-4xl md:text-5xl font-bold text-foreground">{tagDisplay}</h1>
             </div>
             <p className="text-xl text-gray-400 mb-6">{tagDescription}</p>
 

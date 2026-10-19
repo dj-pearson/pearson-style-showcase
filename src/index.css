@@ -364,14 +364,6 @@
     border-bottom: 1px solid hsl(220 30% 20%);
   }
 
-  /* Hero text gradient */
-  .hero-gradient-text {
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   /* Floating circle animation */
   .floating-circle {
     position: absolute;
