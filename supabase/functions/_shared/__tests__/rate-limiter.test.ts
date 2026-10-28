@@ -2,6 +2,7 @@ import { assertEquals, assert } from '../test-asserts.ts';
 import {
   checkRateLimit,
   clearRateLimits,
+  getClientIdentifier,
   getRateLimitStats,
   RATE_LIMIT_PRESETS,
 } from '../rate-limiter.ts';
@@ -74,4 +75,44 @@ Deno.test('clearRateLimits removes tracked entries (cleanup)', () => {
 Deno.test('the auth preset is a strict 5-request / 15-minute limit', () => {
   assertEquals(RATE_LIMIT_PRESETS.auth.maxRequests, 5);
   assertEquals(RATE_LIMIT_PRESETS.auth.windowMs, 15 * 60 * 1000);
+});
+
+const reqWith = (headers: Record<string, string>) =>
+  new Request('https://example.test/', { headers });
+
+Deno.test('getClientIdentifier prefers cf-connecting-ip over other headers', () => {
+  const req = reqWith({
+    'cf-connecting-ip': '203.0.113.7',
+    'x-real-ip': '198.51.100.2',
+    'x-forwarded-for': '1.2.3.4, 198.51.100.9',
+  });
+  assertEquals(getClientIdentifier(req), '203.0.113.7');
+});
+
+Deno.test('getClientIdentifier falls back to x-real-ip before x-forwarded-for', () => {
+  const req = reqWith({
+    'x-real-ip': '198.51.100.2',
+    'x-forwarded-for': '1.2.3.4, 198.51.100.9',
+  });
+  assertEquals(getClientIdentifier(req), '198.51.100.2');
+});
+
+Deno.test(
+  'getClientIdentifier uses the last x-forwarded-for hop, not the client-controlled first',
+  () => {
+    const req = reqWith({ 'x-forwarded-for': '1.2.3.4, 10.0.0.1 , 198.51.100.9' });
+    assertEquals(getClientIdentifier(req), '198.51.100.9');
+  }
+);
+
+Deno.test('getClientIdentifier ignores empty x-forwarded-for entries', () => {
+  assertEquals(
+    getClientIdentifier(reqWith({ 'x-forwarded-for': '198.51.100.9, ' })),
+    '198.51.100.9'
+  );
+  assertEquals(getClientIdentifier(reqWith({ 'x-forwarded-for': ' , ' })), 'unknown');
+});
+
+Deno.test('getClientIdentifier returns unknown with no IP headers', () => {
+  assertEquals(getClientIdentifier(reqWith({})), 'unknown');
 });

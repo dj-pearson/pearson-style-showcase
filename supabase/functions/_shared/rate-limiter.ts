@@ -13,11 +13,11 @@ import { getCorsHeaders } from './cors.ts';
 
 // Rate limit configuration presets
 export interface RateLimitConfig {
-  windowMs: number;        // Time window in milliseconds
-  maxRequests: number;     // Max requests per window
+  windowMs: number; // Time window in milliseconds
+  maxRequests: number; // Max requests per window
   burstAllowance?: number; // Extra requests allowed in burst
   skipSuccessfulRequests?: boolean; // Don't count successful requests
-  keyPrefix?: string;      // Prefix for rate limit keys
+  keyPrefix?: string; // Prefix for rate limit keys
 }
 
 // Default rate limit presets
@@ -107,9 +107,7 @@ function cleanupExpiredEntries(): void {
 
   for (const [key, entry] of rateLimitStore.entries()) {
     // Find the max window from presets
-    const maxWindow = Math.max(
-      ...Object.values(RATE_LIMIT_PRESETS).map(p => p.windowMs)
-    );
+    const maxWindow = Math.max(...Object.values(RATE_LIMIT_PRESETS).map((p) => p.windowMs));
 
     if (now - entry.windowStart > maxWindow * 2) {
       rateLimitStore.delete(key);
@@ -125,11 +123,7 @@ function cleanupExpiredEntries(): void {
 /**
  * Generate a rate limit key
  */
-function generateKey(
-  identifier: string,
-  prefix?: string,
-  endpoint?: string
-): string {
+function generateKey(identifier: string, prefix?: string, endpoint?: string): string {
   const parts = [prefix || 'default', identifier];
   if (endpoint) {
     parts.push(endpoint.replace(/[^a-zA-Z0-9]/g, '_'));
@@ -139,23 +133,33 @@ function generateKey(
 
 /**
  * Get client identifier from request (IP address)
+ *
+ * Order matters. cf-connecting-ip and x-real-ip are set by the edge proxy and
+ * overwrite anything the client sent. X-Forwarded-For is appended to, so its
+ * first entry is whatever the client chose to send; only the last hop was
+ * written by the proxy in front of us. Trusting the first entry let a caller
+ * rotate a fake IP per request and never hit the limit.
  */
 export function getClientIdentifier(req: Request): string {
-  // Try various headers for the real IP
-  const forwardedFor = req.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    // Get the first IP in the chain
-    return forwardedFor.split(',')[0].trim();
+  const cfConnectingIp = req.headers.get('cf-connecting-ip')?.trim();
+  if (cfConnectingIp) {
+    return cfConnectingIp;
   }
 
-  const realIp = req.headers.get('x-real-ip');
+  const realIp = req.headers.get('x-real-ip')?.trim();
   if (realIp) {
     return realIp;
   }
 
-  const cfConnectingIp = req.headers.get('cf-connecting-ip');
-  if (cfConnectingIp) {
-    return cfConnectingIp;
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const hops = forwardedFor
+      .split(',')
+      .map((hop) => hop.trim())
+      .filter(Boolean);
+    if (hops.length > 0) {
+      return hops[hops.length - 1];
+    }
   }
 
   return 'unknown';
@@ -204,8 +208,7 @@ export function checkRateLimit(
   const burstRemaining = burstAllowance - entry.burstUsed;
 
   // Check if allowed
-  const allowed = entry.count < config.maxRequests ||
-    (entry.burstUsed < burstAllowance);
+  const allowed = entry.count < config.maxRequests || entry.burstUsed < burstAllowance;
 
   if (allowed) {
     entry.count++;
@@ -285,9 +288,8 @@ export function withRateLimit(
   initRateLimiter();
 
   // Get config from preset if string provided
-  const resolvedConfig: RateLimitConfig = typeof config === 'string'
-    ? RATE_LIMIT_PRESETS[config]
-    : config;
+  const resolvedConfig: RateLimitConfig =
+    typeof config === 'string' ? RATE_LIMIT_PRESETS[config] : config;
 
   return async (req: Request): Promise<Response> => {
     const origin = req.headers.get('origin');
@@ -304,9 +306,7 @@ export function withRateLimit(
       : getClientIdentifier(req);
 
     // Get endpoint
-    const endpoint = options?.getEndpoint
-      ? options.getEndpoint(req)
-      : new URL(req.url).pathname;
+    const endpoint = options?.getEndpoint ? options.getEndpoint(req) : new URL(req.url).pathname;
 
     // Check rate limit
     const result = checkRateLimit(identifier, resolvedConfig, endpoint);
@@ -382,9 +382,7 @@ export function rateLimitByUser(
   userId: string,
   config: RateLimitConfig | keyof typeof RATE_LIMIT_PRESETS = 'api'
 ): RateLimitResult {
-  const resolvedConfig = typeof config === 'string'
-    ? RATE_LIMIT_PRESETS[config]
-    : config;
+  const resolvedConfig = typeof config === 'string' ? RATE_LIMIT_PRESETS[config] : config;
 
   const endpoint = new URL(req.url).pathname;
   return checkRateLimit(`user:${userId}`, resolvedConfig, endpoint);
