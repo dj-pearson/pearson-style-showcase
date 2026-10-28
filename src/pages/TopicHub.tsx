@@ -11,109 +11,20 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, BookOpen, TrendingUp, Clock, ArrowRight, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { mergeStaticArticles, sortArticleListing } from '@/lib/static-articles';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { SEO_CONFIG, getCanonicalUrl, generateSlug } from '@/lib/seo';
 import { validateUrlParam } from '@/lib/security';
+import {
+  TOPIC_HUBS,
+  TOPIC_HUB_COLUMNS,
+  readPrerenderData,
+  selectTopicArticles,
+  topicPrerenderKey,
+} from '@/lib/prerenderData';
 
 type Article = Tables<'articles'>;
-
-// Topic hub configurations for pillar content strategy
-const TOPIC_HUBS: Record<
-  string,
-  {
-    title: string;
-    description: string;
-    keywords: string[];
-    relatedCategories: string[];
-    relatedTags: string[];
-    pillarContent?: string; // Slug of main pillar article if exists
-  }
-> = {
-  'ai-crm-automation': {
-    title: 'AI CRM Automation',
-    description:
-      'Research, teardowns and field notes on making the CRM run itself — capture-layer automation, agentic workflows, and why most AI CRM projects fail before they start.',
-    keywords: [
-      'AI CRM automation',
-      'CRM automation',
-      'sales automation',
-      'agentic CRM',
-      'CRM data quality',
-      'RevOps',
-    ],
-    relatedCategories: ['CRM', 'Sales', 'AI'],
-    relatedTags: [
-      'CRM',
-      'CRM Automation',
-      'Sales Automation',
-      'HubSpot',
-      'Salesforce',
-      'Pipeline',
-      'RevOps',
-      'AI Agents',
-    ],
-    pillarContent: 'ai-crm-automation-complete-guide',
-  },
-  'ai-automation': {
-    title: 'AI Automation',
-    description:
-      'Complete guide to AI automation for business. Learn how to implement AI-powered workflows, reduce manual tasks, and transform your operations.',
-    keywords: [
-      'AI automation',
-      'business automation',
-      'workflow automation',
-      'AI tools',
-      'automation strategy',
-    ],
-    relatedCategories: ['AI', 'Technology', 'Business'],
-    relatedTags: ['AI', 'Automation', 'Machine Learning', 'Workflow', 'Productivity'],
-  },
-  'business-optimization': {
-    title: 'Business Optimization',
-    description:
-      'Strategies and insights for optimizing business operations, improving efficiency, and driving growth through technology and AI.',
-    keywords: [
-      'business optimization',
-      'process improvement',
-      'efficiency',
-      'growth strategies',
-      'business transformation',
-    ],
-    relatedCategories: ['Business', 'Strategy', 'Management'],
-    relatedTags: ['Optimization', 'Efficiency', 'Growth', 'Strategy', 'ROI'],
-  },
-  'machine-learning': {
-    title: 'Machine Learning',
-    description:
-      'Explore machine learning concepts, applications, and implementation strategies for business. From basics to advanced use cases.',
-    keywords: ['machine learning', 'ML', 'AI', 'predictive analytics', 'data science'],
-    relatedCategories: ['AI', 'Technology', 'Data'],
-    relatedTags: [
-      'Machine Learning',
-      'AI',
-      'Data Science',
-      'Predictive Analytics',
-      'Neural Networks',
-    ],
-  },
-  'digital-transformation': {
-    title: 'Digital Transformation',
-    description:
-      'Navigate your digital transformation journey with insights on technology adoption, change management, and modernizing business processes.',
-    keywords: [
-      'digital transformation',
-      'modernization',
-      'technology adoption',
-      'change management',
-      'digital strategy',
-    ],
-    relatedCategories: ['Technology', 'Business', 'Strategy'],
-    relatedTags: ['Digital Transformation', 'Modernization', 'Cloud', 'Innovation'],
-  },
-};
 
 const TopicHub = () => {
   const { topic: rawTopic } = useParams<{ topic: string }>();
@@ -124,6 +35,10 @@ const TopicHub = () => {
 
   // Get topic configuration
   const topicConfig = topic ? TOPIC_HUBS[topic] : null;
+
+  // The prerendered hub embeds this query's result, so the first commit shows
+  // the list instead of a skeleton over the HTML already on screen.
+  const prerendered = topic ? readPrerenderData<Article[]>(topicPrerenderKey(topic)) : undefined;
 
   const {
     data: articles,
@@ -139,9 +54,7 @@ const TopicHub = () => {
       // Search for articles matching topic categories or tags
       const { data, error } = await supabase
         .from('articles')
-        .select(
-          'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'
-        )
+        .select(TOPIC_HUB_COLUMNS)
         .eq('published', true)
         .order('featured', { ascending: false })
         .order('view_count', { ascending: false })
@@ -152,22 +65,11 @@ const TopicHub = () => {
       // Include articles that are built into the site but have no database row
       // yet, so the hub is not empty for content whose pages already render
       // (US-074/US-082). A database row wins on a slug collision.
-      const merged = sortArticleListing(mergeStaticArticles(data));
-
-      // Filter articles that match topic's categories or tags
-      const relevantArticles = merged.filter((article) => {
-        const matchesCategory = topicConfig.relatedCategories.some(
-          (cat) => article.category?.toLowerCase() === cat.toLowerCase()
-        );
-        const matchesTags = topicConfig.relatedTags.some((tag) =>
-          article.tags?.some((t: string) => t.toLowerCase() === tag.toLowerCase())
-        );
-        return matchesCategory || matchesTags;
-      });
-
-      return relevantArticles as Article[];
+      return selectTopicArticles(data, topicConfig) as Article[];
     },
     enabled: !!topic && !!topicConfig,
+    initialData: prerendered?.data,
+    initialDataUpdatedAt: prerendered?.updatedAt,
   });
 
   // An unknown topic is a 404, not a redirect: redirecting to /news told

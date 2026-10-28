@@ -25,6 +25,7 @@ import { useArticleView } from '@/hooks/useArticleView';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { useToast } from '@/hooks/use-toast';
 import { validateUrlParam } from '@/lib/security';
+import { articlePrerenderKey, readPrerenderData, toStaticArticleRow } from '@/lib/prerenderData';
 import AuthorByline from '../components/article/AuthorByline';
 import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
@@ -44,18 +45,7 @@ async function loadStaticArticle(slug: string): Promise<Article | null> {
   try {
     const { findStaticArticle } = await import('@/content/crm-articles.generated');
     const staticArticle = findStaticArticle(slug);
-    if (!staticArticle) return null;
-
-    return {
-      ...staticArticle,
-      id: `static-${staticArticle.slug}`,
-      published: true,
-      created_at: `${staticArticle.published_at}T12:00:00.000Z`,
-      updated_at: `${staticArticle.updated_at}T12:00:00.000Z`,
-      image_url: null,
-      social_image_url: null,
-      view_count: 0,
-    } as unknown as Article;
+    return staticArticle ? toStaticArticleRow(staticArticle) : null;
   } catch {
     return null;
   }
@@ -65,6 +55,11 @@ const Article = () => {
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const { toast } = useToast();
   const slug = rawSlug ? validateUrlParam(rawSlug) : null;
+  // The prerendered page embeds this query's result, so the first commit is
+  // the article rather than a skeleton over the HTML already on screen.
+  const prerendered = slug
+    ? readPrerenderData<Article | null>(articlePrerenderKey(slug))
+    : undefined;
 
   const {
     data: article,
@@ -103,6 +98,8 @@ const Article = () => {
       return data as Article | null;
     },
     enabled: !!slug,
+    initialData: prerendered?.data,
+    initialDataUpdatedAt: prerendered?.updatedAt,
   });
 
   // Extract key takeaways for AI search optimization
