@@ -1,96 +1,73 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { routeComponents, type RouteComponentName } from '@/lib/routeComponents';
+
+interface NetworkInformationLike {
+  saveData?: boolean;
+  effectiveType?: string;
+}
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+
+// Which route chunks to warm from each page. Fetching the HTML documents
+// instead (the old <link rel=prefetch as=document>) was wasted: HTML is served
+// with max-age=0, so the browser revalidated it on click anyway, and the JS
+// chunk the click actually waits on was never fetched.
+const PREFETCH_MAP: Record<string, RouteComponentName[]> = {
+  '/': ['Projects', 'News', 'AITools', 'Connect', 'Topics'],
+  '/projects': ['News', 'AITools', 'Connect'],
+  '/news': ['Projects', 'AITools', 'Topics', 'Article'],
+  '/ai-tools': ['Projects', 'News', 'Topics'],
+  '/about': ['Projects', 'Connect'],
+  '/connect': ['Projects', 'News'],
+  '/topics': ['News', 'AITools', 'Projects', 'TopicHub'],
+  '/faq': ['Connect', 'News', 'Topics'],
+};
+
+function isConstrainedConnection(): boolean {
+  const conn = (navigator as Navigator & { connection?: NetworkInformationLike }).connection;
+  return Boolean(
+    conn && (conn.saveData || conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g')
+  );
+}
 
 /**
- * RoutePrefetcher - Intelligently prefetches common routes during idle time
- * This improves perceived navigation speed by loading routes before user clicks
- *
- * Performance optimizations:
- * - Uses requestIdleCallback to avoid blocking main thread
- * - Batches DOM operations using DocumentFragment
- * - Deduplicates prefetch links to avoid redundant requests
+ * Preloads the JS chunks of likely next routes during idle time, so a click
+ * renders without waiting on a chunk fetch. Skipped on Save-Data and 2g.
  */
 const RoutePrefetcher = () => {
   const location = useLocation();
-  const prefetchedRoutes = useRef<Set<string>>(new Set());
+  const prefetched = useRef<Set<RouteComponentName>>(new Set());
 
   useEffect(() => {
-    // Only prefetch on fast connections to avoid wasting bandwidth
-    if ('connection' in navigator) {
-      const conn = (navigator as any).connection;
-      if (conn && (conn.saveData || conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g')) {
-        return; // Don't prefetch on slow connections or data saver mode
-      }
-    }
+    if (isConstrainedConnection()) return;
 
-    // Define prefetch strategy based on current page
-    const prefetchMap: Record<string, string[]> = {
-      '/': ['/projects', '/news', '/ai-tools', '/connect', '/topics'],
-      '/projects': ['/news', '/ai-tools', '/connect'],
-      '/news': ['/projects', '/ai-tools', '/topics'],
-      '/ai-tools': ['/projects', '/news', '/topics'],
-      '/about': ['/projects', '/connect'],
-      '/connect': ['/projects', '/news'],
-      '/topics': ['/news', '/ai-tools', '/projects'],
-      '/faq': ['/connect', '/news', '/topics'],
-    };
+    const pending = (PREFETCH_MAP[location.pathname] ?? []).filter(
+      (name) => !prefetched.current.has(name)
+    );
+    if (pending.length === 0) return;
 
-    const routesToPrefetch = prefetchMap[location.pathname] || [];
-
-    // Filter out already prefetched routes
-    const newRoutes = routesToPrefetch.filter(route => !prefetchedRoutes.current.has(route));
-
-    if (newRoutes.length === 0) {
-      return; // Nothing new to prefetch
-    }
-
-    // Use requestIdleCallback to defer prefetching to idle time
-    const prefetchRoutes = () => {
-      // Batch DOM operations using DocumentFragment
-      const fragment = document.createDocumentFragment();
-
-      newRoutes.forEach((route) => {
-        // Check if link already exists in document
-        const existingLink = document.querySelector(`link[rel="prefetch"][href="${route}"]`);
-        if (existingLink) {
-          prefetchedRoutes.current.add(route);
-          return;
-        }
-
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.href = route;
-        link.as = 'document';
-        fragment.appendChild(link);
-
-        prefetchedRoutes.current.add(route);
-      });
-
-      // Single DOM operation instead of multiple appendChild calls
-      if (fragment.childNodes.length > 0) {
-        document.head.appendChild(fragment);
+    const run = () => {
+      for (const name of pending) {
+        prefetched.current.add(name);
+        // A failed prefetch is harmless; the route retries on navigation.
+        routeComponents[name].preload().catch(() => {
+          prefetched.current.delete(name);
+        });
       }
     };
 
-    // Use requestIdleCallback with timeout fallback
-    let idleCallbackId: number | undefined;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    if ('requestIdleCallback' in window) {
-      idleCallbackId = (window as any).requestIdleCallback(prefetchRoutes, { timeout: 5000 });
-    } else {
-      // Fallback for Safari - wait 2 seconds after page load
-      timeoutId = setTimeout(prefetchRoutes, 2000);
+    const w = window as IdleWindow;
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(run, { timeout: 5000 });
+      return () => w.cancelIdleCallback?.(id);
     }
-
-    return () => {
-      if (idleCallbackId !== undefined && 'cancelIdleCallback' in window) {
-        (window as any).cancelIdleCallback(idleCallbackId);
-      }
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
-      }
-    };
+    // Safari has no requestIdleCallback.
+    const timeoutId = setTimeout(run, 2000);
+    return () => clearTimeout(timeoutId);
   }, [location.pathname]);
 
   return null;
