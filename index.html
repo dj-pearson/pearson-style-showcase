@@ -31,40 +31,6 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
-    <!-- Google tag (gtag.js) -->
-    <!--
-      crossorigin="anonymous" so the script is fetched without credentials and
-      is eligible for integrity checking. NOTE: a static Subresource Integrity
-      (integrity="sha384-...") hash is intentionally NOT set on gtag.js — Google
-      ships this file continuously without publishing stable hashes, and it
-      dynamically loads further scripts that SRI cannot cover, so a pinned hash
-      would break analytics on every Google update. Script provenance is instead
-      constrained via the CSP script-src allow-list (googletagmanager.com).
-    -->
-    <script async crossorigin="anonymous" src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-
-      // Google Consent Mode v2 — privacy by default.
-      // All optional storage starts DENIED and is only granted after the visitor
-      // consents via the cookie banner (see src/lib/consent.ts). This runs before
-      // gtag('config') so no consent-gated data is collected until a choice is made.
-      gtag('consent', 'default', {
-        ad_storage: 'denied',
-        ad_user_data: 'denied',
-        ad_personalization: 'denied',
-        analytics_storage: 'denied',
-        functionality_storage: 'denied',
-        personalization_storage: 'denied',
-        security_storage: 'granted',
-        wait_for_update: 500
-      });
-
-      gtag('js', new Date());
-
-      gtag('config', 'G-8R95ZXMV6L', { anonymize_ip: true });
-    </script>
 
 
     <!--
@@ -108,8 +74,26 @@
     <!-- Optimized font loading - CSP-compliant approach with font-display: optional for better CLS -->
     <!-- Using font-display: optional prevents layout shifts while still loading custom fonts -->
     <!-- Load fonts asynchronously to prevent render-blocking -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link id="font-inter" rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional" as="style">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"></noscript>
+
+    <!-- Google tag (gtag.js) -->
+    <!--
+      crossorigin="anonymous" so the script is fetched without credentials and
+      is eligible for integrity checking. NOTE: a static Subresource Integrity
+      (integrity="sha384-...") hash is intentionally NOT set on gtag.js — Google
+      ships this file continuously without publishing stable hashes, and it
+      dynamically loads further scripts that SRI cannot cover, so a pinned hash
+      would break analytics on every Google update. Script provenance is instead
+      constrained via the CSP script-src allow-list (googletagmanager.com).
+    -->
+    <!-- Consent Mode defaults, gtag() shim and the font rel=stylesheet swap
+      live in public/gtag-init.js (CSP has no 'unsafe-inline'). It is a
+      blocking classic script placed BEFORE the async gtag.js tag so consent
+      defaults are always queued first, and AFTER the #font-inter link so it
+      can attach the load listener. -->
+    <script src="/gtag-init.js"></script>
+    <script async crossorigin="anonymous" src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
 
     <!-- Canonical URL (default, updated by React for specific pages) -->
     <link rel="canonical" href="https://danpearson.net" />

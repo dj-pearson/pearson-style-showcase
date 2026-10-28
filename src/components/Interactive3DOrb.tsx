@@ -65,12 +65,7 @@ const BackgroundStars = ({ count = 800 }) => {
           array={positions}
           itemSize={3}
         />
-        <bufferAttribute
-          attach="attributes-color"
-          count={count}
-          array={colors}
-          itemSize={3}
-        />
+        <bufferAttribute attach="attributes-color" count={count} array={colors} itemSize={3} />
       </bufferGeometry>
       <pointsMaterial
         size={0.05}
@@ -90,19 +85,14 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
   const linesRef = useRef<THREE.LineSegments>(null);
   const { mouse, viewport } = useThree();
 
-  // Pre-allocate reusable buffers and objects to avoid per-frame allocations
-  const frameData = useMemo(() => ({
-    mousePos: new THREE.Vector3(),
-    repulsion: new THREE.Vector3(),
-    color1: new THREE.Color('#00d4ff'),
-    color2: new THREE.Color('#ff7f50'),
-    positions: new Float32Array(count * 3),
-    colors: new Float32Array(count * 3),
-    // Pre-allocate line buffers with max possible connections
-    maxLines: (count * (count - 1)) / 2,
-    linePositions: new Float32Array((count * (count - 1)) / 2 * 6),
-    lineColors: new Float32Array((count * (count - 1)) / 2 * 6),
-  }), [count]);
+  // Pre-allocate reusable objects to avoid per-frame allocations
+  const frameData = useMemo(
+    () => ({
+      mousePos: new THREE.Vector3(),
+      repulsion: new THREE.Vector3(),
+    }),
+    []
+  );
 
   // Generate initial positions and velocities
   const [particles] = useMemo(() => {
@@ -120,24 +110,42 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
       originalPos: new THREE.Vector3(),
     }));
 
-    p.forEach(part => part.originalPos.copy(part.position));
+    p.forEach((part) => part.originalPos.copy(part.position));
 
     return [p];
   }, [count, radius]);
 
   // Create persistent BufferAttributes that get updated in-place
+  // Node colors never change, so they are written once here; only positions
+  // are rewritten (in place) each frame.
   const pointGeometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+    const colors = new Float32Array(count * 3);
+    const color1 = new THREE.Color('#00d4ff');
+    const color2 = new THREE.Color('#ff7f50');
+    for (let i = 0; i < count; i++) {
+      const c = i % 2 === 0 ? color1 : color2;
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+    const position = new THREE.BufferAttribute(new Float32Array(count * 3), 3);
+    position.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', position);
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     return geo;
   }, [count]);
 
   const lineGeometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
-    const maxVerts = (count * (count - 1)) / 2 * 6;
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(maxVerts), 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(maxVerts), 3));
+    const maxVerts = ((count * (count - 1)) / 2) * 6;
+    const position = new THREE.Float32BufferAttribute(new Float32Array(maxVerts), 3);
+    const color = new THREE.Float32BufferAttribute(new Float32Array(maxVerts), 3);
+    position.setUsage(THREE.DynamicDrawUsage);
+    color.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', position);
+    geo.setAttribute('color', color);
+    geo.setDrawRange(0, 0);
     return geo;
   }, [count]);
 
@@ -161,21 +169,23 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
     // Reuse pre-allocated objects
     const mouseX = (mouse.x * viewport.width) / 2;
     const mouseY = (mouse.y * viewport.height) / 2;
-    frameData.mousePos.set(mouseX, mouseY, 0);
+    const { mousePos, repulsion } = frameData;
+    mousePos.set(mouseX, mouseY, 0);
 
-    const { positions, colors, color1, color2, mousePos, repulsion } = frameData;
+    // Write straight into the GPU-backed attribute arrays (no intermediate copy)
+    const posAttr = pointGeometry.getAttribute('position') as THREE.BufferAttribute;
+    const positions = posAttr.array as Float32Array;
 
-    particles.forEach((particle, i) => {
+    for (let i = 0; i < count; i++) {
+      const particle = particles[i];
       particle.position.add(particle.velocity);
 
-      // Boundary check using length() instead of allocating new Vector3
-      if (particle.position.length() > radius) {
+      if (particle.position.lengthSq() > radius * radius) {
         particle.velocity.multiplyScalar(-1);
       }
 
       // Mouse repulsion - reuse pre-allocated vector
-      const distToMouse = particle.position.distanceTo(mousePos);
-      if (distToMouse < 3) {
+      if (particle.position.distanceToSquared(mousePos) < 9) {
         repulsion.subVectors(particle.position, mousePos).normalize().multiplyScalar(0.05);
         particle.position.add(repulsion);
       }
@@ -185,42 +195,34 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
       positions[i * 3] = particle.position.x;
       positions[i * 3 + 1] = particle.position.y;
       positions[i * 3 + 2] = particle.position.z;
-
-      const mixedColor = i % 2 === 0 ? color1 : color2;
-      colors[i * 3] = mixedColor.r;
-      colors[i * 3 + 1] = mixedColor.g;
-      colors[i * 3 + 2] = mixedColor.b;
-    });
-
-    if (pointsRef.current) {
-      // Update existing buffer data in-place instead of creating new BufferAttributes
-      const posAttr = pointsRef.current.geometry.getAttribute('position') as THREE.BufferAttribute;
-      const colAttr = pointsRef.current.geometry.getAttribute('color') as THREE.BufferAttribute;
-      (posAttr.array as Float32Array).set(positions);
-      (colAttr.array as Float32Array).set(colors);
-      posAttr.needsUpdate = true;
-      colAttr.needsUpdate = true;
     }
+    posAttr.needsUpdate = true;
 
-    // Update Lines - write into pre-allocated buffers
-    const connectionDistance = 1.5;
+    // Lines: squared-distance test (no sqrt), written in place, and only the
+    // used prefix of the buffer is uploaded via an update range.
+    const connectionDistanceSq = 1.5 * 1.5;
+    const linePosAttr = lineGeometry.getAttribute('position') as THREE.BufferAttribute;
+    const lineColAttr = lineGeometry.getAttribute('color') as THREE.BufferAttribute;
+    const linePositions = linePosAttr.array as Float32Array;
+    const lineColors = lineColAttr.array as Float32Array;
+    const colors = (pointGeometry.getAttribute('color') as THREE.BufferAttribute)
+      .array as Float32Array;
     let lineVertCount = 0;
-    const { linePositions, lineColors } = frameData;
 
     for (let i = 0; i < count; i++) {
+      const a = particles[i].position;
       for (let j = i + 1; j < count; j++) {
-        const dist = particles[i].position.distanceTo(particles[j].position);
-
-        if (dist < connectionDistance) {
+        const b = particles[j].position;
+        if (a.distanceToSquared(b) < connectionDistanceSq) {
           const idx = lineVertCount * 3;
-          linePositions[idx]     = particles[i].position.x;
-          linePositions[idx + 1] = particles[i].position.y;
-          linePositions[idx + 2] = particles[i].position.z;
-          linePositions[idx + 3] = particles[j].position.x;
-          linePositions[idx + 4] = particles[j].position.y;
-          linePositions[idx + 5] = particles[j].position.z;
+          linePositions[idx] = a.x;
+          linePositions[idx + 1] = a.y;
+          linePositions[idx + 2] = a.z;
+          linePositions[idx + 3] = b.x;
+          linePositions[idx + 4] = b.y;
+          linePositions[idx + 5] = b.z;
 
-          lineColors[idx]     = colors[i * 3];
+          lineColors[idx] = colors[i * 3];
           lineColors[idx + 1] = colors[i * 3 + 1];
           lineColors[idx + 2] = colors[i * 3 + 2];
           lineColors[idx + 3] = colors[j * 3];
@@ -232,15 +234,16 @@ const NetworkSystem = ({ count = 150, radius = 4 }) => {
       }
     }
 
-    if (linesRef.current) {
-      const linePosAttr = linesRef.current.geometry.getAttribute('position') as THREE.BufferAttribute;
-      const lineColAttr = linesRef.current.geometry.getAttribute('color') as THREE.BufferAttribute;
-      (linePosAttr.array as Float32Array).set(linePositions);
-      (lineColAttr.array as Float32Array).set(lineColors);
+    const usedFloats = lineVertCount * 3;
+    linePosAttr.clearUpdateRanges();
+    lineColAttr.clearUpdateRanges();
+    if (usedFloats > 0) {
+      linePosAttr.addUpdateRange(0, usedFloats);
+      lineColAttr.addUpdateRange(0, usedFloats);
       linePosAttr.needsUpdate = true;
       lineColAttr.needsUpdate = true;
-      linesRef.current.geometry.setDrawRange(0, lineVertCount);
     }
+    lineGeometry.setDrawRange(0, lineVertCount);
   });
 
   return (
@@ -276,6 +279,8 @@ interface Interactive3DOrbProps {
   starCount?: number;
   /** Number of network nodes (default: adaptive based on device) */
   nodeCount?: number;
+  /** Stop the render loop (hero off-screen or tab hidden). */
+  paused?: boolean;
 }
 
 /**
@@ -292,7 +297,8 @@ function getAdaptiveSettings(): { stars: number; nodes: number; dpr: [number, nu
   const cpuCores = navigator.hardwareConcurrency ?? 4;
   const isMobile = window.innerWidth < 768 || 'ontouchstart' in window;
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const isSlowConnection = connection?.saveData ||
+  const isSlowConnection =
+    connection?.saveData ||
     connection?.effectiveType === 'slow-2g' ||
     connection?.effectiveType === '2g';
 
@@ -316,11 +322,12 @@ function getAdaptiveSettings(): { stars: number; nodes: number; dpr: [number, nu
 }
 
 export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
-  width = "100%",
-  height = "100%",
-  className = "",
+  width = '100%',
+  height = '100%',
+  className = '',
   starCount,
-  nodeCount
+  nodeCount,
+  paused = false,
 }) => {
   const [contextLost, setContextLost] = useState(false);
   const [key, setKey] = useState(0);
@@ -332,7 +339,9 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
 
   // Track canvas ref for cleanup of WebGL context event listeners
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const contextListenersRef = useRef<{ lost: (e: Event) => void; restored: () => void } | null>(null);
+  const contextListenersRef = useRef<{ lost: (e: Event) => void; restored: () => void } | null>(
+    null
+  );
 
   // Handle WebGL context loss - this can happen when GPU resources are exhausted
   // or when the browser tab loses focus/visibility
@@ -342,7 +351,10 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
     // Clean up previous listeners if any
     if (canvasRef.current && contextListenersRef.current) {
       canvasRef.current.removeEventListener('webglcontextlost', contextListenersRef.current.lost);
-      canvasRef.current.removeEventListener('webglcontextrestored', contextListenersRef.current.restored);
+      canvasRef.current.removeEventListener(
+        'webglcontextrestored',
+        contextListenersRef.current.restored
+      );
     }
 
     const handleContextLost = (event: Event) => {
@@ -352,7 +364,7 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
 
     const handleContextRestored = () => {
       setContextLost(false);
-      setKey(prev => prev + 1);
+      setKey((prev) => prev + 1);
     };
 
     canvas.addEventListener('webglcontextlost', handleContextLost);
@@ -367,7 +379,10 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
     return () => {
       if (canvasRef.current && contextListenersRef.current) {
         canvasRef.current.removeEventListener('webglcontextlost', contextListenersRef.current.lost);
-        canvasRef.current.removeEventListener('webglcontextrestored', contextListenersRef.current.restored);
+        canvasRef.current.removeEventListener(
+          'webglcontextrestored',
+          contextListenersRef.current.restored
+        );
       }
     };
   }, []);
@@ -392,19 +407,19 @@ export const Interactive3DOrb: React.FC<Interactive3DOrbProps> = ({
           antialias: !adaptiveSettings.dpr[1] || adaptiveSettings.dpr[1] <= 1.5,
           alpha: true,
           // Improve context stability and performance
-          powerPreference: 'high-performance',
-          failIfMajorPerformanceCaveat: true
+          powerPreference: 'low-power',
+          failIfMajorPerformanceCaveat: true,
         }}
         onCreated={handleCreated}
-        // Performance optimizations - throttle to 30fps on lower-end devices
-        frameloop="always"
+        // Stop rendering entirely while the hero is off-screen or the tab is hidden
+        frameloop={paused ? 'never' : 'always'}
         performance={{ min: 0.5, max: 1 }}
       >
         <ambientLight intensity={0.5} />
 
         <group rotation={[0, 0, Math.PI / 4]}>
-            <NetworkSystem count={finalNodeCount} radius={5} />
-            <BackgroundStars count={finalStarCount} />
+          <NetworkSystem count={finalNodeCount} radius={5} />
+          <BackgroundStars count={finalStarCount} />
         </group>
 
         <OrbitControls

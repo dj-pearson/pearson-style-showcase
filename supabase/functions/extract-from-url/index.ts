@@ -1,6 +1,8 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
-import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import { structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
+import { assertPublicUrl, safeFetch, UrlGuardError } from '../_shared/url-guard.ts';
 import { normalizedErrorResponse } from '../_shared/error-normalizer.ts';
 import {
   checkRateLimit,
@@ -27,30 +29,6 @@ const EXTRACT_RATE_LIMIT = {
   keyPrefix: 'extract-url',
 };
 
-// Private IP ranges to block (SSRF prevention)
-const PRIVATE_IP_PATTERNS = [
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./,
-  /^127\./,
-  /^0\./,
-  /^169\.254\./,
-  /^::1$/,
-  /^fc00:/,
-  /^fe80:/,
-  /^localhost$/i,
-];
-
-function isPrivateUrl(urlStr: string): boolean {
-  try {
-    const parsed = new URL(urlStr);
-    const hostname = parsed.hostname;
-    return PRIVATE_IP_PATTERNS.some((pattern) => pattern.test(hostname));
-  } catch {
-    return true; // If we can't parse it, block it
-  }
-}
-
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -58,6 +36,10 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Fetches arbitrary URLs server-side and spends AI credits; admins only.
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
 
   try {
     // Rate limit check
@@ -79,12 +61,17 @@ export default async (req: Request): Promise<Response> => {
       });
     }
 
-    // SSRF prevention: block private IPs
-    if (isPrivateUrl(urlResult.sanitized as string)) {
-      return new Response(
-        JSON.stringify({ error: 'URLs pointing to private/internal addresses are not allowed' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // SSRF prevention: resolve the host and refuse private/internal addresses.
+    // safeFetch below repeats the check on every redirect hop.
+    try {
+      await assertPublicUrl(urlResult.sanitized as string);
+    } catch (guardError) {
+      const message =
+        guardError instanceof UrlGuardError ? guardError.message : 'URL could not be validated';
+      return new Response(JSON.stringify({ error: message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Validate type enum
@@ -110,15 +97,12 @@ export default async (req: Request): Promise<Response> => {
     let detectedLinks = { github: '', demo: '' };
 
     try {
-      const pageResponse = await fetchWithTimeout(
-        url,
-        {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; ContentExtractor/1.0)',
-          },
+      const pageResponse = await safeFetch(urlResult.sanitized as string, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; ContentExtractor/1.0)',
         },
-        { timeoutMs: 30_000, maxRetries: 2, label: 'url-fetch' }
-      );
+        signal: AbortSignal.timeout(30_000),
+      });
 
       if (!pageResponse.ok) {
         throw new Error(`Failed to fetch URL: ${pageResponse.status}`);

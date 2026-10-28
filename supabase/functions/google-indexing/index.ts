@@ -1,4 +1,5 @@
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 /**
  * Google Indexing API Edge Function
@@ -17,6 +18,10 @@ import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const INDEXING_API_URL = 'https://indexing.googleapis.com/v3/urlNotifications:publish';
 const INDEXING_SCOPE = 'https://www.googleapis.com/auth/indexing';
+
+// The service account is verified owner of danpearson.net only. Refuse anything
+// else so the endpoint cannot be used to submit third-party URLs in our name.
+const ALLOWED_URL_PREFIX = 'https://danpearson.net/';
 
 interface ServiceAccountKey {
   client_email: string;
@@ -173,6 +178,10 @@ export default async (req: Request): Promise<Response> => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  // Submits URLs with the site's Google service account; admins only.
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
+
   try {
     // Parse request body
     const body: IndexingRequest = await req.json();
@@ -187,6 +196,14 @@ export default async (req: Request): Promise<Response> => {
 
     if (urls.length > 100) {
       return new Response(JSON.stringify({ error: 'Maximum 100 URLs per request' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const badUrl = urls.find((u) => typeof u !== 'string' || !u.startsWith(ALLOWED_URL_PREFIX));
+    if (badUrl !== undefined) {
+      return new Response(JSON.stringify({ error: `URLs must start with ${ALLOWED_URL_PREFIX}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

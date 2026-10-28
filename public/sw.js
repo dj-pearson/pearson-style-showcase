@@ -1,8 +1,28 @@
 // Service Worker for Progressive Web App
-// Version 1.0.0
+//
+// Strategy summary:
+//   - Cross-origin requests (Supabase API/functions, analytics, fonts, CDNs)
+//     are never intercepted; the browser and HTTP cache handle them.
+//   - HTML navigations: network-first, cached shell only when offline.
+//   - /assets/*: build-hashed and immutable, so cache-first with no
+//     background revalidation.
+//   - Other same-origin GETs (icons, manifest, public images): stale-while-
+//     revalidate in a runtime cache capped at RUNTIME_MAX_ENTRIES.
 
-const CACHE_VERSION = 'v8';
-const CACHE_NAME = `pearson-portfolio-${CACHE_VERSION}`;
+const CACHE_VERSION = 'v9';
+const CACHE_PREFIX = 'pearson-portfolio-';
+// Shell cache: precached app shell plus the latest index.html.
+const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
+// Immutable hashed build assets.
+const ASSET_CACHE = `${CACHE_PREFIX}assets-${CACHE_VERSION}`;
+// Everything else same-origin.
+const RUNTIME_CACHE = `${CACHE_PREFIX}runtime-${CACHE_VERSION}`;
+const CURRENT_CACHES = [CACHE_NAME, ASSET_CACHE, RUNTIME_CACHE];
+
+// Hashed filenames accumulate across deploys within one CACHE_VERSION, so the
+// asset cache is bounded too, just more generously.
+const ASSET_MAX_ENTRIES = 200;
+const RUNTIME_MAX_ENTRIES = 60;
 
 // Assets to cache immediately on install
 const PRECACHE_ASSETS = [
@@ -12,106 +32,54 @@ const PRECACHE_ASSETS = [
   '/favicon.ico',
 ];
 
-// Cache strategies
-const CACHE_STRATEGIES = {
-  CACHE_FIRST: 'cache-first',
-  NETWORK_FIRST: 'network-first',
-  STALE_WHILE_REVALIDATE: 'stale-while-revalidate',
-};
-
-// Routes and their cache strategies
-// IMPORTANT: JS assets use NETWORK_FIRST to handle deployment updates properly
-// When new deployments happen, chunk hashes change, so we need fresh index.html
-const ROUTE_STRATEGIES = {
-  '/assets/index-': CACHE_STRATEGIES.NETWORK_FIRST, // Main JS bundle - always check network
-  '/assets/': CACHE_STRATEGIES.STALE_WHILE_REVALIDATE, // Other assets - serve cached but revalidate
-  '/api/': CACHE_STRATEGIES.NETWORK_FIRST, // API calls
-};
-
 // Install event - cache critical assets
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Install event');
-
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[ServiceWorker] Caching app shell');
-        return cache.addAll(PRECACHE_ASSETS);
-      })
-      // Activate this worker as soon as it has finished installing. Previous
-      // versions deliberately waited, but that let a broken/stale worker keep
-      // control indefinitely. Because navigations are now network-first (see
-      // handleNavigation) an immediate takeover cannot pin clients to an old
-      // index.html, and it lets a fixed worker self-heal already-open tabs.
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
+      // Activate this worker as soon as it has finished installing. Because
+      // navigations are network-first (see handleNavigation) an immediate
+      // takeover cannot pin clients to an old index.html, and it lets a fixed
+      // worker self-heal already-open tabs.
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - delete every cache of ours that this version doesn't use
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activate event');
-
   event.waitUntil(
     caches.keys()
       .then(async (cacheNames) => {
-        const oldCaches = cacheNames.filter((cacheName) => {
-          // Delete old cache versions
-          return cacheName.startsWith('pearson-portfolio-') && cacheName !== CACHE_NAME;
-        });
-        
-        // Delete old caches
+        const oldCaches = cacheNames.filter(
+          (name) => name.startsWith(CACHE_PREFIX) && !CURRENT_CACHES.includes(name)
+        );
         await Promise.all(
-          oldCaches.map((cacheName) => {
-            console.log('[ServiceWorker] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+          oldCaches.map((name) => {
+            console.log('[ServiceWorker] Deleting old cache:', name);
+            return caches.delete(name);
           })
         );
-        
-        // Take control of all open clients immediately so the corrected
-        // worker (and its network-first navigation handling) applies without
-        // requiring a second manual reload.
+        // Take control of open clients so the new routing applies without a
+        // second reload.
         await self.clients.claim();
-        console.log('[ServiceWorker] Activated and claimed clients.');
       })
   );
 });
 
-// External domains that should NOT be handled by the service worker
-// These are third-party resources that have their own caching strategies
-const EXTERNAL_DOMAINS = [
-  'googletagmanager.com',
-  'google-analytics.com',
-  'analytics.google.com',
-  'doubleclick.net',
-  'fonts.googleapis.com',
-  'fonts.gstatic.com',
-  'cloudflareinsights.com',
-  'cdn.jsdelivr.net',
-];
-
-// Check if URL is from an external domain we shouldn't handle
-function isExternalDomain(hostname) {
-  return EXTERNAL_DOMAINS.some(domain => hostname.includes(domain));
-}
-
 // Fetch event - serve from cache or network
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
 
-  // Skip non-GET requests
   if (request.method !== 'GET') {
     return;
   }
 
-  // Skip chrome-extension and non-http(s) requests
-  if (!url.protocol.startsWith('http')) {
-    return;
-  }
+  const url = new URL(request.url);
 
-  // Skip external third-party domains - let browser handle them directly
-  // This prevents CSP issues and respects third-party caching
-  if (isExternalDomain(url.hostname)) {
+  // Only handle our own origin. This covers chrome-extension:, analytics,
+  // fonts, and the Supabase API/functions hosts: API responses must never be
+  // served stale from a service worker cache.
+  if (url.origin !== self.location.origin) {
     return;
   }
 
@@ -120,18 +88,22 @@ self.addEventListener('fetch', (event) => {
   // hashed assets (index-<hash>.js/.css) that no longer exist after a deploy,
   // and Cloudflare Pages answers those missing asset URLs with index.html
   // (text/html) via the SPA fallback -> MIME-type errors -> nothing renders.
-  // A fresh document always references the current asset hashes.
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigation(request));
     return;
   }
 
-  // Determine cache strategy based on URL
-  const strategy = getStrategyForUrl(url.pathname);
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(assetCacheFirst(request, url));
+    return;
+  }
 
-  event.respondWith(
-    handleFetch(request, strategy)
-  );
+  // Same-origin API routes (if any) are never cached.
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  event.respondWith(staleWhileRevalidate(request));
 });
 
 // True for build-hashed assets whose content type is known and fixed. If the
@@ -147,13 +119,38 @@ function looksLikeHtml(response) {
   return type.includes('text/html');
 }
 
-// A hashed asset resolved to HTML (or a hard 404/503): treat as a stale chunk.
+// Drop the oldest entries (Cache keys come back in insertion order) once a
+// cache grows past maxEntries.
+async function trimCache(cacheName, maxEntries) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    const excess = keys.length - maxEntries;
+    if (excess > 0) {
+      await Promise.all(keys.slice(0, excess).map((key) => cache.delete(key)));
+    }
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+async function putAndTrim(cacheName, maxEntries, request, response) {
+  try {
+    const cache = await caches.open(cacheName);
+    await cache.put(request, response);
+    await trimCache(cacheName, maxEntries);
+  } catch (e) {
+    /* quota or opaque-response errors are not fatal */
+  }
+}
+
+// A hashed asset resolved to HTML (or a hard 404): treat as a stale chunk.
 // Drop any poisoned cache entry, ask open clients to recover, and return a
 // clean 503 so the module/stylesheet loader fails fast instead of choking on
 // an HTML body with the wrong MIME type.
 async function staleChunkResponse(request, url) {
   try {
-    const cache = await caches.open(CACHE_NAME);
+    const cache = await caches.open(ASSET_CACHE);
     await cache.delete(request);
   } catch (e) {
     /* ignore */
@@ -195,167 +192,58 @@ async function handleNavigation(request) {
   }
 }
 
-// Get cache strategy for a given URL
-function getStrategyForUrl(pathname) {
-  for (const [route, strategy] of Object.entries(ROUTE_STRATEGIES)) {
-    if (pathname.includes(route)) {
-      return strategy;
-    }
-  }
-
-  // Default: stale-while-revalidate for pages
-  return CACHE_STRATEGIES.STALE_WHILE_REVALIDATE;
-}
-
-// Handle fetch with appropriate strategy
-async function handleFetch(request, strategy) {
-  switch (strategy) {
-    case CACHE_STRATEGIES.CACHE_FIRST:
-      return cacheFirst(request);
-
-    case CACHE_STRATEGIES.NETWORK_FIRST:
-      return networkFirst(request);
-
-    case CACHE_STRATEGIES.STALE_WHILE_REVALIDATE:
-    default:
-      return staleWhileRevalidate(request);
-  }
-}
-
-// Cache First strategy - serve from cache, fallback to network
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
+// Cache-first for /assets/*. Filenames carry a content hash, so a cached copy
+// is always correct and there is nothing to revalidate.
+async function assetCacheFirst(request, url) {
+  const cache = await caches.open(ASSET_CACHE);
   const cached = await cache.match(request);
 
-  if (cached) {
+  // Defend against a poisoned entry: an older worker may have cached an HTML
+  // SPA-fallback body under a hashed asset URL. Never serve that.
+  if (cached && !(isHashedAsset(url) && looksLikeHtml(cached))) {
     return cached;
   }
 
   try {
     const response = await fetch(request);
 
-    // Cache successful responses
-    if (response.ok) {
-      cache.put(request, response.clone());
-    }
-
-    return response;
-  } catch (error) {
-    console.error('[ServiceWorker] Fetch failed:', error);
-    return offlineFallback(request);
-  }
-}
-
-// Network First strategy - try network, fallback to cache
-async function networkFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const url = new URL(request.url);
-
-  try {
-    const response = await fetch(request);
-
-    // A hashed asset that came back as HTML means the SPA fallback fired for a
-    // file that no longer exists (stale deployment). Recover instead of caching
-    // an HTML body under a .js/.css URL.
     if (isHashedAsset(url) && (looksLikeHtml(response) || response.status === 404)) {
       return staleChunkResponse(request, url);
     }
 
-    // Cache successful responses
     if (response.ok) {
-      cache.put(request, response.clone());
+      putAndTrim(ASSET_CACHE, ASSET_MAX_ENTRIES, request, response.clone());
     }
-
     return response;
   } catch (error) {
-    console.error('[ServiceWorker] Network failed, using cache:', error);
-    const cached = await cache.match(request);
-
-    if (cached) {
-      return cached;
-    }
-
+    console.error('[ServiceWorker] Asset fetch failed:', error);
     return offlineFallback(request);
   }
 }
 
-// Stale While Revalidate strategy - serve cache immediately, update in background
+// Stale-while-revalidate for non-asset same-origin GETs, bounded by
+// RUNTIME_MAX_ENTRIES.
 async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_NAME);
+  const cache = await caches.open(RUNTIME_CACHE);
   const cached = await cache.match(request);
-  const url = new URL(request.url);
 
-  // Defend against a poisoned entry: a previous worker version may have cached
-  // an HTML SPA-fallback body under a hashed asset URL. Never serve that.
-  if (cached && isHashedAsset(url) && looksLikeHtml(cached)) {
-    await cache.delete(request);
-    return staleChunkResponse(request, url);
-  }
+  const network = fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        putAndTrim(RUNTIME_CACHE, RUNTIME_MAX_ENTRIES, request, response.clone());
+      } else if (response.status === 404) {
+        cache.delete(request);
+      }
+      return response;
+    });
 
-  // If we have a cached version, return it immediately
-  // and update the cache in the background (fire and forget)
   if (cached) {
-    // Update cache in background - don't await
-    fetch(request)
-      .then((response) => {
-        // Stale chunk: asset gone (HTML fallback) or a hard 404/503.
-        if (isHashedAsset(url) && (looksLikeHtml(response) || response.status === 404)) {
-          console.warn('[ServiceWorker] Stale asset detected, removing from cache:', url.pathname);
-          cache.delete(request);
-        } else if (response.ok) {
-          cache.put(request, response.clone());
-        } else if (response.status === 404 || response.status === 503) {
-          // Stale chunk detected - remove from cache
-          // This happens when a new deployment has different chunk hashes
-          console.warn('[ServiceWorker] Stale asset detected, removing from cache:', url.pathname);
-          cache.delete(request);
-        }
-      })
-      .catch((error) => {
-        // Silent failure for background updates - we already returned cached version
-        console.debug('[ServiceWorker] Background revalidation failed:', error.message);
-      });
-
+    network.catch(() => { /* already served from cache */ });
     return cached;
   }
 
-  // No cached version - must wait for network
   try {
-    const response = await fetch(request);
-
-    // A hashed asset that resolves to HTML is a stale deployment - recover.
-    if (isHashedAsset(url) && (looksLikeHtml(response) || response.status === 404)) {
-      return staleChunkResponse(request, url);
-    }
-
-    if (response.ok) {
-      cache.put(request, response.clone());
-    } else if (response.status === 404 || response.status === 503) {
-      // For JS chunks that return 404/503, this likely means deployment updated
-      // Notify clients to refresh with asset path for context
-      if (url.pathname.endsWith('.js')) {
-        console.warn('[ServiceWorker] JS chunk not found, notifying clients:', url.pathname);
-        notifyClientsToRefresh(url.pathname);
-      }
-      // Return a more helpful error response
-      return new Response(
-        JSON.stringify({
-          error: 'CHUNK_LOAD_FAILED',
-          message: 'Application update required. Please refresh the page.',
-          asset: url.pathname,
-        }),
-        {
-          status: 503,
-          statusText: 'Service Unavailable - Refresh Required',
-          headers: new Headers({
-            'Content-Type': 'application/json',
-            'X-SW-Stale-Chunk': 'true',
-          }),
-        }
-      );
-    }
-
-    return response;
+    return await network;
   } catch (error) {
     console.error('[ServiceWorker] Fetch failed (no cache):', error);
     return offlineFallback(request);

@@ -14,13 +14,15 @@ interface OptimizedImageProps {
 }
 
 /**
- * OptimizedImage - Enhanced lazy loading with WebP support and responsive images
- * Features:
- * - Intersection Observer for efficient lazy loading
- * - WebP format support with fallbacks
- * - Responsive srcset for different screen sizes
- * - Blur-up placeholder technique
- * - Error handling with fallback images
+ * OptimizedImage - lazy-loaded image with placeholder and error fallback.
+ * - Intersection Observer lazy loading for non-priority images
+ * - priority: rendered immediately, eager, fetchpriority="high", no fade
+ * - Blur-up / pulse placeholder for lazy images
+ * - Error handling with fallback image
+ *
+ * `quality` and `sizes` are accepted for API compatibility but not emitted:
+ * there is no image CDN to produce real width variants, and `sizes` does
+ * nothing without a real srcset.
  */
 export const OptimizedImage = ({
   src,
@@ -30,8 +32,6 @@ export const OptimizedImage = ({
   height,
   priority = false,
   placeholder = '/placeholder.svg',
-  quality = 75,
-  sizes,
   blurDataURL,
 }: OptimizedImageProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -82,48 +82,15 @@ export const OptimizedImage = ({
     setIsLoaded(true); // Still mark as loaded to remove spinner
   };
 
-  // Generate responsive srcset if width is provided
-  const generateSrcSet = (originalSrc: string): string => {
-    if (!width) return '';
+  // Priority images (LCP candidates) are painted as soon as the browser has
+  // bytes, so they skip the placeholder overlay and the opacity fade.
+  const showPlaceholder = !priority && !isLoaded;
 
-    const widths = [640, 750, 828, 1080, 1200, 1920, 2048, 3840];
-    const srcset = widths
-      .filter((w) => w <= width * 2) // Only include sizes up to 2x original
-      .map((w) => {
-        // For external URLs or if not using a CDN, just use original
-        if (originalSrc.startsWith('http')) {
-          return `${originalSrc} ${w}w`;
-        }
-        // For local images, could add CDN URL transformation here
-        return `${originalSrc} ${w}w`;
-      })
-      .join(', ');
-
-    return srcset;
-  };
-
-  // Check if browser supports WebP
-  const supportsWebP = () => {
-    if (typeof window === 'undefined') return false;
-
-    const elem = document.createElement('canvas');
-    if (elem.getContext && elem.getContext('2d')) {
-      return elem.toDataURL('image/webp').indexOf('data:image/webp') === 0;
-    }
-    return false;
-  };
-
-  // Generate WebP source if supported and not already WebP
-  const getWebPSource = (originalSrc: string): string => {
-    if (originalSrc.endsWith('.webp')) return originalSrc;
-
-    // For external URLs or CDNs, you might add WebP conversion here
-    // Example: return originalSrc.replace(/\.(jpg|jpeg|png)$/, '.webp');
-    return originalSrc;
-  };
-
-  const srcSet = generateSrcSet(src);
-  const webpSrc = supportsWebP() ? getWebPSource(src) : src;
+  // React 18 does not know the camelCase `fetchPriority` prop and warns on it,
+  // so pass the lowercase DOM attribute through instead.
+  const priorityAttrs = priority
+    ? ({ fetchpriority: 'high' } as Record<string, string>)
+    : undefined;
 
   return (
     <div
@@ -132,7 +99,7 @@ export const OptimizedImage = ({
       style={{ aspectRatio: width && height ? `${width} / ${height}` : undefined }}
     >
       {/* Blur placeholder */}
-      {!isLoaded && blurDataURL && (
+      {showPlaceholder && blurDataURL && (
         <img
           src={blurDataURL}
           alt=""
@@ -142,37 +109,34 @@ export const OptimizedImage = ({
       )}
 
       {/* Loading placeholder */}
-      {!isLoaded && !blurDataURL && <div className="absolute inset-0 bg-muted/50 animate-pulse" />}
+      {showPlaceholder && !blurDataURL && (
+        <div className="absolute inset-0 bg-muted/50 animate-pulse" />
+      )}
 
       {/* Actual image - only render when in view or priority */}
       {isInView && (
-        <picture>
-          {/* WebP source if browser supports it */}
-          {supportsWebP() && !src.endsWith('.webp') && (
-            <source type="image/webp" srcSet={srcSet || webpSrc} sizes={sizes} />
-          )}
-
-          {/* Fallback image */}
-          <img
-            src={hasError ? placeholder : src}
-            alt={alt}
-            width={width}
-            height={height}
-            srcSet={srcSet}
-            sizes={sizes}
-            className={`w-full h-full object-cover transition-opacity duration-300 ${
-              isLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            onLoad={handleLoad}
-            onError={handleError}
-            loading={priority ? 'eager' : 'lazy'}
-            decoding="async"
-            // Provide aspect ratio hint to prevent layout shift
-            style={{
-              aspectRatio: width && height ? `${width} / ${height}` : undefined,
-            }}
-          />
-        </picture>
+        <img
+          src={hasError ? placeholder : src}
+          alt={alt}
+          width={width}
+          height={height}
+          className={
+            priority
+              ? 'w-full h-full object-cover'
+              : `w-full h-full object-cover transition-opacity duration-300 ${
+                  isLoaded ? 'opacity-100' : 'opacity-0'
+                }`
+          }
+          onLoad={handleLoad}
+          onError={handleError}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding={priority ? undefined : 'async'}
+          {...priorityAttrs}
+          // Provide aspect ratio hint to prevent layout shift
+          style={{
+            aspectRatio: width && height ? `${width} / ${height}` : undefined,
+          }}
+        />
       )}
 
       {/* Error overlay - accessible announcement */}

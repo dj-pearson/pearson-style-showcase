@@ -20,9 +20,9 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { marked } from 'marked';
-import { transformSync } from 'esbuild';
+import { transformSync, build } from 'esbuild';
 import { readArticles, extractFaqs } from './lib/content.mjs';
 import { fetchDbArticles, sanitizeArticleHtml, markAffiliateLinks } from './lib/db-articles.mjs';
 
@@ -46,6 +46,54 @@ marked.setOptions({ gfm: true, breaks: false });
 async function loadCrmData() {
   const source = readFileSync('src/lib/crm-automation.ts', 'utf8');
   const { code } = transformSync(source, { loader: 'ts', format: 'esm' });
+  return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+}
+
+/**
+ * Loads src/lib/prerenderData.ts (key builders, the static-article row shape,
+ * the topic-hub selection) plus findStaticArticle, so the data embedded for
+ * React's first render is built by the same code the pages run. Bundled rather
+ * than transpiled because it imports static-articles.ts; the Supabase client
+ * and logger those pull in are stubbed, since nothing here calls them.
+ */
+async function loadPrerenderHelpers() {
+  const stubs = {
+    '@/integrations/supabase/client': 'export const supabase = {};',
+    '@/lib/logger':
+      'const noop = () => {}; export const logger = { error: noop, warn: noop, info: noop, log: noop, debug: noop };',
+  };
+  const result = await build({
+    stdin: {
+      contents: [
+        "export * from '@/lib/prerenderData';",
+        "export { findStaticArticle } from '@/content/crm-articles.generated';",
+      ].join('\n'),
+      resolveDir: process.cwd(),
+      loader: 'ts',
+    },
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'neutral',
+    logLevel: 'silent',
+    plugins: [
+      {
+        name: 'src-alias',
+        setup(b) {
+          b.onResolve({ filter: /^@\// }, (args) =>
+            stubs[args.path]
+              ? { path: args.path, namespace: 'stub' }
+              : { path: `${resolve('src', args.path.slice(2))}.ts` }
+          );
+          b.onLoad({ filter: /.*/, namespace: 'stub' }, (args) => ({
+            contents: stubs[args.path],
+            loader: 'js',
+          }));
+        },
+      },
+    ],
+  });
+  const code = result.outputFiles[0].text;
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
@@ -121,10 +169,24 @@ function applyHead(template, { title, description, url, type = 'website', schema
 }
 
 function applyBody(html, body) {
-  return html.replace(
-    /<div id="root"><\/div>/,
-    `<div id="root">${body}</div>`
-  );
+  return html.replace(/<div id="root"><\/div>/, `<div id="root">${body}</div>`);
+}
+
+/**
+ * Embeds the page's query data for src/lib/prerenderData.ts to hand to
+ * react-query as initialData. Outside #root so React's first commit cannot
+ * remove it before the page reads it. `<` is escaped so a `</script>` inside
+ * article content cannot close the block; a non-JavaScript type never
+ * executes, so CSP's script-src does not apply.
+ */
+function applyPrerenderData(html, payload, id) {
+  if (!payload) return html;
+  const json = JSON.stringify(payload).replace(/</g, '\\u003c');
+  // The last </body>, so nothing an article body contains can be matched first.
+  const at = html.lastIndexOf('</body>');
+  if (at === -1) return html;
+  const block = `  <script type="application/json" id="${id}">${json}</script>\n  `;
+  return html.slice(0, at) + block + html.slice(at);
 }
 
 // --- schema builders ------------------------------------------------------
@@ -222,7 +284,8 @@ function articlePage({ meta, body }) {
   // they are sanitized before they reach a static file. The markdown in
   // content/ is reviewed in git and rendered as-is.
   const rendered = marked.parse(body);
-  const html = meta.source === 'database' ? markAffiliateLinks(sanitizeArticleHtml(rendered)) : rendered;
+  const html =
+    meta.source === 'database' ? markAffiliateLinks(sanitizeArticleHtml(rendered)) : rendered;
 
   const related = crm
     ? `<a href="/topics/ai-crm-automation">All AI CRM automation writing</a>
@@ -258,7 +321,9 @@ function articlePage({ meta, body }) {
       published_at: meta.published_at,
       published_iso: meta.published_iso,
     },
-    news: isNews ? { title: meta.title, published_iso: meta.published_iso || `${meta.published_at}T12:00:00Z` } : null,
+    news: isNews
+      ? { title: meta.title, published_iso: meta.published_iso || `${meta.published_at}T12:00:00Z` }
+      : null,
     sitemap: crm
       ? { priority: meta.featured ? '0.9' : '0.8', changefreq: 'monthly' }
       : { priority: isNews ? '0.6' : '0.5', changefreq: 'monthly' },
@@ -303,7 +368,9 @@ function moneyPage(crm, articles) {
                   valueAddedTaxIncluded: false,
                 },
               }
-            : { priceSpecification: { '@type': 'PriceSpecification', description: tier.priceLabel } }),
+            : {
+                priceSpecification: { '@type': 'PriceSpecification', description: tier.priceLabel },
+              }),
         })),
       },
     },
@@ -559,7 +626,6 @@ ${urls.join('\n')}
   return urls.length;
 }
 
-
 // --- feed -----------------------------------------------------------------
 
 /**
@@ -670,7 +736,8 @@ ${entries.join('\n')}
  * file an assistant can read to learn what this site is authoritative on.
  */
 function writeLlmsTxt(crm, crmArticles, dbArticles) {
-  const line = ({ meta }) => `- [${meta.title}](${SITE}/news/${meta.slug}): ${plainText(meta.excerpt)}`;
+  const line = ({ meta }) =>
+    `- [${meta.title}](${SITE}/news/${meta.slug}): ${plainText(meta.excerpt)}`;
   const news = dbArticles.filter(({ meta }) => meta.category === NEWS_CATEGORY).slice(0, 20);
   const guides = dbArticles.filter(({ meta }) => meta.category === 'Product Reviews').slice(0, 10);
 
@@ -681,7 +748,8 @@ function writeLlmsTxt(crm, crmArticles, dbArticles) {
     `## Services\n\n- [AI CRM automation consulting](${SITE}/ai-crm-automation): the Pipeline Automation Ladder, the 12-point audit and published pricing.\n- [Contact](${SITE}/connect)`,
     `## AI CRM automation\n\n${crmArticles.map(line).join('\n')}`,
   ];
-  if (news.length) sections.push(`## Daily AI news briefs (most recent)\n\n${news.map(line).join('\n')}`);
+  if (news.length)
+    sections.push(`## Daily AI news briefs (most recent)\n\n${news.map(line).join('\n')}`);
   if (guides.length) sections.push(`## Optional\n\n${guides.map(line).join('\n')}`);
 
   writeFileSync(join(DIST, 'llms.txt'), `${sections.join('\n\n')}\n`);
@@ -697,30 +765,96 @@ if (!existsSync(templatePath)) {
 
 const template = readFileSync(templatePath, 'utf8');
 const crm = await loadCrmData();
+const helpers = await loadPrerenderHelpers();
 const articles = readArticles().filter(({ meta }) => meta.published);
+
+// The article page queries `select('*')`, so the rows embedded for it must
+// carry every column, not the subset fetchDbArticles asks for. Widening the
+// select on its request keeps this to one network call; the raw rows are
+// captured before fetchDbArticles filters and reshapes them. `null` means the
+// database was not read (no credentials, or the fetch failed).
+let dbRows = null;
+const fetchAllColumns = async (endpoint, init) => {
+  const response = await fetch(String(endpoint).replace(/([?&])select=[^&]*/, '$1select=*'), init);
+  if (response.ok) {
+    const rows = await response
+      .clone()
+      .json()
+      .catch(() => null);
+    if (Array.isArray(rows)) dbRows = rows;
+  }
+  return response;
+};
+
 // The markdown copy wins when a slug exists in both: it is the reviewed source
 // the database row was seeded from.
 const markdownSlugs = new Set(articles.map(({ meta }) => meta.slug));
-const dbArticles = (await fetchDbArticles()).filter(({ meta }) => !markdownSlugs.has(meta.slug));
+const dbArticles = (await fetchDbArticles({ fetchImpl: fetchAllColumns })).filter(
+  ({ meta }) => !markdownSlugs.has(meta.slug)
+);
+
+// Data read from the database is stamped with the build time, so react-query
+// treats it as fresh for its staleTime and refetches after. Without the
+// database the embedded copy is only the build's best answer (the page may
+// have a row the build could not see), so it is stamped 0: shown at once,
+// refetched on mount.
+const dataUpdatedAt = dbRows ? Date.now() : 0;
+const rowsBySlug = new Map((dbRows || []).map((row) => [row.slug, row]));
+
+/** What Article.tsx's queryFn returns for a slug: the row, else the static copy. */
+function articleData(slug) {
+  const staticArticle = helpers.findStaticArticle(slug);
+  const data =
+    rowsBySlug.get(slug) ?? (staticArticle ? helpers.toStaticArticleRow(staticArticle) : null);
+  if (!data) return null;
+  return { key: helpers.articlePrerenderKey(slug), updatedAt: dataUpdatedAt, data };
+}
+
+/** What TopicHub.tsx's queryFn returns: its columns, its ordering, the shared selection. */
+function topicData(topic) {
+  const columns = helpers.TOPIC_HUB_COLUMNS.split(',').map((column) => column.trim());
+  // PostgREST orders DESC with NULLS FIRST, as Postgres does.
+  const desc = (a, b) => (a === b ? 0 : a == null ? -1 : b == null ? 1 : a < b ? 1 : -1);
+  const rows = (dbRows || [])
+    .slice()
+    .sort(
+      (a, b) =>
+        desc(a.featured, b.featured) ||
+        desc(a.view_count, b.view_count) ||
+        desc(a.created_at, b.created_at)
+    )
+    .map((row) => Object.fromEntries(columns.map((column) => [column, row[column] ?? null])));
+  return {
+    key: helpers.topicPrerenderKey(topic),
+    updatedAt: dataUpdatedAt,
+    data: helpers.selectTopicArticles(rows, helpers.TOPIC_HUBS[topic]),
+  };
+}
 
 const pages = [
   homePage(crm, articles),
   moneyPage(crm, articles),
-  hubPage(articles),
-  ...articles.map(articlePage),
-  ...dbArticles.map(articlePage),
+  { ...hubPage(articles), prerenderData: topicData('ai-crm-automation') },
+  ...[...articles, ...dbArticles].map((article) => ({
+    ...articlePage(article),
+    prerenderData: articleData(article.meta.slug),
+  })),
 ];
 
 for (const page of pages) {
-  const html = applyBody(
-    applyHead(template, {
-      title: page.title,
-      description: page.description,
-      url: page.path === '/' ? SITE : `${SITE}${page.path}`,
-      type: page.type,
-      schemas: page.schemas,
-    }),
-    page.content
+  const html = applyPrerenderData(
+    applyBody(
+      applyHead(template, {
+        title: page.title,
+        description: page.description,
+        url: page.path === '/' ? SITE : `${SITE}${page.path}`,
+        type: page.type,
+        schemas: page.schemas,
+      }),
+      page.content
+    ),
+    page.prerenderData,
+    helpers.PRERENDER_DATA_ID
   );
 
   // Written as `<route>.html`, not `<route>/index.html`. Cloudflare Pages

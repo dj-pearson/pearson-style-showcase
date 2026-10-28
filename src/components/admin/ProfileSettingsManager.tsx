@@ -48,7 +48,6 @@ const ProfileSettingsManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile-settings-admin'] });
       queryClient.invalidateQueries({ queryKey: ['profile-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['profile-settings-nav'] });
       toast.success('Profile settings updated successfully!');
       setIsEditing(false);
     },

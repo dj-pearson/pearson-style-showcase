@@ -4,7 +4,7 @@ import URLHandler from './components/URLHandler';
 import SecurityWarningBanner from './components/SecurityWarningBanner';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // React Query DevTools are loaded lazily and ONLY in development. In production
@@ -29,39 +29,52 @@ import AccessibilityWidget from './components/AccessibilityWidget';
 import RouteAnnouncer from './components/RouteAnnouncer';
 import CookieConsentBanner from './components/CookieConsentBanner';
 
-// Lazy load pages to reduce initial bundle and improve FID
+// Index is bundled eagerly; every other page is a lazy chunk with preload()
+// (see src/lib/routeComponents.ts).
 import Index from './pages/Index';
-const About = lazy(() => import('./pages/About'));
-const Projects = lazy(() => import('./pages/Projects'));
-const News = lazy(() => import('./pages/News'));
-const Article = lazy(() => import('./pages/Article'));
-const AITools = lazy(() => import('./pages/AITools'));
-const AICrmAutomation = lazy(() => import('./pages/AICrmAutomation'));
-const Connect = lazy(() => import('./pages/Connect'));
-const AdminLogin = lazy(() => import('./pages/AdminLogin'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const NotFound = lazy(() => import('./pages/NotFound'));
-const SitemapXML = lazy(() => import('./pages/SitemapXML'));
-const RobotsTxt = lazy(() => import('./pages/RobotsTxt'));
-const DateArchive = lazy(() => import('./pages/DateArchive'));
-const AuthCallback = lazy(() => import('./components/auth/AuthCallback'));
-const FAQ = lazy(() => import('./pages/FAQ'));
-const CategoryArchive = lazy(() => import('./pages/CategoryArchive'));
-const TagArchive = lazy(() => import('./pages/TagArchive'));
-const AuthorArchive = lazy(() => import('./pages/AuthorArchive'));
-const TopicHub = lazy(() => import('./pages/TopicHub'));
-const Topics = lazy(() => import('./pages/Topics'));
-const RSSFeed = lazy(() => import('./pages/RSSFeed'));
-const Search = lazy(() => import('./pages/Search'));
-const Status = lazy(() => import('./pages/Status'));
-const Accessibility = lazy(() => import('./pages/Accessibility'));
-const Showcase = lazy(() => import('./pages/Showcase'));
-const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
-const TermsOfService = lazy(() => import('./pages/TermsOfService'));
-const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
+import { routeComponents } from '@/lib/routeComponents';
+import { logger } from '@/lib/logger';
+
+const {
+  About,
+  Projects,
+  News,
+  Article,
+  AITools,
+  AICrmAutomation,
+  Connect,
+  AdminLogin,
+  AdminDashboard,
+  NotFound,
+  SitemapXML,
+  RobotsTxt,
+  DateArchive,
+  AuthCallback,
+  FAQ,
+  CategoryArchive,
+  TagArchive,
+  AuthorArchive,
+  TopicHub,
+  Topics,
+  RSSFeed,
+  Search,
+  Status,
+  Accessibility,
+  Showcase,
+  PrivacyPolicy,
+  TermsOfService,
+  CookiePolicy,
+} = routeComponents;
 
 // Configure QueryClient with optimized defaults for better caching
 const queryClient = new QueryClient({
+  // Log every failed query once, with its key, instead of relying on each
+  // component to report its own error state.
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      logger.error('Query failed:', query.queryKey, error);
+    },
+  }),
   defaultOptions: {
     queries: {
       // Cache data for 5 minutes before considering it stale

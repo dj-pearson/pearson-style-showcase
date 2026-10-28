@@ -161,14 +161,17 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
       return <td className="border border-border p-2">{children}</td>;
     },
 
+    // The article page owns the only <h1>. A `#` in the body would be a second
+    // one, so it renders as an <h2> that keeps the larger type. ## to ######
+    // keep their levels: shifting them all down would push `######` past h6.
     h1({ children }: MarkdownComponentProps) {
       return (
-        <h1
+        <h2
           id={headingId(children)}
           className="text-3xl font-bold mt-8 mb-4 first:mt-0 scroll-mt-24"
         >
           {children}
-        </h1>
+        </h2>
       );
     },
 
@@ -397,6 +400,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
       if (!containerRef.current) return;
 
       const container = containerRef.current;
+      // Listeners added below, removed when the HTML changes or the renderer unmounts.
+      const cleanups: Array<() => void> = [];
 
       // Handle custom buttons (now rendered as span elements for security)
       const customButtons = container.querySelectorAll('[data-custom-btn]');
@@ -429,12 +434,17 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
             }
             window.open(validatedUrl, '_blank', 'noopener,noreferrer');
           };
-          btn.addEventListener('click', handleClick);
-          btn.addEventListener('keydown', (e) => {
+          const handleKeyDown = (e: Event) => {
             if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') {
               e.preventDefault();
               handleClick();
             }
+          };
+          btn.addEventListener('click', handleClick);
+          btn.addEventListener('keydown', handleKeyDown);
+          cleanups.push(() => {
+            btn.removeEventListener('click', handleClick);
+            btn.removeEventListener('keydown', handleKeyDown);
           });
         }
       });
@@ -507,6 +517,10 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
           link.setAttribute('rel', externalRel(href) as string);
         }
       });
+
+      return () => {
+        cleanups.forEach((cleanup) => cleanup());
+      };
     }, [sanitizedHtml]);
 
     return (

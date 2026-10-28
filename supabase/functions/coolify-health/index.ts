@@ -9,6 +9,11 @@
  */
 
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
+
+// Coolify resource ids are UUID-like slugs. Anything else is rejected before it
+// reaches the URL path so a caller cannot traverse to other API endpoints.
+const SERVER_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 async function coolifyFetch(coolifyUrl: string, coolifyToken: string, path: string) {
   const res = await fetch(`${coolifyUrl}/api/v1${path}`, {
@@ -31,16 +36,11 @@ export default async (req: Request): Promise<Response> => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
-  try {
-    // Verify auth - require a valid Supabase session
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+  // Exposes infrastructure inventory through the Coolify API token; admins only.
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
 
+  try {
     const coolifyToken = Deno.env.get('COOLIFY_API_TOKEN');
     const coolifyUrl = Deno.env.get('COOLIFY_API_URL');
 
@@ -90,8 +90,8 @@ export default async (req: Request): Promise<Response> => {
         break;
       case 'server-resources': {
         const serverId = body.serverId;
-        if (!serverId) {
-          return new Response(JSON.stringify({ error: 'serverId required' }), {
+        if (typeof serverId !== 'string' || !SERVER_ID_PATTERN.test(serverId)) {
+          return new Response(JSON.stringify({ error: 'Valid serverId required' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

@@ -1,11 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, CheckCircle2, Search } from 'lucide-react';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
 import { useIsMobile } from '../hooks/use-mobile';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../integrations/supabase/client';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
 import GlobalSearch from './GlobalSearch';
 import { Button } from './ui/button';
@@ -15,52 +12,17 @@ const Navigation = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen } = useGlobalSearch();
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Animate the mobile menu with a single GSAP timeline (smoother than CSS
-  // per-item staggered keyframes on budget devices). The whole animation
-  // completes in <300ms; will-change is set during the tween and cleared on
-  // complete to free GPU memory. Reduced-motion users get an instant menu.
-  useGSAP(
-    () => {
-      const menu = mobileMenuRef.current;
-      if (!isMenuOpen || !menu) return;
+  // The mobile menu enters with a short CSS animation (tailwindcss-animate):
+  // the panel fades and slides down 8px, then each item follows with a small
+  // stagger, all inside ~250ms. This used to be a GSAP timeline, which put
+  // gsap in the entry bundle for one effect. Reduced-motion users get an
+  // instant menu via motion-reduce:animate-none.
+  const itemAnimation =
+    'animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out fill-mode-both motion-reduce:animate-none';
 
-      const items = menu.querySelectorAll<HTMLElement>('.mobile-nav-item');
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      if (prefersReducedMotion) {
-        gsap.set([menu, ...items], { clearProps: 'all' });
-        return;
-      }
-
-      gsap.set([menu, ...items], { willChange: 'transform, opacity' });
-      const tl = gsap.timeline({
-        onComplete: () => {
-          gsap.set([menu, ...items], { willChange: 'auto' });
-        },
-      });
-      tl.from(menu, { y: -8, opacity: 0, duration: 0.2, ease: 'power2.out' }, 0).from(
-        items,
-        { y: 8, opacity: 0, duration: 0.2, stagger: 0.015, ease: 'power2.out' },
-        0.02
-      );
-    },
-    { scope: mobileMenuRef, dependencies: [isMenuOpen] }
-  );
-
-  // Fetch availability status from profile settings
-  const { data: profile } = useQuery({
-    queryKey: ['profile-settings-nav'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_settings')
-        .select('availability_status, availability_text')
-        .maybeSingle();
-      if (error) throw error;
-      return data as { availability_status: string; availability_text: string } | null;
-    },
-  });
+  // Availability status comes from the shared profile_settings query
+  const { data: profile } = useProfileSettings();
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -235,11 +197,10 @@ const Navigation = () => {
           {/* Mobile Navigation - Optimized for Touch & Swipe */}
           {isMenuOpen && (
             <div
-              ref={mobileMenuRef}
               id="mobile-navigation-menu"
               role="menu"
               aria-label="Navigation menu"
-              className="lg:hidden mt-4 pb-4 border-t border-border"
+              className="lg:hidden mt-4 pb-4 border-t border-border animate-in fade-in-0 slide-in-from-top-2 duration-200 ease-out motion-reduce:animate-none"
               style={{
                 maxHeight: 'calc(100vh - 80px)',
                 overflowY: 'auto',
@@ -268,12 +229,13 @@ const Navigation = () => {
                   </div>
                 )}
 
-                {navItems.map((item) => (
+                {navItems.map((item, index) => (
                   <Link
                     key={item.name}
                     to={item.path}
                     onClick={() => setIsMenuOpen(false)}
-                    className={`mobile-nav-item px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
+                    style={{ animationDelay: `${20 + index * 15}ms` }}
+                    className={`mobile-nav-item ${itemAnimation} px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
                       isActive(item.path)
                         ? 'text-primary bg-primary/10 shadow-lg shadow-primary/5'
                         : 'text-muted-foreground hover:bg-muted/20 active:bg-muted/30'
@@ -289,7 +251,8 @@ const Navigation = () => {
                 <Link
                   to="/admin/login"
                   onClick={() => setIsMenuOpen(false)}
-                  className="mobile-nav-item flex items-center space-x-3 px-6 py-4 mt-4 border-t border-border mx-2 text-base text-muted-foreground hover:text-primary transition-all duration-200 rounded-xl hover:bg-muted/20 active:bg-muted/30 touch-target"
+                  style={{ animationDelay: `${20 + navItems.length * 15}ms` }}
+                  className={`mobile-nav-item ${itemAnimation} flex items-center space-x-3 px-6 py-4 mt-4 border-t border-border mx-2 text-base text-muted-foreground hover:text-primary transition-all duration-200 rounded-xl hover:bg-muted/20 active:bg-muted/30 touch-target`}
                 >
                   <div className="w-3 h-3 rounded-full border-2 border-primary/50"></div>
                   <span>Admin Access</span>
@@ -304,7 +267,7 @@ const Navigation = () => {
           )}
         </div>
 
-        {/* Backdrop fade (mobile menu items/container are animated via GSAP) */}
+        {/* Backdrop fade (mobile menu items/container use tailwindcss-animate) */}
         <style>{`
         @keyframes fade-in {
           from { opacity: 0; }

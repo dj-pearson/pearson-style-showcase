@@ -22,14 +22,29 @@ import {
 
 type Article = Tables<'articles'>;
 
+// useParams hands back what the router matched; a link that was encoded twice
+// (or typed with %20) still arrives escaped. Decode once, tolerating bad input.
+const decodeParam = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const AuthorArchive = () => {
   const { author: rawAuthor } = useParams<{ author: string }>();
-  const author = rawAuthor ? validateUrlParam(rawAuthor) : null;
+  // The query below matches the author with ilike, so case does not matter
+  // and the param can be normalised to a lowercase slug.
+  const validAuthor = rawAuthor ? validateUrlParam(decodeParam(rawAuthor)) : null;
+  const author = validAuthor ? validAuthor.toLowerCase().replace(/\s+/g, '-') : null;
 
   const {
     data: articles,
     isLoading,
     error,
+    refetch,
+    isFetching,
   } = useQuery({
     queryKey: ['articles', 'author', author],
     queryFn: async () => {
@@ -71,6 +86,11 @@ const AuthorArchive = () => {
     return <Navigate to="/news" replace />;
   }
 
+  // A failed load or an author with no articles is a thin page; keep it out
+  // of the index.
+  const noIndex = !isLoading && (!!error || (articles?.length ?? 0) === 0);
+  const authorPath = `/author/${encodeURIComponent(author)}`;
+
   // Format author name for display
   const authorDisplay = author
     .split('-')
@@ -91,27 +111,28 @@ const AuthorArchive = () => {
   // Breadcrumb items for visual component (label/path format)
   const breadcrumbItems = [
     { label: 'News', path: '/news' },
-    { label: authorDisplay, path: `/author/${author}` },
+    { label: authorDisplay, path: authorPath },
   ];
 
   // Breadcrumb items for structured data (name/url format)
   const structuredBreadcrumbs = [
     { name: 'Home', url: getCanonicalUrl('/') },
     { name: 'News', url: getCanonicalUrl('/news') },
-    { name: authorDisplay, url: getCanonicalUrl(`/author/${author}`) },
+    { name: authorDisplay, url: getCanonicalUrl(authorPath) },
   ];
 
   // Check if this is the main author (Dan Pearson)
   const isMainAuthor = authorDisplay.toLowerCase() === 'dan pearson';
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-950 via-gray-900 to-black text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <SEO
         title={seoData.title}
         description={seoData.description}
         keywords={seoData.keywords}
-        url={getCanonicalUrl(`/author/${author}`)}
+        url={getCanonicalUrl(authorPath)}
         type="website"
+        noIndex={noIndex}
       />
 
       {/* Breadcrumb Schema */}
@@ -122,7 +143,7 @@ const AuthorArchive = () => {
         type="person"
         data={{
           name: authorDisplay,
-          url: isMainAuthor ? SEO_CONFIG.author.url : getCanonicalUrl(`/author/${author}`),
+          url: isMainAuthor ? SEO_CONFIG.author.url : getCanonicalUrl(authorPath),
           jobTitle: isMainAuthor ? SEO_CONFIG.author.jobTitle : 'Contributing Writer',
           worksFor: {
             '@type': 'Organization',
@@ -144,8 +165,8 @@ const AuthorArchive = () => {
             <div className="flex flex-col md:flex-row md:items-start gap-6 mb-6">
               {/* Author Avatar */}
               <div className="flex-shrink-0">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-tech-cyan to-cyan-600 flex items-center justify-center">
-                  <User className="w-12 h-12 text-white" />
+                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center">
+                  <User className="w-12 h-12 text-tech-cyan" aria-hidden="true" />
                 </div>
               </div>
 
@@ -157,21 +178,21 @@ const AuthorArchive = () => {
 
                 {isMainAuthor && (
                   <div className="flex items-center gap-2 text-tech-cyan mb-4">
-                    <Briefcase className="w-4 h-4" />
+                    <Briefcase className="w-4 h-4" aria-hidden="true" />
                     <span>{SEO_CONFIG.author.jobTitle}</span>
                   </div>
                 )}
 
-                <p className="text-xl text-gray-400 mb-4">
+                <p className="text-xl text-muted-foreground mb-4">
                   {isMainAuthor
                     ? 'AI automation expert helping businesses transform their operations through intelligent solutions.'
                     : `Contributing author with ${articles?.length || 0} published articles on AI, automation, and technology.`}
                 </p>
 
                 {/* Author Stats */}
-                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
-                    <Award className="w-4 h-4" />
+                    <Award className="w-4 h-4" aria-hidden="true" />
                     <span>{articles?.length || 0} Articles Published</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -184,7 +205,7 @@ const AuthorArchive = () => {
             {/* Categories written about */}
             {authorCategories.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                <span className="text-sm text-gray-500">Writes about:</span>
+                <span className="text-sm text-muted-foreground">Writes about:</span>
                 {authorCategories.map((category) => (
                   <Link key={category} to={`/news/category/${category}`}>
                     <Badge
@@ -201,7 +222,7 @@ const AuthorArchive = () => {
             {/* Related Tags */}
             {authorTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                <span className="text-sm text-gray-500">Topics:</span>
+                <span className="text-sm text-muted-foreground">Topics:</span>
                 {authorTags.map((tag) => (
                   <Link key={tag} to={`/news/tag/${tag.toLowerCase().replace(/\s+/g, '-')}`}>
                     <Badge
@@ -216,12 +237,12 @@ const AuthorArchive = () => {
             )}
 
             {/* Back to News Button */}
-            <Link to="/news">
-              <Button variant="outline" className="gap-2">
-                <ArrowLeft className="w-4 h-4" />
+            <Button variant="outline" className="gap-2" asChild>
+              <Link to="/news">
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                 Back to All Articles
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
 
           {/* Loading State */}
@@ -229,23 +250,25 @@ const AuthorArchive = () => {
 
           {/* Error State */}
           {error && (
-            <div className="text-center py-12">
-              <p className="text-red-400 mb-4">Failed to load articles</p>
-              <Button onClick={() => window.location.reload()}>Try Again</Button>
+            <div className="text-center py-12" role="alert">
+              <p className="text-destructive mb-4">Failed to load articles</p>
+              <Button onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? 'Retrying' : 'Try Again'}
+              </Button>
             </div>
           )}
 
           {/* No Articles Found */}
           {!isLoading && !error && articles?.length === 0 && (
             <div className="text-center py-12">
-              <User className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+              <User className="w-16 h-16 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
               <h2 className="text-2xl font-semibold mb-2">No articles found</h2>
-              <p className="text-gray-400 mb-6">
+              <p className="text-muted-foreground mb-6">
                 There are no published articles by this author yet.
               </p>
-              <Link to="/news">
-                <Button>Browse All Articles</Button>
-              </Link>
+              <Button asChild>
+                <Link to="/news">Browse All Articles</Link>
+              </Button>
             </div>
           )}
 
@@ -260,7 +283,7 @@ const AuthorArchive = () => {
               </div>
 
               {/* Article Count */}
-              <div className="mt-12 text-center text-gray-500">
+              <div className="mt-12 text-center text-muted-foreground">
                 Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} by{' '}
                 {authorDisplay}
               </div>

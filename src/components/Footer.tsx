@@ -1,25 +1,13 @@
 import { Link } from 'react-router-dom';
-import { Github, Linkedin, Mail, ExternalLink } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { Github, Linkedin, Mail } from 'lucide-react';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { openCookiePreferences } from '@/lib/cookie-preferences';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
-  // Fetch social links from profile_settings
-  const { data: profile } = useQuery({
-    queryKey: ['profile-settings-footer'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_settings')
-        .select('linkedin_url, github_url, email')
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
-  });
+  // Social links come from the shared profile_settings query
+  const { data: profile } = useProfileSettings();
 
   const socialLinks = [
     {
@@ -152,10 +140,9 @@ const Footer = () => {
             <span className="font-medium">Built with React & Supabase</span>
             <Link
               to="/admin/login"
-              className="flex items-center space-x-2 hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-muted/20 active:bg-muted/30 px-4"
+              className="hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-muted/20 active:bg-muted/30 px-4"
             >
-              <span>Admin</span>
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Admin
             </Link>
           </div>
         </div>

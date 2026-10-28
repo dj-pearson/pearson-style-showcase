@@ -1,34 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAnalytics } from './Analytics';
 
 const ScrollTracker = () => {
-  const [milestones, setMilestones] = useState(new Set<number>());
+  // Milestones live in a ref so reaching one doesn't re-run the effect and
+  // rebind the scroll listener; trackScroll is read through a ref for the
+  // same reason (useAnalytics returns fresh functions each render).
+  const milestonesRef = useRef(new Set<number>());
   const { trackScroll } = useAnalytics();
+  const trackScrollRef = useRef(trackScroll);
+  trackScrollRef.current = trackScroll;
 
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.pageYOffset;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
-      
+
       const totalScrollable = documentHeight - windowHeight;
       const percentage = Math.round((scrollTop / totalScrollable) * 100);
 
       // Track scroll milestones
       const milestonePoints = [25, 50, 75, 90, 100];
-      milestonePoints.forEach(point => {
-        if (percentage >= point && !milestones.has(point)) {
-          setMilestones(prev => new Set(prev).add(point));
-          trackScroll(point);
+      milestonePoints.forEach((point) => {
+        if (percentage >= point && !milestonesRef.current.has(point)) {
+          milestonesRef.current.add(point);
+          trackScrollRef.current(point);
         }
       });
     };
 
     const throttledScroll = throttle(handleScroll, 100);
     window.addEventListener('scroll', throttledScroll, { passive: true });
-    
+
     return () => window.removeEventListener('scroll', throttledScroll);
-  }, [milestones, trackScroll]);
+  }, []);
 
   return null;
 };
@@ -46,10 +51,13 @@ const throttle = <T extends (...args: unknown[]) => void>(func: T, delay: number
       lastExecTime = currentTime;
     } else {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        func(...args);
-        lastExecTime = Date.now();
-      }, delay - (currentTime - lastExecTime));
+      timeoutId = setTimeout(
+        () => {
+          func(...args);
+          lastExecTime = Date.now();
+        },
+        delay - (currentTime - lastExecTime)
+      );
     }
   };
 };

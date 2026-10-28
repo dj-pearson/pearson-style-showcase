@@ -121,16 +121,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Email sent successfully:', emailResponse);
 
-    // Send confirmation email to sender
+    // Send confirmation email to sender. The recipient address is whatever the
+    // caller typed, so nothing they submitted (name, subject, message) goes in
+    // this body; echoing it would let anyone relay their own text to any inbox
+    // from our verified sender.
     await resend.emails.send({
       from: CONTACT_FROM,
       to: [email],
       subject: 'Thank you for contacting us!',
       html: `
-        <h1>Thank you for reaching out, ${escapeHtml(name)}!</h1>
+        <h1>Thank you for reaching out!</h1>
         <p>We have received your message and will get back to you as soon as possible.</p>
-        <p><strong>Your message:</strong></p>
-        <p>${messageToHtml(message)}</p>
         <hr />
         <p>Best regards,<br>Dan Pearson</p>
       `,

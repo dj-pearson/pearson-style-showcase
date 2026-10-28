@@ -75,11 +75,11 @@ const NewsletterSignup = () => {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-primary/5 via-background to-accent/5 border-primary/20">
+    <Card className="bg-card border-primary/20">
       <CardContent className="p-6 sm:p-8">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-            <Mail className="w-6 h-6 text-primary" />
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <Mail className="w-6 h-6 text-primary" aria-hidden="true" />
           </div>
           <h3 className="text-xl sm:text-2xl font-bold mb-2">Stay Updated</h3>
           <p className="text-muted-foreground">

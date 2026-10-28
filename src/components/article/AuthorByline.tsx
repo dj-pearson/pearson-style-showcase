@@ -2,8 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Linkedin, Mail, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 
 interface AuthorBylineProps {
   authorName?: string;
@@ -30,19 +29,8 @@ const DEFAULT_BIO =
   'Dan Pearson is an AI CRM automation consultant working with sales-led revenue teams of 5-50 seats. He argues that most AI CRM projects fail because they automate the reporting layer instead of the capture layer, and he builds the capture layer: automated call and meeting logging, note generation, enrichment, routing and stage-change evidence, inside the CRM a team already owns. Fifteen years carrying a quota came first; seven SaaS platforms under Pearson Media LLC came after.';
 
 const AuthorByline = ({ authorName = 'Dan Pearson', showFullBio = true }: AuthorBylineProps) => {
-  // Fetch author data from profile_settings
-  const { data: profile } = useQuery({
-    queryKey: ['profile-settings-author'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_settings')
-        .select('bio_headline, bio_subheadline, email, linkedin_url')
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
-  });
+  // Author data comes from the shared profile_settings query
+  const { data: profile } = useProfileSettings();
 
   const authorInfo = {
     name: 'Dan Pearson',

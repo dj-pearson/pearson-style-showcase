@@ -56,6 +56,12 @@ export default defineConfig(({ mode }) => {
       port: 8080,
     },
     plugins,
+    define: {
+      // Strip the Sentry SDK's debug logger code paths. Tracing stays enabled
+      // (__SENTRY_TRACING__ is left alone) because initSentry() uses
+      // reactRouterV6BrowserTracingIntegration.
+      __SENTRY_DEBUG__: false,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
@@ -118,6 +124,11 @@ export default defineConfig(({ mode }) => {
             if (inPkg('react-markdown', 'remark-gfm')) return 'markdown-vendor';
             if (inPkg('recharts')) return 'charts-vendor';
             if (inPkg('react-hook-form', '@hookform/resolvers', 'zod')) return 'form-vendor';
+            // ScrollTrigger (and the Observer it is built on) is imported
+            // dynamically by pages/Index after first paint. Grouped with gsap
+            // core it rode along in the modulepreloaded gsap-vendor chunk.
+            if (/node_modules\/gsap\/(dist\/)?(ScrollTrigger|Observer)\.js/.test(id))
+              return 'gsap-scrolltrigger';
             if (inPkg('gsap', '@gsap/react')) return 'gsap-vendor';
             return undefined;
           },

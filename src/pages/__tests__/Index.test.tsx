@@ -14,6 +14,10 @@ vi.mock('gsap', () => ({
     set: vi.fn(),
     timeline: vi.fn(() => ({ to: vi.fn(), from: vi.fn(), fromTo: vi.fn() })),
     utils: { toArray: vi.fn(() => []) },
+    context: vi.fn((fn: () => void) => {
+      fn();
+      return { revert: vi.fn() };
+    }),
   },
 }));
 vi.mock('gsap/ScrollTrigger', () => ({ ScrollTrigger: {} }));

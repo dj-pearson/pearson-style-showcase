@@ -192,6 +192,7 @@ const ContactForm = () => {
                   <FormControl>
                     <Input
                       placeholder="Your full name"
+                      autoComplete="name"
                       {...field}
                       disabled={isSubmitting}
                       className="mobile-input"
@@ -212,6 +213,8 @@ const ContactForm = () => {
                     <Input
                       type="email"
                       placeholder="your.email@example.com"
+                      autoComplete="email"
+                      spellCheck={false}
                       {...field}
                       disabled={isSubmitting}
                       className="mobile-input"

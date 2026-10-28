@@ -36,7 +36,20 @@ const SKIP_REQUEST_HEADERS = new Set([
   'transfer-encoding',
   'upgrade',
   'te',
+  'trailer',
+  'proxy-connection',
+  'proxy-authorization',
+  'forwarded',
+  'x-forwarded-host',
 ]);
+
+// Only GoTrue routes may be proxied. Without this, any path on the Kong
+// gateway (rest/v1, storage/v1, functions/v1) was reachable through here.
+const ALLOWED_PATH = /^\/auth\/v1\//;
+
+// Encoded dots, slashes and backslashes can be decoded by the gateway into a
+// path outside /auth/v1/ after our prefix check has passed.
+const ENCODED_TRAVERSAL = /%2e|%2f|%5c|\\/i;
 
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
@@ -53,15 +66,43 @@ export default async (req: Request): Promise<Response> => {
     const fullPath = url.pathname;
     const authPath = fullPath.replace(/^\/auth-proxy/, '') || '/';
 
-    // Reconstruct the target URL with query parameters
-    const targetUrl = `${SUPABASE_URL}${authPath}${url.search}`;
+    if (!ALLOWED_PATH.test(authPath) || ENCODED_TRAVERSAL.test(authPath)) {
+      console.warn(`[auth-proxy] Rejected path: ${req.method} ${authPath.substring(0, 200)}`);
+      return new Response(JSON.stringify({ error: 'Not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log(`[auth-proxy] ${req.method} ${authPath}${url.search} -> ${targetUrl}`);
+    // Reconstruct the target URL with query parameters
+    const target = new URL(`${authPath}${url.search}`, SUPABASE_URL);
+    if (!ALLOWED_PATH.test(target.pathname)) {
+      console.warn(
+        `[auth-proxy] Rejected resolved path: ${req.method} ${target.pathname.substring(0, 200)}`
+      );
+      return new Response(JSON.stringify({ error: 'Not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Query strings carry tokens and codes (e.g. ?token=, ?code=), so only the
+    // pathname is logged.
+    console.log(`[auth-proxy] ${req.method} ${authPath}`);
+
+    // Headers listed in Connection are hop-by-hop for this request too
+    const connectionTokens = new Set(
+      (req.headers.get('connection') || '')
+        .split(',')
+        .map((token) => token.trim().toLowerCase())
+        .filter(Boolean)
+    );
 
     // Forward ALL request headers except hop-by-hop/browser-only ones
     const forwardHeaders = new Headers();
     for (const [key, value] of req.headers.entries()) {
-      if (!SKIP_REQUEST_HEADERS.has(key.toLowerCase())) {
+      const lower = key.toLowerCase();
+      if (!SKIP_REQUEST_HEADERS.has(lower) && !connectionTokens.has(lower)) {
         forwardHeaders.set(key, value);
       }
     }
@@ -81,7 +122,7 @@ export default async (req: Request): Promise<Response> => {
     }
 
     // Forward the request to GoTrue (server-to-server, no CORS restrictions)
-    const proxyResponse = await fetch(targetUrl, {
+    const proxyResponse = await fetch(target, {
       method: req.method,
       headers: forwardHeaders,
       body: body,
@@ -92,9 +133,12 @@ export default async (req: Request): Promise<Response> => {
 
     console.log(`[auth-proxy] Response: ${proxyResponse.status} ${proxyResponse.statusText}`);
 
-    // Log response body on error for debugging
+    // Upstream error bodies can echo emails or token details, so log the
+    // status only.
     if (proxyResponse.status >= 400) {
-      console.error(`[auth-proxy] Error response body: ${responseBody.substring(0, 500)}`);
+      console.error(
+        `[auth-proxy] Upstream error: ${proxyResponse.status} for ${req.method} ${authPath}`
+      );
     }
 
     // Build response headers: start with CORS, then forward response headers
