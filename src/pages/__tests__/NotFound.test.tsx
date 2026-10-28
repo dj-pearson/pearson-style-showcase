@@ -17,6 +17,8 @@ describe('NotFound page', () => {
 
   it('provides navigation back to home', () => {
     render(<NotFound />, { initialEntries: ['/does-not-exist'] });
-    expect(screen.getByRole('button', { name: /Go Home/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Go Home/i })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'News & Articles' })).toHaveAttribute('href', '/news');
+    expect(screen.getByRole('button', { name: /Go Back/i })).toBeInTheDocument();
   });
 });

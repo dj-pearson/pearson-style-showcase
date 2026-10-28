@@ -20,14 +20,28 @@ import {
 
 type Article = Tables<'articles'>;
 
+// useParams hands back what the router matched; a link that was encoded twice
+// (or typed with %20) still arrives escaped. Decode once, tolerating bad input.
+const decodeParam = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const CategoryArchive = () => {
   const { category: rawCategory } = useParams<{ category: string }>();
-  const category = rawCategory ? validateUrlParam(rawCategory) : null;
+  // Category rows are matched exactly (.eq below), so the case is part of the
+  // key and is not lowered here; only the escaping is undone.
+  const category = rawCategory ? validateUrlParam(decodeParam(rawCategory)) : null;
 
   const {
     data: articles,
     isLoading,
     error,
+    refetch,
+    isFetching,
   } = useQuery({
     queryKey: ['articles', 'category', category],
     queryFn: async () => {
@@ -68,6 +82,16 @@ const CategoryArchive = () => {
     return <Navigate to="/news" replace />;
   }
 
+  // The canonical uses the category as stored on the matched articles, so
+  // /news/category/ai and /news/category/AI do not both claim to be canonical.
+  const canonicalCategory =
+    articles?.find((a) => a.category?.toLowerCase() === category.toLowerCase())?.category ??
+    category;
+  const canonicalPath = `/news/category/${encodeURIComponent(canonicalCategory)}`;
+
+  // A failed load or an empty category is a thin page; keep it out of the index.
+  const noIndex = !isLoading && (!!error || (articles?.length ?? 0) === 0);
+
   // Format category name for display
   const categoryDisplay = category
     .split('-')
@@ -81,7 +105,7 @@ const CategoryArchive = () => {
   const breadcrumbItems = [
     { label: 'Home', path: '/' },
     { label: 'News', path: '/news' },
-    { label: categoryDisplay, path: `/news/category/${category}` },
+    { label: categoryDisplay, path: canonicalPath },
   ];
 
   const breadcrumbStructuredData = breadcrumbItems.map((item) => ({
@@ -90,13 +114,14 @@ const CategoryArchive = () => {
   }));
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-950 via-gray-900 to-black text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <SEO
         title={`${categoryDisplay} Articles - Dan Pearson`}
         description={categoryDescription}
         keywords={categoryKeywords}
-        url={`https://danpearson.net/news/category/${category}`}
+        url={`https://danpearson.net${canonicalPath}`}
         type="website"
+        noIndex={noIndex}
         structuredData={{
           type: 'breadcrumb',
           data: { items: breadcrumbStructuredData },
@@ -113,15 +138,15 @@ const CategoryArchive = () => {
           {/* Category Header */}
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
-              <FolderOpen className="w-8 h-8 text-tech-cyan" />
+              <FolderOpen className="w-8 h-8 text-tech-cyan" aria-hidden="true" />
               <h1 className="text-4xl md:text-5xl font-bold text-foreground">{categoryDisplay}</h1>
             </div>
-            <p className="text-xl text-gray-400 mb-6">{categoryDescription}</p>
+            <p className="text-xl text-muted-foreground mb-6">{categoryDescription}</p>
 
             {/* Category Tags */}
             {categoryTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                <span className="text-sm text-gray-500">Related topics:</span>
+                <span className="text-sm text-muted-foreground">Related topics:</span>
                 {categoryTags.slice(0, 8).map((tag) => (
                   <Link key={tag} to={`/news/tag/${tag.toLowerCase().replace(/\s+/g, '-')}`}>
                     <Badge
@@ -136,12 +161,12 @@ const CategoryArchive = () => {
             )}
 
             {/* Back to News Button */}
-            <Link to="/news">
-              <Button variant="outline" className="gap-2">
-                <ArrowLeft className="w-4 h-4" />
+            <Button variant="outline" className="gap-2" asChild>
+              <Link to="/news">
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                 Back to All Articles
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
 
           {/* Loading State */}
@@ -149,23 +174,28 @@ const CategoryArchive = () => {
 
           {/* Error State */}
           {error && (
-            <div className="text-center py-12">
-              <p className="text-red-400 mb-4">Failed to load articles</p>
-              <Button onClick={() => window.location.reload()}>Try Again</Button>
+            <div className="text-center py-12" role="alert">
+              <p className="text-destructive mb-4">Failed to load articles</p>
+              <Button onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? 'Retrying' : 'Try Again'}
+              </Button>
             </div>
           )}
 
           {/* No Articles Found */}
           {!isLoading && !error && articles?.length === 0 && (
             <div className="text-center py-12">
-              <FolderOpen className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+              <FolderOpen
+                className="w-16 h-16 text-muted-foreground mx-auto mb-4"
+                aria-hidden="true"
+              />
               <h2 className="text-2xl font-semibold mb-2">No articles found</h2>
-              <p className="text-gray-400 mb-6">
+              <p className="text-muted-foreground mb-6">
                 There are no published articles in this category yet.
               </p>
-              <Link to="/news">
-                <Button>Browse All Articles</Button>
-              </Link>
+              <Button asChild>
+                <Link to="/news">Browse All Articles</Link>
+              </Button>
             </div>
           )}
 
@@ -179,7 +209,7 @@ const CategoryArchive = () => {
               </div>
 
               {/* Article Count */}
-              <div className="mt-12 text-center text-gray-500">
+              <div className="mt-12 text-center text-muted-foreground">
                 Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} in{' '}
                 {categoryDisplay}
               </div>

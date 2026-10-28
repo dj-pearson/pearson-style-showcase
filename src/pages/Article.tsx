@@ -182,37 +182,37 @@ const Article = () => {
             <div className="animate-pulse space-y-8">
               {/* Breadcrumb skeleton */}
               <div className="flex gap-2 items-center">
-                <div className="h-4 bg-gray-800/50 rounded w-12"></div>
-                <div className="h-4 bg-gray-800/50 rounded w-4"></div>
-                <div className="h-4 bg-gray-800/50 rounded w-16"></div>
+                <div className="h-4 bg-muted rounded w-12"></div>
+                <div className="h-4 bg-muted rounded w-4"></div>
+                <div className="h-4 bg-muted rounded w-16"></div>
               </div>
               {/* Category badge */}
-              <div className="h-6 bg-gray-800/50 rounded w-24"></div>
+              <div className="h-6 bg-muted rounded w-24"></div>
               {/* Title */}
-              <div className="h-10 bg-gray-800/50 rounded w-3/4"></div>
+              <div className="h-10 bg-muted rounded w-3/4"></div>
               {/* Excerpt */}
-              <div className="h-6 bg-gray-800/50 rounded w-2/3"></div>
+              <div className="h-6 bg-muted rounded w-2/3"></div>
               {/* Meta info */}
               <div className="flex gap-6">
-                <div className="h-4 bg-gray-800/50 rounded w-32"></div>
-                <div className="h-4 bg-gray-800/50 rounded w-24"></div>
-                <div className="h-4 bg-gray-800/50 rounded w-20"></div>
+                <div className="h-4 bg-muted rounded w-32"></div>
+                <div className="h-4 bg-muted rounded w-24"></div>
+                <div className="h-4 bg-muted rounded w-20"></div>
               </div>
               {/* Tags */}
               <div className="flex gap-2">
-                <div className="h-6 bg-gray-800/50 rounded w-16"></div>
-                <div className="h-6 bg-gray-800/50 rounded w-20"></div>
-                <div className="h-6 bg-gray-800/50 rounded w-14"></div>
+                <div className="h-6 bg-muted rounded w-16"></div>
+                <div className="h-6 bg-muted rounded w-20"></div>
+                <div className="h-6 bg-muted rounded w-14"></div>
               </div>
               {/* Image placeholder */}
-              <div className="h-64 bg-gray-800/50 rounded"></div>
+              <div className="h-64 bg-muted rounded"></div>
               {/* Content paragraphs */}
               <div className="space-y-4">
-                <div className="h-4 bg-gray-800/50 rounded"></div>
-                <div className="h-4 bg-gray-800/50 rounded"></div>
-                <div className="h-4 bg-gray-800/50 rounded w-5/6"></div>
-                <div className="h-4 bg-gray-800/50 rounded"></div>
-                <div className="h-4 bg-gray-800/50 rounded w-4/5"></div>
+                <div className="h-4 bg-muted rounded"></div>
+                <div className="h-4 bg-muted rounded"></div>
+                <div className="h-4 bg-muted rounded w-5/6"></div>
+                <div className="h-4 bg-muted rounded"></div>
+                <div className="h-4 bg-muted rounded w-4/5"></div>
               </div>
             </div>
           </div>
@@ -258,12 +258,12 @@ const Article = () => {
                     </>
                   )}
                 </Button>
-                <Link to="/news" aria-label="Return to news listing">
-                  <Button variant="outline">
+                <Button variant="outline" asChild>
+                  <Link to="/news">
                     <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
                     Back to News
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
@@ -294,18 +294,18 @@ const Article = () => {
                 The article you're looking for doesn't exist or has been removed.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/news" aria-label="Return to news listing">
-                  <Button>
+                <Button asChild>
+                  <Link to="/news">
                     <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
                     Back to News
-                  </Button>
-                </Link>
-                <Link to={`/search?q=${encodeURIComponent(slug)}`}>
-                  <Button variant="outline">
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to={`/search?q=${encodeURIComponent(slug)}`}>
                     <SearchIcon className="w-4 h-4 mr-2" aria-hidden="true" />
                     Search for it
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
@@ -568,7 +568,7 @@ const Article = () => {
                           className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0"
                           aria-hidden="true"
                         />
-                        <div className="text-sm text-gray-300">
+                        <div className="text-sm text-muted-foreground">
                           <strong className="text-cyan-400">Affiliate Disclosure:</strong> This
                           article contains Amazon affiliate links. As an Amazon Associate, I earn
                           from qualifying purchases at no extra cost to you.
@@ -592,7 +592,7 @@ const Article = () => {
             {/* Share Section - Accessible with proper ARIA labels */}
             <aside className="mt-12 pt-8 border-t border-border" aria-label="Share article">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p id="share-heading" className="text-lg font-semibold text-gray-300">
+                <p id="share-heading" className="text-lg font-semibold text-foreground">
                   Share this article
                 </p>
                 <div
@@ -604,7 +604,7 @@ const Article = () => {
                     variant="outline"
                     size="lg"
                     onClick={() => handleShare('twitter')}
-                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                    className="mobile-button border-border hover:border-cyan-500"
                     aria-label={`Share "${article.title}" on Twitter`}
                   >
                     <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -614,7 +614,7 @@ const Article = () => {
                     variant="outline"
                     size="lg"
                     onClick={() => handleShare('linkedin')}
-                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                    className="mobile-button border-border hover:border-cyan-500"
                     aria-label={`Share "${article.title}" on LinkedIn`}
                   >
                     <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -624,7 +624,7 @@ const Article = () => {
                     variant="outline"
                     size="lg"
                     onClick={() => handleShare('facebook')}
-                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                    className="mobile-button border-border hover:border-cyan-500"
                     aria-label={`Share "${article.title}" on Facebook`}
                   >
                     <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -634,7 +634,7 @@ const Article = () => {
                     variant="outline"
                     size="lg"
                     onClick={() => handleShare('copy')}
-                    className="mobile-button border-gray-600 hover:border-cyan-500"
+                    className="mobile-button border-border hover:border-cyan-500"
                     aria-label="Copy article link to clipboard"
                   >
                     <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -657,12 +657,12 @@ const Article = () => {
           {/* Article Footer */}
           <nav className="mt-16 pt-8 border-t border-border" aria-label="Article navigation">
             <div className="text-center">
-              <Link to="/news" aria-label="Return to all articles">
-                <Button size="lg" className="mobile-button">
+              <Button size="lg" className="mobile-button" asChild>
+                <Link to="/news">
                   <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
                   Back to All Articles
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </nav>
         </div>

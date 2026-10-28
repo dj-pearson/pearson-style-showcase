@@ -20,14 +20,30 @@ import {
 
 type Article = Tables<'articles'>;
 
+// useParams hands back what the router matched; a link that was encoded twice
+// (or typed with %20) still arrives escaped. Decode once, tolerating bad input.
+const decodeParam = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const TagArchive = () => {
   const { tag: rawTag } = useParams<{ tag: string }>();
-  const tag = rawTag ? validateUrlParam(rawTag) : null;
+  // Tags are matched case-insensitively against their slug form (spaces become
+  // hyphens), so the param can be normalised to that form for the query and
+  // the canonical alike.
+  const validTag = rawTag ? validateUrlParam(decodeParam(rawTag)) : null;
+  const tag = validTag ? validTag.toLowerCase().replace(/\s+/g, '-') : null;
 
   const {
     data: articles,
     isLoading,
     error,
+    refetch,
+    isFetching,
   } = useQuery({
     queryKey: ['articles', 'tag', tag],
     queryFn: async () => {
@@ -85,6 +101,9 @@ const TagArchive = () => {
     return <Navigate to="/news" replace />;
   }
 
+  // A failed load or an empty tag is a thin page; keep it out of the index.
+  const noIndex = !isLoading && (!!error || (articles?.length ?? 0) === 0);
+
   // Format tag name for display
   const tagDisplay = tag
     .split('-')
@@ -98,7 +117,7 @@ const TagArchive = () => {
   const breadcrumbItems = [
     { label: 'Home', path: '/' },
     { label: 'News', path: '/news' },
-    { label: tagDisplay, path: `/news/tag/${tag}` },
+    { label: tagDisplay, path: `/news/tag/${encodeURIComponent(tag)}` },
   ];
 
   const breadcrumbStructuredData = breadcrumbItems.map((item) => ({
@@ -107,13 +126,14 @@ const TagArchive = () => {
   }));
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-950 via-gray-900 to-black text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <SEO
         title={`${tagDisplay} - Dan Pearson`}
         description={tagDescription}
         keywords={tagKeywords}
-        url={`https://danpearson.net/news/tag/${tag}`}
+        url={`https://danpearson.net/news/tag/${encodeURIComponent(tag)}`}
         type="website"
+        noIndex={noIndex}
         structuredData={{
           type: 'breadcrumb',
           data: { items: breadcrumbStructuredData },
@@ -130,15 +150,15 @@ const TagArchive = () => {
           {/* Tag Header */}
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
-              <TagIcon className="w-8 h-8 text-tech-cyan" />
+              <TagIcon className="w-8 h-8 text-tech-cyan" aria-hidden="true" />
               <h1 className="text-4xl md:text-5xl font-bold text-foreground">{tagDisplay}</h1>
             </div>
-            <p className="text-xl text-gray-400 mb-6">{tagDescription}</p>
+            <p className="text-xl text-muted-foreground mb-6">{tagDescription}</p>
 
             {/* Categories */}
             {tagCategories.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                <span className="text-sm text-gray-500">Categories:</span>
+                <span className="text-sm text-muted-foreground">Categories:</span>
                 {tagCategories.map((category) => (
                   <Link key={category} to={`/news/category/${category}`}>
                     <Badge
@@ -158,7 +178,7 @@ const TagArchive = () => {
             {/* Related Tags */}
             {relatedTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                <span className="text-sm text-gray-500">Related tags:</span>
+                <span className="text-sm text-muted-foreground">Related tags:</span>
                 {relatedTags.map((relatedTag) => (
                   <Link
                     key={relatedTag}
@@ -176,12 +196,12 @@ const TagArchive = () => {
             )}
 
             {/* Back to News Button */}
-            <Link to="/news">
-              <Button variant="outline" className="gap-2">
-                <ArrowLeft className="w-4 h-4" />
+            <Button variant="outline" className="gap-2" asChild>
+              <Link to="/news">
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                 Back to All Articles
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
 
           {/* Loading State */}
@@ -189,23 +209,28 @@ const TagArchive = () => {
 
           {/* Error State */}
           {error && (
-            <div className="text-center py-12">
-              <p className="text-red-400 mb-4">Failed to load articles</p>
-              <Button onClick={() => window.location.reload()}>Try Again</Button>
+            <div className="text-center py-12" role="alert">
+              <p className="text-destructive mb-4">Failed to load articles</p>
+              <Button onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? 'Retrying' : 'Try Again'}
+              </Button>
             </div>
           )}
 
           {/* No Articles Found */}
           {!isLoading && !error && articles?.length === 0 && (
             <div className="text-center py-12">
-              <TagIcon className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+              <TagIcon
+                className="w-16 h-16 text-muted-foreground mx-auto mb-4"
+                aria-hidden="true"
+              />
               <h2 className="text-2xl font-semibold mb-2">No articles found</h2>
-              <p className="text-gray-400 mb-6">
+              <p className="text-muted-foreground mb-6">
                 There are no published articles with this tag yet.
               </p>
-              <Link to="/news">
-                <Button>Browse All Articles</Button>
-              </Link>
+              <Button asChild>
+                <Link to="/news">Browse All Articles</Link>
+              </Button>
             </div>
           )}
 
@@ -219,7 +244,7 @@ const TagArchive = () => {
               </div>
 
               {/* Article Count */}
-              <div className="mt-12 text-center text-gray-500">
+              <div className="mt-12 text-center text-muted-foreground">
                 Showing {articles.length} {articles.length === 1 ? 'article' : 'articles'} tagged
                 with {tagDisplay}
               </div>
