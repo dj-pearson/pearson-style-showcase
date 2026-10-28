@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { useLocation } from 'react-router-dom';
 import { shouldSuppressForOddTraffic } from '@/lib/traffic-detection';
 
 // Tracking ID is loaded via index.html script tags - no need for Supabase query
-const TRACKING_ID = 'G-8R95ZXMV6L';
 
 declare global {
   interface Window {
@@ -17,21 +16,23 @@ interface AnalyticsProps {
   trackingId?: string;
 }
 
-
-// Custom hook for analytics - optimized to avoid blocking page loads
-export const useAnalytics = () => {
+/**
+ * Sends one GA page_view per route change. Mounted only by <Analytics />, so
+ * calling useAnalytics() from pages or trackers no longer multiplies page
+ * views (Index + ScrollTracker + Analytics used to send three per navigation).
+ */
+export const usePageViewTracking = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Use requestIdleCallback to defer analytics to idle time
     const trackPageView = () => {
       // Keep odd/flagged traffic (e.g. bot floods from unexpected countries)
       // out of Google Analytics so the metrics reflect real visitors.
       if (shouldSuppressForOddTraffic()) return;
       if (typeof window !== 'undefined' && window.gtag) {
-        window.gtag('config', TRACKING_ID, {
-          page_path: location.pathname,
-        });
+        // 'set' rather than 'config': a config call sends its own page_view,
+        // which doubled every navigation with the explicit event below.
+        window.gtag('set', { page_path: location.pathname });
 
         window.gtag('event', 'page_view', {
           page_title: document.title,
@@ -42,14 +43,21 @@ export const useAnalytics = () => {
     };
 
     // Defer to idle time to avoid blocking FCP/LCP
-    if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(trackPageView, { timeout: 2000 });
-    } else {
-      // Fallback for Safari
-      setTimeout(trackPageView, 100);
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(trackPageView, { timeout: 2000 });
+      return () => window.cancelIdleCallback(handle);
     }
-  }, [location]);
+    // Fallback for Safari
+    const timer = setTimeout(trackPageView, 100);
+    return () => clearTimeout(timer);
+  }, [location.pathname, location.search]);
+};
 
+/**
+ * Event-tracking helpers. Has no side effects of its own, so any component
+ * can call it without sending extra page views.
+ */
+export const useAnalytics = () => {
   // Track custom events
   const trackEvent = (action: string, category: string, label?: string, value?: number) => {
     if (shouldSuppressForOddTraffic()) return;
@@ -129,6 +137,8 @@ export const useAnalytics = () => {
  * on every page load, which was causing 200-500ms delays in FCP/LCP.
  */
 const Analytics = ({ trackingId: propTrackingId }: AnalyticsProps) => {
+  usePageViewTracking();
+
   useEffect(() => {
     // Analytics is already initialized in index.html
     // This effect just logs for debugging purposes in development

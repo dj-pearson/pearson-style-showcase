@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { supabase } from '../integrations/supabase/client';
 import {
   Briefcase,
@@ -68,20 +69,7 @@ const SectionError = ({ what, onRetry, isRetrying }: SectionErrorProps) => (
 );
 
 const About = () => {
-  const { data: profile, isLoading: isProfileLoading } = useQuery({
-    queryKey: ['profile-settings'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_settings')
-        .select(
-          'profile_photo_url, bio_headline, bio_subheadline, location, years_experience, linkedin_url, github_url'
-        )
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 10 * 60 * 1000,
-  });
+  const { data: profile, isLoading: isProfileLoading } = useProfileSettings();
 
   // Fetch achievements from database
   const {

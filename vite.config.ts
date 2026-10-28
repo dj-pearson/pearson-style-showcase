@@ -124,6 +124,11 @@ export default defineConfig(({ mode }) => {
             if (inPkg('react-markdown', 'remark-gfm')) return 'markdown-vendor';
             if (inPkg('recharts')) return 'charts-vendor';
             if (inPkg('react-hook-form', '@hookform/resolvers', 'zod')) return 'form-vendor';
+            // ScrollTrigger (and the Observer it is built on) is imported
+            // dynamically by pages/Index after first paint. Grouped with gsap
+            // core it rode along in the modulepreloaded gsap-vendor chunk.
+            if (/node_modules\/gsap\/(dist\/)?(ScrollTrigger|Observer)\.js/.test(id))
+              return 'gsap-scrolltrigger';
             if (inPkg('gsap', '@gsap/react')) return 'gsap-vendor';
             return undefined;
           },

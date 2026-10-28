@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, CheckCircle2, Search } from 'lucide-react';
 import { useIsMobile } from '../hooks/use-mobile';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../integrations/supabase/client';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
 import GlobalSearch from './GlobalSearch';
 import { Button } from './ui/button';
@@ -22,18 +21,8 @@ const Navigation = () => {
   const itemAnimation =
     'animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out fill-mode-both motion-reduce:animate-none';
 
-  // Fetch availability status from profile settings
-  const { data: profile } = useQuery({
-    queryKey: ['profile-settings-nav'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_settings')
-        .select('availability_status, availability_text')
-        .maybeSingle();
-      if (error) throw error;
-      return data as { availability_status: string; availability_text: string } | null;
-    },
-  });
+  // Availability status comes from the shared profile_settings query
+  const { data: profile } = useProfileSettings();
 
   // Close mobile menu on route change
   useEffect(() => {

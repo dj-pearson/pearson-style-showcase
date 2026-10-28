@@ -34,4 +34,4 @@ gtag('consent', 'default', {
 
 gtag('js', new Date());
 
-gtag('config', 'G-8R95ZXMV6L', { anonymize_ip: true });
+gtag('config', 'G-8R95ZXMV6L', { anonymize_ip: true, send_page_view: false });
