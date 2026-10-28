@@ -56,6 +56,12 @@ export default defineConfig(({ mode }) => {
       port: 8080,
     },
     plugins,
+    define: {
+      // Strip the Sentry SDK's debug logger code paths. Tracing stays enabled
+      // (__SENTRY_TRACING__ is left alone) because initSentry() uses
+      // reactRouterV6BrowserTracingIntegration.
+      __SENTRY_DEBUG__: false,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

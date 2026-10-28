@@ -38,6 +38,27 @@ function tracesSampleRateFor(environment: string): number {
 }
 
 let initialized = false;
+let replayRequested = false;
+
+/**
+ * Add Session Replay at runtime. The replay integration is about 40 KB of
+ * gzip, so it is fetched as its own chunk only once Sentry is initialized and
+ * the visitor has granted functional consent, instead of riding in the entry
+ * bundle for every visitor.
+ */
+function loadReplay(): void {
+  if (replayRequested) return;
+  replayRequested = true;
+  import('@sentry/react')
+    .then(({ replayIntegration, addIntegration }) => {
+      // Mask text/media by default so replays don't capture personal data.
+      addIntegration(replayIntegration({ maskAllText: true, blockAllMedia: true }));
+    })
+    .catch(() => {
+      // Replay is best-effort; allow a retry on the next consent change.
+      replayRequested = false;
+    });
+}
 
 /**
  * Initialize Sentry. Safe to call once at app startup. No-ops (and returns
@@ -67,32 +88,24 @@ export function initSentry(): boolean {
     }),
   ];
 
-  if (hasConsent('functional')) {
-    // Mask text/media by default so replays don't capture personal data.
-    integrations.push(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
-  }
-
   Sentry.init({
     dsn,
     environment,
     integrations,
     tracesSampleRate: tracesSampleRateFor(environment),
     // Replay: capture 10% of all sessions, and 100% of sessions with an error
-    // (only takes effect once the replay integration is enabled by consent).
+    // (only takes effect once the replay integration is loaded after consent).
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
   });
 
   initialized = true;
 
-  // If the visitor grants functional consent later in the session, add Session
-  // Replay at runtime without requiring a page reload.
-  let replayAdded = hasConsent('functional');
+  // Replay is added after init (now, or whenever functional consent is granted
+  // later in the session) without requiring a page reload.
+  if (hasConsent('functional')) loadReplay();
   onConsentChange((state) => {
-    if (state.functional && !replayAdded) {
-      replayAdded = true;
-      Sentry.addIntegration(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
-    }
+    if (state.functional) loadReplay();
   });
 
   return true;
