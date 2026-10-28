@@ -1,5 +1,6 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 import { structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 import {
   checkRateLimit,
@@ -33,6 +34,10 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Spends AI credits; admins, or send-article-webhook via the service role.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     // Rate limit check

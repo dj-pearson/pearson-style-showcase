@@ -1,6 +1,8 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
+import { assertPublicUrl, safeFetch, UrlGuardError } from '../_shared/url-guard.ts';
 import {
   createSupabaseClient,
   getAIConfigs,
@@ -15,6 +17,11 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Spends AI credits. Admins from the dashboard; the Make.com integration must
+  // authenticate with the service role key.
+  const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+  if (!auth.ok) return auth.response!;
 
   try {
     // Parse the JSON body. Do NOT log raw request bodies or echo them back —
@@ -55,6 +62,24 @@ export default async (req: Request): Promise<Response> => {
       console.log(
         `Direct AI Content Request - Type: ${type}, Prompt length: ${prompt?.length ?? 0}`
       );
+    }
+
+    // The webhook is fetched server-side, so it must be a public https endpoint.
+    // Check before generating so a bad URL does not cost an AI call.
+    if (webhookUrl !== undefined && webhookUrl !== null && webhookUrl !== '') {
+      try {
+        if (typeof webhookUrl !== 'string' || !webhookUrl.startsWith('https://')) {
+          throw new UrlGuardError('webhook_url must be an https URL');
+        }
+        await assertPublicUrl(webhookUrl);
+      } catch (guardError) {
+        const message =
+          guardError instanceof UrlGuardError ? guardError.message : 'Invalid webhook_url';
+        return new Response(JSON.stringify({ error: `Invalid webhook_url: ${message}` }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     const supabaseClient = createSupabaseClient();
@@ -143,8 +168,8 @@ export default async (req: Request): Promise<Response> => {
     // Send webhook notification if Make.com integration
     if (webhookUrl) {
       try {
-        console.log(`Sending webhook notification to: ${webhookUrl}`);
-        await fetch(webhookUrl, {
+        console.log('Sending webhook notification');
+        await safeFetch(webhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -157,6 +182,7 @@ export default async (req: Request): Promise<Response> => {
             timestamp: new Date().toISOString(),
             webhook_source: 'ai-content-generator',
           }),
+          signal: AbortSignal.timeout(15_000),
         });
         console.log('Webhook notification sent successfully');
       } catch (webhookError) {

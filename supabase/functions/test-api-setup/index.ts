@@ -1,5 +1,6 @@
 import 'https://deno.land/x/xhr@0.1.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 /**
  * Test API Setup
@@ -15,6 +16,10 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Calls paid third-party APIs with server-held keys; admins only.
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
 
   const results: any = {
     timestamp: new Date().toISOString(),
