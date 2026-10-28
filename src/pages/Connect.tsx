@@ -94,9 +94,9 @@ const Connect = () => {
                 </div>
 
                 {/* Booking Calendar */}
-                <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+                <Card className="border-primary/30 bg-card">
                   <CardContent className="mobile-card text-center">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 text-primary" />
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-primary" aria-hidden="true" />
                     <h2 className="mobile-heading-sm mb-3">Schedule a Call</h2>
                     <p className="text-base text-muted-foreground mb-4">
                       Prefer to talk? Book a 15-minute intro call to discuss your project.

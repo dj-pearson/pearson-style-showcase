@@ -8,7 +8,8 @@ import SEO from '@/components/SEO';
 import StructuredData from '@/components/SEO/StructuredData';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, HelpCircle, ArrowRight, MessageCircle } from 'lucide-react';
+import * as AccordionPrimitive from '@radix-ui/react-accordion';
+import { ChevronDown, HelpCircle, ArrowRight, MessageCircle } from 'lucide-react';
 
 interface FAQItem {
   id: string;
@@ -19,11 +20,16 @@ interface FAQItem {
 }
 
 const FAQ = () => {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Fetch FAQs from database
-  const { data: faqData = [], isLoading } = useQuery({
+  const {
+    data: faqData = [],
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['faqs'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -48,10 +54,6 @@ const FAQ = () => {
     if (!selectedCategory) return faqData;
     return faqData.filter((faq) => faq.category === selectedCategory);
   }, [faqData, selectedCategory]);
-
-  const toggleFAQ = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -147,49 +149,55 @@ const FAQ = () => {
                     <div key={i} className="h-20 bg-muted animate-pulse rounded-lg"></div>
                   ))}
                 </div>
+              ) : error ? (
+                <div className="text-center py-12" role="alert">
+                  <p className="text-destructive mb-4">Couldn't load the FAQs.</p>
+                  <Button onClick={() => refetch()} disabled={isFetching}>
+                    {isFetching ? 'Retrying' : 'Try again'}
+                  </Button>
+                </div>
               ) : filteredFAQs.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">No FAQs found for this category.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {filteredFAQs.map((faq, index) => (
-                    <Card
+                // Keyed by FAQ id, so switching category never opens a
+                // different question at the same position.
+                <AccordionPrimitive.Root type="single" collapsible className="space-y-4">
+                  {filteredFAQs.map((faq) => (
+                    <AccordionPrimitive.Item
                       key={faq.id}
-                      className="overflow-hidden transition-all duration-200 hover:shadow-lg"
+                      value={faq.id}
+                      className="overflow-hidden rounded-lg border bg-card text-card-foreground"
                       itemScope
                       itemType="https://schema.org/Question"
                     >
-                      <button
-                        onClick={() => toggleFAQ(index)}
-                        className="w-full text-left p-6 flex justify-between items-start gap-4 hover:bg-muted/50 transition-colors"
-                        aria-expanded={openIndex === index}
-                      >
-                        <h2 className="text-lg font-semibold pr-8" itemProp="name">
-                          {faq.question}
+                      <AccordionPrimitive.Header asChild>
+                        <h2 className="text-lg font-semibold">
+                          <AccordionPrimitive.Trigger className="group flex w-full items-start justify-between gap-4 p-6 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                            <span className="pr-8" itemProp="name">
+                              {faq.question}
+                            </span>
+                            <ChevronDown
+                              aria-hidden="true"
+                              className="mt-1 h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180 group-data-[state=open]:text-primary"
+                            />
+                          </AccordionPrimitive.Trigger>
                         </h2>
-                        <div className="flex-shrink-0 mt-1">
-                          {openIndex === index ? (
-                            <ChevronUp className="w-5 h-5 text-primary" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                          )}
-                        </div>
-                      </button>
-
-                      {openIndex === index && (
-                        <div
-                          className="px-6 pb-6 text-muted-foreground leading-relaxed"
-                          itemScope
-                          itemType="https://schema.org/Answer"
-                          itemProp="acceptedAnswer"
-                        >
+                      </AccordionPrimitive.Header>
+                      <AccordionPrimitive.Content
+                        className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+                        itemScope
+                        itemType="https://schema.org/Answer"
+                        itemProp="acceptedAnswer"
+                      >
+                        <div className="px-6 pb-6 text-muted-foreground leading-relaxed">
                           <p itemProp="text">{faq.answer}</p>
                         </div>
-                      )}
-                    </Card>
+                      </AccordionPrimitive.Content>
+                    </AccordionPrimitive.Item>
                   ))}
-                </div>
+                </AccordionPrimitive.Root>
               )}
             </div>
           </div>
@@ -199,7 +207,7 @@ const FAQ = () => {
         <section className="py-16 sm:py-20 bg-muted/30">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
-              <Card className="p-8 sm:p-10 bg-gradient-to-br from-primary/10 via-background to-accent/10 border-primary/20">
+              <Card className="p-8 sm:p-10 bg-card border-primary/20">
                 <div className="text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-6">
                     <MessageCircle className="w-6 h-6 text-primary" />

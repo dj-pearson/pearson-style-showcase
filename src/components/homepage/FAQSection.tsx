@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import * as AccordionPrimitive from '@radix-ui/react-accordion';
+import { ChevronDown } from 'lucide-react';
 import StructuredData from '@/components/SEO/StructuredData';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,8 +13,6 @@ interface FAQItem {
 }
 
 const FAQSection = () => {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
   // Fetch FAQs from database
   const { data: faqData = [], isLoading } = useQuery({
     queryKey: ['faqs'],
@@ -30,10 +27,6 @@ const FAQSection = () => {
     },
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes
   });
-
-  const toggleFAQ = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
 
   if (isLoading) {
     return (
@@ -62,54 +55,51 @@ const FAQSection = () => {
       <StructuredData
         type="faq"
         data={{
-          questions: faqData.map(item => ({
+          questions: faqData.map((item) => ({
             question: item.question,
-            answer: item.answer
-          }))
+            answer: item.answer,
+          })),
         }}
       />
 
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-10 sm:mb-12">
-          <h2 className="mobile-heading-lg text-primary mb-4">
-            Frequently Asked Questions
-          </h2>
+          <h2 className="mobile-heading-lg text-primary mb-4">Frequently Asked Questions</h2>
           <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
             Get answers to common questions about AI automation and implementation
           </p>
         </div>
 
-        <div className="space-y-4">
-          {faqData.map((faq, index) => (
-            <Card
+        {/*
+          Radix primitives rather than the shadcn AccordionTrigger: that one
+          renders its chevron without aria-hidden and fixes the answer at
+          text-sm. Radix supplies the <h3> wrapper, aria-expanded,
+          aria-controls and the role="region" panel labelled by its button.
+        */}
+        <AccordionPrimitive.Root type="single" collapsible className="space-y-4">
+          {faqData.map((faq) => (
+            <AccordionPrimitive.Item
               key={faq.id}
-              className="overflow-hidden transition-all duration-200 hover:shadow-lg"
+              value={faq.id}
+              className="overflow-hidden rounded-lg border bg-card text-card-foreground"
             >
-              <button
-                onClick={() => toggleFAQ(index)}
-                className="w-full text-left p-6 flex justify-between items-start gap-4 hover:bg-muted/50 transition-colors"
-                aria-expanded={openIndex === index}
-              >
-                <h3 className="text-lg font-semibold pr-8">
-                  {faq.question}
+              <AccordionPrimitive.Header asChild>
+                <h3 className="text-lg font-semibold">
+                  <AccordionPrimitive.Trigger className="group flex w-full items-start justify-between gap-4 p-6 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                    <span className="pr-8">{faq.question}</span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      className="mt-1 h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180 group-data-[state=open]:text-primary"
+                    />
+                  </AccordionPrimitive.Trigger>
                 </h3>
-                <div className="flex-shrink-0 mt-1">
-                  {openIndex === index ? (
-                    <ChevronUp className="w-5 h-5 text-primary" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                  )}
-                </div>
-              </button>
-
-              {openIndex === index && (
-                <div className="px-6 pb-6 text-muted-foreground leading-relaxed">
-                  {faq.answer}
-                </div>
-              )}
-            </Card>
+              </AccordionPrimitive.Header>
+              <AccordionPrimitive.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                <div className="px-6 pb-6 text-muted-foreground leading-relaxed">{faq.answer}</div>
+              </AccordionPrimitive.Content>
+            </AccordionPrimitive.Item>
           ))}
-        </div>
+        </AccordionPrimitive.Root>
       </div>
     </section>
   );

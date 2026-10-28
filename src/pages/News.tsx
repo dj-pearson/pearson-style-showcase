@@ -341,7 +341,7 @@ const News = () => {
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-foreground leading-tight">
               News & Insights
             </h1>
-            <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto px-2 leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-2 leading-relaxed">
               Field notes and teardowns on AI CRM automation — what actually works inside the CRM,
               and why so much of it does not.
             </p>
@@ -356,7 +356,7 @@ const News = () => {
                   Search articles
                 </label>
                 <Search
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none"
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 pointer-events-none"
                   aria-hidden="true"
                 />
                 <Input
@@ -514,7 +514,7 @@ const News = () => {
             {/* Active Filters Display */}
             {(searchTerm || selectedCategory !== 'all') && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700">
-                <span className="text-sm text-gray-400 font-medium">Active filters:</span>
+                <span className="text-sm text-muted-foreground font-medium">Active filters:</span>
                 {searchTerm && (
                   <Badge
                     variant="secondary"
@@ -535,7 +535,7 @@ const News = () => {
             )}
 
             {/* Results Count */}
-            <div className="mt-4 text-base text-gray-400 font-medium">
+            <div className="mt-4 text-base text-muted-foreground font-medium">
               Showing {sortedArticles.length} of {totalCount} articles
               {totalPages > 1 && ` (page ${currentPage} of ${totalPages})`}
             </div>
@@ -571,7 +571,7 @@ const News = () => {
               ) : (
                 <div className="text-center py-12 px-4">
                   <div className="mobile-card bg-muted/30 max-w-md mx-auto">
-                    <p className="text-base text-gray-400 mb-4">
+                    <p className="text-base text-muted-foreground mb-4">
                       No articles match your current filters.
                     </p>
                     <Button
@@ -586,7 +586,7 @@ const News = () => {
               )
             ) : (
               <div className="text-center py-12 px-4">
-                <p className="text-base text-gray-400">No articles found.</p>
+                <p className="text-base text-muted-foreground">No articles found.</p>
               </div>
             )}
 
@@ -612,7 +612,7 @@ const News = () => {
                   }, [])
                   .map((item, idx) =>
                     typeof item === 'string' ? (
-                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-500">
+                      <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">
                         ...
                       </span>
                     ) : (
@@ -645,7 +645,7 @@ const News = () => {
               <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 text-white leading-tight">
                 Stay Connected
               </h2>
-              <p className="text-sm sm:text-base text-gray-400 mb-4 sm:mb-5 md:mb-6 leading-relaxed">
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-5 md:mb-6 leading-relaxed">
                 Subscribe to get the latest insights on AI, technology, and business strategy
                 delivered to your inbox.
               </p>

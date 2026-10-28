@@ -50,6 +50,23 @@ interface Certification {
   display_order: number;
 }
 
+interface SectionErrorProps {
+  /** What failed to load, as the reader would name it. */
+  what: string;
+  onRetry: () => void;
+  isRetrying: boolean;
+}
+
+/** Shown in place of a section whose query failed, so it fails visibly. */
+const SectionError = ({ what, onRetry, isRetrying }: SectionErrorProps) => (
+  <div className="rounded-lg border border-border bg-card p-6 text-center" role="alert">
+    <p className="text-destructive mb-4">Couldn't load {what}.</p>
+    <Button variant="outline" size="sm" onClick={onRetry} disabled={isRetrying}>
+      {isRetrying ? 'Retrying' : 'Try again'}
+    </Button>
+  </div>
+);
+
 const About = () => {
   const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['profile-settings'],
@@ -67,7 +84,13 @@ const About = () => {
   });
 
   // Fetch achievements from database
-  const { data: achievements = [], isLoading: isAchievementsLoading } = useQuery({
+  const {
+    data: achievements = [],
+    isLoading: isAchievementsLoading,
+    error: achievementsError,
+    refetch: refetchAchievements,
+    isFetching: isAchievementsFetching,
+  } = useQuery({
     queryKey: ['achievements'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -82,7 +105,13 @@ const About = () => {
   });
 
   // Fetch work experience from database
-  const { data: experience = [], isLoading: isExperienceLoading } = useQuery({
+  const {
+    data: experience = [],
+    isLoading: isExperienceLoading,
+    error: experienceError,
+    refetch: refetchExperience,
+    isFetching: isExperienceFetching,
+  } = useQuery({
     queryKey: ['work-experience'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -97,7 +126,13 @@ const About = () => {
   });
 
   // Fetch certifications from database
-  const { data: certifications = [], isLoading: isCertificationsLoading } = useQuery({
+  const {
+    data: certifications = [],
+    isLoading: isCertificationsLoading,
+    error: certificationsError,
+    refetch: refetchCertifications,
+    isFetching: isCertificationsFetching,
+  } = useQuery({
     queryKey: ['certifications'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -250,7 +285,7 @@ const About = () => {
             </div>
 
             {/* My Story */}
-            <Card className="mb-10 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+            <Card className="mb-10 border-primary/30 bg-card">
               <CardContent className="mobile-card">
                 <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">
                   <Award className="w-6 h-6 text-primary" />
@@ -311,6 +346,18 @@ const About = () => {
                     </Card>
                   ))}
                 </div>
+              </div>
+            ) : achievementsError ? (
+              <div className="mb-10">
+                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6 text-primary" />
+                  Key Achievements
+                </h2>
+                <SectionError
+                  what="achievements"
+                  onRetry={() => refetchAchievements()}
+                  isRetrying={isAchievementsFetching}
+                />
               </div>
             ) : (
               achievements.length > 0 && (
@@ -377,6 +424,18 @@ const About = () => {
                     </Card>
                   ))}
                 </div>
+              </div>
+            ) : experienceError ? (
+              <div className="mb-10">
+                <h2 className="mobile-heading-sm mb-6 flex items-center gap-2">
+                  <Briefcase className="w-6 h-6 text-primary" />
+                  Professional Experience
+                </h2>
+                <SectionError
+                  what="work history"
+                  onRetry={() => refetchExperience()}
+                  isRetrying={isExperienceFetching}
+                />
               </div>
             ) : (
               experience.length > 0 && (
@@ -452,6 +511,18 @@ const About = () => {
                     </div>
                   </CardContent>
                 </Card>
+              ) : certificationsError ? (
+                <div>
+                  <h2 className="mobile-heading-sm mb-4 flex items-center gap-2">
+                    <Award className="w-6 h-6 text-primary" />
+                    Certifications
+                  </h2>
+                  <SectionError
+                    what="certifications"
+                    onRetry={() => refetchCertifications()}
+                    isRetrying={isCertificationsFetching}
+                  />
+                </div>
               ) : (
                 certifications.length > 0 && (
                   <Card className="border-border bg-card/50 hover:border-primary/30 transition-colors">
@@ -508,7 +579,7 @@ const About = () => {
             </Card>
 
             {/* CTA Section */}
-            <Card className="bg-gradient-to-br from-primary/10 via-background to-accent/10 border-primary/30">
+            <Card className="bg-card border-primary/30">
               <CardContent className="mobile-card text-center">
                 <h3 className="mobile-heading-sm mb-4">Let's Work Together</h3>
                 <p className="text-base text-muted-foreground mb-6 max-w-2xl mx-auto">

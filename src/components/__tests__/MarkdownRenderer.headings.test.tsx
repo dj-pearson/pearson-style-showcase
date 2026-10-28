@@ -24,9 +24,16 @@ describe('MarkdownRenderer headings', () => {
   it('gives every heading a linkable id', () => {
     render(<MarkdownRenderer content={'# Title\n\n## First section\n\n### Detail'} />);
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveAttribute('id', 'title');
-    expect(screen.getByRole('heading', { level: 2 })).toHaveAttribute('id', 'first-section');
+    const h2s = screen.getAllByRole('heading', { level: 2 }).map((h) => h.id);
+    expect(h2s).toEqual(['title', 'first-section']);
     expect(screen.getByRole('heading', { level: 3 })).toHaveAttribute('id', 'detail');
+  });
+
+  it('never renders an h1, since the page around it already has one', () => {
+    render(<MarkdownRenderer content={'# Title\n\nBody'} />);
+
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Title' })).toBeInTheDocument();
   });
 
   it('keeps duplicate headings distinct', () => {

@@ -127,7 +127,7 @@ const AITools = () => {
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-foreground leading-tight">
               AI Tools & Services
             </h1>
-            <p className="text-base sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto mb-6 sm:mb-8 px-2 leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 px-2 leading-relaxed">
               Discover 100+ revolutionary AI tools transforming work in 2025. From agentic AI
               systems to specialized industry solutions.
             </p>
@@ -162,13 +162,13 @@ const AITools = () => {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto">
                 <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
                   <div className="text-xl sm:text-2xl font-bold text-cyan-400">{tools.length}</div>
-                  <div className="text-xs sm:text-sm text-gray-400">Total Tools</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Total Tools</div>
                 </div>
                 <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
                   <div className="text-xl sm:text-2xl font-bold text-cyan-400">
                     {categories.length - 1}
                   </div>
-                  <div className="text-xs sm:text-sm text-gray-400">Categories</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Categories</div>
                 </div>
                 <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
                   <div className="text-xl sm:text-2xl font-bold text-cyan-400">
@@ -178,11 +178,11 @@ const AITools = () => {
                       ).length
                     }
                   </div>
-                  <div className="text-xs sm:text-sm text-gray-400">Free Tools</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Free Tools</div>
                 </div>
                 <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
                   <div className="text-xl sm:text-2xl font-bold text-cyan-400">2025</div>
-                  <div className="text-xs sm:text-sm text-gray-400">Latest</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Latest</div>
                 </div>
               </div>
             )}
@@ -235,7 +235,7 @@ const AITools = () => {
               </div>
             ) : error ? (
               <div className="text-center py-12 px-4">
-                <p className="text-base text-gray-400">
+                <p className="text-base text-muted-foreground">
                   Error loading AI tools. Please try again later.
                 </p>
               </div>
@@ -261,7 +261,7 @@ const AITools = () => {
                                 href={tool.link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-gray-400 hover:text-cyan-400 transition-colors"
+                                className="text-muted-foreground hover:text-cyan-400 transition-colors"
                                 aria-label={`Visit ${tool.title} website (opens in new tab)`}
                               >
                                 <ExternalLink className="w-4 h-4" aria-hidden="true" />
@@ -276,7 +276,7 @@ const AITools = () => {
                           </Badge>
                         </div>
                       </div>
-                      <CardDescription className="text-gray-400 line-clamp-3">
+                      <CardDescription className="text-muted-foreground line-clamp-3">
                         {tool.description}
                       </CardDescription>
                     </CardHeader>
@@ -300,7 +300,7 @@ const AITools = () => {
                               {tool.features.length > 4 && (
                                 <Badge
                                   variant="outline"
-                                  className="border-gray-600 text-gray-400 text-xs"
+                                  className="border-gray-600 text-muted-foreground text-xs"
                                 >
                                   +{tool.features.length - 4} more
                                 </Badge>
@@ -311,13 +311,13 @@ const AITools = () => {
 
                         <div className="flex justify-between items-center pt-2 border-t border-gray-700">
                           <div className="text-sm">
-                            <span className="text-gray-500">Pricing: </span>
+                            <span className="text-muted-foreground">Pricing: </span>
                             <span className="text-cyan-400 font-medium">
                               {tool.pricing || 'Contact for pricing'}
                             </span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-gray-500">Level: </span>
+                            <span className="text-muted-foreground">Level: </span>
                             <span
                               className={`font-medium ${
                                 tool.complexity === 'Beginner'
@@ -338,7 +338,7 @@ const AITools = () => {
               </div>
             ) : (
               <div className="text-center py-12 px-4">
-                <p className="text-base text-gray-400 mb-4">
+                <p className="text-base text-muted-foreground mb-4">
                   No AI tools found in the {selectedCategory} category.
                 </p>
                 <Button
@@ -397,7 +397,7 @@ const AITools = () => {
               <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">
                 Ready to Transform Your Business?
               </h2>
-              <p className="text-base text-gray-400 mb-5 sm:mb-6 leading-relaxed">
+              <p className="text-base text-muted-foreground mb-5 sm:mb-6 leading-relaxed">
                 Let's discuss how AI can revolutionize your operations and give you a competitive
                 edge in today's market.
               </p>
