@@ -1,7 +1,5 @@
 import { lazy, Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useGSAP } from '@gsap/react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
@@ -28,23 +26,31 @@ const Interactive3DOrb = lazy(() =>
   import('../components/Interactive3DOrb').then((module) => ({ default: module.Interactive3DOrb }))
 );
 
-// Register GSAP plugins
-gsap.registerPlugin(ScrollTrigger);
+function prefersReducedMotionOS(): boolean {
+  return (
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 /**
- * Check if user prefers reduced motion or is on a low-performance device
+ * Check if user prefers reduced motion or is on a device where the WebGL orb
+ * costs more than it's worth: phones/tablets (< 768px wide), CPUs with 4 or
+ * fewer cores, and slow/data-saver connections. When this returns true the
+ * orb's lazy chunk (and the three.js vendor chunk behind it) is never fetched.
  */
 function shouldDisableHeavyAnimations(): boolean {
   if (typeof window === 'undefined') return false;
 
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const connection = (navigator as any).connection;
   const isSlowConnection =
     connection?.saveData ||
     connection?.effectiveType === 'slow-2g' ||
     connection?.effectiveType === '2g';
+  const isNarrowViewport = window.innerWidth < 768;
+  const cores = navigator.hardwareConcurrency;
+  const isLowCoreCount = typeof cores === 'number' && cores > 0 && cores <= 4;
 
-  return prefersReducedMotion || isSlowConnection;
+  return prefersReducedMotionOS() || isSlowConnection || isNarrowViewport || isLowCoreCount;
 }
 
 const Index = () => {
@@ -54,6 +60,10 @@ const Index = () => {
   const heroRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [shouldLoadOrb, setShouldLoadOrb] = useState(false);
+  const [heroVisible, setHeroVisible] = useState(true);
+  const [pageHidden, setPageHidden] = useState(
+    () => typeof document !== 'undefined' && document.hidden
+  );
   const { preferences } = useAccessibility();
 
   // Check if heavy animations should be disabled. This honors the OS-level
@@ -100,55 +110,93 @@ const Index = () => {
     };
   }, [disableHeavyAnimations]);
 
-  useGSAP(
-    () => {
-      if (!mainRef.current) return;
+  // Pause the orb's render loop when the hero has scrolled out of view.
+  useEffect(() => {
+    if (!shouldLoadOrb || !heroRef.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => setHeroVisible(entry.isIntersecting), {
+      rootMargin: '100px 0px',
+    });
+    observer.observe(heroRef.current);
+    return () => observer.disconnect();
+  }, [shouldLoadOrb]);
 
-      // Hero Exit Animation
-      // As user scrolls down, Hero content fades out and scales down (zooms out)
-      gsap.to(heroRef.current, {
-        scrollTrigger: {
-          trigger: heroRef.current,
-          start: 'top top',
-          end: 'bottom center',
-          scrub: 1,
-        },
-        opacity: 0,
-        scale: 0.8,
-        ease: 'power1.inOut',
-      });
+  // ...and when the tab is in the background.
+  useEffect(() => {
+    if (!shouldLoadOrb) return;
+    const onVisibilityChange = () => setPageHidden(document.hidden);
+    onVisibilityChange();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [shouldLoadOrb]);
 
-      // Sections Entry Animation (Zoom Out / Settle effect)
-      // Select all direct section children of the content wrapper
-      const sections = gsap.utils.toArray<HTMLElement>('.animate-section');
+  // Scroll-linked hero exit + section reveals. ScrollTrigger is imported on
+  // demand so it stays out of the homepage's critical path. Skipped entirely
+  // for reduced motion (OS setting or in-app toggle): content stays static.
+  const reduceMotion = preferences.reducedMotion || prefersReducedMotionOS();
+  useEffect(() => {
+    if (reduceMotion || !mainRef.current) return;
 
-      sections.forEach((section) => {
-        gsap.fromTo(
-          section,
-          {
-            opacity: 0,
-            scale: 1.1,
-            y: 50,
-          },
-          {
+    let cancelled = false;
+    let ctx: gsap.Context | undefined;
+
+    import('gsap/ScrollTrigger')
+      .then(({ ScrollTrigger }) => {
+        if (cancelled || !mainRef.current) return;
+        gsap.registerPlugin(ScrollTrigger);
+
+        ctx = gsap.context(() => {
+          // Hero Exit Animation
+          // As user scrolls down, Hero content fades out and scales down (zooms out)
+          gsap.to(heroRef.current, {
             scrollTrigger: {
-              trigger: section,
-              start: 'top 85%', // Start animation when top of section hits 85% of viewport
-              end: 'top 50%',
+              trigger: heroRef.current,
+              start: 'top top',
+              end: 'bottom center',
               scrub: 1,
-              toggleActions: 'play none none reverse',
             },
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            duration: 1,
-            ease: 'power2.out',
-          }
-        );
+            opacity: 0,
+            scale: 0.8,
+            ease: 'power1.inOut',
+          });
+
+          // Sections Entry Animation (Zoom Out / Settle effect)
+          const sections = gsap.utils.toArray<HTMLElement>('.animate-section');
+
+          sections.forEach((section) => {
+            gsap.fromTo(
+              section,
+              {
+                opacity: 0,
+                scale: 1.1,
+                y: 50,
+              },
+              {
+                scrollTrigger: {
+                  trigger: section,
+                  start: 'top 85%', // Start animation when top of section hits 85% of viewport
+                  end: 'top 50%',
+                  scrub: 1,
+                  toggleActions: 'play none none reverse',
+                },
+                opacity: 1,
+                scale: 1,
+                y: 0,
+                duration: 1,
+                ease: 'power2.out',
+              }
+            );
+          });
+        }, mainRef);
+      })
+      .catch(() => {
+        // Chunk failed to load: sections simply render without the reveal.
       });
-    },
-    { scope: mainRef }
-  );
+
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
+  }, [reduceMotion]);
 
   return (
     <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
@@ -168,7 +216,7 @@ const Index = () => {
                   </div>
                 }
               >
-                <Interactive3DOrb />
+                <Interactive3DOrb paused={!heroVisible || pageHidden} />
               </Suspense>
             </HeroErrorBoundary>
           </div>

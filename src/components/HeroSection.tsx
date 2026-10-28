@@ -124,10 +124,9 @@ const HeroSection = () => {
       tl.from(
         ctaRef.current,
         {
-          scale: 0.5,
           opacity: 0,
           duration: 0.8,
-          ease: 'elastic.out(1, 0.5)',
+          ease: 'power3.out',
         },
         '-=0.4'
       );
