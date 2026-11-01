@@ -119,16 +119,21 @@ const Search = () => {
 
         // Search projects.
         // NOTE: the projects table has no `published` or `slug` column (it uses
-        // `status`). The public Projects page shows all projects regardless of
-        // status, so search does the same for consistency and navigates via an
-        // id-based anchor (#project-<id>).
-        const { data: projects, error: projectsError } = await supabase
+        // `status`). The public Projects page hides only status = 'archived'
+        // (NULL stays visible), so archived rows are dropped here too, and a
+        // result links to /projects?highlight=<id>. The archived check runs in
+        // JS because the text match already uses the query's single `or`.
+        const { data: projectRows, error: projectsError } = await supabase
           .from('projects')
-          .select('id, title, description, image_url')
+          .select('id, title, description, image_url, status')
           .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
-          .limit(5);
+          .limit(10);
 
         if (projectsError) logger.error('Search projects query failed:', projectsError);
+        const projects = (projectRows ?? [])
+          .filter((p) => p.status !== 'archived')
+          .slice(0, 5)
+          .map(({ status: _status, ...rest }) => rest);
 
         // Search AI tools
         const { data: aiTools, error: aiToolsError } = await supabase
@@ -219,7 +224,7 @@ const Search = () => {
     if (result.type === 'article' && result.slug) {
       navigate(`/news/${result.slug}`);
     } else if (result.type === 'project') {
-      navigate(`/projects#project-${result.id}`);
+      navigate(`/projects?highlight=${encodeURIComponent(result.id)}`);
     } else if (result.type === 'ai_tool' && result.url) {
       window.open(result.url, '_blank', 'noopener,noreferrer');
     }

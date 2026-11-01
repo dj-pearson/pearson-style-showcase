@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
@@ -18,6 +19,7 @@ import { Search, Filter, X, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { ProjectListSkeleton } from '@/components/skeletons';
+import { cn } from '@/lib/utils';
 
 type Project = Tables<'projects'>;
 
@@ -51,18 +53,30 @@ const Projects = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 9;
 
+  // Changing what is shown always starts again from the first page, otherwise
+  // a narrower filter can leave the user on a page that no longer exists.
+  const updateSearchTerm = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+  const updateSelectedTag = (value: string) => {
+    setSelectedTag(value);
+    setCurrentPage(1);
+  };
+  const updateSortBy = (value: string) => {
+    setSortBy(value);
+    setCurrentPage(1);
+  };
+
   const {
-    data: projectsData,
+    data: projects,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['projects', currentPage],
+    queryKey: ['projects', 'public-list'],
     queryFn: async () => {
-      const from = (currentPage - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
       /*
-       * VISIBILITY FILTER — deliberately FAIL-OPEN.
+       * VISIBILITY FILTER - deliberately FAIL-OPEN.
        *
        * `status` did not control visibility at all before this: every row in the
        * table rendered publicly regardless of its value. The filter is written
@@ -76,20 +90,15 @@ const Projects = () => {
        * without a status would silently vanish from the public page; and if this
        * code shipped before the accompanying data migration ran, a naive filter
        * would empty the page entirely. Only an explicit 'archived' hides a row.
-       *
-       * The count query carries the SAME filter — omitting it there leaves the
-       * pagination total counting rows the list will never show, which produces
-       * a trailing empty page.
        */
       const VISIBLE = 'status.is.null,status.neq.archived';
 
-      const { count, error: countError } = await supabase
-        .from('projects')
-        .select('*', { count: 'exact', head: true })
-        .or(VISIBLE);
-
-      if (countError) throw countError;
-
+      /*
+       * The whole visible set is fetched in one request and filtered, sorted
+       * and paginated in the browser. There are only a handful of projects, and
+       * fetching a page at a time meant search, the tag list and the result
+       * count only ever saw the current nine rows.
+       */
       const { data, error } = await supabase
         .from('projects')
         .select(
@@ -98,18 +107,15 @@ const Projects = () => {
         .or(VISIBLE)
         .order('featured', { ascending: false })
         .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return { projects: (data || []) as Project[], totalCount: count || 0 };
+      return (data || []) as Project[];
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  const projects = projectsData?.projects;
-  const totalCount = projectsData?.totalCount || 0;
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const totalCount = projects?.length ?? 0;
 
   // Get unique tags for filtering - memoized
   const allTags = useMemo(() => {
@@ -150,10 +156,56 @@ const Projects = () => {
     });
   }, [filteredProjects, sortBy]);
 
+  const totalPages = Math.max(1, Math.ceil(sortedProjects.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pagedProjects = sortedProjects.slice(pageStart, pageStart + PAGE_SIZE);
+  const hasActiveFilters = searchTerm !== '' || selectedTag !== 'all';
+
+  // ?highlight=<id> (from site search) jumps to the page holding that project
+  // and marks it briefly. The old #project-<id> hash form is still honoured.
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const highlightParam =
+    searchParams.get('highlight') ?? location.hash.match(/^#project-(.+)$/)?.[1] ?? null;
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const handledHighlight = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightParam || !projects || handledHighlight.current === highlightParam) return;
+    if (!projects.some((p) => p.id === highlightParam)) {
+      handledHighlight.current = highlightParam;
+      return;
+    }
+    const index = sortedProjects.findIndex((p) => p.id === highlightParam);
+    if (index === -1) {
+      // Filters restored from a previous visit hide the project; drop them and
+      // let this effect run again against the full list.
+      setSearchTerm('');
+      setSelectedTag('all');
+      return;
+    }
+    handledHighlight.current = highlightParam;
+    setCurrentPage(Math.floor(index / PAGE_SIZE) + 1);
+    setHighlightedId(highlightParam);
+  }, [highlightParam, projects, sortedProjects]);
+
+  useEffect(() => {
+    if (!highlightedId) return;
+    const element = document.getElementById(`project-${highlightedId}`);
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    element?.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+    const timer = window.setTimeout(() => setHighlightedId(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [highlightedId, safePage]);
+
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedTag('all');
     setSortBy('newest');
+    setCurrentPage(1);
     // Clear from localStorage
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}_search`);
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}_tag`);
@@ -213,7 +265,7 @@ const Projects = () => {
                   id="project-search"
                   placeholder="Search projects..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => updateSearchTerm(e.target.value)}
                   className="mobile-input pl-12 bg-gray-700/50 border-gray-600 focus:border-cyan-500 text-base"
                   aria-label="Search projects"
                 />
@@ -223,7 +275,7 @@ const Projects = () => {
               <div className="flex flex-col sm:flex-row gap-3 w-full">
                 {/* Tag Filter */}
                 <div className="flex-1 sm:flex-initial">
-                  <Select value={selectedTag} onValueChange={setSelectedTag}>
+                  <Select value={selectedTag} onValueChange={updateSelectedTag}>
                     <SelectTrigger
                       aria-label="Filter projects by tag"
                       className="mobile-input w-full sm:w-[200px] bg-gray-700/50 border-gray-600"
@@ -244,7 +296,7 @@ const Projects = () => {
 
                 {/* Sort */}
                 <div className="flex-1 sm:flex-initial">
-                  <Select value={sortBy} onValueChange={setSortBy}>
+                  <Select value={sortBy} onValueChange={updateSortBy}>
                     <SelectTrigger
                       aria-label="Sort projects"
                       className="mobile-input w-full sm:w-[160px] bg-gray-700/50 border-gray-600"
@@ -283,7 +335,7 @@ const Projects = () => {
             </div>
 
             {/* Active Filters Display */}
-            {(searchTerm || selectedTag !== 'all') && (
+            {hasActiveFilters && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700">
                 <span className="text-sm text-gray-400 font-medium">Active filters:</span>
                 {searchTerm && (
@@ -307,8 +359,12 @@ const Projects = () => {
 
             {/* Results Count */}
             <div className="mt-4 text-base text-gray-400 font-medium">
-              Showing {sortedProjects.length} of {totalCount} projects
-              {totalPages > 1 && ` (page ${currentPage} of ${totalPages})`}
+              {sortedProjects.length === 0
+                ? `Showing 0 of ${totalCount} projects`
+                : `Showing ${pageStart + 1}-${pageStart + pagedProjects.length} of ${
+                    sortedProjects.length
+                  } ${hasActiveFilters ? `matching projects (${totalCount} total)` : 'projects'}`}
+              {totalPages > 1 && ` (page ${safePage} of ${totalPages})`}
             </div>
           </div>
 
@@ -335,8 +391,17 @@ const Projects = () => {
             ) : projects && projects.length > 0 ? (
               sortedProjects.length > 0 ? (
                 <div className="mobile-grid">
-                  {sortedProjects.map((project) => (
-                    <div key={project.id} id={`project-${project.id}`} className="scroll-mt-24">
+                  {pagedProjects.map((project) => (
+                    <div
+                      key={project.id}
+                      id={`project-${project.id}`}
+                      data-highlighted={highlightedId === project.id || undefined}
+                      className={cn(
+                        'scroll-mt-24 rounded-xl motion-safe:transition-shadow motion-safe:duration-500',
+                        highlightedId === project.id &&
+                          'ring-2 ring-cyan-400 ring-offset-2 ring-offset-background'
+                      )}
+                    >
                       <ProjectCard project={project} />
                     </div>
                   ))}
@@ -365,38 +430,42 @@ const Projects = () => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-8">
+              <nav
+                aria-label="Projects pages"
+                className="flex flex-wrap justify-center items-center gap-2 mt-8"
+              >
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1 || isLoading}
-                  className="border-gray-600"
+                  onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                  disabled={safePage <= 1}
+                  className="min-h-[44px] border-gray-600"
                 >
                   Previous
                 </Button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Button
                     key={page}
-                    variant={page === currentPage ? 'default' : 'outline'}
-                    size="sm"
+                    variant={page === safePage ? 'default' : 'outline'}
                     onClick={() => setCurrentPage(page)}
-                    disabled={isLoading}
-                    className={page === currentPage ? 'bg-cyan-600' : 'border-gray-600'}
+                    aria-current={page === safePage ? 'page' : undefined}
+                    aria-label={`Page ${page}`}
+                    className={cn(
+                      'min-h-[44px] min-w-[44px]',
+                      page === safePage ? 'bg-cyan-600' : 'border-gray-600'
+                    )}
                   >
                     {page}
                   </Button>
                 ))}
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages || isLoading}
-                  className="border-gray-600"
+                  onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage >= totalPages}
+                  className="min-h-[44px] border-gray-600"
                 >
                   Next
                 </Button>
-              </div>
+              </nav>
             )}
           </div>
 
