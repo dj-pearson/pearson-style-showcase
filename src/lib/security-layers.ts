@@ -306,7 +306,10 @@ export const RESOURCE_PERMISSIONS: Record<ResourceType, Record<AccessAction, str
  */
 export async function checkAuthentication(): Promise<SecurityLayerResult> {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
 
     if (error) {
       logger.error('Authentication check failed:', error);
@@ -361,7 +364,10 @@ export async function checkAuthentication(): Promise<SecurityLayerResult> {
  */
 export async function getSecurityContext(): Promise<SecurityContext | null> {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
 
     if (error || !session) {
       return null;
@@ -374,7 +380,7 @@ export async function getSecurityContext(): Promise<SecurityContext | null> {
       .eq('user_id', session.user.id)
       .eq('is_active', true);
 
-    const roles = roleData?.map(r => r.role) || [];
+    const roles = roleData?.map((r) => r.role) || [];
 
     // Get permissions via RPC function
     const { data: permissionData } = await supabase.rpc('get_user_permissions', {
@@ -453,7 +459,7 @@ export function checkAnyPermission(
   context: SecurityContext,
   permissions: string[]
 ): SecurityLayerResult {
-  const hasAny = permissions.some(p => context.permissions.includes(p));
+  const hasAny = permissions.some((p) => context.permissions.includes(p));
   const isAdmin = context.roles.includes('admin');
 
   if (hasAny || isAdmin) {
@@ -482,7 +488,7 @@ export function checkAllPermissions(
   context: SecurityContext,
   permissions: string[]
 ): SecurityLayerResult {
-  const hasAll = permissions.every(p => context.permissions.includes(p));
+  const hasAll = permissions.every((p) => context.permissions.includes(p));
   const isAdmin = context.roles.includes('admin');
 
   if (hasAll || isAdmin) {
@@ -496,7 +502,7 @@ export function checkAllPermissions(
     };
   }
 
-  const missing = permissions.filter(p => !context.permissions.includes(p));
+  const missing = permissions.filter((p) => !context.permissions.includes(p));
 
   return {
     passed: false,
@@ -513,7 +519,7 @@ export function checkRoleLevel(
   context: SecurityContext,
   requiredRoles: string[]
 ): SecurityLayerResult {
-  const hasRole = requiredRoles.some(role => context.roles.includes(role));
+  const hasRole = requiredRoles.some((role) => context.roles.includes(role));
 
   if (hasRole) {
     return {
@@ -569,7 +575,7 @@ export function checkResourceOwnership(
   }
 
   // Check bypass roles
-  if (policy.bypassRoles?.some(role => context.roles.includes(role))) {
+  if (policy.bypassRoles?.some((role) => context.roles.includes(role))) {
     return {
       passed: true,
       layer: 'ownership',
@@ -654,7 +660,7 @@ export function buildOwnershipFilter(
   }
 
   // Role bypass - no filter needed
-  if (policy.bypassRoles?.some(role => context.roles.includes(role))) {
+  if (policy.bypassRoles?.some((role) => context.roles.includes(role))) {
     return null;
   }
 
@@ -791,29 +797,74 @@ export interface SecurityEvent {
   metadata?: Record<string, unknown>;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The signed-in user an audit row is written as. */
+export interface SecurityEventActor {
+  id: string;
+  email: string;
+}
+
 /**
- * Log a security event for audit purposes
+ * Build the admin_activity_log row for a security event.
+ *
+ * Matches the table as it stands (20251108000001 + 20251125000001): there is
+ * no `details` column, so the event detail goes into `metadata`, and
+ * `admin_email` is NOT NULL. The insert policy from 20261101000002 requires
+ * admin_id = auth.uid(), so the row is always written as the session user;
+ * a different event.userId is kept in metadata instead. resource_id is a uuid
+ * column, so a non-uuid resource reference also moves to metadata.
+ */
+export function buildSecurityEventRow(event: SecurityEvent, actor: SecurityEventActor) {
+  const resourceIdIsUuid = !!event.resourceId && UUID_RE.test(event.resourceId);
+  return {
+    admin_id: actor.id,
+    admin_email: actor.email,
+    action: `security_${event.type}`,
+    action_category: 'security',
+    resource_type: event.resourceType || 'system',
+    resource_id: resourceIdIsUuid ? event.resourceId : null,
+    success: event.result.authorized,
+    timestamp: event.timestamp.toISOString(),
+    metadata: {
+      ...event.metadata,
+      access_action: event.action,
+      result: event.result.authorized ? 'authorized' : 'denied',
+      failed_at: event.result.failedAt,
+      layers: event.result.layers.map((l) => ({
+        layer: l.layer,
+        passed: l.passed,
+        error: l.error,
+      })),
+      ...(event.resourceId && !resourceIdIsUuid ? { resource_ref: event.resourceId } : {}),
+      ...(event.userId && event.userId !== actor.id ? { subject_user_id: event.userId } : {}),
+    },
+  };
+}
+
+/**
+ * Log a security event for audit purposes.
+ *
+ * Only an authenticated admin session can write admin_activity_log from the
+ * browser. Without a signed-in user (failed logins and other pre-auth events)
+ * the insert could never pass RLS, so it is skipped; admin-auth records those
+ * on the service role.
  */
 export async function logSecurityEvent(event: SecurityEvent): Promise<void> {
   try {
-    // Log to admin_activity_log for audit trail
-    const { error } = await supabase.from('admin_activity_log').insert({
-      admin_id: event.userId,
-      action: `security_${event.type}`,
-      resource_type: event.resourceType || 'system',
-      resource_id: event.resourceId,
-      details: {
-        action: event.action,
-        result: event.result.authorized ? 'authorized' : 'denied',
-        failedAt: event.result.failedAt,
-        layers: event.result.layers.map(l => ({
-          layer: l.layer,
-          passed: l.passed,
-          error: l.error,
-        })),
-        ...event.metadata,
-      },
-    });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const sessionUser = session?.user;
+
+    if (!sessionUser?.id || !sessionUser.email) {
+      logger.debug('Skipping security event log: no authenticated session', event.type);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('admin_activity_log')
+      .insert(buildSecurityEventRow(event, { id: sessionUser.id, email: sessionUser.email }));
 
     if (error) {
       logger.error('Failed to log security event:', error);
