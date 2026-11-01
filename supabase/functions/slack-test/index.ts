@@ -1,4 +1,5 @@
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 /**
  * Validate that a webhook URL is a legitimate Slack webhook.
@@ -30,6 +31,10 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // Admin only: this sends outbound requests to a caller-supplied webhook
+  const auth = await requireAdmin(req, corsHeaders);
+  if (!auth.ok) return auth.response!;
 
   try {
     const { webhookUrl, channel } = await req.json();

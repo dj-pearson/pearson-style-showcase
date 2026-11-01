@@ -2,54 +2,8 @@
  * Security utilities for input validation and sanitization
  */
 
-import DOMPurify from 'dompurify';
-import type { Config } from 'dompurify';
-
-/**
- * Sanitize HTML content to prevent XSS attacks
- * @param dirty - The potentially unsafe HTML string
- * @param options - Optional DOMPurify configuration
- * @returns Sanitized HTML string
- */
-export function sanitizeHtml(dirty: string, options?: Config): string {
-  const defaultConfig: Config = {
-    ALLOWED_TAGS: [
-      'p',
-      'br',
-      'strong',
-      'em',
-      'u',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'a',
-      'ul',
-      'ol',
-      'li',
-      'blockquote',
-      'code',
-      'pre',
-      'img',
-      'div',
-      'span',
-      'table',
-      'thead',
-      'tbody',
-      'tr',
-      'th',
-      'td',
-      'hr',
-    ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id'],
-    ALLOW_DATA_ATTR: false,
-    ALLOW_UNKNOWN_PROTOCOLS: false,
-  };
-
-  return String(DOMPurify.sanitize(dirty, { ...defaultConfig, ...options }));
-}
+// sanitizeHtml lives in '@/lib/sanitize' so that importing a validator from
+// this module does not pull DOMPurify into the bundle.
 
 /**
  * Validate and sanitize text input

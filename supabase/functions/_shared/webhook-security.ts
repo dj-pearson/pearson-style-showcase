@@ -15,20 +15,20 @@ export async function generateSignature(payload: string, secret: string): Promis
   const payloadData = encoder.encode(payload);
 
   const cryptoKey = await crypto.subtle.importKey(
-    "raw",
+    'raw',
     keyData,
-    { name: "HMAC", hash: "SHA-256" },
+    { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ["sign"]
+    ['sign']
   );
 
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, payloadData);
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, payloadData);
   const signatureArray = new Uint8Array(signature);
 
   // Convert to hex string
   return Array.from(signatureArray)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /**
@@ -56,6 +56,9 @@ function timingSafeEqual(a: string, b: string): boolean {
  * @param secret - The webhook secret key
  * @param timestamp - Optional timestamp to check for replay attacks
  * @param maxAgeSeconds - Maximum age of timestamp in seconds (default 5 minutes)
+ * @param options.requireTimestamp - Reject requests without a timestamp (default true).
+ *   Without a timestamp a captured signature can be replayed forever, so only
+ *   pass false for a legacy sender that cannot sign one.
  * @returns Object with valid boolean and error message if invalid
  */
 export async function verifyWebhookSignature(
@@ -63,30 +66,37 @@ export async function verifyWebhookSignature(
   signature: string | null,
   secret: string,
   timestamp?: string | null,
-  maxAgeSeconds: number = 300 // 5 minutes
+  maxAgeSeconds: number = 300, // 5 minutes
+  options: { requireTimestamp?: boolean } = {}
 ): Promise<{ valid: boolean; error?: string }> {
+  const requireTimestamp = options.requireTimestamp ?? true;
+
   // Check if signature is provided
   if (!signature) {
-    return { valid: false, error: "Missing webhook signature" };
+    return { valid: false, error: 'Missing webhook signature' };
+  }
+
+  if (!timestamp && requireTimestamp) {
+    return { valid: false, error: 'Missing webhook timestamp' };
   }
 
   // Check timestamp for replay attack prevention
   if (timestamp) {
-    const timestampNum = parseInt(timestamp, 10);
+    const timestampNum = /^\d+$/.test(timestamp) ? parseInt(timestamp, 10) : NaN;
     const now = Math.floor(Date.now() / 1000);
     const age = now - timestampNum;
 
     if (isNaN(timestampNum)) {
-      return { valid: false, error: "Invalid timestamp format" };
+      return { valid: false, error: 'Invalid timestamp format' };
     }
 
     if (age > maxAgeSeconds) {
-      return { valid: false, error: "Webhook timestamp too old" };
+      return { valid: false, error: 'Webhook timestamp too old' };
     }
 
     if (age < -60) {
       // Allow 1 minute clock skew into the future
-      return { valid: false, error: "Webhook timestamp in the future" };
+      return { valid: false, error: 'Webhook timestamp in the future' };
     }
 
     // Include timestamp in payload for signature verification
@@ -98,13 +108,11 @@ export async function verifyWebhookSignature(
   const expectedSignature = await generateSignature(payload, secret);
 
   // Handle different signature formats (with or without prefix)
-  const cleanSignature = signature.startsWith("sha256=")
-    ? signature.slice(7)
-    : signature;
+  const cleanSignature = signature.startsWith('sha256=') ? signature.slice(7) : signature;
 
   // Timing-safe comparison
   if (!timingSafeEqual(cleanSignature.toLowerCase(), expectedSignature.toLowerCase())) {
-    return { valid: false, error: "Invalid webhook signature" };
+    return { valid: false, error: 'Invalid webhook signature' };
   }
 
   return { valid: true };
@@ -120,27 +128,24 @@ export async function verifyWebhookRequest(
   req: Request,
   secret: string
 ): Promise<{ valid: true; payload: string } | { valid: false; response: Response }> {
-  const signature = req.headers.get("x-webhook-signature") ||
-    req.headers.get("x-hub-signature-256") ||
-    req.headers.get("x-signature");
-  const timestamp = req.headers.get("x-webhook-timestamp") ||
-    req.headers.get("x-timestamp");
+  const signature =
+    req.headers.get('x-webhook-signature') ||
+    req.headers.get('x-hub-signature-256') ||
+    req.headers.get('x-signature');
+  const timestamp = req.headers.get('x-webhook-timestamp') || req.headers.get('x-timestamp');
 
   const payload = await req.text();
 
   const result = await verifyWebhookSignature(payload, signature, secret, timestamp);
 
   if (!result.valid) {
-    console.error("Webhook verification failed:", result.error);
+    console.error('Webhook verification failed:', result.error);
     return {
       valid: false,
-      response: new Response(
-        JSON.stringify({ error: "Unauthorized", message: result.error }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        }
-      ),
+      response: new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
     };
   }
 

@@ -1,5 +1,10 @@
 import { assertEquals, assert } from '../test-asserts.ts';
-import { parseBearerToken, safeEqual } from '../require-admin-helpers.ts';
+import {
+  decodeJwtPayload,
+  parseBearerToken,
+  safeEqual,
+  tokenHasAal2,
+} from '../require-admin-helpers.ts';
 
 Deno.test('parseBearerToken extracts the token from a Bearer header', () => {
   assertEquals(parseBearerToken('Bearer abc.def.ghi'), 'abc.def.ghi');
@@ -37,4 +42,32 @@ Deno.test('safeEqual rejects differing lengths, including prefixes', () => {
   assert(!safeEqual('abc', 'abcd'));
   assert(!safeEqual('abcd', 'abc'));
   assert(!safeEqual('', 'a'));
+});
+
+function fakeJwt(payload: unknown): string {
+  const b64 = btoa(JSON.stringify(payload))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `eyJhbGciOiJIUzI1NiJ9.${b64}.sig`;
+}
+
+Deno.test('decodeJwtPayload reads the payload segment', () => {
+  const payload = decodeJwtPayload(fakeJwt({ sub: 'u1', aal: 'aal2' }));
+  assertEquals(payload?.sub, 'u1');
+  assertEquals(payload?.aal, 'aal2');
+});
+
+Deno.test('decodeJwtPayload returns null for malformed tokens', () => {
+  assertEquals(decodeJwtPayload('not-a-jwt'), null);
+  assertEquals(decodeJwtPayload('a..c'), null);
+  assertEquals(decodeJwtPayload('a.!!!.c'), null);
+  assertEquals(decodeJwtPayload(fakeJwt([1, 2])), null);
+});
+
+Deno.test('tokenHasAal2 accepts only aal2', () => {
+  assert(tokenHasAal2(fakeJwt({ aal: 'aal2' })));
+  assert(!tokenHasAal2(fakeJwt({ aal: 'aal1' })));
+  assert(!tokenHasAal2(fakeJwt({ sub: 'u1' })));
+  assert(!tokenHasAal2('service-role-key'));
 });

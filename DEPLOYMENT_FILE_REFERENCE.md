@@ -81,8 +81,7 @@
 ├── android-chrome-192x192.png
 ├── android-chrome-512x512.png
 ├── apple-touch-icon.png
-├── placeholder.svg
-└── amazon_ideas.csv              # Amazon product research data
+└── placeholder.svg
 ```
 
 ### Database & Backend
@@ -126,6 +125,7 @@
 ## Critical Environment Variables
 
 ### Frontend (.env file)
+
 ```env
 # REQUIRED - Public Supabase credentials
 VITE_SUPABASE_URL=https://qazhdcqvjppbbjxzvisp.supabase.co
@@ -136,6 +136,7 @@ VITE_GA_MEASUREMENT_ID=G-8R95ZXMV6L
 ```
 
 ### Backend Secrets (Supabase)
+
 ```bash
 # Core Supabase
 SUPABASE_URL=https://qazhdcqvjppbbjxzvisp.supabase.co
@@ -163,6 +164,7 @@ ALLOWED_ORIGIN=https://danpearson.net
 ## Build & Deployment Commands
 
 ### Local Development
+
 ```bash
 # Install dependencies
 npm install
@@ -181,6 +183,7 @@ npm run preview
 ```
 
 ### Production Build
+
 ```bash
 # Build for production (output: dist/)
 npm run build
@@ -193,6 +196,7 @@ npm run build:pages
 ```
 
 ### Supabase Management
+
 ```bash
 # Login to Supabase
 supabase login
@@ -220,6 +224,7 @@ supabase functions serve
 ```
 
 ### Cloudflare Pages Deployment
+
 ```bash
 # Install Wrangler
 npm install -g wrangler
@@ -242,6 +247,7 @@ wrangler pages rollback
 ## Key Configuration Details
 
 ### Vite Config (`vite.config.ts`)
+
 - **Build target:** ES2020
 - **Minifier:** esbuild
 - **Chunk size warning:** 1000KB
@@ -251,12 +257,14 @@ wrangler pages rollback
 - **Host:** :: (IPv6)
 
 ### Cloudflare Pages (`wrangler.toml`)
+
 - **Project name:** pearson-style-showcase
 - **Output directory:** dist
 - **Build command:** npm run build
 - **Node.js version:** 18
 
 ### Supabase Config (`supabase/config.toml`)
+
 - **Project ID:** qazhdcqvjppbbjxzvisp
 - **Database port:** 54322
 - **API port:** 54321
@@ -264,6 +272,7 @@ wrangler pages rollback
 - **Refresh token rotation:** Enabled
 
 ### TypeScript (`tsconfig.app.json`)
+
 - **Target:** ES2020
 - **Module:** ESNext
 - **Strict mode:** ENABLED
@@ -277,6 +286,7 @@ wrangler pages rollback
 ### File: `/home/user/pearson-style-showcase/public/_headers`
 
 #### Asset Caching (1 year)
+
 ```
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
@@ -287,6 +297,7 @@ wrangler pages rollback
 ```
 
 #### Image Caching (1 week)
+
 ```
 /*.png
 /*.jpg
@@ -298,12 +309,14 @@ wrangler pages rollback
 ```
 
 #### HTML No-Cache
+
 ```
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
 ```
 
 #### Font Caching (1 year)
+
 ```
 /*.woff
 /*.woff2
@@ -312,6 +325,7 @@ wrangler pages rollback
 ```
 
 #### Security Headers (All)
+
 ```
 /*
   X-Frame-Options: DENY
@@ -326,39 +340,44 @@ wrangler pages rollback
 ## Database Tables Overview
 
 ### Content Tables
-| Table | Purpose | Rows |
-|-------|---------|------|
-| `projects` | Portfolio projects | ~6 seeded |
-| `articles` | Blog/CMS articles | Variable |
-| `ventures` | Current projects/ventures | Variable |
+
+| Table      | Purpose                   | Rows      |
+| ---------- | ------------------------- | --------- |
+| `projects` | Portfolio projects        | ~6 seeded |
+| `articles` | Blog/CMS articles         | Variable  |
+| `ventures` | Current projects/ventures | Variable  |
 
 ### Admin & Auth
-| Table | Purpose | Status |
-|-------|---------|--------|
-| `admin_users` | Admin user accounts | Manual setup |
+
+| Table                | Purpose                      | Status         |
+| -------------------- | ---------------------------- | -------------- |
+| `admin_users`        | Admin user accounts          | Manual setup   |
 | `admin_activity_log` | Audit trail of admin actions | Auto-populated |
 
 ### Social & Profile
-| Table | Purpose | Rows |
-|-------|---------|------|
-| `testimonials` | Client testimonials | Variable |
+
+| Table              | Purpose                 | Rows     |
+| ------------------ | ----------------------- | -------- |
+| `testimonials`     | Client testimonials     | Variable |
 | `profile_settings` | Site owner profile data | 1 record |
 
 ### Support System
-| Table | Purpose |
-|-------|---------|
-| `support_tickets` | Support tickets |
-| `ticket_responses` | Support ticket replies |
-| `kb_articles` | Knowledge base articles |
+
+| Table              | Purpose                 |
+| ------------------ | ----------------------- |
+| `support_tickets`  | Support tickets         |
+| `ticket_responses` | Support ticket replies  |
+| `kb_articles`      | Knowledge base articles |
 
 ### Monitoring & Maintenance
-| Table | Purpose |
-|-------|---------|
-| `system_metrics` | Performance metrics |
-| `alert_rules` | Alert configuration |
-| `maintenance_tasks` | Scheduled tasks |
-| `maintenance_results` | Task execution results |
-| `link_health` | Broken link tracking |
+
+| Table                 | Purpose                 |
+| --------------------- | ----------------------- |
+| `system_metrics`      | Performance metrics     |
+| `alert_rules`         | Alert configuration     |
+| `maintenance_tasks`   | Scheduled tasks         |
+| `maintenance_results` | Task execution results  |
+| `link_health`         | Broken link tracking    |
 | `performance_history` | Core Web Vitals history |
 
 ---
@@ -366,21 +385,11 @@ wrangler pages rollback
 ## CSP Directives (`index.html`)
 
 ```html
-default-src 'self'
-script-src 'self' 'unsafe-inline' 'unsafe-eval' 
-  https://www.googletagmanager.com 
-  https://www.google-analytics.com
-style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
-font-src 'self' https://fonts.gstatic.com data:
-img-src 'self' data: https: blob:
-connect-src 'self' https://*.supabase.co 
-  https://www.google-analytics.com 
-  https://www.googletagmanager.com
-frame-src 'none'
-frame-ancestors 'none'
-base-uri 'self'
-form-action 'self'
-upgrade-insecure-requests
+default-src 'self' script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com
+https://www.google-analytics.com style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
+font-src 'self' https://fonts.gstatic.com data: img-src 'self' data: https: blob: connect-src 'self'
+https://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com frame-src
+'none' frame-ancestors 'none' base-uri 'self' form-action 'self' upgrade-insecure-requests
 ```
 
 ---
@@ -388,6 +397,7 @@ upgrade-insecure-requests
 ## Edge Functions Configuration (`supabase/config.toml`)
 
 ### JWT Verification Status
+
 ```toml
 [functions.admin-auth]
 verify_jwt = false
@@ -418,12 +428,14 @@ verify_jwt = true
 ## Git Workflow
 
 ### Branch Strategy
+
 - **main:** Production-ready code
 - **feature/xyz:** Feature branches
 - **fix/xyz:** Bug fix branches
 - **docs/xyz:** Documentation branches
 
 ### Commit Convention
+
 ```
 feat: New feature
 fix: Bug fix
@@ -436,6 +448,7 @@ chore: Maintenance
 ```
 
 ### Deployment Trigger
+
 ```bash
 # Push to main triggers Cloudflare Pages build
 git push origin main
@@ -452,6 +465,7 @@ git push origin main
 ## Performance Targets
 
 ### Bundle Sizes (Gzipped)
+
 - Main bundle: ~45KB
 - React vendor: ~140KB
 - Three.js vendor: ~276KB (lazy)
@@ -459,11 +473,13 @@ git push origin main
 - Total: < 1MB
 
 ### Core Web Vitals
+
 - LCP (Largest Contentful Paint): < 2.5s
 - FID (First Input Delay): < 100ms
 - CLS (Cumulative Layout Shift): < 0.1
 
 ### Cache Hit Targets
+
 - Static assets: 1 year (100% cache hit)
 - HTML: No cache (always fresh)
 - Images: 1 week
@@ -473,6 +489,7 @@ git push origin main
 ## Monitoring Endpoints
 
 ### Health Checks
+
 ```bash
 # Website loads
 curl -I https://danpearson.net
@@ -488,6 +505,7 @@ curl -I https://danpearson.net | grep X-Frame-Options
 ```
 
 ### Analytics & Monitoring
+
 - **Google Analytics:** G-8R95ZXMV6L (configured in index.html)
 - **Cloudflare Analytics:** Dashboard > Analytics
 - **Supabase Monitor:** Project > Monitoring
@@ -498,6 +516,7 @@ curl -I https://danpearson.net | grep X-Frame-Options
 ## Troubleshooting Quick Reference
 
 ### Build Failures
+
 ```
 Error: ROLLUP_BINARY_NOT_FOUND
 Fix: Set engine-strict=false in .npmrc
@@ -510,6 +529,7 @@ Fix: Run npm run lint and check strict mode issues
 ```
 
 ### Deployment Issues
+
 ```
 Error: 404 on page navigation
 Fix: Verify _redirects file exists in public/
@@ -522,6 +542,7 @@ Fix: Check CSP img-src directive, verify URLs are absolute
 ```
 
 ### Runtime Problems
+
 ```
 Error: Supabase connection refused
 Fix: Verify .env values, check JWT tokens
@@ -538,6 +559,7 @@ Fix: Check admin_users table, verify JWT claims
 ## Rollback Procedures
 
 ### Frontend Rollback
+
 ```bash
 # Option 1: Via Cloudflare Dashboard
 # Pages > Deployments > Select previous > Rollback
@@ -550,6 +572,7 @@ wrangler pages rollback
 ```
 
 ### Database Rollback
+
 ```bash
 # View migration status
 supabase db status
@@ -571,4 +594,3 @@ supabase db push
 - Supabase Documentation: https://supabase.com/docs
 - Cloudflare Pages: https://developers.cloudflare.com/pages/
 - React Documentation: https://react.dev/
-

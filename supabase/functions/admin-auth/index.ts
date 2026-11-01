@@ -9,6 +9,7 @@ import {
 } from '../_shared/auth-helpers.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
+import { MFA_REQUIRED_ERROR, tokenHasAal2 } from '../_shared/require-admin-helpers.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -712,6 +713,18 @@ export default async (req: Request): Promise<Response> => {
         // SECURITY: Don't log sensitive email addresses
         console.error(`User not in admin whitelist (provider: ${authProvider})`);
         return new Response(JSON.stringify({ error: 'Forbidden - Not an admin' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 'me' is what turns a session into an admin session in the dashboard,
+      // so it needs an MFA-verified (aal2) token. login, logout and
+      // forgot-password stay usable at aal1; the browser calls 'me' again
+      // after the MFA challenge. The whitelist check runs first so a
+      // non-admin never gets steered into MFA enrollment.
+      if (!tokenHasAal2(token)) {
+        return new Response(JSON.stringify({ error: MFA_REQUIRED_ERROR }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

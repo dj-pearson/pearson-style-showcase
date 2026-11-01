@@ -39,7 +39,7 @@ import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { authStatus, isAdminVerified, error: authError } = useAuth();
+  const { authStatus, isAdminVerified, mfaRequired, error: authError } = useAuth();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasRedirected, setHasRedirected] = useState(false);
@@ -58,7 +58,8 @@ const AuthCallback = () => {
 
         // Check for errors from OAuth provider or proxy
         const urlError = urlParams.get('error') || hashParams.get('error');
-        const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+        const errorDescription =
+          urlParams.get('error_description') || hashParams.get('error_description');
 
         if (urlError) {
           logger.error('OAuth error from URL:', urlError, errorDescription);
@@ -92,7 +93,9 @@ const AuthCallback = () => {
           }
 
           if (data.session) {
-            logger.debug('OAuth proxy magic link verified, session created. Waiting for admin verification...');
+            logger.debug(
+              'OAuth proxy magic link verified, session created. Waiting for admin verification...'
+            );
             // Session is now active - AuthContext will pick up the SIGNED_IN event
             // and trigger admin verification. We wait for authStatus changes below.
             return;
@@ -157,7 +160,9 @@ const AuthCallback = () => {
       } catch (err) {
         logger.error('Error processing OAuth callback:', err);
         setStatus('error');
-        setErrorMessage(err instanceof Error ? err.message : 'An error occurred during authentication.');
+        setErrorMessage(
+          err instanceof Error ? err.message : 'An error occurred during authentication.'
+        );
       }
     };
 
@@ -196,6 +201,15 @@ const AuthCallback = () => {
         break;
 
       case 'authenticated':
+        if (mfaRequired) {
+          // Whitelisted admin whose session is still aal1: the server wants a
+          // second factor. AdminLogin picks up the 'authenticated' state and
+          // shows MFA enrollment or verification.
+          setHasRedirected(true);
+          logger.info('OAuth callback: MFA required, sending to the MFA step');
+          navigate('/admin/login', { replace: true });
+          break;
+        }
         // User is authenticated but NOT an admin
         setStatus('error');
         setHasRedirected(true);
@@ -215,7 +229,7 @@ const AuthCallback = () => {
         logger.error('OAuth callback: Auth error state');
         break;
     }
-  }, [authStatus, isAdminVerified, authError, navigate, hasRedirected, status]);
+  }, [authStatus, isAdminVerified, mfaRequired, authError, navigate, hasRedirected, status]);
 
   // Step 3: Timeout - if still processing after 30 seconds, show error
   useEffect(() => {
@@ -245,15 +259,9 @@ const AuthCallback = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            {status === 'processing' && (
-              <Loader2 className="h-6 w-6 text-primary animate-spin" />
-            )}
-            {status === 'success' && (
-              <CheckCircle className="h-6 w-6 text-green-500" />
-            )}
-            {status === 'error' && (
-              <AlertCircle className="h-6 w-6 text-destructive" />
-            )}
+            {status === 'processing' && <Loader2 className="h-6 w-6 text-primary animate-spin" />}
+            {status === 'success' && <CheckCircle className="h-6 w-6 text-green-500" />}
+            {status === 'error' && <AlertCircle className="h-6 w-6 text-destructive" />}
           </div>
           <CardTitle className="text-2xl font-bold">
             {status === 'processing' && 'Signing you in...'}
@@ -273,9 +281,7 @@ const AuthCallback = () => {
               <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                 <div className="bg-primary h-full animate-pulse w-2/3"></div>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Verifying admin access...
-              </p>
+              <p className="text-sm text-muted-foreground">Verifying admin access...</p>
             </div>
           )}
 
@@ -294,9 +300,7 @@ const AuthCallback = () => {
             <div className="flex flex-col gap-4">
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {errorMessage}
-                </AlertDescription>
+                <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>
 
               <div className="flex flex-col gap-2">

@@ -120,6 +120,31 @@
   }
 }
 
+/* Inter, self-hosted: variable weight axis, latin subset, from
+   @fontsource-variable/inter 5.3.0 (OFL-1.1). Only the upright face ships;
+   the site never loaded italic Inter, so italic text stays synthesized. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Arial scaled to Inter's metrics, so the swap from fallback to Inter barely
+   moves text. Override values match what Next.js generates for Inter. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  ascent-override: 90.2%;
+  descent-override: 22.48%;
+  line-gap-override: 0%;
+  size-adjust: 107.4%;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -127,7 +152,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', 'Inter Fallback', system-ui, sans-serif;
     /* Mobile-first enhancements */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -305,34 +330,20 @@
     }
   }
 
-  /* Futuristic button - Mobile First */
+  /* Primary CTA - Mobile First. Solid primary fill; emphasis comes from
+     weight and size, not a gradient. */
   .btn-futuristic {
     @apply relative px-6 py-3 sm:px-8 sm:py-3 font-semibold text-sm sm:text-sm uppercase tracking-wider;
-    background: var(--gradient-primary);
-    border: 1px solid hsl(195 100% 50%);
+    background: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary));
     border-radius: 0.5rem;
-    color: hsl(220 40% 8%);
+    color: hsl(var(--primary-foreground));
     transition: var(--transition-smooth);
-    overflow: hidden;
     min-height: 44px; /* Touch target optimization */
   }
 
-  .btn-futuristic::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, hsl(210 40% 98% / 0.4), transparent);
-    transition: left 0.5s;
-  }
-
-  .btn-futuristic:hover::before {
-    left: 100%;
-  }
-
   .btn-futuristic:hover {
+    background: hsl(var(--primary) / 0.9);
     box-shadow: var(--shadow-glow);
     transform: translateY(-2px);
   }
@@ -399,7 +410,7 @@
   /* Amazon affiliate button - Mobile First & Prominent */
   .amazon-button {
     @apply inline-block px-8 py-4 sm:px-10 sm:py-5 font-bold text-base sm:text-lg rounded-xl;
-    background: linear-gradient(135deg, hsl(var(--amazon-orange)), hsl(28 100% 45%));
+    background: hsl(var(--amazon-orange));
     color: white !important;
     text-align: center;
     text-decoration: none !important;
@@ -429,23 +440,8 @@
     }
   }
 
-  .amazon-button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-  }
-
-  .amazon-button:hover::before {
-    left: 100%;
-  }
-
   .amazon-button:hover {
-    background: linear-gradient(135deg, hsl(28 100% 45%), hsl(28 100% 40%));
+    background: hsl(28 100% 45%);
     box-shadow:
       0 8px 28px hsl(var(--amazon-orange) / 0.6),
       0 4px 12px hsl(0 0% 0% / 0.4);
@@ -685,7 +681,7 @@
   /* Mobile fab (floating action button) */
   .mobile-fab {
     @apply fixed bottom-6 right-6 w-14 h-14 rounded-full;
-    background: var(--gradient-primary);
+    background: hsl(var(--primary));
     box-shadow: var(--shadow-floating);
     z-index: 50;
     display: flex;

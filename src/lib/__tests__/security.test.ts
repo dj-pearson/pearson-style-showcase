@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { sanitizeHtml } from '../sanitize';
 import {
-  sanitizeHtml,
   validateTextInput,
   validateUrl,
   validateEmail,

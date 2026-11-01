@@ -57,10 +57,20 @@
 /
   Cache-Control: public, max-age=0, must-revalidate
 
+# Consent defaults + gtag shim, loaded synchronously in <head>. Not
+# content-hashed, so keep the browser TTL short and revalidate in the background.
+/gtag-init.js
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
 # The service worker script must never be cached by the edge or browser HTTP
 # cache, so an updated worker is fetched promptly and can heal stale clients.
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
+
+# Self-hosted fonts (public/fonts). Filenames are stable, so a changed font
+# must ship under a new filename to get past this cache.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
 
 # Cache fonts for 1 year
 /*.woff
@@ -108,13 +118,13 @@
   # carries a duplicate <meta> CSP - keep any policy changes here only.
   # frame-src 'none' is included here (a <meta> CSP previously carried it) so
   # the header policy is not weaker than the old meta policy.
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://api.danpearson.net wss://api.danpearson.net https://functions.danpearson.net https://hooks.slack.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://fonts.gstatic.com https://cloudflareinsights.com https://stats.g.doubleclick.net; media-src 'self' https: data:; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' https: data: blob:; connect-src 'self' https://api.danpearson.net wss://api.danpearson.net https://functions.danpearson.net https://hooks.slack.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://cloudflareinsights.com https://stats.g.doubleclick.net; media-src 'self' https: data:; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content
 
   # Cross-Origin policies.
   # NOTE: Cross-Origin-Embedder-Policy: require-corp is intentionally NOT set.
   # require-corp blocks any cross-origin subresource that does not return a
   # Cross-Origin-Resource-Policy/CORP header - which includes Google Analytics
-  # (gtag.js), Google Fonts, and Cloudflare Insights - silently breaking them.
+  # (gtag.js) and Cloudflare Insights - silently breaking them.
   # COEP is only needed for cross-origin isolation (SharedArrayBuffer / high-res
   # timers), which this app does not use. COOP + CORP below are safe to keep:
   # they govern how OTHER sites may reference us and do not block our own

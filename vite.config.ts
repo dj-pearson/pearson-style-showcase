@@ -71,6 +71,9 @@ export default defineConfig(({ mode }) => {
     build: {
       // Increase chunk size warning limit - Three.js and markdown renderers are inherently large
       chunkSizeWarningLimit: 1000,
+      // dist/.vite/manifest.json lets scripts/prerender.mjs modulepreload each
+      // prerendered route's page chunk. The prerender step deletes it after use.
+      manifest: true,
       rollupOptions: {
         external: [],
         output: {

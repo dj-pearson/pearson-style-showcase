@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 // AES-256-GCM encryption helpers (extracted to _shared/vault-crypto.ts so they
 // can be unit-tested without the Supabase import). US-011.
 import { encrypt, decrypt } from '../_shared/vault-crypto.ts';
@@ -44,34 +45,11 @@ export default async (req: Request): Promise<Response> => {
       auth: { persistSession: false },
     });
 
-    // Verify user is authenticated and admin
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
-
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Check admin role
-    const { data: roleData } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .single();
-
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: 'Admin access required' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Shared admin gate: valid JWT, admin row in user_roles, and an aal2
+    // (MFA-verified) token. Vault secrets must not open on a password alone.
+    const auth = await requireAdmin(req, corsHeaders);
+    if (!auth.ok) return auth.response!;
+    const user = { id: auth.userId! };
 
     const body = await req.json();
     const { action } = body;

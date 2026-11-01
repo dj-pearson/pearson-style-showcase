@@ -1,17 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, CheckCircle2, Search } from 'lucide-react';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
-import GlobalSearch from './GlobalSearch';
 import { Button } from './ui/button';
+
+// The search dialog (Dialog, ScrollArea, the static article index) is closed on
+// every page load, so it is a lazy chunk mounted on first open. Hovering or
+// focusing a search trigger starts the download early.
+const loadGlobalSearch = () => import('./GlobalSearch');
+const GlobalSearch = lazy(loadGlobalSearch);
+const prefetchGlobalSearch = () => {
+  void loadGlobalSearch().catch(() => undefined);
+};
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const isMobile = useIsMobile();
   const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen } = useGlobalSearch();
+  // Stays true after the first open so the dialog keeps its state and its
+  // close animation instead of unmounting.
+  const [searchMounted, setSearchMounted] = useState(false);
+  if (isSearchOpen && !searchMounted) setSearchMounted(true);
 
   // The mobile menu enters with a short CSS animation (tailwindcss-animate):
   // the panel fades and slides down 8px, then each item follows with a small
@@ -130,6 +142,8 @@ const Navigation = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsSearchOpen(true)}
+                onPointerEnter={prefetchGlobalSearch}
+                onFocus={prefetchGlobalSearch}
                 className="flex items-center gap-2 text-muted-foreground hover:text-primary"
                 aria-label="Open search"
               >
@@ -142,6 +156,7 @@ const Navigation = () => {
                 <Link
                   key={item.name}
                   to={item.path}
+                  aria-current={isActive(item.path) ? 'page' : undefined}
                   className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-primary min-h-[44px] flex items-center ${
                     isActive(item.path) ? 'text-primary' : 'text-muted-foreground'
                   }`}
@@ -152,14 +167,6 @@ const Navigation = () => {
                   )}
                 </Link>
               ))}
-
-              <Link
-                to="/admin/login"
-                className="flex items-center space-x-2 ml-4 px-3 py-2 text-xs text-muted-foreground hover:text-primary transition-colors duration-200 rounded-md hover:bg-muted/20"
-              >
-                <div className="w-3 h-3 rounded-full border border-primary/50"></div>
-                <span>Admin</span>
-              </Link>
             </div>
 
             {/* Mobile header controls. Search lived only in the desktop bar and
@@ -171,6 +178,8 @@ const Navigation = () => {
                   setIsMenuOpen(false);
                   setIsSearchOpen(true);
                 }}
+                onPointerEnter={prefetchGlobalSearch}
+                onFocus={prefetchGlobalSearch}
                 className="text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
                 aria-label="Open search"
               >
@@ -233,6 +242,7 @@ const Navigation = () => {
                   <Link
                     key={item.name}
                     to={item.path}
+                    aria-current={isActive(item.path) ? 'page' : undefined}
                     onClick={() => setIsMenuOpen(false)}
                     style={{ animationDelay: `${20 + index * 15}ms` }}
                     className={`mobile-nav-item ${itemAnimation} px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
@@ -247,16 +257,6 @@ const Navigation = () => {
                     )}
                   </Link>
                 ))}
-
-                <Link
-                  to="/admin/login"
-                  onClick={() => setIsMenuOpen(false)}
-                  style={{ animationDelay: `${20 + navItems.length * 15}ms` }}
-                  className={`mobile-nav-item ${itemAnimation} flex items-center space-x-3 px-6 py-4 mt-4 border-t border-border mx-2 text-base text-muted-foreground hover:text-primary transition-all duration-200 rounded-xl hover:bg-muted/20 active:bg-muted/30 touch-target`}
-                >
-                  <div className="w-3 h-3 rounded-full border-2 border-primary/50"></div>
-                  <span>Admin Access</span>
-                </Link>
               </div>
 
               {/* Swipe indicator */}
@@ -277,7 +277,11 @@ const Navigation = () => {
       </nav>
 
       {/* Global Search Dialog */}
-      <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+      {searchMounted && (
+        <Suspense fallback={null}>
+          <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+        </Suspense>
+      )}
     </>
   );
 };

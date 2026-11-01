@@ -79,11 +79,16 @@ const Article = () => {
         .eq('published', true)
         .maybeSingle();
 
+      // On a prerendered page the build already embedded this slug's answer.
+      // Reusing it on the fallback paths below skips downloading the generated
+      // article bundle (~49 KB gzip) just to rebuild the same row.
+      const embedded = prerendered?.data ?? null;
+
       if (error) {
         // The prerendered markdown is a usable answer even when the database
         // is unreachable, so a fetch failure falls through to it rather than
         // straight to an error screen.
-        const fallback = await loadStaticArticle(slug);
+        const fallback = embedded ?? (await loadStaticArticle(slug));
         if (fallback) return fallback;
         throw error;
       }
@@ -92,8 +97,14 @@ const Article = () => {
       // production for all twelve CRM articles (US-074): the page serves a
       // complete article to a crawler and, without this, "Article Not Found"
       // to the human reading it. Render the same markdown the page was built
-      // from instead.
-      if (!data) return (await loadStaticArticle(slug)) ?? null;
+      // from instead. Only an embedded markdown copy is reused here; an
+      // embedded database row with no live row means the article was
+      // unpublished after the build. Client-side navigation has no embedded
+      // data and still loads the static copy.
+      if (!data) {
+        if (embedded?.id?.startsWith('static-')) return embedded;
+        return (await loadStaticArticle(slug)) ?? null;
+      }
 
       return data as Article | null;
     },

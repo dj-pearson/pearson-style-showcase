@@ -31,6 +31,18 @@ describe('Navigation search entry points', () => {
     expect(mobileTrigger).toBeDefined();
 
     await user.click(mobileTrigger!);
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    // The dialog is a lazy chunk mounted on first open.
+    expect(await screen.findByRole('combobox')).toBeInTheDocument();
+  });
+});
+
+describe('Navigation admin entry point', () => {
+  it('does not link to the admin login from the desktop bar or the mobile menu', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Navigation />);
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation menu' }));
+
+    expect(container.querySelector('a[href^="/admin"]')).toBeNull();
   });
 });

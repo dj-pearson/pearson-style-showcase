@@ -141,6 +141,21 @@ const HeroSection = () => {
         stagger: 0.2,
       });
 
+      // The float repeats forever, so pause it while the hero is off screen
+      // (scrolled past, or a background tab on mobile) and resume on return.
+      // Reduced-motion users never get here: the early return above skips it.
+      let visibilityObserver: IntersectionObserver | null = null;
+      if (typeof IntersectionObserver !== 'undefined') {
+        visibilityObserver = new IntersectionObserver(
+          ([entry]) => {
+            if (entry?.isIntersecting) floatingTween.resume();
+            else floatingTween.pause();
+          },
+          { threshold: 0 }
+        );
+        visibilityObserver.observe(containerRef.current);
+      }
+
       // will-change hints so the GPU promotes the animated name/surname to
       // their own layers; cleared on cleanup to free GPU memory.
       gsap.set([nameRef.current, surnameRef.current], { willChange: 'transform' });
@@ -221,6 +236,7 @@ const HeroSection = () => {
       return () => {
         // Kill all GSAP animations to prevent memory leaks
         tl.kill();
+        visibilityObserver?.disconnect();
         floatingTween.kill();
         gsap.killTweensOf([
           nameRef.current,

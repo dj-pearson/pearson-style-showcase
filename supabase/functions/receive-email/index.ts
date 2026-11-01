@@ -16,6 +16,38 @@ interface MakeComEmailPayload {
   references?: string; // References header (for threading)
 }
 
+// RFC 5322 Message-ID, with or without angle brackets. Rejects whitespace,
+// commas, parentheses, quotes and backslashes so a value can never carry
+// PostgREST filter syntax.
+const MESSAGE_ID_RE = /^<?[^\s<>,()"\\]+@[^\s<>,()"\\]+>?$/;
+const MAX_THREAD_IDS = 50;
+
+/**
+ * Parse In-Reply-To and References into a de-duplicated list of valid
+ * Message-IDs. Each id is included both with and without angle brackets,
+ * since stored message_id values may use either form.
+ */
+function collectMessageIds(inReplyTo?: string, references?: string): string[] {
+  const raw = `${inReplyTo ?? ''} ${references ?? ''}`
+    .split(/[\s,]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0 && token.length <= 998 && MESSAGE_ID_RE.test(token));
+
+  const ids = new Set<string>();
+  for (const token of raw) {
+    const bare = token.replace(/^</, '').replace(/>$/, '');
+    ids.add(bare);
+    ids.add(`<${bare}>`);
+    if (ids.size >= MAX_THREAD_IDS) break;
+  }
+  return Array.from(ids);
+}
+
+/** Escape LIKE/ILIKE wildcards so user text matches literally. */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -30,48 +62,53 @@ export default async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify webhook secret if configured (optional for Make.com compatibility)
+    // Webhook auth is mandatory. Fail closed when the secret is not configured
+    // so a missing env var can't silently open the endpoint.
     const webhookSecret = Deno.env.get('MAKE_WEBHOOK_SECRET');
-    if (webhookSecret) {
-      const providedSecret =
-        req.headers.get('x-webhook-secret') ||
-        req.headers.get('authorization')?.replace('Bearer ', '');
+    if (!webhookSecret) {
+      console.error('MAKE_WEBHOOK_SECRET is not set; rejecting request');
+      return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      // Check for HMAC signature first
-      const signature = req.headers.get('x-webhook-signature');
-      if (signature) {
-        // Clone request to read body for signature verification
-        const rawBody = await req.clone().text();
-        const timestamp = req.headers.get('x-webhook-timestamp');
-        const result = await verifyWebhookSignature(rawBody, signature, webhookSecret, timestamp);
-        if (!result.valid) {
-          console.error('Webhook signature verification failed:', result.error);
-          return new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        console.log('Webhook signature verified');
-      } else if (providedSecret) {
-        // Fallback to simple secret verification
-        if (!verifySecret(providedSecret, webhookSecret)) {
-          console.error('Invalid webhook secret');
-          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        console.log('Webhook secret verified');
-      } else {
-        console.warn(
-          'No webhook authentication provided - MAKE_WEBHOOK_SECRET is configured but no credentials in request'
-        );
-        // Optionally reject unauthenticated requests:
-        // return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        //   status: 401,
-        //   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        // });
+    const authHeader = req.headers.get('authorization');
+    const providedSecret =
+      req.headers.get('x-webhook-secret') ||
+      (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
+
+    // HMAC signature is preferred; it requires x-webhook-timestamp for replay protection
+    const signature = req.headers.get('x-webhook-signature');
+    if (signature) {
+      // Clone request to read body for signature verification
+      const rawBody = await req.clone().text();
+      const timestamp = req.headers.get('x-webhook-timestamp');
+      const result = await verifyWebhookSignature(rawBody, signature, webhookSecret, timestamp);
+      if (!result.valid) {
+        console.error('Webhook signature verification failed:', result.error);
+        return new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
+      console.log('Webhook signature verified');
+    } else if (providedSecret) {
+      // Fallback to shared-secret verification
+      if (!verifySecret(providedSecret, webhookSecret)) {
+        console.error('Invalid webhook secret');
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log('Webhook secret verified');
+    } else {
+      console.error('Rejected request with no webhook credentials');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const contentType = req.headers.get('content-type') || '';
@@ -295,12 +332,15 @@ export default async (req: Request): Promise<Response> => {
     let ticketId: string | null = null;
     let isReply = false;
 
-    // First, try to find ticket by In-Reply-To or References headers
-    if (payload.in_reply_to || payload.references) {
+    // First, try to find ticket by In-Reply-To or References headers.
+    // Only well-formed Message-IDs are used, and they go through .in() so a
+    // crafted header can't inject PostgREST filter syntax.
+    const threadMessageIds = collectMessageIds(payload.in_reply_to, payload.references);
+    if (threadMessageIds.length > 0) {
       const { data: threadTicket } = await supabase
         .from('email_threads')
         .select('ticket_id')
-        .or(`message_id.eq.${payload.in_reply_to},message_id.in.(${payload.references})`)
+        .in('message_id', threadMessageIds)
         .eq('mailbox_id', mailbox.id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -313,14 +353,15 @@ export default async (req: Request): Promise<Response> => {
       }
     }
 
-    // If not found via headers, try to find existing ticket by matching subject
-    if (!ticketId) {
-      const cleanSubject = payload.subject.replace(/^(Re:|Fwd:)\s*/i, '').trim();
+    // If not found via headers, try to find an existing ticket from the same
+    // sender (user_email) in the same mailbox with a matching subject
+    const cleanSubject = payload.subject.replace(/^(Re:|Fwd:)\s*/i, '').trim();
+    if (!ticketId && cleanSubject) {
       const { data: existingTicket } = await supabase
         .from('support_tickets')
         .select('id, ticket_number')
         .eq('user_email', payload.from_email)
-        .ilike('subject', `%${cleanSubject}%`)
+        .ilike('subject', `%${escapeLikePattern(cleanSubject)}%`)
         .eq('mailbox_id', mailbox.id)
         .order('created_at', { ascending: false })
         .limit(1)

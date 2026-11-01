@@ -49,13 +49,13 @@
 
     <!-- Resource hints for performance optimization -->
     <!-- Preconnect to critical third-party domains -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <!-- crossorigin must match how each origin is fetched, or the browser opens
+      a second connection: gtag.js (crossorigin="anonymous") and Supabase API
+      calls are both CORS. -->
+    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+    <link rel="preconnect" href="https://api.danpearson.net" crossorigin />
 
     <!-- DNS prefetch for other third-party domains -->
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
     <link rel="dns-prefetch" href="https://www.google-analytics.com" />
     
@@ -71,11 +71,10 @@
       }
     </style>
     
-    <!-- Optimized font loading - CSP-compliant approach with font-display: optional for better CLS -->
-    <!-- Using font-display: optional prevents layout shifts while still loading custom fonts -->
-    <!-- Load fonts asynchronously to prevent render-blocking -->
-    <link id="font-inter" rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional" as="style">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"></noscript>
+    <!-- Inter is self-hosted (public/fonts, @font-face in src/index.css). The
+      preload starts the woff2 fetch in parallel with the CSS; crossorigin is
+      required because font requests are always CORS. -->
+    <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 
     <!-- Google tag (gtag.js) -->
     <!--
@@ -87,11 +86,11 @@
       would break analytics on every Google update. Script provenance is instead
       constrained via the CSP script-src allow-list (googletagmanager.com).
     -->
-    <!-- Consent Mode defaults, gtag() shim and the font rel=stylesheet swap
-      live in public/gtag-init.js (CSP has no 'unsafe-inline'). It is a
-      blocking classic script placed BEFORE the async gtag.js tag so consent
-      defaults are always queued first, and AFTER the #font-inter link so it
-      can attach the load listener. -->
+    <!-- Consent Mode defaults and the gtag() shim live in public/gtag-init.js
+      (CSP has no 'unsafe-inline'). It is a blocking classic script placed
+      BEFORE the async gtag.js tag so consent defaults are always queued
+      first. Not deferred: an async script that arrives first would run
+      gtag.js before the consent defaults exist. -->
     <script src="/gtag-init.js"></script>
     <script async crossorigin="anonymous" src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
 

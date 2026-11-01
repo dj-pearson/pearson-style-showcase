@@ -138,12 +138,6 @@ const Footer = () => {
             </nav>
             <span className="hidden sm:inline text-border">|</span>
             <span className="font-medium">Built with React & Supabase</span>
-            <Link
-              to="/admin/login"
-              className="hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-muted/20 active:bg-muted/30 px-4"
-            >
-              Admin
-            </Link>
           </div>
         </div>
       </div>

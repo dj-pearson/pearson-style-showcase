@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Routes, Route } from 'react-router-dom';
 import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
@@ -9,7 +9,22 @@ vi.mock('@/integrations/supabase/client', async () => {
   return { supabase: createSupabaseMock() };
 });
 
+// Spy on the generated article bundle so a test can tell whether the page
+// downloaded it. The real lookup still runs.
+vi.mock('@/content/crm-articles.generated', async () => {
+  const actual = await vi.importActual<typeof import('@/content/crm-articles.generated')>(
+    '@/content/crm-articles.generated'
+  );
+  return { ...actual, findStaticArticle: vi.fn(actual.findStaticArticle) };
+});
+
 import { supabase } from '@/integrations/supabase/client';
+import { findStaticArticle } from '@/content/crm-articles.generated';
+import {
+  PRERENDER_DATA_ID,
+  articlePrerenderKey,
+  resetPrerenderDataCache,
+} from '@/lib/prerenderData';
 import Article from '../Article';
 
 const mock = supabase as unknown as SupabaseMock;
@@ -48,7 +63,21 @@ function renderArticleAt(slug: string) {
 
 beforeEach(() => {
   mock.resetTableResults();
+  vi.mocked(findStaticArticle).mockClear();
 });
+
+afterEach(() => {
+  document.getElementById(PRERENDER_DATA_ID)?.remove();
+  resetPrerenderDataCache();
+});
+
+function embedPrerenderData(slug: string, data: Record<string, unknown>) {
+  const script = document.createElement('script');
+  script.type = 'application/json';
+  script.id = PRERENDER_DATA_ID;
+  script.textContent = JSON.stringify({ key: articlePrerenderKey(slug), updatedAt: 0, data });
+  document.body.appendChild(script);
+}
 
 describe('Article page', () => {
   it('renders the article content (title)', async () => {
@@ -114,6 +143,28 @@ describe('Article page', () => {
       { timeout: 5000 }
     );
     expect(screen.queryByText(/Article Not Found/i)).not.toBeInTheDocument();
+  });
+
+  it('uses the embedded copy, not the generated bundle, when the row is missing', async () => {
+    embedPrerenderData(
+      'why-ai-crm-projects-fail',
+      articleFixture({
+        id: 'static-why-ai-crm-projects-fail',
+        slug: 'why-ai-crm-projects-fail',
+        title: 'Embedded Build Copy',
+      })
+    );
+    mock.setTableResult('articles', { data: null, error: null });
+    renderArticleAt('why-ai-crm-projects-fail');
+
+    expect(
+      await screen.findByRole('heading', { name: /Embedded Build Copy/i }, { timeout: 5000 })
+    ).toBeInTheDocument();
+    // Let the mount refetch settle before checking it did not fall back.
+    await waitFor(() => expect(mock.from).toHaveBeenCalledWith('articles'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(findStaticArticle).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: /Embedded Build Copy/i })).toBeInTheDocument();
   });
 
   it('falls back to the prerendered markdown when the fetch fails', async () => {
