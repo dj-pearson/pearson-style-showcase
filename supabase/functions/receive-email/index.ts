@@ -16,6 +16,38 @@ interface MakeComEmailPayload {
   references?: string; // References header (for threading)
 }
 
+// RFC 5322 Message-ID, with or without angle brackets. Rejects whitespace,
+// commas, parentheses, quotes and backslashes so a value can never carry
+// PostgREST filter syntax.
+const MESSAGE_ID_RE = /^<?[^\s<>,()"\\]+@[^\s<>,()"\\]+>?$/;
+const MAX_THREAD_IDS = 50;
+
+/**
+ * Parse In-Reply-To and References into a de-duplicated list of valid
+ * Message-IDs. Each id is included both with and without angle brackets,
+ * since stored message_id values may use either form.
+ */
+function collectMessageIds(inReplyTo?: string, references?: string): string[] {
+  const raw = `${inReplyTo ?? ''} ${references ?? ''}`
+    .split(/[\s,]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0 && token.length <= 998 && MESSAGE_ID_RE.test(token));
+
+  const ids = new Set<string>();
+  for (const token of raw) {
+    const bare = token.replace(/^</, '').replace(/>$/, '');
+    ids.add(bare);
+    ids.add(`<${bare}>`);
+    if (ids.size >= MAX_THREAD_IDS) break;
+  }
+  return Array.from(ids);
+}
+
+/** Escape LIKE/ILIKE wildcards so user text matches literally. */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -300,12 +332,15 @@ export default async (req: Request): Promise<Response> => {
     let ticketId: string | null = null;
     let isReply = false;
 
-    // First, try to find ticket by In-Reply-To or References headers
-    if (payload.in_reply_to || payload.references) {
+    // First, try to find ticket by In-Reply-To or References headers.
+    // Only well-formed Message-IDs are used, and they go through .in() so a
+    // crafted header can't inject PostgREST filter syntax.
+    const threadMessageIds = collectMessageIds(payload.in_reply_to, payload.references);
+    if (threadMessageIds.length > 0) {
       const { data: threadTicket } = await supabase
         .from('email_threads')
         .select('ticket_id')
-        .or(`message_id.eq.${payload.in_reply_to},message_id.in.(${payload.references})`)
+        .in('message_id', threadMessageIds)
         .eq('mailbox_id', mailbox.id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -318,14 +353,15 @@ export default async (req: Request): Promise<Response> => {
       }
     }
 
-    // If not found via headers, try to find existing ticket by matching subject
-    if (!ticketId) {
-      const cleanSubject = payload.subject.replace(/^(Re:|Fwd:)\s*/i, '').trim();
+    // If not found via headers, try to find an existing ticket from the same
+    // sender (user_email) in the same mailbox with a matching subject
+    const cleanSubject = payload.subject.replace(/^(Re:|Fwd:)\s*/i, '').trim();
+    if (!ticketId && cleanSubject) {
       const { data: existingTicket } = await supabase
         .from('support_tickets')
         .select('id, ticket_number')
         .eq('user_email', payload.from_email)
-        .ilike('subject', `%${cleanSubject}%`)
+        .ilike('subject', `%${escapeLikePattern(cleanSubject)}%`)
         .eq('mailbox_id', mailbox.id)
         .order('created_at', { ascending: false })
         .limit(1)
