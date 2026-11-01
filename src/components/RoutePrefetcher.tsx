@@ -16,8 +16,11 @@ type IdleWindow = Window & {
 // instead (the old <link rel=prefetch as=document>) was wasted: HTML is served
 // with max-age=0, so the browser revalidated it on click anyway, and the JS
 // chunk the click actually waits on was never fetched.
+// Connect is left off '/' on purpose: its chunk pulls form-vendor (zod +
+// react-hook-form, ~24 KB gz), too much to fetch speculatively for every
+// homepage visit.
 const PREFETCH_MAP: Record<string, RouteComponentName[]> = {
-  '/': ['Projects', 'News', 'AITools', 'Connect', 'Topics'],
+  '/': ['Projects', 'News', 'AITools', 'Topics'],
   '/projects': ['News', 'AITools', 'Connect'],
   '/news': ['Projects', 'AITools', 'Topics', 'Article'],
   '/ai-tools': ['Projects', 'News', 'Topics'],
