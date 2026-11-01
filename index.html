@@ -49,9 +49,13 @@
 
     <!-- Resource hints for performance optimization -->
     <!-- Preconnect to critical third-party domains -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <!-- crossorigin must match how each origin is fetched, or the browser opens
+      a second connection: the fonts CSS is a no-CORS stylesheet; font files and
+      gtag.js (crossorigin="anonymous") are CORS; Supabase API calls are CORS. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+    <link rel="preconnect" href="https://api.danpearson.net" crossorigin />
 
     <!-- DNS prefetch for other third-party domains -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -91,7 +95,8 @@
       live in public/gtag-init.js (CSP has no 'unsafe-inline'). It is a
       blocking classic script placed BEFORE the async gtag.js tag so consent
       defaults are always queued first, and AFTER the #font-inter link so it
-      can attach the load listener. -->
+      can attach the load listener. Not deferred: an async script that
+      arrives first would run gtag.js before the consent defaults exist. -->
     <script src="/gtag-init.js"></script>
     <script async crossorigin="anonymous" src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
 

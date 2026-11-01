@@ -57,6 +57,11 @@
 /
   Cache-Control: public, max-age=0, must-revalidate
 
+# Consent defaults + gtag shim, loaded synchronously in <head>. Not
+# content-hashed, so keep the browser TTL short and revalidate in the background.
+/gtag-init.js
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
 # The service worker script must never be cached by the edge or browser HTTP
 # cache, so an updated worker is fetched promptly and can heal stale clients.
 /sw.js
