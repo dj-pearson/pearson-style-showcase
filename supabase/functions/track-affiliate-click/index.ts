@@ -35,9 +35,15 @@ export default async (req: Request): Promise<Response> => {
       return createRateLimitResponse(rateLimitResult, corsHeaders);
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Service role: amazon_affiliate_clicks has no anonymous INSERT policy and
+    // amazon_affiliate_stats is admin-write only, so the anon key can't write
+    // either table. This function is the only public path in, behind the
+    // rate limit and input validation below.
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } }
+    );
 
     const body = await req.json();
     const { articleId, asin } = body;
@@ -51,6 +57,25 @@ export default async (req: Request): Promise<Response> => {
       });
     }
     const { articleIdResult, asinResult } = clickInput;
+
+    // Only count clicks on published articles, so a caller can't inflate stats
+    // for drafts or made-up ids now that writes bypass RLS.
+    const { data: article, error: articleError } = await supabase
+      .from('articles')
+      .select('id')
+      .eq('id', articleIdResult.sanitized)
+      .eq('published', true)
+      .maybeSingle();
+
+    if (articleError) {
+      console.error('Error looking up article for click:', articleError);
+    }
+    if (!article) {
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { ...corsHeaders, ...rateLimitResult.headers, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Get user agent and referrer from headers
     const userAgent = req.headers.get('user-agent') || '';
@@ -82,26 +107,30 @@ export default async (req: Request): Promise<Response> => {
 
     // Update daily stats (increment click count)
     const today = new Date().toISOString().split('T')[0];
-    const { data: existingStat } = await supabase
+    const { data: existingStat, error: statReadError } = await supabase
       .from('amazon_affiliate_stats')
-      .select('*')
+      .select('id, clicks')
       .eq('article_id', articleIdResult.sanitized)
       .eq('asin', asinResult.sanitized)
       .eq('date', today)
-      .single();
+      .maybeSingle();
 
-    if (existingStat) {
-      await supabase
+    if (statReadError) {
+      console.error('Error reading affiliate stats:', statReadError);
+    } else if (existingStat) {
+      const { error: statUpdateError } = await supabase
         .from('amazon_affiliate_stats')
         .update({ clicks: existingStat.clicks + 1 })
         .eq('id', existingStat.id);
+      if (statUpdateError) console.error('Error updating affiliate stats:', statUpdateError);
     } else {
-      await supabase.from('amazon_affiliate_stats').insert({
+      const { error: statInsertError } = await supabase.from('amazon_affiliate_stats').insert({
         article_id: articleIdResult.sanitized,
         asin: asinResult.sanitized,
         date: today,
         clicks: 1,
       });
+      if (statInsertError) console.error('Error inserting affiliate stats:', statInsertError);
     }
 
     return new Response(JSON.stringify({ success: true }), {
