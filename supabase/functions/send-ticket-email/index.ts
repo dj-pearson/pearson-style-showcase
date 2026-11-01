@@ -3,6 +3,7 @@ import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
 import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 interface SendEmailRequest {
   ticket_id: string;
@@ -227,27 +228,11 @@ export default async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Shared admin gate: valid JWT, admin role, and an aal2 (MFA-verified)
+    // token. Previously any signed-in user could send mail from any mailbox.
+    const auth = await requireAdmin(req, corsHeaders);
+    if (!auth.ok) return auth.response!;
+    const user = { id: auth.userId!, email: auth.email };
 
     const requestData: SendEmailRequest = await req.json();
     const {

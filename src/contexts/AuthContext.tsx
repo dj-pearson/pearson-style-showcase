@@ -10,6 +10,7 @@ import React, {
 import { Session, User, Provider } from '@supabase/supabase-js';
 import { supabase, isApiReachable, clearStaleAuthTokens } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+import { isAal2Token, isMfaRequiredError } from '@/lib/mfa-assurance';
 import { logger } from '@/lib/logger';
 import { toast } from '@/components/ui/sonner';
 // oauth-state.ts is still used by AuthCallback for legacy PKCE flows
@@ -75,6 +76,12 @@ interface AuthContextType {
   adminUser: AdminUser | null;
   authStatus: AuthStatus;
   error: string | null;
+  /**
+   * True when the server refused admin access only because the session has
+   * not passed MFA (aal1). Login/callback screens use it to show the MFA step
+   * instead of an access-denied error.
+   */
+  mfaRequired: boolean;
 
   // Computed state
   isLoading: boolean;
@@ -134,6 +141,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('initializing');
   const [error, setError] = useState<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
   // Visible security warning surfaced to the user (e.g. background admin
   // re-verification failed). Rendered by SecurityWarningBanner.
   const [securityWarning, setSecurityWarning] = useState<string | null>(null);
@@ -284,8 +292,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (functionError || data?.error) {
         logger.warn('Admin verification failed:', functionError?.message || data?.error);
+        setMfaRequired(isMfaRequiredError(functionError) || isMfaRequiredError(data));
         setAdminUser(null);
-        setAuthStatus('authenticated'); // User is logged in but not an admin
+        setAuthStatus('authenticated'); // Logged in but not (yet) an admin session
         return false;
       }
 
@@ -300,6 +309,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         permissions: data.permissions || [],
       };
 
+      setMfaRequired(false);
       setAdminUser(adminData);
       // Cache the admin data for faster subsequent loads (fire-and-forget is OK)
       setCachedAdminData(currentSession.user.id, adminData).catch(() => {
@@ -376,7 +386,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // FAST PATH: Check for cached admin data first (now encrypted)
         // This makes page reloads instant without waiting for edge function
-        const cachedAdmin = await getCachedAdminData(newSession.user.id);
+        // Only an MFA-verified (aal2) session may restore admin state from
+        // cache; an aal1 session goes to the server, which answers mfa_required.
+        const cachedAdmin = isAal2Token(newSession.access_token)
+          ? await getCachedAdminData(newSession.user.id)
+          : null;
         if (cachedAdmin) {
           logger.debug('Using cached admin data for instant auth restore');
           setAdminUser(cachedAdmin);
@@ -459,6 +473,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (functionError || data?.error) {
           logger.warn('Admin verification failed:', functionError?.message || data?.error);
+          setMfaRequired(isMfaRequiredError(functionError) || isMfaRequiredError(data));
           setAdminUser(null);
           clearCachedAdminData();
           setAuthStatus('authenticated');
@@ -473,6 +488,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           permissions: data.permissions || [],
         };
 
+        setMfaRequired(false);
         setAdminUser(adminData);
         // Cache the admin data asynchronously (fire-and-forget is OK here)
         setCachedAdminData(newSession.user.id, adminData).catch(() => {
@@ -550,6 +566,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           clearCachedAdminData();
           setAuthStatus('unauthenticated');
           setError(null);
+          setMfaRequired(false);
           break;
 
         case 'TOKEN_REFRESHED':
@@ -882,6 +899,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       adminUser,
       authStatus,
       error,
+      mfaRequired,
 
       isLoading: authStatus === 'initializing' || authStatus === 'verifying_admin',
       isAuthenticated: !!session && !!user,
@@ -912,6 +930,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       adminUser,
       authStatus,
       error,
+      mfaRequired,
       securityWarning,
       dismissSecurityWarning,
       signIn,

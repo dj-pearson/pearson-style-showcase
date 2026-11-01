@@ -2,10 +2,11 @@
  * Create Invoice From Document
  * Creates a paid purchase invoice + payment record from an AI-parsed document.
  * Receipts are marked as paid immediately since they represent completed purchases.
- * Verifies user is in admin whitelist before proceeding.
+ * Requires an MFA-verified admin caller (see _shared/require-admin.ts).
  */
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/ai-helper.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 interface CreateInvoiceRequest {
   documentId: string;
@@ -66,43 +67,11 @@ export default async (req: Request): Promise<Response> => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized - No token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
+    // Shared admin gate: valid JWT, admin role, and an aal2 (MFA-verified)
+    // token. Replaces the per-function whitelist lookup, which skipped MFA.
+    const auth = await requireAdmin(req, corsHeaders);
+    if (!auth.ok) return auth.response!;
     const supabaseAdmin = createSupabaseClient();
-
-    // Verify user and get email
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(token);
-    if (userError || !user?.email) {
-      return new Response(JSON.stringify({ error: 'Unauthorized - Invalid token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Verify user is in admin whitelist
-    const { data: whitelistEntry } = await supabaseAdmin
-      .from('admin_whitelist')
-      .select('id')
-      .eq('email', user.email)
-      .eq('is_active', true)
-      .single();
-
-    if (!whitelistEntry) {
-      return new Response(JSON.stringify({ error: 'Forbidden - Not an admin' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     const body: CreateInvoiceRequest = await req.json();
     const { documentId, parsedData, documentType } = body;

@@ -34,6 +34,7 @@ export function createMockAuthValue(overrides: Partial<AuthValue> = {}): AuthVal
     adminUser: null,
     authStatus: 'unauthenticated',
     error: null,
+    mfaRequired: false,
 
     // Computed state
     isLoading: false,

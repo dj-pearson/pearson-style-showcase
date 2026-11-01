@@ -8,13 +8,21 @@
  * server, so every service-role function has to authenticate its own caller.
  *
  * Two caller shapes are accepted:
- *   - An admin user's JWT (the admin dashboard).
+ *   - An admin user's JWT (the admin dashboard). The token must be at aal2,
+ *     i.e. issued after the user passed an MFA challenge; an aal1 admin token
+ *     is refused with 403 {error: 'mfa_required'} so the client can send the
+ *     user to the MFA step.
  *   - The service role key itself, for function-to-function invocations such as
  *     receive-email -> send-notification-email. Opt in with allowServiceRole.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
-import { parseBearerToken, safeEqual } from './require-admin-helpers.ts';
+import {
+  MFA_REQUIRED_ERROR,
+  parseBearerToken,
+  safeEqual,
+  tokenHasAal2,
+} from './require-admin-helpers.ts';
 
 export interface RequireAdminOptions {
   /** Accept the service role key as an internal function-to-function caller. */
@@ -28,6 +36,8 @@ export interface RequireAdminResult {
   response?: Response;
   /** Authenticated admin user id; absent for internal service-role callers. */
   userId?: string;
+  /** Authenticated admin user's email; absent for internal service-role callers. */
+  email?: string;
   /** True when authenticated as the service role rather than a user. */
   internal?: boolean;
 }
@@ -83,5 +93,12 @@ export async function requireAdmin(
     return { ok: false, response: deny(403, 'Admin access required', corsHeaders) };
   }
 
-  return { ok: true, userId: user.id };
+  // getUser above has validated the token, so its payload can be trusted.
+  // Admin actions need a second factor; the browser-side MFA step alone is
+  // not enforcement.
+  if (!tokenHasAal2(token)) {
+    return { ok: false, response: deny(403, MFA_REQUIRED_ERROR, corsHeaders) };
+  }
+
+  return { ok: true, userId: user.id, email: user.email ?? undefined };
 }
