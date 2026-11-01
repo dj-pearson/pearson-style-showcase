@@ -4,13 +4,8 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 import { secureMutation } from '@/lib/secure-supabase';
 import { logger } from '@/lib/logger';
-import {
-  validateTextInput,
-  validateUrl,
-  validateSlug,
-  sanitizeStringArray,
-  sanitizeHtml,
-} from '@/lib/security';
+import { validateTextInput, validateUrl, validateSlug, sanitizeStringArray } from '@/lib/security';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';

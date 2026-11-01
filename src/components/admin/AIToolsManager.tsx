@@ -1,7 +1,8 @@
 import LoadingSpinner from '@/components/LoadingSpinner';
 import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '@/lib/logger';
-import { validateTextInput, validateUrl, sanitizeStringArray, sanitizeHtml } from '@/lib/security';
+import { validateTextInput, validateUrl, sanitizeStringArray } from '@/lib/security';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';

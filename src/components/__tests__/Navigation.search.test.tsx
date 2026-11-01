@@ -31,6 +31,7 @@ describe('Navigation search entry points', () => {
     expect(mobileTrigger).toBeDefined();
 
     await user.click(mobileTrigger!);
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    // The dialog is a lazy chunk mounted on first open.
+    expect(await screen.findByRole('combobox')).toBeInTheDocument();
   });
 });
