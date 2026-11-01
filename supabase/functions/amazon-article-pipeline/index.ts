@@ -365,10 +365,10 @@ export default async (req: Request): Promise<Response> => {
 
     if (count === 0) {
       const { data: csvData, error: csvError } = await supabase.storage
-        .from('admin-uploads')
+        .from('admin-private')
         .download('amazon_ideas.csv');
       if (csvError) {
-        await log('warn', 'amazon_ideas.csv not in admin-uploads; using settings niches', {
+        await log('warn', 'amazon_ideas.csv not in admin-private; using settings niches', {
           error: csvError.message,
         });
       } else {

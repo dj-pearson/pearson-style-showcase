@@ -115,12 +115,12 @@ export const AmazonPipelineManager = () => {
     try {
       // Same source as the amazon-article-pipeline edge function. The list is
       // internal, so it is no longer shipped in public/ (canonical copy:
-      // amazon_ideas.csv at the repo root; upload it to admin-uploads).
+      // amazon_ideas.csv at the repo root; upload it to the private admin-private bucket).
       const { data: csvBlob, error: csvError } = await supabase.storage
-        .from('admin-uploads')
+        .from('admin-private')
         .download('amazon_ideas.csv');
       if (csvError || !csvBlob) {
-        throw new Error('amazon_ideas.csv not found in admin-uploads storage');
+        throw new Error('amazon_ideas.csv not found in admin-private storage');
       }
       const csvText = await csvBlob.text();
 
