@@ -666,7 +666,7 @@ const News = () => {
                 />
                 <Button
                   type="submit"
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] w-full sm:w-auto sm:px-8 active:scale-[0.98] transition-transform"
+                  className="font-semibold min-h-[48px] w-full sm:w-auto sm:px-8 active:scale-[0.98] transition-transform"
                   disabled={isSubscribing}
                 >
                   {isSubscribing ? (

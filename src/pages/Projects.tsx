@@ -480,7 +480,7 @@ const Projects = () => {
               </p>
               <Button
                 size="lg"
-                className="mobile-button bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-base sm:text-lg font-bold"
+                className="mobile-button text-base sm:text-lg font-bold"
                 onClick={() => (window.location.href = '/connect')}
               >
                 Get In Touch

@@ -144,7 +144,7 @@ const AITools = () => {
                 <DialogTrigger asChild>
                   <Button
                     size="lg"
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-[48px] sm:min-h-[52px] w-full sm:w-auto px-6 sm:px-8"
+                    className="font-semibold min-h-[48px] sm:min-h-[52px] w-full sm:w-auto px-6 sm:px-8"
                   >
                     <Plus className="w-5 h-5 mr-2" />
                     Submit Your AI Tool
@@ -199,7 +199,7 @@ const AITools = () => {
                 aria-pressed={selectedCategory === 'all'}
                 className={`min-h-[44px] text-sm sm:text-base ${
                   selectedCategory === 'all'
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                    ? 'font-semibold'
                     : 'border-gray-600 hover:border-cyan-500/50'
                 }`}
               >
@@ -216,7 +216,7 @@ const AITools = () => {
                     aria-pressed={selectedCategory === category}
                     className={`min-h-[44px] text-sm sm:text-base ${
                       selectedCategory === category
-                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                        ? 'font-semibold'
                         : 'border-gray-600 hover:border-cyan-500/50'
                     }`}
                   >
@@ -375,7 +375,7 @@ const AITools = () => {
 
           {/* Benefits Section */}
           <div className="py-12 sm:py-16 border-t border-gray-800">
-            <div className="bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-4xl mx-auto">
+            <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-4xl mx-auto">
               <h2 className="text-2xl sm:text-3xl font-bold mb-5 sm:mb-6 text-center text-white leading-tight">
                 Why Choose AI Solutions?
               </h2>
@@ -425,7 +425,7 @@ const AITools = () => {
               <div className="flex flex-col gap-3 justify-center">
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 min-h-[48px] sm:min-h-[52px] w-full"
+                  className="font-semibold min-h-[48px] sm:min-h-[52px] w-full"
                   onClick={() => (window.location.href = '/connect')}
                 >
                   Schedule Consultation
