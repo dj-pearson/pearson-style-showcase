@@ -370,6 +370,7 @@ const Projects = () => {
 
           {/* Projects Grid - Mobile First */}
           <div className="pb-12 sm:pb-16">
+            <h2 className="sr-only">Project list</h2>
             {isLoading ? (
               <ProjectListSkeleton count={6} />
             ) : error ? (
@@ -474,8 +475,8 @@ const Projects = () => {
             <div className="mobile-card bg-gray-800/50 border border-cyan-500/20 max-w-2xl mx-auto">
               <h2 className="mobile-heading-md text-white mb-4">Ready to Start Your Project?</h2>
               <p className="text-base sm:text-lg text-gray-400 mb-6 leading-relaxed">
-                Let's discuss how I can help bring your vision to life with innovative technology
-                solutions.
+                Tell me what you're building or what's slowing your team down, and I'll tell you how
+                I'd approach it.
               </p>
               <Button
                 size="lg"

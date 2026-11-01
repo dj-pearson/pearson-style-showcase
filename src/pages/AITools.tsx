@@ -27,6 +27,7 @@ import {
   Filter,
   ExternalLink,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
 
 type AITool = Tables<'ai_tools'>;
@@ -38,7 +39,9 @@ const AITools = () => {
   const {
     data: tools,
     isLoading,
+    isFetching,
     error,
+    refetch,
   } = useQuery({
     queryKey: ['ai_tools'],
     queryFn: async () => {
@@ -98,9 +101,9 @@ const AITools = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <SEO
-        title="AI Tools & Services 2025 | Revolutionary AI Solutions & Business Automation"
-        description="Discover 100+ revolutionary AI tools transforming business in 2025. From OpenAI Sora to Cursor IDE - comprehensive directory of AI solutions for content creation, development, automation, and more."
-        keywords="AI tools 2025, artificial intelligence software, business automation, AI content creation, OpenAI Sora, Cursor IDE, DeepSeek, AI development tools, machine learning platforms, AI image generation, business AI solutions"
+        title="AI Tools Directory: Pricing and Skill Level | Dan Pearson"
+        description="A directory of AI tools for writing, development, image work and business automation. Filter by category and compare pricing and skill level for each tool."
+        keywords="AI tools directory, artificial intelligence software, business automation, AI content creation, AI development tools, AI image generation, business AI tools"
         url="https://danpearson.net/ai-tools"
         type="website"
         structuredData={{
@@ -108,12 +111,12 @@ const AITools = () => {
           data: {
             name: 'AI Tools & Services Directory',
             description:
-              'Comprehensive directory of revolutionary AI tools and services for business transformation in 2025',
+              'Directory of AI tools for writing, development, image work and automation, with pricing and skill level for each',
             url: 'https://danpearson.net/ai-tools',
             mainEntity: {
               '@type': 'ItemList',
               name: 'AI Tools Directory',
-              description: 'Curated collection of the best AI tools for business professionals',
+              description: 'AI tools reviewed for business use, grouped by category',
               numberOfItems: tools?.length || 0,
             },
           },
@@ -128,8 +131,11 @@ const AITools = () => {
               AI Tools & Services
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 px-2 leading-relaxed">
-              Discover 100+ revolutionary AI tools transforming work in 2025. From agentic AI
-              systems to specialized industry solutions.
+              {tools && tools.length > 0
+                ? `${tools.length} AI tool${tools.length === 1 ? '' : 's'} across ${
+                    categories.length - 1
+                  } categor${categories.length - 1 === 1 ? 'y' : 'ies'}, with pricing and skill level for each.`
+                : 'AI tools for writing, development, image work and automation, with pricing and skill level for each.'}
             </p>
 
             {/* Submit Tool Button */}
@@ -159,7 +165,7 @@ const AITools = () => {
 
             {/* Statistics */}
             {tools && tools.length > 0 && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-2xl mx-auto">
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-xl mx-auto">
                 <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
                   <div className="text-xl sm:text-2xl font-bold text-cyan-400">{tools.length}</div>
                   <div className="text-xs sm:text-sm text-muted-foreground">Total Tools</div>
@@ -180,10 +186,6 @@ const AITools = () => {
                   </div>
                   <div className="text-xs sm:text-sm text-muted-foreground">Free Tools</div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-3 sm:p-4">
-                  <div className="text-xl sm:text-2xl font-bold text-cyan-400">2025</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">Latest</div>
-                </div>
               </div>
             )}
           </div>
@@ -194,6 +196,7 @@ const AITools = () => {
               <Button
                 variant={selectedCategory === 'all' ? 'default' : 'outline'}
                 onClick={() => setSelectedCategory('all')}
+                aria-pressed={selectedCategory === 'all'}
                 className={`min-h-[44px] text-sm sm:text-base ${
                   selectedCategory === 'all'
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600'
@@ -210,6 +213,7 @@ const AITools = () => {
                     key={category}
                     variant={selectedCategory === category ? 'default' : 'outline'}
                     onClick={() => setSelectedCategory(category)}
+                    aria-pressed={selectedCategory === category}
                     className={`min-h-[44px] text-sm sm:text-base ${
                       selectedCategory === category
                         ? 'bg-gradient-to-r from-cyan-500 to-blue-600'
@@ -227,6 +231,9 @@ const AITools = () => {
 
           {/* AI Tools Grid */}
           <div className="pb-12 sm:pb-16">
+            <h2 className="sr-only">
+              {selectedCategory === 'all' ? 'All AI tools' : `${selectedCategory} tools`}
+            </h2>
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {[...Array(6)].map((_, i) => (
@@ -235,9 +242,23 @@ const AITools = () => {
               </div>
             ) : error ? (
               <div className="text-center py-12 px-4">
-                <p className="text-base text-muted-foreground">
-                  Error loading AI tools. Please try again later.
-                </p>
+                <div className="mobile-card bg-destructive/10 border-destructive/30 max-w-md mx-auto">
+                  <p className="text-base text-destructive mb-4">
+                    Error loading AI tools. Please check your connection and try again.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => refetch()}
+                    disabled={isFetching}
+                    className="min-h-[44px] border-destructive/50 hover:border-destructive text-destructive hover:text-destructive"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${isFetching ? 'motion-safe:animate-spin' : ''}`}
+                      aria-hidden="true"
+                    />
+                    Try Again
+                  </Button>
+                </div>
               </div>
             ) : filteredTools.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -261,7 +282,7 @@ const AITools = () => {
                                 href={tool.link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-muted-foreground hover:text-cyan-400 transition-colors"
+                                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -my-3 -mr-3 rounded-md text-muted-foreground hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                                 aria-label={`Visit ${tool.title} website (opens in new tab)`}
                               >
                                 <ExternalLink className="w-4 h-4" aria-hidden="true" />
@@ -395,11 +416,11 @@ const AITools = () => {
           <div className="text-center py-12 sm:py-16">
             <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-6 sm:p-8 max-w-2xl mx-auto">
               <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white leading-tight">
-                Ready to Transform Your Business?
+                Want help picking or wiring up a tool?
               </h2>
               <p className="text-base text-muted-foreground mb-5 sm:mb-6 leading-relaxed">
-                Let's discuss how AI can revolutionize your operations and give you a competitive
-                edge in today's market.
+                Tell me what your team does by hand today and I'll say which of these tools, if any,
+                would take it off your plate.
               </p>
               <div className="flex flex-col gap-3 justify-center">
                 <Button
