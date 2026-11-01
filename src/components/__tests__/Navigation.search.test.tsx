@@ -35,3 +35,14 @@ describe('Navigation search entry points', () => {
     expect(await screen.findByRole('combobox')).toBeInTheDocument();
   });
 });
+
+describe('Navigation admin entry point', () => {
+  it('does not link to the admin login from the desktop bar or the mobile menu', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Navigation />);
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation menu' }));
+
+    expect(container.querySelector('a[href^="/admin"]')).toBeNull();
+  });
+});

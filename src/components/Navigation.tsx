@@ -167,14 +167,6 @@ const Navigation = () => {
                   )}
                 </Link>
               ))}
-
-              <Link
-                to="/admin/login"
-                className="flex items-center space-x-2 ml-4 px-3 py-2 text-xs text-muted-foreground hover:text-primary transition-colors duration-200 rounded-md hover:bg-muted/20"
-              >
-                <div className="w-3 h-3 rounded-full border border-primary/50"></div>
-                <span>Admin</span>
-              </Link>
             </div>
 
             {/* Mobile header controls. Search lived only in the desktop bar and
@@ -265,16 +257,6 @@ const Navigation = () => {
                     )}
                   </Link>
                 ))}
-
-                <Link
-                  to="/admin/login"
-                  onClick={() => setIsMenuOpen(false)}
-                  style={{ animationDelay: `${20 + navItems.length * 15}ms` }}
-                  className={`mobile-nav-item ${itemAnimation} flex items-center space-x-3 px-6 py-4 mt-4 border-t border-border mx-2 text-base text-muted-foreground hover:text-primary transition-all duration-200 rounded-xl hover:bg-muted/20 active:bg-muted/30 touch-target`}
-                >
-                  <div className="w-3 h-3 rounded-full border-2 border-primary/50"></div>
-                  <span>Admin Access</span>
-                </Link>
               </div>
 
               {/* Swipe indicator */}
