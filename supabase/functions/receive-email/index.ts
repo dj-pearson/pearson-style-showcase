@@ -30,48 +30,53 @@ export default async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify webhook secret if configured (optional for Make.com compatibility)
+    // Webhook auth is mandatory. Fail closed when the secret is not configured
+    // so a missing env var can't silently open the endpoint.
     const webhookSecret = Deno.env.get('MAKE_WEBHOOK_SECRET');
-    if (webhookSecret) {
-      const providedSecret =
-        req.headers.get('x-webhook-secret') ||
-        req.headers.get('authorization')?.replace('Bearer ', '');
+    if (!webhookSecret) {
+      console.error('MAKE_WEBHOOK_SECRET is not set; rejecting request');
+      return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      // Check for HMAC signature first
-      const signature = req.headers.get('x-webhook-signature');
-      if (signature) {
-        // Clone request to read body for signature verification
-        const rawBody = await req.clone().text();
-        const timestamp = req.headers.get('x-webhook-timestamp');
-        const result = await verifyWebhookSignature(rawBody, signature, webhookSecret, timestamp);
-        if (!result.valid) {
-          console.error('Webhook signature verification failed:', result.error);
-          return new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        console.log('Webhook signature verified');
-      } else if (providedSecret) {
-        // Fallback to simple secret verification
-        if (!verifySecret(providedSecret, webhookSecret)) {
-          console.error('Invalid webhook secret');
-          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        console.log('Webhook secret verified');
-      } else {
-        console.warn(
-          'No webhook authentication provided - MAKE_WEBHOOK_SECRET is configured but no credentials in request'
-        );
-        // Optionally reject unauthenticated requests:
-        // return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        //   status: 401,
-        //   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        // });
+    const authHeader = req.headers.get('authorization');
+    const providedSecret =
+      req.headers.get('x-webhook-secret') ||
+      (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
+
+    // HMAC signature is preferred; it requires x-webhook-timestamp for replay protection
+    const signature = req.headers.get('x-webhook-signature');
+    if (signature) {
+      // Clone request to read body for signature verification
+      const rawBody = await req.clone().text();
+      const timestamp = req.headers.get('x-webhook-timestamp');
+      const result = await verifyWebhookSignature(rawBody, signature, webhookSecret, timestamp);
+      if (!result.valid) {
+        console.error('Webhook signature verification failed:', result.error);
+        return new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
+      console.log('Webhook signature verified');
+    } else if (providedSecret) {
+      // Fallback to shared-secret verification
+      if (!verifySecret(providedSecret, webhookSecret)) {
+        console.error('Invalid webhook secret');
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log('Webhook secret verified');
+    } else {
+      console.error('Rejected request with no webhook credentials');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const contentType = req.headers.get('content-type') || '';

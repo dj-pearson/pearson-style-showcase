@@ -63,7 +63,11 @@ export default async (req: Request): Promise<Response> => {
         rawBody,
         signature,
         settings.webhook_secret,
-        timestamp
+        timestamp,
+        300,
+        // Legacy senders sign without a timestamp; keep accepting them here.
+        // TODO: drop this once senders send x-webhook-timestamp.
+        { requireTimestamp: false }
       );
 
       if (!signatureResult.valid) {
