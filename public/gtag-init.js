@@ -2,18 +2,6 @@
 // Loaded as a classic, non-async script placed BEFORE the async gtag.js tag,
 // so consent defaults are always queued before gtag.js processes dataLayer.
 
-// Async Google Fonts stylesheet: the <link id="font-inter" rel="preload">
-// above this script used to flip itself to rel=stylesheet via an inline
-// onload handler, which CSP without 'unsafe-inline' blocks.
-(function () {
-  var link = document.getElementById('font-inter');
-  if (!link) return;
-  var apply = function () { link.rel = 'stylesheet'; };
-  link.addEventListener('load', apply, { once: true });
-  // If the preload already finished before this listener attached.
-  if (link.sheet) apply();
-})();
-
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 
