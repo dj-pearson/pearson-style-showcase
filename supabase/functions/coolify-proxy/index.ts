@@ -14,9 +14,9 @@
  * - server-resources: List resources for a specific server
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 const COOLIFY_API_TOKEN = Deno.env.get('COOLIFY_API_TOKEN') ?? '';
 const COOLIFY_BASE_URL = Deno.env.get('COOLIFY_BASE_URL') ?? '';
@@ -79,31 +79,6 @@ async function safeReadJson(response: Response): Promise<unknown> {
   return JSON.parse(text);
 }
 
-async function verifyAdmin(req: Request): Promise<boolean> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return false;
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
-
-  const token = authHeader.replace('Bearer ', '');
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
-  if (error || !user) return false;
-
-  const { data: whitelist } = await supabase
-    .from('admin_whitelist')
-    .select('id')
-    .eq('email', user.email)
-    .maybeSingle();
-
-  return !!whitelist;
-}
-
 export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
@@ -113,14 +88,9 @@ export default async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Verify admin access
-    const isAdmin = await verifyAdmin(req);
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Verify admin access (shared helper: valid JWT + admin row in user_roles)
+    const auth = await requireAdmin(req, corsHeaders);
+    if (!auth.ok) return auth.response!;
 
     // Validate Coolify config
     if (!COOLIFY_API_TOKEN || !COOLIFY_BASE_URL) {

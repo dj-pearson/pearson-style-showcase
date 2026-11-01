@@ -6,7 +6,12 @@
  * Endpoints:
  * - /health: Basic liveness check (is the function running?)
  * - /ready: Readiness check (can the function handle requests?)
- * - /deep: Deep health check (database, external services)
+ * - /deep: Deep health check (database, external services) - admin only
+ * - /metrics: Memory and rate-limit metrics - admin only
+ *
+ * /health and /ready stay public for uptime probes. /deep calls the Resend and
+ * Anthropic APIs with our keys and /deep and /metrics expose memory and
+ * rate-limiter internals, so both require an admin JWT or the service role key.
  *
  * Response format follows Kubernetes health check conventions.
  */
@@ -14,6 +19,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { getRateLimitStats } from '../_shared/rate-limiter.ts';
+import { requireAdmin } from '../_shared/require-admin.ts';
 
 // Health status types
 type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
@@ -270,6 +276,12 @@ export default async (req: Request): Promise<Response> => {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
         },
       });
+    }
+
+    // Everything past this point spends API quota or exposes internals
+    if (checkType === 'deep' || checkType === 'full' || checkType === 'metrics') {
+      const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
+      if (!auth.ok) return auth.response!;
     }
 
     // Deep health check (all services + metrics)
