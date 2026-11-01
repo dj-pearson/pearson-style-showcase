@@ -19,7 +19,7 @@
  *   node scripts/prerender.mjs        # after `vite build`
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { marked } from 'marked';
 import { transformSync, build } from 'esbuild';
@@ -187,6 +187,82 @@ function applyPrerenderData(html, payload, id) {
   if (at === -1) return html;
   const block = `  <script type="application/json" id="${id}">${json}</script>\n  `;
   return html.slice(0, at) + block + html.slice(at);
+}
+
+// --- route chunk preloading ----------------------------------------------
+
+/**
+ * Maps each prerendered path to the source file of the page that renders it,
+ * read from src/lib/routeComponents.ts (PRERENDERED_ROUTES for the path
+ * pattern, routeComponents for the lazy import behind each name) so this stays
+ * in step with what main.tsx preloads. '/' is Index, bundled into the entry.
+ */
+function loadRouteSources() {
+  const source = readFileSync('src/lib/routeComponents.ts', 'utf8');
+  const files = new Map();
+  for (const [, name, spec] of source.matchAll(
+    /(\w+):\s*lazyWithPreload\(\(\)\s*=>\s*import\('@\/([^']+)'\)\)/g
+  )) {
+    const file = ['.tsx', '.ts'].map((ext) => `src/${spec}${ext}`).find((f) => existsSync(f));
+    if (file) files.set(name, file);
+  }
+  const routes = [];
+  for (const [, pattern, flags, name] of source.matchAll(
+    /\[\s*\/(.+)\/([a-z]*)\s*,\s*'(\w+)'\s*\]/g
+  )) {
+    if (files.has(name)) routes.push([new RegExp(pattern, flags), files.get(name)]);
+  }
+  if (routes.length === 0) {
+    console.warn('prerender: no PRERENDERED_ROUTES parsed from src/lib/routeComponents.ts');
+  }
+  return (path) => routes.find(([re]) => re.test(path))?.[1];
+}
+
+/**
+ * Vite's build manifest (build.manifest in vite.config.ts). Read once, then
+ * removed so dist/.vite is not deployed; a rerun of this script alone, without
+ * `vite build`, therefore skips the preload links with a warning.
+ */
+function loadManifest() {
+  const manifestPath = join(DIST, '.vite', 'manifest.json');
+  if (!existsSync(manifestPath)) {
+    console.warn('prerender: dist/.vite/manifest.json not found; route chunks not preloaded');
+    return null;
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  rmSync(join(DIST, '.vite'), { recursive: true, force: true });
+  return manifest;
+}
+
+/** The page chunk for a source file plus every chunk it statically imports. */
+function chunkFiles(manifest, sourceFile) {
+  const files = [];
+  const seen = new Set();
+  const visit = (key) => {
+    if (seen.has(key) || !manifest[key]) return;
+    seen.add(key);
+    files.push(manifest[key].file);
+    for (const dep of manifest[key].imports || []) visit(dep);
+  };
+  visit(sourceFile);
+  return files;
+}
+
+/**
+ * Adds <link rel="modulepreload"> for the route's page chunk and its static
+ * imports. Without them the browser only finds the page chunk (and, for an
+ * article, markdown-vendor) once the entry has run. Assets the head already
+ * loads are skipped. `crossorigin` matches the entry script's, or the preload
+ * would not be reused by the module fetch.
+ */
+function applyModulePreloads(html, files) {
+  if (!files || files.length === 0) return html;
+  const links = [...new Set(files)]
+    .map((file) => `/${file}`)
+    .filter((href) => !html.includes(`"${href}"`))
+    .map((href) => `    <link rel="modulepreload" crossorigin href="${href}">\n`)
+    .join('');
+  return links ? html.replace(/[ \t]*<\/head>/, (head) => `${links}${head}`) : html;
 }
 
 // --- schema builders ------------------------------------------------------
@@ -841,7 +917,14 @@ const pages = [
   })),
 ];
 
+const routeSourceFor = loadRouteSources();
+const manifest = loadManifest();
+let preloadedRoutes = 0;
+
 for (const page of pages) {
+  const routeSource = manifest && routeSourceFor(page.path);
+  const preloads = routeSource ? chunkFiles(manifest, routeSource) : [];
+  if (preloads.length > 0) preloadedRoutes += 1;
   const html = applyPrerenderData(
     applyBody(
       applyHead(template, {
@@ -856,6 +939,7 @@ for (const page of pages) {
     page.prerenderData,
     helpers.PRERENDER_DATA_ID
   );
+  const output = applyModulePreloads(html, preloads);
 
   // Written as `<route>.html`, not `<route>/index.html`. Cloudflare Pages
   // serves the first at /route with a 200 and redirects the second to
@@ -867,7 +951,7 @@ for (const page of pages) {
     page.path === '/' ? join(DIST, 'index.html') : join(DIST, `${page.path.slice(1)}.html`);
 
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, html);
+  writeFileSync(outPath, output);
 }
 
 const urlCount = writeSitemap(pages);
@@ -875,5 +959,5 @@ const itemCount = writeFeed(pages);
 const newsCount = writeNewsSitemap(pages);
 writeLlmsTxt(crm, articles, dbArticles);
 console.log(
-  `prerender: ${pages.length} routes (${dbArticles.length} from the database), ${urlCount} sitemap URLs, ${itemCount} feed items, ${newsCount} news sitemap URLs`
+  `prerender: ${pages.length} routes (${dbArticles.length} from the database), ${urlCount} sitemap URLs, ${itemCount} feed items, ${newsCount} news sitemap URLs, ${preloadedRoutes} with route chunk preloads`
 );
