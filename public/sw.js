@@ -3,26 +3,31 @@
 // Strategy summary:
 //   - Cross-origin requests (Supabase API/functions, analytics, fonts, CDNs)
 //     are never intercepted; the browser and HTTP cache handle them.
-//   - HTML navigations: network-first, cached shell only when offline.
+//   - HTML navigations: network-first (with navigation preload), cached
+//     copy of the same URL, then the '/' shell, only when offline.
 //   - /assets/*: build-hashed and immutable, so cache-first with no
 //     background revalidation.
 //   - Other same-origin GETs (icons, manifest, public images): stale-while-
 //     revalidate in a runtime cache capped at RUNTIME_MAX_ENTRIES.
 
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const CACHE_PREFIX = 'pearson-portfolio-';
-// Shell cache: precached app shell plus the latest index.html.
+// Shell cache: precached app shell ('/' and '/index.html').
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
+// Prerendered HTML pages, keyed by their own normalized URL so an offline
+// visitor gets the page they asked for, not whichever page was visited last.
+const PAGE_CACHE = `${CACHE_PREFIX}pages-${CACHE_VERSION}`;
 // Immutable hashed build assets.
 const ASSET_CACHE = `${CACHE_PREFIX}assets-${CACHE_VERSION}`;
 // Everything else same-origin.
 const RUNTIME_CACHE = `${CACHE_PREFIX}runtime-${CACHE_VERSION}`;
-const CURRENT_CACHES = [CACHE_NAME, ASSET_CACHE, RUNTIME_CACHE];
+const CURRENT_CACHES = [CACHE_NAME, PAGE_CACHE, ASSET_CACHE, RUNTIME_CACHE];
 
 // Hashed filenames accumulate across deploys within one CACHE_VERSION, so the
 // asset cache is bounded too, just more generously.
 const ASSET_MAX_ENTRIES = 200;
 const RUNTIME_MAX_ENTRIES = 60;
+const PAGE_MAX_ENTRIES = 40;
 
 // Assets to cache immediately on install
 const PRECACHE_ASSETS = [
@@ -59,6 +64,15 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
         );
+        // Let the browser start the navigation request in parallel with
+        // worker boot; handleNavigation consumes event.preloadResponse.
+        if (self.registration.navigationPreload) {
+          try {
+            await self.registration.navigationPreload.enable();
+          } catch (e) {
+            /* unsupported or disallowed: plain fetch still works */
+          }
+        }
         // Take control of open clients so the new routing applies without a
         // second reload.
         await self.clients.claim();
@@ -89,7 +103,7 @@ self.addEventListener('fetch', (event) => {
   // and Cloudflare Pages answers those missing asset URLs with index.html
   // (text/html) via the SPA fallback -> MIME-type errors -> nothing renders.
   if (request.mode === 'navigate') {
-    event.respondWith(handleNavigation(request));
+    event.respondWith(handleNavigation(event, url));
     return;
   }
 
@@ -173,22 +187,37 @@ async function staleChunkResponse(request, url) {
   );
 }
 
-// Network-first handler for HTML navigations. Falls back to the cached shell
-// only when the network is unreachable (genuine offline).
-async function handleNavigation(request) {
-  const cache = await caches.open(CACHE_NAME);
+// Cache key for a navigation: same-origin path without query or hash, and
+// without a trailing slash (except the root), so /about and /about/ share one
+// entry and tracking params don't fragment the cache.
+function pageCacheKey(url) {
+  let path = url.pathname;
+  if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+  return new URL(path, self.location.origin).href;
+}
+
+// Network-first handler for HTML navigations. Uses the navigation preload
+// response when the browser started one, and falls back to the cached copy of
+// this URL, then the '/' shell, only when the network is unreachable.
+async function handleNavigation(event, url) {
+  const key = pageCacheKey(url);
   try {
-    const response = await fetch(request);
-    if (response.ok) {
-      // Keep the latest shell for offline use.
-      cache.put('/index.html', response.clone());
+    const response = (await event.preloadResponse) || (await fetch(event.request));
+    if (response.ok && looksLikeHtml(response)) {
+      event.waitUntil(
+        putAndTrim(PAGE_CACHE, PAGE_MAX_ENTRIES, key, response.clone())
+      );
     }
     return response;
   } catch (error) {
-    console.warn('[ServiceWorker] Navigation offline, serving cached shell');
+    console.warn('[ServiceWorker] Navigation offline, serving cached page');
+    const pages = await caches.open(PAGE_CACHE);
+    const shell = await caches.open(CACHE_NAME);
     const cached =
-      (await cache.match('/index.html')) || (await cache.match('/'));
-    return cached || offlineFallback(request);
+      (await pages.match(key)) ||
+      (await shell.match('/')) ||
+      (await shell.match('/index.html'));
+    return cached || offlineFallback(event.request);
   }
 }
 
