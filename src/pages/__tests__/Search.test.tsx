@@ -8,7 +8,7 @@ vi.mock('@/integrations/supabase/client', async () => {
 });
 
 import { supabase } from '@/integrations/supabase/client';
-import Search, { sortByRelevance } from '../Search';
+import Search, { resultHref, sortByRelevance } from '../Search';
 
 const mock = supabase as unknown as SupabaseMock;
 
@@ -116,5 +116,38 @@ describe('sortByRelevance', () => {
       'react'
     );
     expect(sorted.map((r) => r.type)).toEqual(['article', 'project', 'ai_tool']);
+  });
+});
+
+describe('search result links', () => {
+  it('renders each result as a list item with a real link on the title', async () => {
+    mock.setTableResult('articles', { data: [], error: null });
+    mock.setTableResult('projects', {
+      data: [
+        { id: 'p9', title: 'React Scheduler', description: 'x', image_url: null, status: null },
+      ],
+      error: null,
+    });
+    mock.setTableResult('ai_tools', { data: [], error: null });
+
+    render(<Search />, { initialEntries: ['/search?q=react'] });
+
+    const link = await screen.findByRole('link', { name: 'React Scheduler' }, { timeout: 3000 });
+    expect(link).toHaveAttribute('href', '/projects?highlight=p9');
+    expect(link.closest('li')).not.toBeNull();
+  });
+
+  it('routes each result type to a working destination', () => {
+    expect(resultHref({ id: '1', type: 'article', title: 'a', slug: 'x' })).toEqual({
+      href: '/news/x',
+      external: false,
+    });
+    expect(
+      resultHref({ id: '2', type: 'ai_tool', title: 't', url: 'https://tool.example' })
+    ).toEqual({ href: 'https://tool.example', external: true });
+    expect(resultHref({ id: '3', type: 'ai_tool', title: 't' })).toEqual({
+      href: '/ai-tools',
+      external: false,
+    });
   });
 });

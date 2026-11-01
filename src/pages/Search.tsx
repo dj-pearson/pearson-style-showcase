@@ -1,6 +1,6 @@
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
@@ -59,6 +59,29 @@ export function sortByRelevance(results: SearchResult[], needle: string): Search
     return diff !== 0 ? diff : TYPE_ORDER[a.type] - TYPE_ORDER[b.type];
   });
 }
+
+/**
+ * Where a result goes. Internal destinations are router links; an AI tool
+ * with its own URL opens off-site, and one without falls back to /ai-tools so
+ * every result is a working link.
+ */
+export function resultHref(result: SearchResult): { href: string; external: boolean } {
+  switch (result.type) {
+    case 'article':
+      return { href: result.slug ? `/news/${result.slug}` : '/news', external: false };
+    case 'project':
+      return { href: `/projects?highlight=${encodeURIComponent(result.id)}`, external: false };
+    case 'ai_tool':
+      return result.url
+        ? { href: result.url, external: true }
+        : { href: '/ai-tools', external: false };
+  }
+}
+
+// The title link's ::after covers the whole card, so the card is clickable,
+// middle-clickable and crawlable while the accessible name stays the title.
+const RESULT_LINK_CLASS =
+  'after:absolute after:inset-0 after:rounded-lg after:content-[""] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary focus-visible:after:ring-offset-2 focus-visible:after:ring-offset-background';
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -219,17 +242,6 @@ const Search = () => {
     }
   };
 
-  // Handle result click
-  const handleResultClick = (result: SearchResult) => {
-    if (result.type === 'article' && result.slug) {
-      navigate(`/news/${result.slug}`);
-    } else if (result.type === 'project') {
-      navigate(`/projects?highlight=${encodeURIComponent(result.id)}`);
-    } else if (result.type === 'ai_tool' && result.url) {
-      window.open(result.url, '_blank', 'noopener,noreferrer');
-    }
-  };
-
   // Get icon for result type
   const getIcon = (type: SearchResult['type']) => {
     switch (type) {
@@ -357,70 +369,76 @@ const Search = () => {
                   </span>
                 </div>
 
-                <div className="space-y-4" role="list">
-                  {results.map((result) => (
-                    <Card
-                      key={`${result.type}-${result.id}`}
-                      className="cursor-pointer hover:shadow-lg transition-shadow group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                      onClick={() => handleResultClick(result)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleResultClick(result);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="listitem"
-                      aria-label={`${getTypeLabel(result.type)}: ${result.title}`}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-4">
-                          {result.image_url && (
-                            <div className="flex-shrink-0">
-                              <img
-                                src={result.image_url}
-                                alt={result.title}
-                                loading="lazy"
-                                decoding="async"
-                                width={96}
-                                height={96}
-                                className="w-24 h-24 rounded-lg object-cover"
-                              />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="text-primary" aria-hidden="true">
-                                {getIcon(result.type)}
-                              </div>
-                              <Badge variant="outline">{getTypeLabel(result.type)}</Badge>
-                              {result.category && (
-                                <Badge variant="secondary">{result.category}</Badge>
+                <ul className="space-y-4">
+                  {results.map((result) => {
+                    const { href, external } = resultHref(result);
+                    return (
+                      <li key={`${result.type}-${result.id}`}>
+                        <Card className="relative hover:shadow-lg transition-shadow group">
+                          <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                              {result.image_url && (
+                                <div className="flex-shrink-0">
+                                  <img
+                                    src={result.image_url}
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                    width={96}
+                                    height={96}
+                                    className="w-24 h-24 rounded-lg object-cover"
+                                  />
+                                </div>
                               )}
-                            </div>
-                            <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                              {result.title}
-                            </h3>
-                            {(result.excerpt || result.description) && (
-                              <p className="text-muted-foreground line-clamp-3 mb-3">
-                                {result.excerpt || result.description}
-                              </p>
-                            )}
-                            {result.tags && result.tags.length > 0 && (
-                              <div className="flex gap-2 flex-wrap">
-                                {result.tags.slice(0, 5).map((tag, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {tag}
-                                  </Badge>
-                                ))}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="text-primary" aria-hidden="true">
+                                    {getIcon(result.type)}
+                                  </div>
+                                  <Badge variant="outline">{getTypeLabel(result.type)}</Badge>
+                                  {result.category && (
+                                    <Badge variant="secondary">{result.category}</Badge>
+                                  )}
+                                </div>
+                                <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                                  {external ? (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={RESULT_LINK_CLASS}
+                                    >
+                                      {result.title}
+                                      <span className="sr-only"> (opens in new tab)</span>
+                                    </a>
+                                  ) : (
+                                    <Link to={href} className={RESULT_LINK_CLASS}>
+                                      {result.title}
+                                    </Link>
+                                  )}
+                                </h3>
+                                {(result.excerpt || result.description) && (
+                                  <p className="text-muted-foreground line-clamp-3 mb-3">
+                                    {result.excerpt || result.description}
+                                  </p>
+                                )}
+                                {result.tags && result.tags.length > 0 && (
+                                  <div className="flex gap-2 flex-wrap">
+                                    {result.tags.slice(0, 5).map((tag, idx) => (
+                                      <Badge key={idx} variant="outline" className="text-xs">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </div>
