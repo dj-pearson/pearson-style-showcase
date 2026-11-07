@@ -1620,7 +1620,7 @@
         "The third-party scheduler script loads only after the visitor clicks to open it, and with the script blocked the intake still submits and the page says Dan will email times",
         "Component tests cover the in-band and out-of-band branches; typecheck and tests pass"
       ],
-      "priority": 68,
+      "priority": 1,
       "passes": false,
       "notes": "Critic: kept, sources corrected. INSIDEA's Pipedrive audit page books a 30-minute strategy call with a proposal in 48 hours and no published price (https://insidea.com/pipedrive/audit, checked 2026-11-07), which supports 'agencies let you book without writing an email'. The draft's fillthelobby.pages.dev source does not resolve (DNS ENOTFOUND) and the RevPartners claim had no source; both removed. Owner decision needed: which scheduler (Cal.com, Calendly or similar). Size: M. Success metric: booked audit calls per month from /book-audit, and intake completion rate (submissions / views). Baseline is unmeasured today because nothing is recorded."
     },
@@ -1636,7 +1636,7 @@
         "A LeadsManager tab in AdminDashboard.tsx lists contact_submissions and audit_requests together with stage (new, qualified, booked, won, lost), source and CTA id; each stage change is stored with a timestamp",
         "A Deno test proves a submission writes a row; a component test proves LiveActivityFeed renders a new contact_submissions row; component tests cover each ctaKind; typecheck and tests pass"
       ],
-      "priority": 69,
+      "priority": 2,
       "passes": false,
       "notes": "Critic: the draft's LEAP-006 (article CTA block, size S) was wiring that only matters with attribution behind it, so it is merged here and its slot replaced. Competitive rationale is the site's own thesis more than any competitor: AI_CRM_AUTOMATION_STRATEGY.md section 13 names 'audit inquiries' as 'the only number that pays', and today it cannot be counted. The ColdIQ and superdupr links in the draft were not checked by the critic and are dropped as support. Size: M. Success metric: share of inbound leads with a known source (target 90%+), and leads per month by originating article slug."
     },
@@ -1653,7 +1653,7 @@
         "The result page links to /book-audit carrying the result id, and the audit_requests row stores it",
         "The landing page is prerendered by scripts/prerender.mjs, listed in llms.txt and sitemap.xml, and added to e2e/public/accessibility.spec.ts with zero serious or critical violations; typecheck passes"
       ],
-      "priority": 70,
+      "priority": 3,
       "passes": false,
       "notes": "Critic: route changed from the draft's /crm-audit to the path the strategy doc already fixed. Strategy section 11.1 says gated-first tools do not get cited or linked, so the answer stays ungated. INSIDEA source checked 2026-11-07 (https://insidea.com/pipedrive/audit: call first, no price). The brixongroup conversion benchmark is vendor content and is not relied on. Size: L. Success metric: completions per month, email capture rate on completion, and share of audit_requests carrying a result id."
     },
@@ -1669,7 +1669,7 @@
         "README.md describes the CRM automation practice and the offer ladder; Navigation and footer no longer link to noindexed or removed surfaces",
         "E2E and typecheck pass"
       ],
-      "priority": 71,
+      "priority": 4,
       "passes": false,
       "notes": "Critic: kept and widened. The draft treated this as a navigation cleanup (size S); the voice-profile conflict makes it the gate for every copy check in LEAP-005, LEAP-007, LEAP-011 and LEAP-014. AI_CRM_AUTOMATION_STRATEGY.md section 15 says to keep /projects and /ai-tools as secondary surfaces, so /ai-tools goes to LEAP-015 (refocus) rather than removal by default. The Nick Saraev 'commoditized' link was not checked and is dropped as support. Size: M (mostly owner decisions). Success metric: share of indexed pages on CRM topics, and Search Console impressions for 'AI CRM automation consultant' queries."
     },
@@ -1685,7 +1685,7 @@
         "A 'send me this' option stores inputs and email under consent with source='calculator'; the basic result needs no email",
         "what-crm-automation-costs.md sets ctaKind: calculator; the page is prerendered, in llms.txt and swept by the accessibility guard; typecheck passes"
       ],
-      "priority": 72,
+      "priority": 5,
       "passes": false,
       "notes": "Critic: the draft's AC 'reproduce the article's $138,000 example' would have encoded an arithmetic error into a test; the article is fixed first instead. Route aligned with the strategy doc. Pricing sources in the draft (superdupr.com, coldiq.com) were not verified by the critic; each figure must carry its own vendor pricing URL. Size: M. Success metric: calculator completions, email capture rate, and leads with source=calculator."
     },
@@ -1701,7 +1701,7 @@
         "Clients render anonymised ('a 30-person HVAC company') unless client_named is true",
         "Pages emit Article JSON-LD and are prerendered; a component test covers the unmeasured and no-provenance cases; typecheck passes"
       ],
-      "priority": 73,
+      "priority": 6,
       "passes": false,
       "notes": "Critic: competitive claim corrected (see description), and the dogfooding page folded in from the strategy doc. Blocked on content: the 83% retention case study needs client type, period, baseline and method from the owner before it can render (strategy section 16, action 3). The anonymity rule mirrors hub/voices/danpearson.json ('Clients are anonymous unless the story is marked clientNamed'). The Clutch and dev.to links were not checked. Size: M. Success metric: case-study and automation-stack page to /book-audit click-through, and share of booked audits that viewed one first."
     },
@@ -1718,7 +1718,7 @@
         "The sender is a lifecycle identity separate from any cold-outreach sender, named in the notes",
         "Deno tests cover opt-in, unsubscribe and the unknown-basis refusal; typecheck passes"
       ],
-      "priority": 74,
+      "priority": 7,
       "passes": false,
       "notes": "Critic: the '5,000-subscriber' figure for Jeff Ignacio is not on the cited page (https://revengine.substack.com/about, checked 2026-11-07; it states paid membership, the course and coaching, no count) and is removed. Hub rule 29 (a subscriber is a consent record) and rule 30 (lifecycle mail never shares the outreach sender) apply. Copy depends on LEAP-004's voice decision. Size: L. Success metric: confirmed subscribers, issue open rate, and audit bookings with source=newsletter."
     },
@@ -1734,7 +1734,7 @@
         "Each teardown ends in the LEAP-002 ArticleCta block and emits HowTo or Article JSON-LD",
         "Unit tests cover the credential scrub with a planted-secret fixture that must fail the build; typecheck passes"
       ],
-      "priority": 75,
+      "priority": 8,
       "passes": false,
       "notes": "Critic: new story, replacing the draft's LEAP-014 (newsletter referral program). A referral loop on a list that cannot yet send and has no confirmed subscribers is growth polish (criterion b), and 'none of the named competitors runs a referral loop' was unsourced. Rationale for this one is the owner's own strategy doc; the claim that consultants rarely publish their configs is the owner's assessment, not a measured fact. Size: M (code) plus one teardown a month of writing. Success metric: teardown sessions, export downloads, referring domains to /teardowns, and leads with source=teardown."
     },
@@ -1750,7 +1750,7 @@
         "The notes name the hub follow-up explicitly: either add posthog-js with ANALYTICS_TOKEN_DANPEARSON and declare activationEvent for danpearson in hub/projects.json, or build a hub reader for this table; until one ships the hub's danpearson funnel stays a named gap",
         "Deno and Vitest tests pass; typecheck passes"
       ],
-      "priority": 76,
+      "priority": 9,
       "passes": false,
       "notes": "Critic: the 'read-only funnel endpoint the hub can consume' AC was invented and is replaced with an honest statement of the seam (hub rule 8: a seam with no executor). Size: M. Success metric: every funnel step reports a count for the last 30 days, and the hub follow-up is filed."
     },
@@ -1766,7 +1766,7 @@
         "The notes record that each tested vendor's terms of service were checked for restrictions on publishing benchmarks before publication",
         "The page emits Dataset JSON-LD, is prerendered, listed in llms.txt and ends in the LEAP-002 ArticleCta block; typecheck passes"
       ],
-      "priority": 77,
+      "priority": 10,
       "passes": false,
       "notes": "Critic: kept, scope cut from XL to an L first edition, and a terms-of-service check added because some SaaS terms restrict published benchmarks. Sources were not verified by the critic: the Day.ai funding (pulse2.com) and Breeze Data Agent review (eesel.ai) are plausible; the 'Momentum claims 98% field coverage' figure came via a third-party site (devtoollab.com) and must be checked against Momentum's own page before it is quoted. 'No independent party publishes a head-to-head' is unverified. Success metric: referring domains and AI-assistant citations of the benchmark URL, plus leads with source=benchmark."
     },
@@ -1782,7 +1782,7 @@
         "A banned-term filter reads one file in this repo (src/lib/voice-bans.json) whose header names hub/voices/danpearson.json as its source; a draft that trips it is shown to the reviewer with the term highlighted",
         "Deno tests cover the citation filter and the no-send-while-draft rule; typecheck passes"
       ],
-      "priority": 78,
+      "priority": 11,
       "passes": false,
       "notes": "Critic: the draft had an edge function reading hub/voices/danpearson.json, a file in another repo the function cannot reach; replaced with a local copy that names its source, which is a known drift risk to re-sync after LEAP-004. The Saraev and superdupr links were not checked and are dropped as support. Depends on LEAP-003. Size: L. Success metric: share of completions receiving a triage within 48 hours, and booking rate among recipients vs non-recipients."
     },
@@ -1798,7 +1798,7 @@
         "The model comes from ai_model_configs; a per-IP rate limit is enforced in the function and tested",
         "Deno tests cover the no-invention rule with a transcript missing a close date, and the rate limit; the page is swept by the accessibility guard; typecheck passes"
       ],
-      "priority": 79,
+      "priority": 12,
       "passes": false,
       "notes": "Critic: new story, replacing the draft's LEAP-016 (Workflow Cleanup SKU plus seat-band retainer prices). That story was pricing copy (criterion b) and contradicted a recorded decision: AI_CRM_AUTOMATION_STRATEGY.md section 4, 'Publish one number, not three' (2026-08-11), keeps build and retainer unpriced because a published band anchors the page on its ceiling. Its RevPartners $9,850 source (capstanworks.pages.dev) does not resolve. Size: M. Success metric: demo runs per week, demo-to-/book-audit click rate, and leads with source=demo."
     },
@@ -1814,7 +1814,7 @@
         "An admin view shows citation share over time per query and per assistant",
         "Provider and model come from ai_model_configs; no key value appears in code or logs; Deno tests cover failure vs not-cited; typecheck passes"
       ],
-      "priority": 80,
+      "priority": 13,
       "passes": false,
       "notes": "Critic: kept and tied to the existing manual panel. The G2 figures (about half of B2B software buyers start in a chatbot, 69% switched vendors) could not be checked: demandgenreport.com returned 403. Treat as direction only. A portfolio-wide version would fit the hub's sitecheck better; this story keeps it on danpearson because GEO is this site's main channel. Size: M. Success metric: citation share across the query set, monthly."
     },
@@ -1829,7 +1829,7 @@
         "New pages appear in /topics, sitemap.xml, RSS and llms.txt through the existing built-in article path",
         "Typecheck and tests pass"
       ],
-      "priority": 81,
+      "priority": 14,
       "passes": false,
       "notes": "Critic: kept; added a near-duplicate check to the gate. The INSIDEA 'best HubSpot RevOps agencies' link and the Jordan Crawford lessons post were not checked by the critic. Size: L (mostly writing). Success metric: organic sessions and leads from grid pages, and count of grid pages ranking top 10 for their target query."
     },
@@ -1844,7 +1844,7 @@
         "A unit test fails if a capture_checks entry is not an AUDIT_CHECKS id",
         "ItemList JSON-LD covers the filtered list; the page is in llms.txt; typecheck and tests pass"
       ],
-      "priority": 82,
+      "priority": 15,
       "passes": false,
       "notes": "Critic: new story, replacing the draft's LEAP-006 slot (merged into LEAP-002). Rationale is the owner's strategy doc; the citation claim there is the owner's assessment. Size: M. Success metric: /ai-tools sessions on CRM-relevant tools, clicks from tool pages to the scorecard or /book-audit."
     },
@@ -1860,7 +1860,7 @@
         "The credit rule (fee credited toward a Build) is stated once in crm-automation.ts and rendered from there",
         "Deno tests cover signature rejection and the paid transition; typecheck and tests pass"
       ],
-      "priority": 83,
+      "priority": 16,
       "passes": false,
       "notes": "Critic: kept, moved down because it is blocked on an owner decision. Sources corrected: INSIDEA's audit page books a call and quotes after it (https://insidea.com/pipedrive/audit), so it does not show a one-step purchase; fillthelobby.pages.dev does not resolve. The betonai.net $1,500-5,000 range and the consultingsuccess.com piece were not verified. Size: M. Success metric: paid audits per month and audit-to-Build conversion; hub revenue for danpearson moves from unmonetized to a Stripe floor."
     },
@@ -1876,7 +1876,7 @@
         "Notes are in RSS, sitemap and llms.txt, carry Article JSON-LD with Dan as author, and end in the LEAP-002 ArticleCta block",
         "Typecheck and tests pass"
       ],
-      "priority": 84,
+      "priority": 17,
       "passes": false,
       "notes": "Critic: kept; added the voice profile's employer and client-naming rules. Check supabase/functions/generate-social-content and the hub's social/storydraft.js before building a third story path. The Crawford, ColdIQ and leadhaste links were not checked. Size: M. Success metric: field-note sessions, newsletter sign-ups from field notes, and repeat visitors."
     },
@@ -1892,7 +1892,7 @@
         "The page ends in /book-audit with intent='supervision' stored on audit_requests",
         "Typecheck and tests pass"
       ],
-      "priority": 85,
+      "priority": 18,
       "passes": false,
       "notes": "Critic: the draft added a fourth tier with seat-band pricing, contradicting the recorded 'publish one number' decision; changed to a scope of the existing retainer. 'No named personal brand owns a recurring offer for it' is unverified. A recurring weekly service also has to fit beside Dan's day job; the owner should confirm capacity before it is offered. Sources (tldv.io on Attio, TechTarget on Agentforce SMB) were not checked. Size: S-M. Success metric: supervision-intent audit requests and retainers signed."
     },
@@ -1908,7 +1908,7 @@
         "The UI on /ai-crm-automation and Article.tsx shows citations as links and a /book-audit link under each answer",
         "Deno tests cover the no-source refusal and the rate limit; typecheck passes"
       ],
-      "priority": 86,
+      "priority": 19,
       "passes": false,
       "notes": "Critic: kept low. The strategy doc says no to generic AI content; this survives only because every answer must cite a published article. The G2 link and the Pavilion profile of Jordan Crawford do not support a site Q&A feature and are dropped as support. Size: L. Success metric: questions per week, answer-to-CTA click rate, and 'not covered' questions turned into articles."
     },
@@ -1924,7 +1924,7 @@
         "The page links to the free scorecard and the paid audit and states the difference plainly",
         "Deno tests cover paid-only delivery; typecheck passes"
       ],
-      "priority": 87,
+      "priority": 20,
       "passes": false,
       "notes": "Critic: kept last. Depends on LEAP-016 and therefore on the owner's monetization decision, and adds a second published price, which the owner should weigh against the 2026-08-11 'one number' decision. The Fiverr and superdupr price points were not verified. Size: M. Success metric: kit sales per month and kit-buyer to audit-booking conversion."
     }
