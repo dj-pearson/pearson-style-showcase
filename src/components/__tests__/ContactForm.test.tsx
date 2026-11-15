@@ -5,8 +5,8 @@ import userEvent from '@testing-library/user-event';
 const { invokeEdgeFunction } = vi.hoisted(() => ({ invokeEdgeFunction: vi.fn() }));
 vi.mock('@/lib/edge-functions', () => ({ invokeEdgeFunction }));
 
-const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
-vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast }) }));
+const { trackContactForm } = vi.hoisted(() => ({ trackContactForm: vi.fn() }));
+vi.mock('@/components/Analytics', () => ({ useAnalytics: () => ({ trackContactForm }) }));
 
 import ContactForm from '../ContactForm';
 
@@ -22,7 +22,7 @@ const fill = async (user: ReturnType<typeof userEvent.setup>) => {
 
 beforeEach(() => {
   invokeEdgeFunction.mockReset();
-  toast.mockReset();
+  trackContactForm.mockReset();
 });
 
 describe('ContactForm while sending', () => {
@@ -52,7 +52,7 @@ describe('ContactForm while sending', () => {
     );
   });
 
-  it('confirms a sent message', async () => {
+  it('replaces the form with a confirmation naming the reply address', async () => {
     invokeEdgeFunction.mockResolvedValue({ error: null });
 
     const user = userEvent.setup();
@@ -60,10 +60,43 @@ describe('ContactForm while sending', () => {
     await fill(user);
     await user.click(screen.getByRole('button', { name: /send message/i }));
 
-    await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Message sent successfully!' })
-      )
+    expect(await screen.findByText('Message sent.')).toBeInTheDocument();
+    expect(screen.getByText('mary@example.com')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /send message/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a fixed fallback with the email address instead of the raw error', async () => {
+    invokeEdgeFunction.mockResolvedValue({ error: new Error('FunctionsHttpError: 500 internal') });
+
+    const user = userEvent.setup();
+    render(<ContactForm />);
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+
+    const alert = await screen.findByText(/didn't go through/i);
+    expect(alert.closest('[role="alert"]')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'dan@danpearson.net' })).toHaveAttribute(
+      'href',
+      'mailto:dan@danpearson.net'
     );
+    expect(screen.queryByText(/FunctionsHttpError/)).not.toBeInTheDocument();
+    expect(trackContactForm).toHaveBeenCalledWith('failure');
+  });
+});
+
+describe('ContactForm tracking', () => {
+  it('fires start once on first focus, then submit and success', async () => {
+    invokeEdgeFunction.mockResolvedValue({ error: null });
+
+    const user = userEvent.setup();
+    render(<ContactForm />);
+    await fill(user);
+
+    expect(trackContactForm.mock.calls.map(([s]) => s)).toEqual(['start']);
+
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+    await screen.findByText('Message sent.');
+
+    expect(trackContactForm.mock.calls.map(([s]) => s)).toEqual(['start', 'submit', 'success']);
   });
 });
