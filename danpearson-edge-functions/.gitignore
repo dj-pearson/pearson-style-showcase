@@ -5,9 +5,9 @@
 .env.development
 .env.*.local
 
-# Deno cache
+# Deno cache. deno.lock is committed on purpose: the Dockerfile checks
+# every remote import against it when the image is built.
 .deno_cache/
-deno.lock
 
 # Logs
 *.log

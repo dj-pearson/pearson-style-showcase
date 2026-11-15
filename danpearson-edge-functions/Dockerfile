@@ -25,11 +25,26 @@ ENV DENO_DIR=/app/.deno_cache
 # Copy the canonical function source
 COPY --chown=deno:deno supabase/functions ./functions
 
-# Copy server script
-COPY --chown=deno:deno danpearson-edge-functions/server.ts .
+# Copy the server script and, when it exists, the lockfile. The deno.loc[k]
+# glob lets the build work before a lockfile has been generated; server.ts
+# always matches, so the COPY never has zero sources.
+COPY --chown=deno:deno danpearson-edge-functions/server.ts danpearson-edge-functions/deno.loc[k] ./
 
 # Switch to non-root user for security
 USER deno
+
+# Download every remote import now, while building, instead of on the first
+# request after each deploy. A module that has moved or vanished fails the
+# build instead of a live request. With deno.lock present, each download is
+# checked against its recorded hash, so a changed upstream file fails too.
+# To create or refresh the lockfile, see "Dependency lockfile" in
+# danpearson-edge-functions/docs/DEPLOYMENT.md.
+RUN if [ -f deno.lock ]; then \
+      deno cache --lock=deno.lock server.ts functions/*/index.ts; \
+    else \
+      echo "WARNING: deno.lock missing; caching imports without integrity checks" && \
+      deno cache server.ts functions/*/index.ts; \
+    fi
 
 # Expose port
 EXPOSE 8000
