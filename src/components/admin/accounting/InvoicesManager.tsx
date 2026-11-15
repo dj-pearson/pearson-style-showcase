@@ -1,5 +1,5 @@
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { hasUnsavedChanges } from '@/lib/unsaved-changes';
@@ -50,6 +50,17 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { toCsvRow } from '@/lib/csv';
 import { DocumentUpload } from './DocumentUpload';
+import { useConfirm } from '@/hooks/useConfirm';
+import { formatDateOnly, todayDateOnly } from '@/lib/accounting/dates';
+import { fromCents, toCents } from '@/lib/accounting/money';
+import {
+  buildInvoiceWrite,
+  expenseCategoryOf,
+  invoiceSubtotalCents,
+  replaceInvoiceItems,
+  toInvoiceItemRows,
+  type InvoiceItemsClient,
+} from '@/lib/accounting/invoices';
 
 interface Invoice {
   id: string;
@@ -92,6 +103,7 @@ interface ParsedInvoiceData {
 }
 
 export const InvoicesManager = () => {
+  const confirm = useConfirm();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
@@ -151,8 +163,7 @@ export const InvoicesManager = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      // Delete items first
-      await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId);
+      // invoice_items rows go with it (ON DELETE CASCADE).
       const { error } = await supabase.from('invoices').delete().eq('id', invoiceId);
       if (error) throw error;
     },
@@ -207,13 +218,7 @@ export const InvoicesManager = () => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = (date: string) => formatDateOnly(date);
 
   const handleExportCSV = () => {
     const csvLines: string[] = [];
@@ -239,7 +244,7 @@ export const InvoicesManager = () => {
     const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.setAttribute('href', URL.createObjectURL(blob));
-    link.setAttribute('download', `invoices-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `invoices-export-${todayDateOnly()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -314,8 +319,7 @@ export const InvoicesManager = () => {
                           const invoiceData = {
                             invoice_type: 'purchase' as const,
                             invoice_number: extractedData.invoice_number || `SCAN-${Date.now()}`,
-                            invoice_date:
-                              extractedData.invoice_date || new Date().toISOString().split('T')[0],
+                            invoice_date: extractedData.invoice_date || todayDateOnly(),
                             due_date: extractedData.due_date || null,
                             subtotal: totalAmount,
                             total_amount: totalAmount,
@@ -351,7 +355,19 @@ export const InvoicesManager = () => {
                                 (item.quantity || 1) * (item.unit_price || 0),
                             }));
 
-                            await supabase.from('invoice_items').insert(items);
+                            const { error: itemsError } = await supabase
+                              .from('invoice_items')
+                              .insert(items);
+                            if (itemsError) {
+                              // The draft exists; say so rather than offering a
+                              // second manual create that would duplicate it.
+                              logger.error('Scanned invoice items failed to save:', itemsError);
+                              toast({
+                                title: 'Line items not saved',
+                                description: `Invoice ${invoiceData.invoice_number} was created without its line items: ${itemsError.message}`,
+                                variant: 'destructive',
+                              });
+                            }
                           }
 
                           // Link document to invoice
@@ -589,10 +605,15 @@ export const InvoicesManager = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (confirm(`Delete invoice ${invoice.invoice_number}?`)) {
-                                deleteMutation.mutate(invoice.id);
-                              }
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: `Delete invoice ${invoice.invoice_number}?`,
+                                description:
+                                  'The invoice and its line items are removed from your books. This cannot be undone.',
+                                confirmLabel: 'Delete invoice',
+                                destructive: true,
+                              });
+                              if (ok) deleteMutation.mutate(invoice.id);
                             }}
                             title="Delete"
                           >
@@ -735,10 +756,7 @@ const InvoiceForm = ({
   const [formData, setFormData] = useState({
     invoice_type: existingInvoice?.invoice_type || 'purchase',
     invoice_number: existingInvoice?.invoice_number || initialData?.invoice_number || '',
-    invoice_date:
-      existingInvoice?.invoice_date ||
-      initialData?.invoice_date ||
-      new Date().toISOString().split('T')[0],
+    invoice_date: existingInvoice?.invoice_date || initialData?.invoice_date || todayDateOnly(),
     due_date: existingInvoice?.due_date || initialData?.due_date || '',
     contact_id: existingInvoice?.contact_id || '',
     status: existingInvoice?.status || 'draft',
@@ -823,7 +841,11 @@ const InvoiceForm = ({
   });
 
   // Load existing line items when editing
-  const { data: existingItems = [] } = useQuery({
+  const {
+    data: existingItems = [],
+    isLoading: itemsLoading,
+    isError: itemsError,
+  } = useQuery({
     queryKey: ['invoice_items', existingInvoice?.id],
     queryFn: async () => {
       if (!existingInvoice?.id) return [];
@@ -838,23 +860,30 @@ const InvoiceForm = ({
     enabled: !!existingInvoice?.id,
   });
 
-  // Populate line items from existing when editing
-  useState(() => {
-    if (existingItems.length > 0 && lineItems.length === 1 && !lineItems[0].description) {
-      setLineItems(
-        existingItems.map((item: any) => ({
-          id: item.id,
-          description: item.description || '',
-          quantity: Number(item.quantity || 1),
-          unit_price: Number(item.unit_price || 0),
-          line_total: Number(item.line_total || 0),
-          expense_category_id: item.expense_category_id,
-        }))
-      );
+  // Populate line items once the existing ones load. The query resolves after
+  // the first render, so this can't be done in the useState initializer; the
+  // dirty-check baseline moves with it so loading doesn't count as an edit.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!isEditing || hydratedRef.current || existingItems.length === 0) return;
+    hydratedRef.current = true;
+    const loaded: InvoiceLineItem[] = existingItems.map((item: any) => ({
+      id: item.id,
+      description: item.description || '',
+      quantity: Number(item.quantity || 1),
+      unit_price: Number(item.unit_price || 0),
+      line_total: Number(item.line_total || 0),
+      expense_category_id: expenseCategoryOf(item),
+    }));
+    setLineItems(loaded);
+    if (!isDirty) {
+      initialSnapshotRef.current = JSON.stringify({ formData, lineItems: loaded });
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when items arrive
+  }, [existingItems, isEditing]);
 
-  const subtotal = lineItems.reduce((sum, item) => sum + item.line_total, 0);
+  // What will be saved: lines with a description and a positive total.
+  const subtotal = fromCents(invoiceSubtotalCents(lineItems));
 
   const updateLineItem = (index: number, field: keyof InvoiceLineItem, value: any) => {
     const updated = [...lineItems];
@@ -880,24 +909,26 @@ const InvoiceForm = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEditing && (itemsLoading || itemsError)) {
+      // Saving now would replace the stored items with whatever the form shows.
+      toast({
+        title: 'Line items not loaded',
+        description: 'Wait for the existing line items to load before saving.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsSubmitting(true);
 
     try {
-      const invoiceData = {
-        invoice_type: formData.invoice_type,
-        invoice_number: formData.invoice_number,
-        invoice_date: formData.invoice_date,
-        due_date: formData.due_date || null,
-        contact_id:
-          formData.contact_id && formData.contact_id !== 'none' ? formData.contact_id : null,
-        subtotal: subtotal,
-        total_amount: subtotal,
-        amount_due: subtotal,
-        amount_paid: 0,
-        status: formData.status,
-        import_source: isEditing ? existingInvoice.import_source : 'manual',
-        notes: formData.notes || null,
-      };
+      const subtotalCents = invoiceSubtotalCents(lineItems);
+      // On edit this never includes amount_paid: payments recorded through
+      // allocations stay put. On create, "paid" means paid in full.
+      const invoiceData = buildInvoiceWrite(
+        formData,
+        subtotalCents,
+        isEditing ? existingInvoice : null
+      );
 
       let invoiceId: string;
 
@@ -908,38 +939,23 @@ const InvoiceForm = ({
           .eq('id', existingInvoice.id);
         if (error) throw error;
         invoiceId = existingInvoice.id;
-
-        // Delete existing items and re-insert
-        await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId);
       } else {
         const { data: inserted, error } = await supabase
           .from('invoices')
-          .insert([invoiceData])
+          .insert([invoiceData as any])
           .select()
           .single();
         if (error) throw error;
         invoiceId = inserted.id;
       }
 
-      // Insert line items
-      const validItems = lineItems.filter((item) => item.description.trim() && item.line_total > 0);
-      if (validItems.length > 0) {
-        const items = validItems.map((item, index) => ({
-          invoice_id: invoiceId,
-          line_number: index + 1,
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          line_total: item.line_total,
-          expense_category_id:
-            item.expense_category_id && item.expense_category_id !== 'none'
-              ? item.expense_category_id
-              : null,
-        }));
-
-        const { error: itemsError } = await supabase.from('invoice_items').insert(items);
-        if (itemsError) throw itemsError;
-      }
+      // Atomic replace via RPC when the migration is applied; checked
+      // delete + insert otherwise.
+      await replaceInvoiceItems(
+        supabase as unknown as InvoiceItemsClient,
+        invoiceId,
+        toInvoiceItemRows(lineItems)
+      );
 
       toast({
         title: 'Success',
@@ -950,11 +966,15 @@ const InvoiceForm = ({
       onClose();
     } catch (error) {
       logger.error('Error saving invoice:', error);
+      const detail =
+        error instanceof Error ? error.message : (error as { message?: string })?.message;
       toast({
         title: 'Error',
-        description: 'Failed to save invoice',
+        description: detail ? `Failed to save invoice: ${detail}` : 'Failed to save invoice',
         variant: 'destructive',
       });
+      // A header may have been written before the items failed.
+      onSuccess();
     } finally {
       setIsSubmitting(false);
     }
@@ -1125,11 +1145,12 @@ const InvoiceForm = ({
                     />
                   </TableCell>
                   <TableCell className="text-right font-mono p-2">
-                    ${item.line_total.toFixed(2)}
+                    ${fromCents(toCents(item.line_total)).toFixed(2)}
                   </TableCell>
                   <TableCell className="p-1">
                     {lineItems.length > 1 && (
                       <Button
+                        aria-label="Remove line item"
                         type="button"
                         variant="ghost"
                         size="sm"
@@ -1171,7 +1192,7 @@ const InvoiceForm = ({
         <Button type="button" variant="outline" onClick={guardedClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting || (isEditing && itemsLoading)}>
           {isSubmitting ? 'Saving...' : isEditing ? 'Update Invoice' : 'Create Invoice'}
         </Button>
       </div>

@@ -49,6 +49,7 @@ import {
   Calendar,
   Send,
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Article {
   id: string;
@@ -105,6 +106,7 @@ const LIST_COLUMNS = [
 ].join(', ');
 
 export const ArticleManager: React.FC = () => {
+  const confirm = useConfirm();
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,6 +200,9 @@ export const ArticleManager: React.FC = () => {
       return { id, published };
     },
     onMutate: async ({ id, published }) => {
+      // Remember only this article's old value: restoring a whole-list
+      // snapshot would also undo other toggles that succeeded meanwhile.
+      const previousPublished = articles.find((a) => a.id === id)?.published ?? !published;
       // Optimistically update the UI
       setArticles((prev) =>
         prev.map((article) => (article.id === id ? { ...article, published } : article))
@@ -208,13 +213,13 @@ export const ArticleManager: React.FC = () => {
         description: 'Changes will be saved momentarily.',
       });
 
-      // Return context for rollback
-      return { previousArticles: articles };
+      return { previousPublished };
     },
-    onError: (error, variables, context) => {
-      // Rollback on error
-      if (context?.previousArticles) {
-        setArticles(context.previousArticles);
+    onError: (error, { id }, context) => {
+      if (context) {
+        setArticles((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, published: context.previousPublished } : a))
+        );
       }
       logger.error('Error toggling published status:', error);
       toast({
@@ -257,18 +262,20 @@ export const ArticleManager: React.FC = () => {
       return { id, featured };
     },
     onMutate: async ({ id, featured }) => {
+      const previousFeatured = articles.find((a) => a.id === id)?.featured ?? !featured;
       // Optimistically update the UI
       setArticles((prev) =>
         prev.map((article) => (article.id === id ? { ...article, featured } : article))
       );
 
-      // Return context for rollback
-      return { previousArticles: articles };
+      return { previousFeatured };
     },
-    onError: (error, variables, context) => {
-      // Rollback on error
-      if (context?.previousArticles) {
-        setArticles(context.previousArticles);
+    onError: (error, { id }, context) => {
+      // Roll back this article's flag only.
+      if (context) {
+        setArticles((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, featured: context.previousFeatured } : a))
+        );
       }
       logger.error('Error toggling featured status:', error);
       toast({
@@ -757,7 +764,15 @@ export const ArticleManager: React.FC = () => {
   };
 
   const deleteArticle = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) return;
+    const title = articles.find((a) => a.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete article "${title}"?` : 'Delete this article?',
+      description:
+        'The article comes off the site and out of the admin list. This cannot be undone.',
+      confirmLabel: 'Delete article',
+      destructive: true,
+    });
+    if (!ok) return;
     deleteArticleMutation.mutate(id);
   };
 

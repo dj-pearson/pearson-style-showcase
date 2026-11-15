@@ -1,9 +1,16 @@
 /**
  * Lighthouse CI configuration.
  *
- * Enforces performance/quality budgets on the built app across the three most
- * important public routes. Run locally or in CI via `npm run lighthouse`
- * (which builds the app first, then invokes `lhci autorun`).
+ * Enforces performance/quality budgets on the built app across the most
+ * important public routes. Run locally or in CI via `npm run lighthouse`,
+ * which builds the way `npm run build` does (vite build, then
+ * scripts/prerender.mjs) and then runs `lhci autorun`, so the audited HTML is
+ * what Cloudflare serves: prerendered copy in #root, not an empty shell.
+ *
+ * The prerender step runs with the Supabase variables blanked. CI sets dummy
+ * VITE_SUPABASE_* values so the bundle boots, and with those set the
+ * prerender would try to read articles from a database that is not there and
+ * fail the build. Blank, it builds from the markdown articles alone.
  *
  * Notes:
  * - The app is served with `vite preview` (SPA fallback so client-side routes
@@ -28,6 +35,10 @@ module.exports = {
         'http://127.0.0.1:4173/about',
         'http://127.0.0.1:4173/news',
         'http://127.0.0.1:4173/ai-crm-automation',
+        // One article, since articles are most of the indexed pages and the
+        // only ones that load markdown-vendor. A markdown article rather than
+        // a database one so it exists in builds without Supabase credentials.
+        'http://127.0.0.1:4173/news/ai-crm-automation-complete-guide',
       ],
       numberOfRuns: 3,
       settings: {

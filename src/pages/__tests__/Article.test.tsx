@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Routes, Route } from 'react-router-dom';
-import { render, screen, waitFor } from '@/test/test-utils';
+import { render, screen, waitFor, within } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import type { SupabaseMock } from '@/test/mocks/supabase';
 
@@ -8,6 +8,7 @@ vi.mock('@/integrations/supabase/client', async () => {
   const { createSupabaseMock } = await import('@/test/mocks/supabase');
   return { supabase: createSupabaseMock() };
 });
+vi.mock('@/integrations/supabase/public-client', () => import('@/test/mocks/public-client'));
 
 // Spy on the generated article bundle so a test can tell whether the page
 // downloaded it. The real lookup still runs.
@@ -25,6 +26,7 @@ import {
   articlePrerenderKey,
   resetPrerenderDataCache,
 } from '@/lib/prerenderData';
+import { acceptAll } from '@/lib/consent';
 import Article from '../Article';
 
 const mock = supabase as unknown as SupabaseMock;
@@ -196,5 +198,92 @@ describe('Article page', () => {
       ).toBeInTheDocument()
     );
     expect(document.querySelector('script[type="application/ld+json"]')).not.toBeNull();
+  });
+
+  it('ends a CRM article with the audit offer', async () => {
+    mock.setTableResult('articles', { data: articleFixture({ category: 'CRM' }), error: null });
+    renderArticleAt('automating-with-ai');
+    // Scope to the article ending: the site nav carries its own "Book an audit" link.
+    const ending = await screen.findByRole('complementary', { name: 'What next' });
+    const link = within(ending).getByRole('link', { name: 'Book an audit' });
+    expect(link).toHaveAttribute('href', '/connect');
+    expect(screen.queryByText('The pipeline notes')).not.toBeInTheDocument();
+  });
+
+  it('ends any other article with the newsletter', async () => {
+    mock.setTableResult('articles', { data: articleFixture(), error: null });
+    renderArticleAt('automating-with-ai');
+    expect(await screen.findByText('The pipeline notes')).toBeInTheDocument();
+    const ending = screen.getByRole('complementary', { name: 'What next' });
+    expect(within(ending).queryByRole('link', { name: 'Book an audit' })).not.toBeInTheDocument();
+  });
+
+  it('shares LinkedIn, X and copy link in that order, with no Facebook', async () => {
+    mock.setTableResult('articles', { data: articleFixture(), error: null });
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const user = userEvent.setup();
+    renderArticleAt('automating-with-ai');
+
+    const group = await screen.findByRole('group', { name: 'Share this article' });
+    const labels = Array.from(group.querySelectorAll('button')).map((b) => b.textContent?.trim());
+    expect(labels.slice(0, 3)).toEqual(['LinkedIn', 'X', 'Copy Link']);
+    expect(screen.queryByText('Facebook')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /on LinkedIn/ }));
+    const [shareUrl, target, features] = open.mock.calls[0];
+    expect(decodeURIComponent(String(shareUrl))).toContain('utm_medium=share');
+    expect(decodeURIComponent(String(shareUrl))).toContain('utm_source=linkedin');
+    expect(target).toBe('_blank');
+    expect(features).toBe('noopener,noreferrer');
+    open.mockRestore();
+  });
+
+  describe('share tracking', () => {
+    let gtag: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
+    const shareEvents = () =>
+      gtag.mock.calls.filter((call) => call[0] === 'event' && call[1] === 'share');
+
+    beforeEach(() => {
+      localStorage.clear();
+      acceptAll();
+      gtag = vi.fn<(...args: unknown[]) => void>();
+      window.gtag = gtag;
+      mock.setTableResult('articles', { data: articleFixture(), error: null });
+    });
+
+    it('tracks a copy only after the clipboard write succeeds', async () => {
+      const user = userEvent.setup();
+      const writeText = vi
+        .spyOn(navigator.clipboard, 'writeText')
+        .mockRejectedValueOnce(new Error('denied'))
+        .mockResolvedValueOnce(undefined);
+      renderArticleAt('automating-with-ai');
+      const copy = await screen.findByRole('button', { name: /Copy article link/ });
+
+      await user.click(copy);
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(shareEvents()).toHaveLength(0);
+
+      await user.click(copy);
+      await waitFor(() => expect(shareEvents()).toHaveLength(1));
+      expect(shareEvents()[0][2]).toMatchObject({
+        method: 'copy',
+        content_type: 'article',
+        item_id: 'automating-with-ai',
+      });
+      writeText.mockRestore();
+    });
+
+    it('does not track a dismissed native share sheet', async () => {
+      const share = vi.fn().mockRejectedValue(new Error('AbortError'));
+      Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+      const user = userEvent.setup();
+      renderArticleAt('automating-with-ai');
+
+      await user.click(await screen.findByRole('button', { name: 'Share with another app' }));
+      await waitFor(() => expect(share).toHaveBeenCalled());
+      expect(shareEvents()).toHaveLength(0);
+      delete (navigator as { share?: unknown }).share;
+    });
   });
 });

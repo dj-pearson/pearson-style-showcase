@@ -10,11 +10,12 @@ services:
     container_name: danpearson-edge-functions
     ports:
       - "8000:8000"
+    # Every variable the functions read comes from .env (copy env.example).
+    # Listing three of them here, as before, meant RESEND_API, the SMTP and AI
+    # keys and the JWT secret never reached the container.
+    env_file:
+      - .env
     environment:
-      # Load from .env file
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - PORT=8000
       # Additional environment variables for danpearson.net
       - DOMAIN=functions.danpearson.net
@@ -25,6 +26,11 @@ services:
       # Mount server.ts for development
       - ./server.ts:/app/server.ts:ro
     restart: unless-stopped
+    # All functions share one Deno process. Cap it so a runaway request (an
+    # oversized image decode, a leak) gets the container restarted instead of
+    # starving the host. Raise EDGE_MEM_LIMIT in .env if 1g proves tight.
+    mem_limit: ${EDGE_MEM_LIMIT:-1g}
+    memswap_limit: ${EDGE_MEM_LIMIT:-1g}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/_health"]
       interval: 10s

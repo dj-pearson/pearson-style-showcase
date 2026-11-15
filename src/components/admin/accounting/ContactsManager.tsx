@@ -35,6 +35,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Contact {
   id: string;
@@ -63,6 +64,7 @@ export const ContactsManager = () => {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [formData, setFormData] = useState({
     contact_type: 'customer' as 'customer' | 'vendor' | 'both',
@@ -255,14 +257,14 @@ export const ContactsManager = () => {
     }
   };
 
-  const handleDelete = (contact: Contact) => {
-    if (
-      confirm(
-        `Are you sure you want to delete contact "${contact.contact_name}"? This cannot be undone.`
-      )
-    ) {
-      deleteMutation.mutate(contact.id);
-    }
+  const handleDelete = async (contact: Contact) => {
+    const ok = await confirm({
+      title: `Delete contact "${contact.contact_name}"?`,
+      description: 'The contact is removed from accounting. This cannot be undone.',
+      confirmLabel: 'Delete contact',
+      destructive: true,
+    });
+    if (ok) deleteMutation.mutate(contact.id);
   };
 
   const getContactTypeIcon = (type: string) => {
@@ -570,10 +572,20 @@ export const ContactsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(contact)}>
+                          <Button
+                            aria-label={`Edit contact ${contact.contact_name}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(contact)}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(contact)}>
+                          <Button
+                            aria-label={`Delete contact ${contact.contact_name}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(contact)}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>

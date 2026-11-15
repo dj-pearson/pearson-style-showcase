@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,10 +41,15 @@ const statusLabels = {
 };
 
 const CurrentVentures = () => {
-  const { data: ventures, isLoading } = useQuery({
+  const {
+    data: ventures,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['ventures'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('ventures')
         .select('*')
         .order('display_order', { ascending: true });
@@ -96,6 +101,21 @@ const CurrentVentures = () => {
           </Card>
         ))}
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground" role="alert">
+        Couldn't load this section.{' '}
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="font-medium text-primary underline underline-offset-4 hover:no-underline"
+        >
+          Retry
+        </button>
+      </p>
     );
   }
 
@@ -230,23 +250,24 @@ const VentureCard = ({ venture, featured = false }: { venture: Venture; featured
           {/* Links */}
           <div className="flex gap-2">
             {venture.live_url && (
-              <Button
-                size="sm"
-                variant="default"
-                className="flex-1"
-                onClick={() => window.open(venture.live_url!, '_blank')}
-              >
-                Visit Site
-                <ExternalLink className="w-4 h-4 ml-2" />
+              <Button size="sm" variant="default" className="flex-1" asChild>
+                <a href={venture.live_url} target="_blank" rel="noopener noreferrer">
+                  Visit Site
+                  <ExternalLink className="w-4 h-4 ml-2" aria-hidden="true" />
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
               </Button>
             )}
             {venture.github_url && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => window.open(venture.github_url!, '_blank')}
-              >
-                <Github className="w-4 h-4" />
+              <Button size="sm" variant="outline" asChild>
+                <a
+                  href={venture.github_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${venture.name} on GitHub (opens in a new tab)`}
+                >
+                  <Github className="w-4 h-4" aria-hidden="true" />
+                </a>
               </Button>
             )}
           </div>

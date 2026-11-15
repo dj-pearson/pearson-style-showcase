@@ -403,6 +403,7 @@ Examples:
                             </h4>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <Button
+                                aria-label={`Edit ${task.title}`}
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setEditingIndex(index)}
@@ -411,6 +412,7 @@ Examples:
                                 <Edit2 className="h-3.5 w-3.5" />
                               </Button>
                               <Button
+                                aria-label={`Remove ${task.title}`}
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeTask(index)}

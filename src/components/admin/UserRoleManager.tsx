@@ -7,7 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -60,7 +67,10 @@ interface WhitelistedUser {
   roles: UserRole[];
 }
 
-const ROLE_INFO: Record<AppRole, { label: string; description: string; icon: React.ReactNode; color: string }> = {
+const ROLE_INFO: Record<
+  AppRole,
+  { label: string; description: string; icon: React.ReactNode; color: string }
+> = {
   admin: {
     label: 'Admin',
     description: 'Full system access, can manage users and settings',
@@ -237,9 +247,7 @@ const UserRoleManager: React.FC = () => {
   // Toggle selection of a single role
   const toggleRoleSelection = (roleId: string) => {
     setSelectedRoleIds((prev) =>
-      prev.includes(roleId)
-        ? prev.filter((id) => id !== roleId)
-        : [...prev, roleId]
+      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
     );
   };
 
@@ -268,9 +276,7 @@ const UserRoleManager: React.FC = () => {
     return (
       <Alert>
         <Users className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to view user roles.
-        </AlertDescription>
+        <AlertDescription>You don't have permission to view user roles.</AlertDescription>
       </Alert>
     );
   }
@@ -290,20 +296,17 @@ const UserRoleManager: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
-            {(Object.entries(ROLE_INFO) as [AppRole, typeof ROLE_INFO.admin][]).map(([role, info]) => (
-              <div
-                key={role}
-                className="flex items-start gap-3 p-4 rounded-lg border bg-card"
-              >
-                <div className={`p-2 rounded-md ${info.color} text-white`}>
-                  {info.icon}
+            {(Object.entries(ROLE_INFO) as [AppRole, typeof ROLE_INFO.admin][]).map(
+              ([role, info]) => (
+                <div key={role} className="flex items-start gap-3 p-4 rounded-lg border bg-card">
+                  <div className={`p-2 rounded-md ${info.color} text-white`}>{info.icon}</div>
+                  <div>
+                    <h4 className="font-medium">{info.label}</h4>
+                    <p className="text-sm text-muted-foreground">{info.description}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-medium">{info.label}</h4>
-                  <p className="text-sm text-muted-foreground">{info.description}</p>
-                </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         </CardContent>
       </Card>
@@ -317,9 +320,7 @@ const UserRoleManager: React.FC = () => {
                 <Users className="h-5 w-5" />
                 User Roles
               </CardTitle>
-              <CardDescription>
-                Manage role assignments for admin users.
-              </CardDescription>
+              <CardDescription>Manage role assignments for admin users.</CardDescription>
             </div>
             {canAssign && (
               <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
@@ -348,7 +349,8 @@ const UserRoleManager: React.FC = () => {
                           required
                         />
                         <p className="text-xs text-muted-foreground">
-                          The user must first sign in to get a user ID. Check the auth.users table in Supabase.
+                          The user must first sign in to get a user ID. Check the auth.users table
+                          in Supabase.
                         </p>
                       </div>
                       <div className="space-y-2">
@@ -402,9 +404,7 @@ const UserRoleManager: React.FC = () => {
             </div>
           ) : error ? (
             <Alert variant="destructive">
-              <AlertDescription>
-                Failed to load roles: {(error as Error).message}
-              </AlertDescription>
+              <AlertDescription>Failed to load roles: {(error as Error).message}</AlertDescription>
             </Alert>
           ) : !allRoles || allRoles.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -422,19 +422,15 @@ const UserRoleManager: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedRoleIds([])}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setSelectedRoleIds([])}>
                       Clear Selection
                     </Button>
-                    <AlertDialog open={isBulkRevokeDialogOpen} onOpenChange={setIsBulkRevokeDialogOpen}>
+                    <AlertDialog
+                      open={isBulkRevokeDialogOpen}
+                      onOpenChange={setIsBulkRevokeDialogOpen}
+                    >
                       <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                        >
+                        <Button variant="destructive" size="sm">
                           <Trash2 className="h-4 w-4 mr-2" />
                           Revoke Selected
                         </Button>
@@ -443,8 +439,12 @@ const UserRoleManager: React.FC = () => {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Bulk Revoke Roles</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to revoke <strong>{selectedRoleIds.length} role{selectedRoleIds.length > 1 ? 's' : ''}</strong>?
-                            This action cannot be undone. All affected users will lose their associated permissions.
+                            Are you sure you want to revoke{' '}
+                            <strong>
+                              {selectedRoleIds.length} role{selectedRoleIds.length > 1 ? 's' : ''}
+                            </strong>
+                            ? This action cannot be undone. All affected users will lose their
+                            associated permissions.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -454,7 +454,9 @@ const UserRoleManager: React.FC = () => {
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             disabled={bulkRevokeMutation.isPending}
                           >
-                            {bulkRevokeMutation.isPending ? 'Revoking...' : `Revoke ${selectedRoleIds.length} Role${selectedRoleIds.length > 1 ? 's' : ''}`}
+                            {bulkRevokeMutation.isPending
+                              ? 'Revoking...'
+                              : `Revoke ${selectedRoleIds.length} Role${selectedRoleIds.length > 1 ? 's' : ''}`}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -463,118 +465,118 @@ const UserRoleManager: React.FC = () => {
                 </div>
               )}
               <Table>
-              <TableHeader>
-                <TableRow>
-                  {canRevoke && (
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={allActiveSelected}
-                        onCheckedChange={toggleSelectAll}
-                        aria-label="Select all active roles"
-                        disabled={activeRolesCount === 0}
-                      />
-                    </TableHead>
-                  )}
-                  <TableHead>User ID</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Granted</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canRevoke && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {allRoles.map((role) => {
-                  const roleInfo = ROLE_INFO[role.role];
-                  const isSelected = selectedRoleIds.includes(role.id);
-                  return (
-                    <TableRow key={role.id} className={isSelected ? 'bg-muted/50' : undefined}>
-                      {canRevoke && (
-                        <TableCell>
-                          {role.is_active ? (
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleRoleSelection(role.id)}
-                              aria-label={`Select ${roleInfo.label} role`}
-                            />
-                          ) : (
-                            <div className="w-4" />
-                          )}
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {role.user_id.substring(0, 8)}...
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className="flex items-center gap-1 w-fit"
-                        >
-                          {roleInfo.icon}
-                          {roleInfo.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(role.granted_at), 'MMM d, yyyy')}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {role.expires_at ? (
-                          <span className="text-sm">
-                            {format(new Date(role.expires_at), 'MMM d, yyyy')}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Never</span>
+                <TableHeader>
+                  <TableRow>
+                    {canRevoke && (
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={allActiveSelected}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all active roles"
+                          disabled={activeRolesCount === 0}
+                        />
+                      </TableHead>
+                    )}
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Granted</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>Status</TableHead>
+                    {canRevoke && <TableHead className="text-right">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allRoles.map((role) => {
+                    const roleInfo = ROLE_INFO[role.role];
+                    const isSelected = selectedRoleIds.includes(role.id);
+                    return (
+                      <TableRow key={role.id} className={isSelected ? 'bg-muted/50' : undefined}>
+                        {canRevoke && (
+                          <TableCell>
+                            {role.is_active ? (
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleRoleSelection(role.id)}
+                                aria-label={`Select ${roleInfo.label} role`}
+                              />
+                            ) : (
+                              <div className="w-4" />
+                            )}
+                          </TableCell>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={role.is_active ? 'default' : 'secondary'}>
-                          {role.is_active ? 'Active' : 'Revoked'}
-                        </Badge>
-                      </TableCell>
-                      {canRevoke && (
-                        <TableCell className="text-right">
-                          {role.is_active && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Revoke Role</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to revoke the <strong>{roleInfo.label}</strong> role? The user will lose all permissions associated with this role.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => revokeMutation.mutate(role.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Revoke
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                            {role.user_id.substring(0, 8)}...
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                            {roleInfo.icon}
+                            {roleInfo.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(role.granted_at), 'MMM d, yyyy')}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {role.expires_at ? (
+                            <span className="text-sm">
+                              {format(new Date(role.expires_at), 'MMM d, yyyy')}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Never</span>
                           )}
                         </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                        <TableCell>
+                          <Badge variant={role.is_active ? 'default' : 'secondary'}>
+                            {role.is_active ? 'Active' : 'Revoked'}
+                          </Badge>
+                        </TableCell>
+                        {canRevoke && (
+                          <TableCell className="text-right">
+                            {role.is_active && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    aria-label={`Revoke ${roleInfo.label} role`}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Revoke Role</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to revoke the{' '}
+                                      <strong>{roleInfo.label}</strong> role? The user will lose all
+                                      permissions associated with this role.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => revokeMutation.mutate(role.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Revoke
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </>
           )}
 

@@ -48,22 +48,27 @@ The context has to be the repository root. Function source lives in
 
 **CRITICAL: Use Coolify's Environment Secrets feature!**
 
-Go to your service → **Environment** tab:
+Go to your service → **Environment** tab and add every name from
+`danpearson-edge-functions/env.example`. The four the server can't run
+without:
 
 ```env
-# Supabase Configuration
 SUPABASE_URL=https://api.danpearson.net
 SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
-
-# Server Configuration
-PORT=8000
-DOMAIN=functions.danpearson.net
-API_GATEWAY_URL=https://api.danpearson.net
-
-# Deno Configuration
-DENO_DIR=/app/.deno_cache
+SUPABASE_JWT_SECRET=<jwt-secret-the-keys-were-signed-with>
 ```
+
+Without `SUPABASE_JWT_SECRET` (or `JWT_SECRET`) every non-public function
+call gets a 503. Feature keys use the names the code reads: `RESEND_API` (not
+`RESEND_API_KEY`), `CLAUDE_API_KEY` and whatever else your `ai_model_configs`
+rows name in `api_key_secret_name` (there is no `ANTHROPIC_API_KEY` or
+`OPENAI_API_KEY` lookup), the `AMAZON_SMTP_*` trio, `MAKE_WEBHOOK_SECRET`,
+`NEWSLETTER_TOKEN_SECRET` and `VAULT_ENCRYPTION_KEY`.
+
+After deploying, `GET /_health` shows a `config` block listing any missing
+names (never values), and `status` reads `degraded` while a required one is
+missing. The same list is printed in the container log at startup.
 
 **Getting Supabase Keys**:
 
@@ -184,11 +189,8 @@ docker run -d \
   --name danpearson-functions \
   --restart unless-stopped \
   -p 8000:8000 \
-  -e SUPABASE_URL=https://api.danpearson.net \
-  -e SUPABASE_ANON_KEY=your-anon-key \
-  -e SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
-  -e PORT=8000 \
-  -e DOMAIN=functions.danpearson.net \
+  --memory 1g \
+  --env-file /path/to/.env \
   your-registry.com/danpearson/edge-functions:latest
 
 # Check logs
@@ -358,6 +360,40 @@ docker logs -f danpearson-functions
 docker-compose logs -f edge-functions
 ```
 
+### Request ids and access log
+
+The server writes one JSON line per request:
+
+```json
+{
+  "ts": "2026-11-15T19:33:15.456Z",
+  "id": "4f0c...",
+  "fn": "send-ticket-email",
+  "method": "POST",
+  "status": 200,
+  "ms": 812
+}
+```
+
+`id` comes from the caller's `x-request-id` header when it is safe, otherwise
+a new UUID, and is echoed back in the `x-request-id` response header. It is
+also forwarded to the function, so lines from `_shared/production-logger.ts`
+carry the same `request_id`. To trace a failed request, grep the log for the
+id the client saw.
+
+### Deadlines and memory
+
+Every request has a deadline: 60s by default, 150s for single AI calls, 300s
+for `generate-ai-article` and `amazon-article-pipeline`, 600s for
+`maintenance-runner`. Past it the client gets a 504 with the request id and
+the request's AbortSignal fires. Change the default with
+`FUNCTION_TIMEOUT_MS` and single functions with
+`FUNCTION_TIMEOUTS=name=ms,name=ms`.
+
+All functions share one Deno process, so `docker-compose.yml` caps the
+container at 1 GB (`EDGE_MEM_LIMIT`). In Coolify, set the same limit under
+the service's resource limits.
+
 ### Health Monitoring
 
 Set up external monitoring (e.g., UptimeRobot, Better Uptime):
@@ -378,6 +414,32 @@ const startTime = Date.now();
 const duration = Date.now() - startTime;
 console.log(`Function executed in ${duration}ms`);
 ```
+
+## Dependency lockfile
+
+The image downloads every remote import at build time (`deno cache` in the
+Dockerfile) so the first request after a deploy doesn't, and a vanished
+module fails the build instead of a live request. When
+`danpearson-edge-functions/deno.lock` exists, each download is also checked
+against its recorded hash.
+
+The lockfile has to be generated with the same Deno version as the image
+(1.40.0; newer versions write a lockfile format 1.40 can't read) and with
+network access to esm.sh, deno.land and the npm registry. From the
+repository root:
+
+```bash
+docker run --rm -v "$PWD":/src -w /src denoland/deno:1.40.0 \
+  deno cache --lock=danpearson-edge-functions/deno.lock --lock-write \
+  danpearson-edge-functions/server.ts supabase/functions/*/index.ts
+git add danpearson-edge-functions/deno.lock
+```
+
+Re-run it whenever a function adds or changes a remote import. A file whose
+hash no longer matches fails the build; an import the lockfile doesn't list
+yet is downloaded without a check, which is why the lockfile should be
+refreshed and committed with the change. Until the file exists the build
+prints a warning and caches without checks.
 
 ## 🐛 Troubleshooting Deployment
 

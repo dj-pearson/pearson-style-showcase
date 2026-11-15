@@ -2,7 +2,7 @@ import {
   CRM_ARTICLE_INDEX,
   type StaticArticleSummary,
 } from '@/content/crm-article-index.generated';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -92,7 +92,7 @@ export function selectStaticArticles(
  * the live row.
  */
 export async function fetchSeededStaticSlugs(): Promise<Set<string>> {
-  const { data, error } = await supabase
+  const { data, error } = await publicDb
     .from('articles')
     .select('slug')
     .in('slug', STATIC_ARTICLE_SLUGS);

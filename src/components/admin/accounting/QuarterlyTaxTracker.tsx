@@ -31,8 +31,12 @@ import {
 import { CalendarDays, Plus, Trash2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, isPast } from 'date-fns';
+import { endOfDay, format, isPast } from 'date-fns';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
+import { defaultTaxYear, parseDateOnly, todayDateOnly } from '@/lib/accounting/dates';
+import { fromCents, sumCents, toCents } from '@/lib/accounting/money';
+import { insertWithNextSequence } from '@/lib/accounting/numbering';
 
 const QUARTERLY_DEADLINES: Record<string, { label: string; deadline: string }> = {
   Q1: { label: 'Q1 (Jan–Mar)', deadline: '-04-15' },
@@ -50,16 +54,17 @@ export const QuarterlyTaxTracker = ({
   estimatedNetProfit = 0,
   estimatedSETax = 0,
 }: QuarterlyTaxTrackerProps) => {
-  const [taxYear, setTaxYear] = useState('2025');
+  const [taxYear, setTaxYear] = useState(() => String(defaultTaxYear()));
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newPayment, setNewPayment] = useState({
     quarter: 'Q1',
     amount: '',
-    datePaid: format(new Date(), 'yyyy-MM-dd'),
+    datePaid: todayDateOnly(),
     method: 'Bank Transfer',
     confirmationNumber: '',
   });
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   // Fetch estimated tax payments for the selected year
   const { data: payments } = useQuery({
@@ -79,29 +84,48 @@ export const QuarterlyTaxTracker = ({
   // Create a new estimated tax payment
   const createPaymentMutation = useMutation({
     mutationFn: async () => {
-      // Generate payment number
-      const paymentNumber = `EST-${taxYear}-${newPayment.quarter}`;
+      const amountCents = toCents(newPayment.amount);
+      if (amountCents <= 0) throw new Error('Enter an amount greater than zero');
+      // A quarter can take more than one payment: EST-2026-Q1, EST-2026-Q1-2, ...
+      const prefix = `EST-${taxYear}-${newPayment.quarter}`;
 
-      const { error } = await supabase.from('payments').insert({
-        payment_type: 'made',
-        payment_number: paymentNumber,
-        payment_date: newPayment.datePaid,
-        amount: parseFloat(newPayment.amount),
-        payment_method: newPayment.method,
-        reference_number: `EST-TAX-${taxYear}-${newPayment.quarter}`,
-        notes: `${newPayment.quarter} ${taxYear} Estimated Tax Payment (Form 1040-ES)${newPayment.confirmationNumber ? ` — Conf: ${newPayment.confirmationNumber}` : ''}`,
-        status: 'completed',
+      await insertWithNextSequence({
+        prefix,
+        fetchNumbers: async () => {
+          const { data, error } = await supabase
+            .from('payments')
+            .select('payment_number')
+            .like('payment_number', `${prefix}%`);
+          if (error) throw error;
+          return (data || []).map((r) => r.payment_number as string);
+        },
+        insert: (n) =>
+          supabase.from('payments').insert({
+            payment_type: 'made',
+            payment_number: n === 1 ? prefix : `${prefix}-${n}`,
+            payment_date: newPayment.datePaid,
+            amount: fromCents(amountCents),
+            payment_method: newPayment.method,
+            reference_number: `EST-TAX-${taxYear}-${newPayment.quarter}`,
+            notes: `${newPayment.quarter} ${taxYear} Estimated Tax Payment (Form 1040-ES)${newPayment.confirmationNumber ? ` — Conf: ${newPayment.confirmationNumber}` : ''}`,
+          }),
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estimated_tax_payments', taxYear] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
       setIsAddOpen(false);
-      setNewPayment({ quarter: 'Q1', amount: '', datePaid: format(new Date(), 'yyyy-MM-dd'), method: 'Bank Transfer', confirmationNumber: '' });
+      setNewPayment({
+        quarter: 'Q1',
+        amount: '',
+        datePaid: todayDateOnly(),
+        method: 'Bank Transfer',
+        confirmationNumber: '',
+      });
       toast.success('Estimated tax payment recorded');
     },
-    onError: () => {
-      toast.error('Failed to record payment');
+    onError: (error: { message?: string }) => {
+      toast.error(`Failed to record payment${error?.message ? `: ${error.message}` : ''}`);
     },
   });
 
@@ -113,25 +137,28 @@ export const QuarterlyTaxTracker = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estimated_tax_payments', taxYear] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
       toast.success('Payment deleted');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(`Failed to delete payment${error?.message ? `: ${error.message}` : ''}`);
     },
   });
 
   // Group payments by quarter
   const quarterlyData = useMemo(() => {
-    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
-      const quarterPayments = payments?.filter(p =>
-        p.reference_number?.includes(`-${q}`)
-      ) || [];
+    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map((q) => {
+      const quarterPayments = payments?.filter((p) => p.reference_number?.includes(`-${q}`)) || [];
 
-      const totalPaid = quarterPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const totalPaid = fromCents(sumCents(quarterPayments.map((p) => p.amount)));
 
       // Calculate deadline
       const deadlineInfo = QUARTERLY_DEADLINES[q];
       let deadlineYear = parseInt(taxYear);
       if (q === 'Q4') deadlineYear += 1; // Q4 due in January of next year
-      const deadlineDate = new Date(`${deadlineYear}${deadlineInfo.deadline}`);
-      const isOverdue = isPast(deadlineDate) && totalPaid === 0;
+      const deadlineDate = parseDateOnly(`${deadlineYear}${deadlineInfo.deadline}`);
+      // Overdue once the deadline day is over, in local time.
+      const isOverdue = isPast(endOfDay(deadlineDate)) && totalPaid === 0;
 
       return {
         quarter: q,
@@ -146,7 +173,7 @@ export const QuarterlyTaxTracker = ({
     return quarters;
   }, [payments, taxYear]);
 
-  const totalPaidYTD = quarterlyData.reduce((sum, q) => sum + q.totalPaid, 0);
+  const totalPaidYTD = fromCents(sumCents(quarterlyData.map((q) => q.totalPaid)));
 
   // Estimate quarterly payment amount (simple: divide annual liability by 4)
   // Federal income tax estimate (rough: 22% marginal rate for moderate income)
@@ -194,11 +221,13 @@ export const QuarterlyTaxTracker = ({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Paid YTD</CardDescription>
-            <CardTitle className="text-2xl text-green-700">{formatCurrency(totalPaidYTD)}</CardTitle>
+            <CardTitle className="text-2xl text-green-700">
+              {formatCurrency(totalPaidYTD)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              {quarterlyData.filter(q => q.totalPaid > 0).length} of 4 quarters paid
+              {quarterlyData.filter((q) => q.totalPaid > 0).length} of 4 quarters paid
             </p>
           </CardContent>
         </Card>
@@ -206,7 +235,9 @@ export const QuarterlyTaxTracker = ({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Remaining Liability</CardDescription>
-            <CardTitle className={`text-2xl ${remainingLiability > 0 ? 'text-red-700' : 'text-green-700'}`}>
+            <CardTitle
+              className={`text-2xl ${remainingLiability > 0 ? 'text-red-700' : 'text-green-700'}`}
+            >
               {formatCurrency(remainingLiability)}
             </CardTitle>
           </CardHeader>
@@ -224,7 +255,9 @@ export const QuarterlyTaxTracker = ({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Quarterly Estimated Payments (Form 1040-ES)</CardTitle>
-              <CardDescription>Track your quarterly estimated tax payments to the IRS</CardDescription>
+              <CardDescription>
+                Track your quarterly estimated tax payments to the IRS
+              </CardDescription>
             </div>
             <div className="flex items-center gap-3">
               <Select value={taxYear} onValueChange={setTaxYear}>
@@ -232,8 +265,10 @@ export const QuarterlyTaxTracker = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {yearOptions.map(year => (
-                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  {yearOptions.map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -257,14 +292,16 @@ export const QuarterlyTaxTracker = ({
                       <Label>Quarter</Label>
                       <Select
                         value={newPayment.quarter}
-                        onValueChange={(v) => setNewPayment(prev => ({ ...prev, quarter: v }))}
+                        onValueChange={(v) => setNewPayment((prev) => ({ ...prev, quarter: v }))}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {Object.entries(QUARTERLY_DEADLINES).map(([q, info]) => (
-                            <SelectItem key={q} value={q}>{info.label}</SelectItem>
+                            <SelectItem key={q} value={q}>
+                              {info.label}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -276,7 +313,9 @@ export const QuarterlyTaxTracker = ({
                         step="0.01"
                         placeholder="0.00"
                         value={newPayment.amount}
-                        onChange={(e) => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                        onChange={(e) =>
+                          setNewPayment((prev) => ({ ...prev, amount: e.target.value }))
+                        }
                       />
                     </div>
                     <div>
@@ -284,14 +323,16 @@ export const QuarterlyTaxTracker = ({
                       <Input
                         type="date"
                         value={newPayment.datePaid}
-                        onChange={(e) => setNewPayment(prev => ({ ...prev, datePaid: e.target.value }))}
+                        onChange={(e) =>
+                          setNewPayment((prev) => ({ ...prev, datePaid: e.target.value }))
+                        }
                       />
                     </div>
                     <div>
                       <Label>Payment Method</Label>
                       <Select
                         value={newPayment.method}
-                        onValueChange={(v) => setNewPayment(prev => ({ ...prev, method: v }))}
+                        onValueChange={(v) => setNewPayment((prev) => ({ ...prev, method: v }))}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -310,12 +351,16 @@ export const QuarterlyTaxTracker = ({
                       <Input
                         placeholder="e.g., IRS confirmation #"
                         value={newPayment.confirmationNumber}
-                        onChange={(e) => setNewPayment(prev => ({ ...prev, confirmationNumber: e.target.value }))}
+                        onChange={(e) =>
+                          setNewPayment((prev) => ({ ...prev, confirmationNumber: e.target.value }))
+                        }
                       />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+                      Cancel
+                    </Button>
                     <Button
                       onClick={() => createPaymentMutation.mutate()}
                       disabled={!newPayment.amount || createPaymentMutation.isPending}
@@ -342,7 +387,7 @@ export const QuarterlyTaxTracker = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {quarterlyData.map(q => (
+              {quarterlyData.map((q) =>
                 q.payments.length > 0 ? (
                   q.payments.map((payment, idx) => (
                     <TableRow key={payment.id}>
@@ -357,7 +402,10 @@ export const QuarterlyTaxTracker = ({
                         </>
                       )}
                       <TableCell>
-                        <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        <Badge
+                          variant="default"
+                          className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        >
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Paid
                         </Badge>
@@ -365,17 +413,27 @@ export const QuarterlyTaxTracker = ({
                       <TableCell className="text-right font-mono">
                         {formatCurrency(Number(payment.amount))}
                       </TableCell>
-                      <TableCell>{format(new Date(payment.payment_date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{payment.payment_method}</TableCell>
+                      <TableCell>
+                        {format(parseDateOnly(payment.payment_date), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {payment.payment_method}
+                      </TableCell>
                       <TableCell>
                         <Button
+                          aria-label="Delete tax payment"
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => {
-                            if (confirm('Delete this payment record?')) {
-                              deletePaymentMutation.mutate(payment.id);
-                            }
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `Delete the ${formatCurrency(Number(payment.amount))} tax payment from ${format(parseDateOnly(payment.payment_date), 'MMM d, yyyy')}?`,
+                              description:
+                                'Paid-to-date and remaining liability for the year are recalculated without it.',
+                              confirmLabel: 'Delete payment',
+                              destructive: true,
+                            });
+                            if (ok) deletePaymentMutation.mutate(payment.id);
                           }}
                         >
                           <Trash2 className="h-4 w-4 text-muted-foreground" />
@@ -403,10 +461,12 @@ export const QuarterlyTaxTracker = ({
                     <TableCell></TableCell>
                   </TableRow>
                 )
-              ))}
+              )}
               <TableRow className="font-semibold bg-muted">
                 <TableCell colSpan={3}>Total Paid</TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(totalPaidYTD)}</TableCell>
+                <TableCell className="text-right font-mono">
+                  {formatCurrency(totalPaidYTD)}
+                </TableCell>
                 <TableCell colSpan={3}></TableCell>
               </TableRow>
             </TableBody>

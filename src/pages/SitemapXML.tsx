@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { SEO_CONFIG, escapeXml, generateSlug } from '@/lib/seo';
 import { TOPIC_HUBS } from './TopicHub';
 
@@ -22,18 +22,18 @@ const SitemapXML = () => {
       try {
         // Fetch all dynamic content in parallel
         const [articlesRes, projectsRes, aiToolsRes] = await Promise.all([
-          supabase
+          publicDb
             .from('articles')
             .select(
               'slug, updated_at, created_at, image_url, title, category, tags, featured, author'
             )
             .eq('published', true)
             .order('updated_at', { ascending: false }),
-          supabase
+          publicDb
             .from('projects')
             .select('id, updated_at, title, image_url')
             .order('updated_at', { ascending: false }),
-          supabase
+          publicDb
             .from('ai_tools')
             .select('id, updated_at, title, image_url')
             .order('updated_at', { ascending: false }),

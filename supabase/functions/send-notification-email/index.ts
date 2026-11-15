@@ -3,6 +3,10 @@ import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { textToHtml } from '../_shared/html-escape.ts';
+import { createEdgeFunctionLogger } from '../_shared/production-logger.ts';
+
+const baseLogger = createEdgeFunctionLogger('send-notification-email');
 
 interface NotificationRequest {
   type: 'new_ticket' | 'new_response' | 'agent_reply';
@@ -61,9 +65,10 @@ async function sendNotificationEmail(
       to: notificationEmail,
       subject: subject,
       content: body,
-      html: `<html><body style="font-family: Arial, sans-serif; line-height: 1.6;">${body.replace(/\n/g, '<br>')}</body></html>`,
+      // body carries inbound-email fields (sender name, subject, preview), so
+      // escape it before turning newlines into <br>.
+      html: `<html><body style="font-family: Arial, sans-serif; line-height: 1.6;">${textToHtml(body)}</body></html>`,
     });
-    console.log(`Notification email sent to ${notificationEmail}`);
   } finally {
     await client.close();
   }
@@ -185,8 +190,6 @@ async function sendSlackNotification(
     const errorText = await response.text();
     throw new Error(`Slack webhook failed: ${response.status} - ${errorText}`);
   }
-
-  console.log('Slack notification sent successfully');
 }
 
 export default async (req: Request): Promise<Response> => {
@@ -202,6 +205,7 @@ export default async (req: Request): Promise<Response> => {
   // email-webhook-receiver and send-ticket-email invoke this internally.
   const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
   if (!auth.ok) return auth.response!;
+  const log = baseLogger.forRequest(req);
 
   try {
     const supabase = createClient(
@@ -219,15 +223,16 @@ export default async (req: Request): Promise<Response> => {
       .single();
 
     if (ticketError) {
-      console.error('Error fetching ticket:', ticketError);
+      log.error('Error fetching ticket', ticketError, { ticket_id: request.ticket_id });
       throw ticketError;
     }
 
     // Skip notifications for spam and disregard statuses
     if (ticket && (ticket.status === 'spam' || ticket.status === 'disregard')) {
-      console.log(
-        `Skipping notification for ticket ${request.ticket_number} with status: ${ticket.status}`
-      );
+      log.info('Skipping notification', {
+        ticket_number: request.ticket_number,
+        status: ticket.status,
+      });
       return new Response(
         JSON.stringify({
           success: true,
@@ -251,7 +256,7 @@ export default async (req: Request): Promise<Response> => {
 
     // Skip if notifications are disabled
     if (settings && !settings.enabled && !settings.slack_enabled) {
-      console.log('All notifications are disabled in settings');
+      log.info('All notifications are disabled in settings');
       return new Response(
         JSON.stringify({
           success: true,
@@ -354,9 +359,14 @@ This is an automated notification from Pearson Media Support System
             sent_at: new Date().toISOString(),
           });
 
-          console.log(`Email notification sent to ${email}`);
+          log.info('Email notification sent', { ticket_number: request.ticket_number });
         } catch (emailError: any) {
-          console.error(`Failed to send notification to ${email}:`, emailError);
+          // The address is masked by the logger; the ticket number is enough to
+          // find the email_logs row.
+          log.error('Failed to send email notification', emailError, {
+            ticket_number: request.ticket_number,
+            recipient: email,
+          });
 
           // Log the failure
           await supabase.from('email_logs').insert({
@@ -385,9 +395,11 @@ This is an automated notification from Pearson Media Support System
           sent_at: new Date().toISOString(),
         });
 
-        console.log(`Slack notification sent to ${settings.slack_channel || '#notifications'}`);
+        log.info('Slack notification sent', {
+          channel: settings.slack_channel || '#notifications',
+        });
       } catch (slackError: any) {
-        console.error('Failed to send Slack notification:', slackError);
+        log.error('Failed to send Slack notification', slackError);
 
         // Log the failure
         await supabase.from('email_logs').insert({
@@ -401,7 +413,10 @@ This is an automated notification from Pearson Media Support System
       }
     }
 
-    console.log(`Notification sent for ${request.type}: ${request.ticket_number}`);
+    log.info('Notification processed', {
+      type: request.type,
+      ticket_number: request.ticket_number,
+    });
 
     return new Response(
       JSON.stringify({

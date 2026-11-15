@@ -1,6 +1,10 @@
-import 'https://deno.land/x/xhr@0.1.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { fetchWithTimeout } from '../_shared/fetch-with-timeout.ts';
+import { AIProviderError, callSingleConfig, getDefaultClaudeModel } from '../_shared/ai-helper.ts';
+
+/** GET probes are idempotent, so fetchWithTimeout may retry them once. */
+const PROBE = { timeoutMs: 20_000, maxRetries: 2 };
 
 /**
  * Test API Setup
@@ -46,7 +50,11 @@ export default async (req: Request): Promise<Response> => {
       url.searchParams.append('q', 'wireless headphones amazon');
       url.searchParams.append('num', '1');
 
-      const response = await fetch(url.toString());
+      const response = await fetchWithTimeout(
+        url.toString(),
+        {},
+        { ...PROBE, label: 'serpapi-test' }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -98,7 +106,11 @@ export default async (req: Request): Promise<Response> => {
       url.searchParams.append('q', 'best wireless headphones site:amazon.com');
       url.searchParams.append('num', '1');
 
-      const response = await fetch(url.toString());
+      const response = await fetchWithTimeout(
+        url.toString(),
+        {},
+        { ...PROBE, label: 'google-cse-test' }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -142,37 +154,31 @@ export default async (req: Request): Promise<Response> => {
         required: 'required',
       });
     } else {
-      // Test with a simple completion
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 20,
-          messages: [{ role: 'user', content: 'Say "API test successful" if you can read this.' }],
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      // Same client, timeout and retry policy the generating functions use.
+      try {
+        const { response: text } = await callSingleConfig(
+          {
+            provider: 'claude',
+            model_name: getDefaultClaudeModel(),
+            api_key_secret_name: 'CLAUDE_API_KEY',
+          },
+          { prompt: 'Say "API test successful" if you can read this.', maxTokens: 20 },
+          { timeoutMs: 30_000 }
+        );
         results.tests.push({
           name: 'Claude',
           status: 'success',
           message: 'API key is valid and AI is responding',
-          sample_response: data.content?.[0]?.text?.substring(0, 100),
+          sample_response: text.substring(0, 100),
           required: 'required',
         });
-      } else {
-        const errorText = await response.text();
+      } catch (err) {
+        if (!(err instanceof AIProviderError) || !err.status) throw err;
         results.tests.push({
           name: 'Claude',
           status: 'error',
-          message: `API returned error: ${response.status}`,
-          details: errorText,
+          message: `API returned error: ${err.status}`,
+          details: err.body,
           required: 'required',
         });
       }
@@ -203,13 +209,17 @@ export default async (req: Request): Promise<Response> => {
       const auth = btoa(`${login}:${password}`);
 
       // Test with ping endpoint
-      const response = await fetch('https://api.dataforseo.com/v3/appendix/user_data', {
-        method: 'GET',
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/json',
+      const response = await fetchWithTimeout(
+        'https://api.dataforseo.com/v3/appendix/user_data',
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/json',
+          },
         },
-      });
+        { ...PROBE, label: 'dataforseo-test' }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -286,7 +296,7 @@ export default async (req: Request): Promise<Response> => {
 
   // Determine overall status
   const hasRequiredApis = results.tests.some(
-    (t: any) => t.name === 'OpenAI' && t.status === 'success'
+    (t: any) => t.name === 'Claude' && t.status === 'success'
   );
 
   const hasProductDiscovery = results.tests.some(

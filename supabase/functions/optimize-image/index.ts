@@ -17,6 +17,27 @@ import {
 } from 'https://deno.land/x/imagemagick_deno@0.0.25/mod.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { createEdgeFunctionLogger } from '../_shared/production-logger.ts';
+import { readImageHeader } from './image-dimensions.ts';
+
+const baseLogger = createEdgeFunctionLogger('optimize-image');
+
+/**
+ * Caps checked before ImageMagick sees the file. Every function shares one
+ * Deno process, and the wasm decoder allocates the whole bitmap (about 8 bytes
+ * per pixel at Q16), so one oversized image could exhaust the container for
+ * every other function. 25 MP is roughly a 6000 x 4000 photo.
+ */
+const MAX_SOURCE_BYTES = Number(Deno.env.get('OPTIMIZE_IMAGE_MAX_BYTES')) || 25 * 1024 * 1024;
+const MAX_SOURCE_PIXELS = Number(Deno.env.get('OPTIMIZE_IMAGE_MAX_PIXELS')) || 25_000_000;
+const MAX_SOURCE_SIDE = 16_384;
+const MAX_OUTPUT_SIDE = 4096;
+const MAX_VARIANTS = 8;
+
+const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+};
 
 interface OptimizeRequest {
   /** Source file path in storage bucket */
@@ -131,24 +152,32 @@ const handler = async (req: Request): Promise<Response> => {
   // objects. Restrict to admins, matching the other service-role functions.
   const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
   if (!auth.ok) return auth.response!;
+  const log = baseLogger.forRequest(req);
+  const reject = (status: number, error: string) =>
+    new Response(JSON.stringify({ error }), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   try {
-    // Initialize ImageMagick
-    await initializeMagick();
-
     // Parse request
     const body: OptimizeRequest = await req.json();
     const {
       sourcePath,
       bucket = 'admin-uploads',
-      maxWidth = 1920,
-      maxHeight = 1080,
-      quality = 85,
       format = 'webp',
       generateVariants = false,
-      variantWidths = [640, 768, 1024, 1280],
       destinationPath,
     } = body;
+    const maxWidth = clampInt(body.maxWidth, 1, MAX_OUTPUT_SIDE, 1920);
+    const maxHeight = clampInt(body.maxHeight, 1, MAX_OUTPUT_SIDE, 1080);
+    const quality = clampInt(body.quality, 1, 100, 85);
+    const variantWidths = (
+      Array.isArray(body.variantWidths) ? body.variantWidths : [640, 768, 1024, 1280]
+    )
+      .slice(0, MAX_VARIANTS)
+      .map((w) => clampInt(w, 1, MAX_OUTPUT_SIDE, 0))
+      .filter((w) => w > 0);
 
     if (!sourcePath) {
       return new Response(JSON.stringify({ error: 'sourcePath is required' }), {
@@ -168,15 +197,44 @@ const handler = async (req: Request): Promise<Response> => {
       .download(sourcePath);
 
     if (downloadError || !fileData) {
-      console.error('Download error:', downloadError);
+      log.error('Download error', downloadError);
       return new Response(JSON.stringify({ error: 'Failed to download source image' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    if (fileData.size > MAX_SOURCE_BYTES) {
+      return reject(413, `Source image is larger than ${MAX_SOURCE_BYTES} bytes`);
+    }
+
     const sourceBuffer = new Uint8Array(await fileData.arrayBuffer());
     const sourceSize = sourceBuffer.length;
+
+    // Check the declared dimensions from the header before any decode.
+    const header = readImageHeader(sourceBuffer);
+    if (!header) {
+      return reject(415, 'Unsupported image format. Send PNG, JPEG, GIF or WebP.');
+    }
+    if (
+      header.width < 1 ||
+      header.height < 1 ||
+      header.width > MAX_SOURCE_SIDE ||
+      header.height > MAX_SOURCE_SIDE ||
+      header.width * header.height > MAX_SOURCE_PIXELS
+    ) {
+      log.warn('Rejected oversized image', {
+        width: header.width,
+        height: header.height,
+        format: header.format,
+      });
+      return reject(
+        413,
+        `Image is ${header.width}x${header.height}; the limit is ${MAX_SOURCE_PIXELS} pixels and ${MAX_SOURCE_SIDE}px per side`
+      );
+    }
+
+    await initializeMagick();
 
     // Process the image with ImageMagick
     const results: OptimizedResult = {
@@ -247,7 +305,7 @@ const handler = async (req: Request): Promise<Response> => {
           });
 
         if (uploadError) {
-          console.error('Upload error:', uploadError);
+          log.error('Upload error', uploadError);
           throw new Error('Failed to upload optimized image');
         }
 
@@ -296,7 +354,7 @@ const handler = async (req: Request): Promise<Response> => {
               });
 
             if (uploadError) {
-              console.error('Variant upload error:', uploadError);
+              log.error('Variant upload error', uploadError);
               return;
             }
 
@@ -323,10 +381,10 @@ const handler = async (req: Request): Promise<Response> => {
       percentage: Math.round(((sourceSize - results.optimized.size) / sourceSize) * 100),
     };
 
-    console.log('Image optimized:', {
+    log.info('Image optimized', {
       original: `${results.original.width}x${results.original.height} (${sourceSize} bytes)`,
       optimized: `${results.optimized.width}x${results.optimized.height} (${results.optimized.size} bytes)`,
-      savings: `${results.savings.percentage}%`,
+      savings_pct: results.savings.percentage,
       variants: results.variants?.length || 0,
     });
 
@@ -335,11 +393,11 @@ const handler = async (req: Request): Promise<Response> => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Optimization error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to optimize image', details: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    log.error('Optimization error', error);
+    return new Response(JSON.stringify({ error: 'Failed to optimize image' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 };
 

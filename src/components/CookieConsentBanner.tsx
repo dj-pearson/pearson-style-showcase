@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Cookie, Shield, BarChart3, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,19 +32,46 @@ import { OPEN_PREFERENCES_EVENT } from '@/lib/cookie-preferences';
  * - Once a decision exists the banner stays hidden; users can re-open
  *   preferences any time from the Cookie Policy / footer via the
  *   `openCookiePreferences()` custom event.
+ * - While visible it publishes its height as --cookie-banner-offset on <html>
+ *   so other bottom-right fixed controls (the accessibility button, the
+ *   scroll-to-top button) can sit above it instead of covering its buttons.
  */
+
+// CSS custom property read by other fixed bottom-right controls.
+export const COOKIE_BANNER_OFFSET_VAR = '--cookie-banner-offset';
+
+// Upper bound on how long the banner waits for web fonts before showing.
+const FONT_WAIT_MS = 3000;
 
 const CookieConsentBanner = () => {
   const [visible, setVisible] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [functional, setFunctional] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   // Decide initial visibility after mount (avoids SSR/hydration mismatch and
   // keeps the banner out of the critical render path).
+  //
+  // The banner is bottom-anchored, so any change in its height moves its
+  // contents. Showing it before Inter has loaded meant the paragraph rewrapped
+  // when the font swapped in, the banner grew, and everything in it jumped up:
+  // that was the CLS the audit attributed to the banner. Waiting for
+  // document.fonts.ready (capped) means it first paints at its final size.
   useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     if (!hasStoredConsent()) {
-      setVisible(true);
+      const show = () => {
+        if (!cancelled) setVisible(true);
+      };
+      const fontsReady = typeof document !== 'undefined' ? document.fonts?.ready : undefined;
+      if (fontsReady) {
+        timer = setTimeout(show, FONT_WAIT_MS);
+        fontsReady.then(show, show);
+      } else {
+        show();
+      }
     }
     const openHandler = () => {
       const stored = getStoredConsent();
@@ -53,8 +80,30 @@ const CookieConsentBanner = () => {
       setDialogOpen(true);
     };
     window.addEventListener(OPEN_PREFERENCES_EVENT, openHandler);
-    return () => window.removeEventListener(OPEN_PREFERENCES_EVENT, openHandler);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener(OPEN_PREFERENCES_EVENT, openHandler);
+    };
   }, []);
+
+  // Publish the banner's height so bottom-right controls can clear it.
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = bannerRef.current;
+    if (!visible || !el) {
+      root.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
+      return;
+    }
+    const update = () => root.style.setProperty(COOKIE_BANNER_OFFSET_VAR, `${el.offsetHeight}px`);
+    update();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    observer?.observe(el);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
+    };
+  }, [visible]);
 
   const handleAcceptAll = () => {
     acceptAll();
@@ -87,6 +136,7 @@ const CookieConsentBanner = () => {
     <>
       {visible && (
         <div
+          ref={bannerRef}
           role="region"
           aria-label="Cookie consent"
           className="fixed inset-x-0 bottom-0 z-[9998] p-3 sm:p-4"

@@ -23,7 +23,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "agentic-crm-what-actually-works",
     "title": "Agentic CRM: What Actually Works Today",
-    "excerpt": "Agentic CRM works today for narrow, bounded, reviewable tasks and fails predictably at everything else. The failures are almost never model failures - they are prerequisite failures. Here is the capability map and how to tell which side of it a vendor demo sits on.",
+    "excerpt": "Agentic CRM works today for narrow, bounded, reviewable tasks and fails predictably at everything else. The failures are almost never model failures; they are prerequisite failures. The capability map below shows which side of it a vendor demo sits on.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -53,7 +53,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "ai-crm-automation-complete-guide",
     "title": "AI CRM Automation: The Complete 2026 Guide",
-    "excerpt": "AI CRM automation means using language models and agents to do the CRM work people currently do by hand. The catch is sequence: teams that automate reporting before capture end up with better-looking dashboards built on the same bad data. Here is what actually works, in the order it works.",
+    "excerpt": "AI CRM automation means using language models and agents to do the CRM work people currently do by hand. The catch is sequence: teams that automate reporting before capture end up with better-looking dashboards built on the same bad data. This guide covers what works, in the order it works.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -67,7 +67,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
     "read_time": "14 min read",
     "featured": true,
     "seo_title": "AI CRM Automation: The Complete 2026 Guide",
-    "seo_description": "What AI CRM automation actually is in 2026, what is genuinely automatable today, and the order to do it in. Includes the Pipeline Automation Ladder and a vendor-neutral platform assessment.",
+    "seo_description": "What AI CRM automation is in 2026, what is genuinely automatable today, and the order to do it in. Includes the Pipeline Automation Ladder and a vendor-neutral platform assessment.",
     "seo_keywords": [
       "AI CRM automation",
       "CRM automation guide",
@@ -83,7 +83,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "automating-call-logging-and-note-capture",
     "title": "Automating Call Logging and Note Capture: A Build Teardown",
-    "excerpt": "Call and meeting capture is the first path worth automating, and roughly a fifth of the work is the AI. Here is the whole build: the extraction schema, the confidence thresholds, where the write-back actually lands, and the seven failure modes that decide whether it is still running next year.",
+    "excerpt": "Call and meeting capture is the first path worth automating, and roughly a fifth of the work is the AI. This teardown covers the whole build: the extraction schema, the confidence thresholds, where the write-back lands, and the seven failure modes that decide whether it is still running next year.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -113,7 +113,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "crm-automation-for-construction-companies",
     "title": "CRM Automation for Construction Companies",
-    "excerpt": "Construction breaks generic CRM automation for three specific reasons: the pipeline unit is a bid, not a deal; the real system of record is the estimating software; and the relationships that decide who gets invited to bid live in inboxes nobody logs. Here is what to automate instead.",
+    "excerpt": "Construction breaks generic CRM automation for three specific reasons: the pipeline unit is a bid, not a deal; the real system of record is the estimating software; and the relationships that decide who gets invited to bid live in inboxes nobody logs. The fix is automating capture around bids instead.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -173,7 +173,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "get-sales-reps-to-use-the-crm",
     "title": "How to Get Sales Reps to Actually Use the CRM",
-    "excerpt": "You do not get reps to use the CRM by asking harder. Every lever most teams reach for — mandatory fields, adoption dashboards, tying it to comp — reliably makes the data worse, because none of them address the actual reason. Here is what does.",
+    "excerpt": "You do not get reps to use the CRM by asking harder. Every lever most teams reach for (mandatory fields, adoption dashboards, tying it to comp) makes the data worse, because none of them address the actual reason. The fix starts with why the CRM is empty.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -186,7 +186,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
     "read_time": "9 min read",
     "featured": false,
     "seo_title": "How to Get Sales Reps to Actually Use the CRM (Without Nagging)",
-    "seo_description": "You do not get reps to use the CRM by asking harder. Every lever most teams reach for — mandatory fields, adoption dashboards, tying it to comp — makes the data worse. Here is what actually works.",
+    "seo_description": "You do not get reps to use the CRM by asking harder. Every lever most teams reach for (mandatory fields, adoption dashboards, tying it to comp) makes the data worse. What works is changing the arithmetic.",
     "seo_keywords": [
       "how to get sales reps to use the CRM",
       "CRM adoption",
@@ -200,7 +200,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "how-to-choose-a-crm-automation-consultant",
     "title": "How to Choose a CRM Automation Consultant (2026 Buyer Guide)",
-    "excerpt": "Most teams hire the wrong type of provider for the problem they actually have. Here are the three kinds of CRM automation consultant, the nine questions that tell you which one is in front of you, and the answers worth walking away from.",
+    "excerpt": "Most teams hire the wrong type of provider for the problem they actually have. There are three kinds of CRM automation consultant, nine questions that tell you which one is in front of you, and a handful of answers worth walking away from.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -230,7 +230,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "hubspot-breeze-vs-salesforce-agentforce",
     "title": "HubSpot Breeze vs Salesforce Agentforce for Teams Under 50 Seats",
-    "excerpt": "For most teams under 50 seats, HubSpot Breeze is the better buy — but the more useful answer is that a third of the teams asking this question should not buy either one yet. Here is the real pricing arithmetic and the honest verdict on each.",
+    "excerpt": "For most teams under 50 seats, HubSpot Breeze is the better buy. The more useful answer is that a third of the teams asking should not buy either yet. The real pricing arithmetic and an honest verdict on each follow.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -244,7 +244,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
     "read_time": "12 min read",
     "featured": true,
     "seo_title": "HubSpot Breeze vs Salesforce Agentforce: Honest 2026 Comparison",
-    "seo_description": "A vendor-neutral comparison of HubSpot Breeze and Salesforce Agentforce for revenue teams under 50 seats, with real 2026 pricing arithmetic — and the third option neither vendor will mention.",
+    "seo_description": "A vendor-neutral comparison of HubSpot Breeze and Salesforce Agentforce for revenue teams under 50 seats, with real 2026 pricing arithmetic, and the third option neither vendor will mention.",
     "seo_keywords": [
       "HubSpot AI vs Salesforce Einstein",
       "HubSpot Breeze vs Agentforce",
@@ -289,7 +289,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "what-crm-automation-costs",
     "title": "What CRM Automation Actually Costs in 2026",
-    "excerpt": "A first capture-layer build for a 20-seat team lands somewhere between $15,000 and $60,000 all-in for year one. Here is the arithmetic behind that range, the four buckets it splits into, and the much larger number most teams are already paying without seeing it on an invoice.",
+    "excerpt": "A first capture-layer build for a 20-seat team lands somewhere between $15,000 and $60,000 all-in for year one. The arithmetic behind that range splits into four buckets, and it sits next to a much larger number most teams already pay without seeing it on an invoice.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -347,7 +347,7 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
   {
     "slug": "zapier-vs-make-vs-n8n-for-crm-automation",
     "title": "Zapier vs Make vs n8n for CRM Automation",
-    "excerpt": "Start on Zapier, move to Make when the logic branches, run n8n when you need control over data and cost. The tool matters far less than most comparisons suggest, and here is the part that actually decides whether your automation survives a year.",
+    "excerpt": "Start on Zapier, move to Make when the logic branches, run n8n when you need control over data and cost. The tool matters far less than most comparisons suggest. Error handling decides whether your automation survives a year.",
     "category": "CRM",
     "tags": [
       "CRM",
@@ -361,8 +361,8 @@ export const CRM_ARTICLE_INDEX: StaticArticleSummary[] = [
     "author": "Dan Pearson",
     "read_time": "12 min read",
     "featured": false,
-    "seo_title": "Zapier vs Make vs n8n for CRM Automation: Honest 2026 Comparison",
-    "seo_description": "Which automation platform to use for CRM work, judged on the things that actually matter at the capture layer: error handling, cost at volume, AI steps and what happens when a run fails at 2am.",
+    "seo_title": "Zapier vs Make vs n8n for CRM Automation: Error Handling, Cost and AI Steps",
+    "seo_description": "Which automation platform to use for CRM work, judged on the things that matter at the capture layer: error handling, cost at volume, AI steps and what happens when a run fails at 2am.",
     "seo_keywords": [
       "Zapier vs Make vs n8n",
       "best automation tool for CRM",

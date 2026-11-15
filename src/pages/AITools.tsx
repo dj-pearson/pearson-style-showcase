@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
@@ -15,7 +16,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { AIToolSubmissionForm } from '@/components/AIToolSubmissionForm';
-import { supabase } from '@/integrations/supabase/client';
+import { useAnalytics } from '@/components/Analytics';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import {
   Bot,
@@ -33,6 +35,7 @@ import {
 type AITool = Tables<'ai_tools'>;
 
 const AITools = () => {
+  const { trackCTA } = useAnalytics();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
 
@@ -46,7 +49,7 @@ const AITools = () => {
     queryKey: ['ai_tools'],
     queryFn: async () => {
       // Only select fields needed for AI tools list view to reduce payload size
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('ai_tools')
         .select(
           'id, title, description, category, features, link, pricing, complexity, status, sort_order, created_at'
@@ -426,17 +429,24 @@ const AITools = () => {
                 <Button
                   size="lg"
                   className="font-semibold min-h-[48px] sm:min-h-[52px] w-full"
-                  onClick={() => (window.location.href = '/connect')}
+                  asChild
                 >
-                  Schedule Consultation
+                  <Link
+                    to="/connect"
+                    onClick={() => trackCTA('Book a CRM automation audit', 'AI Tools')}
+                  >
+                    Book a CRM automation audit
+                  </Link>
                 </Button>
                 <Button
                   variant="outline"
                   size="lg"
                   className="border-gray-600 hover:border-cyan-500/50 hover:bg-cyan-500/10 min-h-[48px] sm:min-h-[52px] w-full"
-                  onClick={() => (window.location.href = '/projects')}
+                  asChild
                 >
-                  View Case Studies
+                  <Link to="/projects" onClick={() => trackCTA('View Case Studies', 'AI Tools')}>
+                    View Case Studies
+                  </Link>
                 </Button>
               </div>
             </div>

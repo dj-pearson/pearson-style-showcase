@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Loader2, Plus, Edit, Trash2, Star, MessageSquareQuote } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Testimonial {
   id: string;
@@ -40,6 +41,7 @@ interface Testimonial {
 }
 
 const TestimonialsManager = () => {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
@@ -91,10 +93,7 @@ const TestimonialsManager = () => {
 
   const updateTestimonial = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const { error } = await supabase
-        .from('testimonials')
-        .update(data)
-        .eq('id', id);
+      const { error } = await supabase.from('testimonials').update(data).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -152,10 +151,15 @@ const TestimonialsManager = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this testimonial?')) {
-      deleteTestimonial.mutate(id);
-    }
+  const handleDelete = async (id: string) => {
+    const client = testimonials?.find((t) => t.id === id)?.client_name;
+    const ok = await confirm({
+      title: client ? `Delete the testimonial from ${client}?` : 'Delete this testimonial?',
+      description: 'It comes off the site. This cannot be undone.',
+      confirmLabel: 'Delete testimonial',
+      destructive: true,
+    });
+    if (ok) deleteTestimonial.mutate(id);
   };
 
   const statusColors: Record<string, string> = {
@@ -182,10 +186,12 @@ const TestimonialsManager = () => {
           </CardTitle>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => {
-                setEditingTestimonial(null);
-                setFormData(emptyForm);
-              }}>
+              <Button
+                onClick={() => {
+                  setEditingTestimonial(null);
+                  setFormData(emptyForm);
+                }}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Testimonial
               </Button>
@@ -256,7 +262,9 @@ const TestimonialsManager = () => {
                     <Label htmlFor="rating">Rating</Label>
                     <Select
                       value={formData.rating?.toString()}
-                      onValueChange={(value) => setFormData({ ...formData, rating: parseInt(value) })}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, rating: parseInt(value) })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -314,14 +322,18 @@ const TestimonialsManager = () => {
                       id="display_order"
                       type="number"
                       value={formData.display_order}
-                      onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, display_order: parseInt(e.target.value) })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="featured">Featured</Label>
                     <Select
                       value={formData.featured.toString()}
-                      onValueChange={(value) => setFormData({ ...formData, featured: value === 'true' })}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, featured: value === 'true' })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -335,8 +347,11 @@ const TestimonialsManager = () => {
                 </div>
 
                 <div className="flex gap-2 pt-4">
-                  <Button type="submit" disabled={createTestimonial.isPending || updateTestimonial.isPending}>
-                    {(createTestimonial.isPending || updateTestimonial.isPending) ? (
+                  <Button
+                    type="submit"
+                    disabled={createTestimonial.isPending || updateTestimonial.isPending}
+                  >
+                    {createTestimonial.isPending || updateTestimonial.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Saving...
@@ -371,7 +386,9 @@ const TestimonialsManager = () => {
                             ))}
                           </div>
                         )}
-                        <span className={`px-2 py-0.5 text-xs rounded-full text-white ${statusColors[testimonial.status]}`}>
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full text-white ${statusColors[testimonial.status]}`}
+                        >
                           {testimonial.status}
                         </span>
                         {testimonial.featured && (
@@ -390,13 +407,12 @@ const TestimonialsManager = () => {
                         "{testimonial.testimonial_text}"
                       </p>
                       {testimonial.project_type && (
-                        <span className="text-xs text-primary">
-                          {testimonial.project_type}
-                        </span>
+                        <span className="text-xs text-primary">{testimonial.project_type}</span>
                       )}
                     </div>
                     <div className="flex gap-2">
                       <Button
+                        aria-label={`Edit testimonial from ${testimonial.client_name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(testimonial)}
@@ -404,6 +420,7 @@ const TestimonialsManager = () => {
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete testimonial from ${testimonial.client_name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(testimonial.id)}

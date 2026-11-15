@@ -49,12 +49,14 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { hasUnsavedChanges } from '@/lib/unsaved-changes';
+import { useUnsavedChangesViewParam } from '@/hooks/useUnsavedChangesViewParam';
 import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
 // Lazy load all admin modules for better performance
 // This reduces initial bundle size by ~60-80%
@@ -156,6 +158,32 @@ const ModuleLoader = () => {
         <span className="text-sm text-muted-foreground">Loading module...</span>
       </div>
     </div>
+  );
+};
+
+// Sidebar item that also closes the mobile sheet after a pick. It has to be a
+// child of SidebarProvider to read useSidebar(), hence a separate component.
+interface SidebarNavButtonProps {
+  label: string;
+  icon: typeof Settings;
+  isActive: boolean;
+  onSelect: () => void;
+}
+
+const SidebarNavButton = ({ label, icon: Icon, isActive, onSelect }: SidebarNavButtonProps) => {
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenuButton
+      onClick={() => {
+        onSelect();
+        if (isMobile) setOpenMobile(false);
+      }}
+      isActive={isActive}
+      tooltip={label}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      <span>{label}</span>
+    </SidebarMenuButton>
   );
 };
 
@@ -275,7 +303,6 @@ const AdminDashboard = () => {
     aiToolsQuery.refetch();
   };
 
-  const [activeView, setActiveView] = useState('overview');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -333,6 +360,15 @@ const AdminDashboard = () => {
     },
   ];
 
+  // Active view lives in ?view= so refresh keeps it and Back/Forward move
+  // between views. Switches are guarded by the unsaved-changes registry:
+  // a dirty form prompts before the view changes.
+  const { activeView, requestView, pendingView, confirmViewChange, cancelViewChange } =
+    useUnsavedChangesViewParam({
+      validViews: [overviewItem.id, ...menuGroups.flatMap((g) => g.items.map((i) => i.id))],
+      fallback: overviewItem.id,
+    });
+
   // Persisted expand/collapse state for the sidebar groups. On first load with
   // no stored preference: expand everything on desktop, but on mobile (<640px)
   // collapse all groups except the one containing the active view.
@@ -363,28 +399,12 @@ const AdminDashboard = () => {
 
   const toggleGroup = (id: string) => setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  // Guard sidebar tab switches: if a mounted form has unsaved changes, confirm
-  // before changing views (tab switches are state changes, not route nav).
-  const [pendingView, setPendingView] = useState<string | null>(null);
-  const requestView = (id: string) => {
-    if (id === activeView) return;
-    if (hasUnsavedChanges()) {
-      setPendingView(id);
-    } else {
-      setActiveView(id);
-    }
-  };
-  const confirmViewChange = () => {
-    if (pendingView) setActiveView(pendingView);
-    setPendingView(null);
-  };
-  const cancelViewChange = () => setPendingView(null);
-
   // Aggregate error flag (true if any stat query failed) for the overview
   // system-status card.
   const hasError = Object.values(statErrors).some(Boolean);
 
-  // Keyboard shortcuts configuration
+  // Keyboard shortcuts configuration. Escape is left to Radix, which closes
+  // the open dialog or popover itself; it never changes the view.
   const shortcuts: KeyboardShortcut[] = [
     {
       key: '?',
@@ -395,37 +415,29 @@ const AdminDashboard = () => {
       key: 'o',
       ctrlKey: true,
       description: 'Go to Overview',
-      action: () => setActiveView('overview'),
+      action: () => requestView('overview'),
       preventDefault: true,
     },
     {
       key: 'p',
       ctrlKey: true,
       description: 'Go to Projects',
-      action: () => setActiveView('projects'),
+      action: () => requestView('projects'),
       preventDefault: true,
     },
     {
       key: 'a',
       ctrlKey: true,
       description: 'Go to Articles',
-      action: () => setActiveView('articles'),
+      action: () => requestView('articles'),
       preventDefault: true,
     },
     {
       key: 's',
       ctrlKey: true,
       description: 'Go to Settings',
-      action: () => setActiveView('settings'),
+      action: () => requestView('settings'),
       preventDefault: true,
-    },
-    {
-      key: 'Escape',
-      description: 'Close dialogs / Return to Overview',
-      action: () => {
-        setShowShortcuts(false);
-        setActiveView('overview');
-      },
     },
   ];
 
@@ -714,7 +726,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <>
+    <ConfirmProvider>
       <SEO title="Admin Dashboard | Dan Pearson" description="Admin dashboard" noIndex={true} />
       <SidebarProvider defaultOpen={false}>
         <div className="min-h-screen flex w-full bg-background">
@@ -726,14 +738,12 @@ const AdminDashboard = () => {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <SidebarMenuButton
-                        onClick={() => requestView(overviewItem.id)}
+                      <SidebarNavButton
+                        label={overviewItem.label}
+                        icon={overviewItem.icon}
                         isActive={activeView === overviewItem.id}
-                        tooltip={overviewItem.label}
-                      >
-                        <overviewItem.icon className="h-4 w-4" />
-                        <span>{overviewItem.label}</span>
-                      </SidebarMenuButton>
+                        onSelect={() => requestView(overviewItem.id)}
+                      />
                     </SidebarMenuItem>
                   </SidebarMenu>
                 </SidebarGroupContent>
@@ -766,14 +776,12 @@ const AdminDashboard = () => {
                           <SidebarMenu>
                             {group.items.map((item) => (
                               <SidebarMenuItem key={item.id}>
-                                <SidebarMenuButton
-                                  onClick={() => requestView(item.id)}
+                                <SidebarNavButton
+                                  label={item.label}
+                                  icon={item.icon}
                                   isActive={activeView === item.id}
-                                  tooltip={item.label}
-                                >
-                                  <item.icon className="h-4 w-4" />
-                                  <span>{item.label}</span>
-                                </SidebarMenuButton>
+                                  onSelect={() => requestView(item.id)}
+                                />
                               </SidebarMenuItem>
                             ))}
                           </SidebarMenu>
@@ -834,6 +842,7 @@ const AdminDashboard = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleLogout}
+                      aria-label="Log out"
                       className="min-h-[44px] px-3 sm:px-4"
                     >
                       <LogOut className="h-4 w-4 sm:mr-2" />
@@ -958,7 +967,7 @@ const AdminDashboard = () => {
           onKeepEditing={cancelViewChange}
         />
       </SidebarProvider>
-    </>
+    </ConfirmProvider>
   );
 };
 

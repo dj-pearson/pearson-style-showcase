@@ -74,6 +74,53 @@ describe('useKeyboardShortcuts', () => {
     expect(action).not.toHaveBeenCalled();
   });
 
+  it('ignores shortcuts while typing in an input unless allowInInputs is set', () => {
+    const selectAllAction = vi.fn();
+    const saveAction = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts([
+        { key: 'a', ctrlKey: true, description: 'Articles', action: selectAllAction },
+        { key: 's', ctrlKey: true, description: 'Save', action: saveAction, allowInInputs: true },
+      ])
+    );
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+    const selectAll = new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true });
+    textarea.dispatchEvent(selectAll);
+    expect(selectAllAction).not.toHaveBeenCalled();
+    expect(selectAll.defaultPrevented).toBe(false);
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true })
+    );
+    expect(saveAction).toHaveBeenCalledTimes(1);
+    textarea.remove();
+  });
+
+  it("matches '?' whether or not Shift is reported", () => {
+    const action = vi.fn();
+    renderHook(() => useKeyboardShortcuts([{ key: '?', description: 'Help', action }]));
+    press('?', { shiftKey: true } as Partial<KeyboardEvent>);
+    press('?');
+    expect(action).toHaveBeenCalledTimes(2);
+  });
+
+  it('still requires an exact Shift match for letter keys', () => {
+    const action = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts([{ key: 'o', ctrlKey: true, description: 'Overview', action }])
+    );
+    press('o', { ctrlKey: true, shiftKey: true } as Partial<KeyboardEvent>);
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it('does not fire a bare-key shortcut when Ctrl is held', () => {
+    const action = vi.fn();
+    renderHook(() => useKeyboardShortcuts([{ key: '?', description: 'Help', action }]));
+    press('?', { ctrlKey: true, shiftKey: true } as Partial<KeyboardEvent>);
+    expect(action).not.toHaveBeenCalled();
+  });
+
   it('getShortcutDisplay renders a human-readable combo', () => {
     const display = getShortcutDisplay({
       key: 's',

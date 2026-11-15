@@ -4,9 +4,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Lock, FileText, Link, Terminal, Key, FolderKanban, Globe, Building2 } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  FileText,
+  Link,
+  Terminal,
+  Key,
+  FolderKanban,
+  Globe,
+  Building2,
+} from 'lucide-react';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 type VaultType = {
@@ -56,7 +73,14 @@ const iconMap: Record<string, React.ReactNode> = {
   key: <Key className="h-4 w-4" />,
 };
 
-export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess, onCancel }: VaultItemFormProps) => {
+export const VaultItemForm = ({
+  types,
+  projects,
+  platforms,
+  editItem,
+  onSuccess,
+  onCancel,
+}: VaultItemFormProps) => {
   const [name, setName] = useState(editItem?.name || '');
   const [value, setValue] = useState('');
   const [typeId, setTypeId] = useState(editItem?.type_id || '');
@@ -72,14 +96,16 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
     if (editItem) {
       setLoadingDecrypt(true);
       invokeEdgeFunction('secure-vault', {
-        body: { action: 'decrypt', itemId: editItem.id }
-      }).then(response => {
-        if (response.data?.value) {
-          setValue(response.data.value);
-        }
-      }).finally(() => {
-        setLoadingDecrypt(false);
-      });
+        body: { action: 'decrypt', itemId: editItem.id },
+      })
+        .then((response) => {
+          if (response.data?.value) {
+            setValue(response.data.value);
+          }
+        })
+        .finally(() => {
+          setLoadingDecrypt(false);
+        });
     }
   }, [editItem]);
 
@@ -88,10 +114,34 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
       const action = editItem ? 'update' : 'encrypt';
       const resolvedProjectId = projectId === 'global' ? null : projectId;
       const resolvedPlatformId = platformId === 'none' ? null : platformId;
-      const resolvedPlaceholderKey = placeholderKey.trim().toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '') || null;
+      const resolvedPlaceholderKey =
+        placeholderKey
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '_')
+          .replace(/[^A-Z0-9_]/g, '') || null;
       const body = editItem
-        ? { action, itemId: editItem.id, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, placeholderKey: resolvedPlaceholderKey, notes: notes || null }
-        : { action, name, value, typeId: typeId || null, projectId: resolvedProjectId, platformId: resolvedPlatformId, placeholderKey: resolvedPlaceholderKey, notes: notes || null };
+        ? {
+            action,
+            itemId: editItem.id,
+            name,
+            value,
+            typeId: typeId || null,
+            projectId: resolvedProjectId,
+            platformId: resolvedPlatformId,
+            placeholderKey: resolvedPlaceholderKey,
+            notes: notes || null,
+          }
+        : {
+            action,
+            name,
+            value,
+            typeId: typeId || null,
+            projectId: resolvedProjectId,
+            platformId: resolvedPlatformId,
+            placeholderKey: resolvedPlaceholderKey,
+            notes: notes || null,
+          };
 
       const response = await invokeEdgeFunction('secure-vault', { body });
 
@@ -106,12 +156,12 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
     },
     onError: (error) => {
       toast.error('Failed to save: ' + error.message);
-    }
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       toast.error('Name is required');
       return;
@@ -145,7 +195,7 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
               <SelectValue placeholder="Select a type" />
             </SelectTrigger>
             <SelectContent>
-              {types.map(type => (
+              {types.map((type) => (
                 <SelectItem key={type.id} value={type.id}>
                   <span className="flex items-center gap-2">
                     {iconMap[type.icon] || <Key className="h-4 w-4" />}
@@ -165,11 +215,9 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  None
-                </span>
+                <span className="flex items-center gap-2 text-muted-foreground">None</span>
               </SelectItem>
-              {platforms.map(platform => (
+              {platforms.map((platform) => (
                 <SelectItem key={platform.id} value={platform.id}>
                   <span className="flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
@@ -195,7 +243,7 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
                 Global
               </span>
             </SelectItem>
-            {projects.map(project => (
+            {projects.map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 <span className="flex items-center gap-2">
                   <FolderKanban className="h-4 w-4" style={{ color: project.color || undefined }} />
@@ -217,7 +265,8 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
           className="font-mono uppercase"
         />
         <p className="text-xs text-muted-foreground">
-          Use this key in command templates like [SUPABASE_PROJECT_REF]. Auto-formatted to UPPER_SNAKE_CASE.
+          Use this key in command templates like [SUPABASE_PROJECT_REF]. Auto-formatted to
+          UPPER_SNAKE_CASE.
         </p>
       </div>
 
@@ -234,12 +283,15 @@ export const VaultItemForm = ({ types, projects, platforms, editItem, onSuccess,
                 id="value"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                placeholder={editItem ? "Leave empty to keep current value" : "Enter the secret value"}
+                placeholder={
+                  editItem ? 'Leave empty to keep current value' : 'Enter the secret value'
+                }
                 className={`pr-10 font-mono ${!showValue ? 'text-security-disc' : ''}`}
                 rows={3}
                 required={!editItem}
               />
               <Button
+                aria-label={showValue ? 'Hide secret value' : 'Show secret value'}
                 type="button"
                 variant="ghost"
                 size="icon"

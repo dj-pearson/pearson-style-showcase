@@ -24,7 +24,7 @@ seo_keywords:
     'bid management automation',
     'construction sales automation',
   ]
-excerpt: 'Construction breaks generic CRM automation for three specific reasons: the pipeline unit is a bid, not a deal; the real system of record is the estimating software; and the relationships that decide who gets invited to bid live in inboxes nobody logs. Here is what to automate instead.'
+excerpt: 'Construction breaks generic CRM automation for three specific reasons: the pipeline unit is a bid, not a deal; the real system of record is the estimating software; and the relationships that decide who gets invited to bid live in inboxes nobody logs. The fix is automating capture around bids instead.'
 read_time: '13 min read'
 featured: false
 published: true
@@ -34,7 +34,7 @@ author: Dan Pearson
 
 **In construction the pipeline unit is a bid, not a deal, and almost every CRM automation failure in the sector traces back to ignoring that.** A contractor's revenue comes from being invited to bid, choosing the right bids, and staying in front of the general contractors, architects and developers who control the invitations. A stage-based sales funnel copied from software does not describe any of that, so the CRM ends up as a contact list with a forecast bolted on that nobody uses.
 
-The fix is not a construction-specific CRM. It is automating capture around the three things that actually drive the number: bid invitations, bid outcomes, and relationship decay with the people who send invitations.
+The fix is not a construction-specific CRM. It is automating capture around the three things that drive the number: bid invitations, bid outcomes, and relationship decay with the people who send invitations.
 
 ## Why generic CRM automation fails here
 
@@ -63,11 +63,11 @@ Two metrics matter more than anything a stage report produces: **hit rate** (bid
 
 ## The four capture paths worth automating
 
-In order of return, based on where the hours and the losses actually sit.
+In order of return, based on where the hours and the losses sit.
 
 ### 1. Bid invitation intake
 
-Invitations arrive as email from GCs, notifications from plan rooms and ITB blasts, in wildly inconsistent formats. Someone reads them, decides what is worth pursuing, and re-keys the survivors. Plenty never get logged at all, which means your hit rate is calculated against a denominator you do not actually know.
+Invitations arrive as email from GCs, notifications from plan rooms and ITB blasts, in wildly inconsistent formats. Someone reads them, decides what is worth pursuing, and re-keys the survivors. Plenty never get logged at all, which means your hit rate is calculated against a denominator you do not know.
 
 Automate the intake: parse the invitation, extract project name, GC, bid date, location, scope and addenda deadline, resolve it against existing companies and contacts, and create the opportunity with the estimator unassigned. This is the highest-value path in construction and it is barely about AI beyond the extraction step, which is the same structured-output pattern as the [call logging teardown](/news/automating-call-logging-and-note-capture).
 
@@ -104,7 +104,7 @@ Check the API situation before scoping anything. Coverage across construction so
 - **Bid/no-bid decisions.** Fit, capacity, relationship history and gut are doing real work here, and the downside of automating it badly is losing money on a job you should have declined. Surface the inputs, let a human decide.
 - **Anything that adds required fields for estimators.** Estimating hours are the scarcest resource in a construction sales organisation. Automation that consumes them to feed a dashboard is a net loss even when the dashboard is good.
 - **Generic drip sequences to GCs.** This industry runs on named relationships, and a marketing-automation email to a project manager you know is worse than silence.
-- **Forecast weighting by stage probability.** Backlog and hit rate by GC tell you more, and they are numbers you can actually defend in a bank conversation.
+- **Forecast weighting by stage probability.** Backlog and hit rate by GC tell you more, and they are numbers you can defend in a bank conversation.
 
 ## Where to start
 
@@ -115,16 +115,16 @@ Before building anything, get the baseline: how many invitations did you receive
 ## Frequently asked questions
 
 **Do construction companies need a construction-specific CRM?**
-Usually not. Most contractors under 50 seats are better served by a mainstream CRM configured around bids rather than deals, connected properly to the estimating software, than by a specialist product with thinner integrations and a smaller ecosystem. The decision that actually matters is whether your CRM can model a bid pipeline honestly and reach your estimating system's API, not whether the vendor's marketing mentions construction.
+Usually not. Most contractors under 50 seats are better served by a mainstream CRM configured around bids rather than deals, connected properly to the estimating software, than by a specialist product with thinner integrations and a smaller ecosystem. The decision that matters is whether your CRM can model a bid pipeline honestly and reach your estimating system's API, not whether the vendor's marketing mentions construction.
 
-**What should a construction CRM actually track?**
+**What should a construction CRM track?**
 Bid invitations received and their source, bid/no-bid decisions with reasons, submitted bids with values, outcomes with the winning number where known, hit rate segmented by general contractor and work type, backlog, and last meaningful contact with the people who control invitations. Stage velocity and weighted forecast, the two things generic CRM automation optimises, are close to useless in this sector.
 
 **How do you get project managers and estimators to use a CRM?**
 Do not ask them to. Capture what they already do: transcribe field calls, parse invitation emails, sync from the estimating system. Every required field you add to an estimator's day is a direct trade against estimating hours, which is the constraint on how much work you can bid. Give first, ask second, and only ask for what changes a decision.
 
 **Can CRM automation handle bid invitations from plan rooms?**
-Yes, though how depends on the plan room. Where an API exists, integrate. Where it does not, parse the notification emails, which is reliable enough once the format is known and worth building because those emails are how most invitations actually arrive. The important part in either case is deduplication, since the same project reaching you through three general contractors will otherwise inflate your pipeline threefold.
+Yes, though how depends on the plan room. Where an API exists, integrate. Where it does not, parse the notification emails, which is reliable enough once the format is known and worth building because those emails are how most invitations arrive. The important part in either case is deduplication, since the same project reaching you through three general contractors will otherwise inflate your pipeline threefold.
 
 **What is a realistic first project for a contractor?**
 Automating bid invitation intake, typically four to twelve weeks depending on how many sources you take invitations from and whether your estimating software has a usable API. Measure invitations logged before and after; firms routinely find they were capturing well under half, which means every hit rate they have ever reported was calculated against the wrong denominator.

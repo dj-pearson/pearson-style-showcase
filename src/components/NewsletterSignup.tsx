@@ -1,142 +1,178 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { logger } from '@/lib/logger';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { invokeEdgeFunction } from '@/lib/edge-functions';
-import { Loader2, Mail, ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, Mail, ArrowRight, CheckCircle } from 'lucide-react';
 import { useAnalytics } from '@/components/Analytics';
+import { invokeEdgeFunction } from '@/lib/edge-functions';
+import { logger } from '@/lib/logger';
+import { validateEmail } from '@/lib/security';
+import { cn } from '@/lib/utils';
 
-const newsletterSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-});
+interface NewsletterSignupProps {
+  /** Inline variant for the end of an article: no icon, smaller heading, less padding. */
+  compact?: boolean;
+}
 
-type NewsletterFormData = z.infer<typeof newsletterSchema>;
+type Result = { email: string; alreadySubscribed: boolean };
 
-const NewsletterSignup = () => {
+const INVALID_EMAIL = 'Please enter a valid email address';
+
+/*
+ * A plain controlled form on purpose. This renders on the homepage, and
+ * react-hook-form + zod pulled a 24 KB gzipped form-vendor chunk onto that
+ * page for a single email field.
+ */
+const NewsletterSignup = ({ compact = false }: NewsletterSignupProps) => {
+  const id = React.useId();
+  const fieldId = `${id}-email`;
+  const errorId = `${id}-email-error`;
+  const [email, setEmail] = React.useState('');
+  const [fieldError, setFieldError] = React.useState<string | null>(null);
+  const [submitError, setSubmitError] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const { toast } = useToast();
+  const [result, setResult] = React.useState<Result | null>(null);
   const { trackNewsletterSignup } = useAnalytics();
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<NewsletterFormData>({
-    resolver: zodResolver(newsletterSchema),
-  });
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const valid = validateEmail(email);
+    if (!valid) {
+      setFieldError(INVALID_EMAIL);
+      return;
+    }
 
-  const onSubmit = async (data: NewsletterFormData) => {
+    setFieldError(null);
+    setSubmitError(false);
     setIsSubmitting(true);
     trackNewsletterSignup('attempt');
 
     try {
-      const { data: result, error } = await invokeEdgeFunction('newsletter-signup', {
-        body: { email: data.email },
+      const { data, error } = await invokeEdgeFunction('newsletter-signup', {
+        body: { email: valid },
       });
 
-      if (error) {
-        logger.error('Newsletter signup error:', error);
-        throw new Error(error.message || 'Failed to subscribe');
-      }
+      if (error) throw error;
 
-      trackNewsletterSignup('success');
+      // A confirmed address gets 200 with status 'already_subscribed'. That is
+      // not a new lead, so it is not tracked as one. Anything else means a
+      // confirmation email is on its way.
+      const alreadySubscribed = data?.status === 'already_subscribed';
+      if (!alreadySubscribed) trackNewsletterSignup('success');
 
-      // The function answers an address it already holds with 200 and a message
-      // saying so. Titling that "Successfully subscribed!" told the reader they
-      // had just done something they had not.
-      const message: string | undefined = result?.message;
-      const alreadySubscribed = typeof message === 'string' && /already/i.test(message);
-
-      toast({
-        title: alreadySubscribed ? "You're already on the list" : 'Successfully subscribed!',
-        description: message || 'Thank you for subscribing. Check your inbox for a welcome email!',
-      });
-
-      reset();
+      setResult({ email: valid, alreadySubscribed });
     } catch (error) {
       logger.error('Newsletter signup failed:', error);
       trackNewsletterSignup('failure');
-      toast({
-        title: 'Subscription failed',
-        description:
-          error instanceof Error ? error.message : 'Please try again later or contact me directly.',
-        variant: 'destructive',
-      });
+      setSubmitError(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const heading = compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl';
+
   return (
     <Card className="bg-card border-primary/20">
-      <CardContent className="p-6 sm:p-8">
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-            <Mail className="w-6 h-6 text-primary" aria-hidden="true" />
-          </div>
-          <h3 className="text-xl sm:text-2xl font-bold mb-2">Stay Updated</h3>
-          <p className="text-muted-foreground">
-            Get notified about new projects, AI insights, and business development tips.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <label htmlFor="newsletter-email" className="sr-only">
-                Email address
-              </label>
-              <Input
-                id="newsletter-email"
-                type="email"
-                autoComplete="email"
-                placeholder="Enter your email address"
-                {...register('email')}
-                disabled={isSubmitting}
-                aria-invalid={errors.email ? true : undefined}
-                aria-describedby={errors.email ? 'newsletter-email-error' : undefined}
-                className={errors.email ? 'border-destructive' : ''}
-              />
-              {errors.email && (
-                <p
-                  id="newsletter-email-error"
-                  role="alert"
-                  className="text-sm text-destructive mt-1"
-                >
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
-            <Button type="submit" disabled={isSubmitting} className="whitespace-nowrap">
-              {isSubmitting ? (
+      <CardContent className={compact ? 'p-5 sm:p-6' : 'p-6 sm:p-8'}>
+        {result ? (
+          <div role="status" className={cn(!compact && 'text-center')}>
+            <CheckCircle
+              className={cn('w-8 h-8 text-primary mb-3', !compact && 'mx-auto')}
+              aria-hidden="true"
+            />
+            <h3 className={cn(heading, 'font-bold mb-2')}>
+              {result.alreadySubscribed ? "You're already on the list." : 'One more step.'}
+            </h3>
+            <p className="text-muted-foreground">
+              {result.alreadySubscribed ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Subscribing...
+                  <span className="font-medium text-foreground">{result.email}</span> is already
+                  subscribed, so there&apos;s nothing more to do.
                 </>
               ) : (
                 <>
-                  Subscribe
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  Check <span className="font-medium text-foreground">{result.email}</span> for a
+                  link to confirm.
                 </>
               )}
-            </Button>
+            </p>
           </div>
+        ) : (
+          <>
+            <div className={cn('mb-6', !compact && 'text-center')}>
+              {!compact && (
+                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-primary" aria-hidden="true" />
+                </div>
+              )}
+              <h3 className={cn(heading, 'font-bold mb-2')}>The pipeline notes</h3>
+              <p className="text-muted-foreground">
+                One email when a new teardown or CRM automation guide goes up. What broke, why, and
+                the fix. No more than twice a month.
+              </p>
+            </div>
 
-          <p className="text-xs text-muted-foreground text-center">
-            No spam. Unsubscribe at any time. By subscribing you agree to our{' '}
-            <Link to="/privacy" className="underline underline-offset-2 hover:text-primary">
-              Privacy Policy
-            </Link>
-            .
-          </p>
-        </form>
+            <form onSubmit={onSubmit} noValidate className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label htmlFor={fieldId} className="sr-only">
+                    Email address
+                  </label>
+                  <Input
+                    id={fieldId}
+                    type="email"
+                    autoComplete="email"
+                    spellCheck={false}
+                    placeholder="Enter your email address"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldError) setFieldError(null);
+                    }}
+                    disabled={isSubmitting}
+                    aria-invalid={fieldError ? true : undefined}
+                    aria-describedby={fieldError ? errorId : undefined}
+                    className={fieldError ? 'border-destructive' : ''}
+                  />
+                  {fieldError && (
+                    <p id={errorId} role="alert" className="text-sm text-destructive mt-1">
+                      {fieldError}
+                    </p>
+                  )}
+                </div>
+                <Button type="submit" disabled={isSubmitting} className="whitespace-nowrap">
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Subscribing...
+                    </>
+                  ) : (
+                    <>
+                      Subscribe
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {submitError && (
+                <p role="alert" className="text-sm text-destructive">
+                  That didn&apos;t go through. Try again in a minute.
+                </p>
+              )}
+
+              <p className={cn('text-xs text-muted-foreground', !compact && 'text-center')}>
+                Unsubscribe at any time. By subscribing you agree to the{' '}
+                <Link to="/privacy" className="underline underline-offset-2 hover:text-primary">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+            </form>
+          </>
+        )}
       </CardContent>
     </Card>
   );

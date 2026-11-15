@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { getDbForCurrentUser } from '@/integrations/supabase/public-client';
 import { Json } from '@/integrations/supabase/types';
 import { Send, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -23,7 +29,7 @@ const AI_CATEGORIES = [
   'Image Processing',
   'Code Generation',
   'Productivity',
-  'Other'
+  'Other',
 ];
 
 const COMPLEXITY_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
@@ -53,15 +59,15 @@ export const AIToolSubmissionForm: React.FC = () => {
     complexity: 'Intermediate',
     tags: '',
     submitter_email: '',
-    submitter_name: ''
+    submitter_name: '',
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
 
   const handleInputChange = (field: keyof SubmissionFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const resetForm = () => {
@@ -75,19 +81,28 @@ export const AIToolSubmissionForm: React.FC = () => {
       complexity: 'Intermediate',
       tags: '',
       submitter_email: '',
-      submitter_name: ''
+      submitter_name: '',
     });
     setIsSubmitted(false);
   };
 
   const validateForm = (): boolean => {
-    const requiredFields = ['title', 'description', 'category', 'link', 'submitter_email', 'submitter_name'];
-    const missingFields = requiredFields.filter(field => !formData[field as keyof SubmissionFormData]);
-    
+    const requiredFields = [
+      'title',
+      'description',
+      'category',
+      'link',
+      'submitter_email',
+      'submitter_name',
+    ];
+    const missingFields = requiredFields.filter(
+      (field) => !formData[field as keyof SubmissionFormData]
+    );
+
     if (missingFields.length > 0) {
       toast({
-        variant: "destructive",
-        title: "Missing required fields",
+        variant: 'destructive',
+        title: 'Missing required fields',
         description: `Please fill in: ${missingFields.join(', ')}`,
       });
       return false;
@@ -97,9 +112,9 @@ export const AIToolSubmissionForm: React.FC = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.submitter_email)) {
       toast({
-        variant: "destructive",
-        title: "Invalid email",
-        description: "Please enter a valid email address.",
+        variant: 'destructive',
+        title: 'Invalid email',
+        description: 'Please enter a valid email address.',
       });
       return false;
     }
@@ -109,9 +124,9 @@ export const AIToolSubmissionForm: React.FC = () => {
       new URL(formData.link);
     } catch {
       toast({
-        variant: "destructive",
-        title: "Invalid URL",
-        description: "Please enter a valid tool website URL.",
+        variant: 'destructive',
+        title: 'Invalid URL',
+        description: 'Please enter a valid tool website URL.',
       });
       return false;
     }
@@ -123,15 +138,21 @@ export const AIToolSubmissionForm: React.FC = () => {
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    
+
     try {
       // Process arrays
       const features = formData.features
-        ? formData.features.split(',').map(f => f.trim()).filter(f => f)
+        ? formData.features
+            .split(',')
+            .map((f) => f.trim())
+            .filter((f) => f)
         : [];
-      
+
       const tags = formData.tags
-        ? formData.tags.split(',').map(t => t.trim()).filter(t => t)
+        ? formData.tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter((t) => t)
         : [];
 
       const submissionData = {
@@ -150,28 +171,29 @@ export const AIToolSubmissionForm: React.FC = () => {
           submitter_name: formData.submitter_name,
           submitter_email: formData.submitter_email,
           submission_date: new Date().toISOString(),
-          submission_source: 'user_form'
-        } as Json
+          submission_source: 'user_form',
+        } as Json,
       };
 
-      const { error } = await supabase
-        .from('ai_tools')
-        .insert([submissionData]);
+      // RLS only lets an admin insert into ai_tools, so the request has to carry
+      // the signed-in user's JWT; anonymous visitors get the same rejection as
+      // before.
+      const db = await getDbForCurrentUser();
+      const { error } = await db.from('ai_tools').insert([submissionData]);
 
       if (error) throw error;
 
       setIsSubmitted(true);
       toast({
-        title: "Tool submitted successfully!",
+        title: 'Tool submitted successfully!',
         description: "Your AI tool has been submitted for review. We'll get back to you soon!",
       });
-
     } catch (error) {
       logger.error('Error submitting AI tool:', error);
       toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: "Could not submit your tool. Please try again.",
+        variant: 'destructive',
+        title: 'Submission failed',
+        description: 'Could not submit your tool. Please try again.',
       });
     } finally {
       setIsSubmitting(false);
@@ -185,7 +207,8 @@ export const AIToolSubmissionForm: React.FC = () => {
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">Thank you for your submission!</h2>
           <p className="text-muted-foreground mb-6">
-            Your AI tool "{formData.title}" has been submitted for review. Our team will evaluate it and get back to you within 2-3 business days.
+            Your AI tool "{formData.title}" has been submitted for review. Our team will evaluate it
+            and get back to you within 2-3 business days.
           </p>
           <div className="space-y-2 text-sm text-muted-foreground mb-6">
             <p>✅ Tool submitted to review queue</p>
@@ -212,13 +235,13 @@ export const AIToolSubmissionForm: React.FC = () => {
           Share your AI tool with our community! All submissions are reviewed before going live.
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Please ensure your tool is functional and provide accurate information. 
-            Submissions typically take 1-3 business days to review.
+            Please ensure your tool is functional and provide accurate information. Submissions
+            typically take 1-3 business days to review.
           </AlertDescription>
         </Alert>
 
@@ -251,7 +274,7 @@ export const AIToolSubmissionForm: React.FC = () => {
         {/* Tool Information */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Tool Information</h3>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="title">Tool Name *</Label>
@@ -313,9 +336,7 @@ export const AIToolSubmissionForm: React.FC = () => {
               placeholder="Feature 1, Feature 2, Feature 3"
               rows={3}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Separate each feature with a comma
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Separate each feature with a comma</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -365,25 +386,15 @@ export const AIToolSubmissionForm: React.FC = () => {
               onChange={(e) => handleInputChange('tags', e.target.value)}
               placeholder="AI, machine learning, automation, etc."
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Separate each tag with a comma
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Separate each tag with a comma</p>
           </div>
         </div>
 
         <div className="flex items-center justify-end space-x-4 pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={resetForm}
-            disabled={isSubmitting}
-          >
+          <Button type="button" variant="outline" onClick={resetForm} disabled={isSubmitting}>
             Reset Form
           </Button>
-          <Button
-            onClick={submitTool}
-            disabled={isSubmitting}
-          >
+          <Button onClick={submitTool} disabled={isSubmitting}>
             <Send className="h-4 w-4 mr-2" />
             {isSubmitting ? 'Submitting...' : 'Submit Tool'}
           </Button>
@@ -392,7 +403,7 @@ export const AIToolSubmissionForm: React.FC = () => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-xs">
-            By submitting this tool, you confirm that you have the right to share this information 
+            By submitting this tool, you confirm that you have the right to share this information
             and that all details are accurate. We reserve the right to edit or reject submissions.
           </AlertDescription>
         </Alert>

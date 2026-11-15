@@ -55,7 +55,7 @@ const Footer = () => {
               AI CRM Automation Consultant
             </p>
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-sm mx-auto sm:mx-0">
-              Capture-layer automation for revenue teams under 50 seats — so sellers stop doing data
+              Capture-layer automation for revenue teams under 50 seats, so sellers stop doing data
               entry and the pipeline stops lying.
             </p>
           </div>
@@ -98,7 +98,7 @@ const Footer = () => {
               })}
             </div>
             <p className="text-sm sm:text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto sm:mx-0">
-              Ready to collaborate? Let's build something amazing together.
+              Book a $2,500 CRM automation audit: two weeks, findings and a roadmap you keep.
             </p>
           </div>
         </div>

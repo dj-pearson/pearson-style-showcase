@@ -30,18 +30,16 @@ export const EmailWebhookSettings = () => {
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('email_webhook_settings')
-        .select('*')
-        .single();
+      const { data, error } = await supabase.from('email_webhook_settings').select('*').single();
 
       if (error) throw error;
 
       if (data) {
         // Use self-hosted edge functions URL
-        const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
+        const functionsUrl =
+          import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
         const webhookUrl = `${functionsUrl}/email-webhook-receiver`;
-        
+
         setSettings({
           ...data,
           webhook_url: webhookUrl,
@@ -61,7 +59,7 @@ export const EmailWebhookSettings = () => {
 
   const generateSecret = () => {
     const secret = crypto.randomUUID();
-    setSettings(prev => ({ ...prev, webhook_secret: secret }));
+    setSettings((prev) => ({ ...prev, webhook_secret: secret }));
   };
 
   const handleSave = async () => {
@@ -139,8 +137,9 @@ export const EmailWebhookSettings = () => {
       <CardContent className="space-y-6">
         <Alert>
           <AlertDescription>
-            Configure your email forwarding service (e.g., SendGrid, Mailgun, Postmark) to send incoming emails
-            to this webhook URL. Each email will automatically create a support ticket.
+            Configure your email forwarding service (e.g., SendGrid, Mailgun, Postmark) to send
+            incoming emails to this webhook URL. Each email will automatically create a support
+            ticket.
           </AlertDescription>
         </Alert>
 
@@ -155,6 +154,7 @@ export const EmailWebhookSettings = () => {
                 className="font-mono text-sm"
               />
               <Button
+                aria-label={copied ? 'Webhook URL copied' : 'Copy webhook URL'}
                 size="icon"
                 variant="outline"
                 onClick={() => copyToClipboard(settings.webhook_url)}
@@ -174,19 +174,23 @@ export const EmailWebhookSettings = () => {
                 id="webhook-secret"
                 type="password"
                 value={settings.webhook_secret}
-                onChange={(e) => setSettings(prev => ({ ...prev, webhook_secret: e.target.value }))}
+                onChange={(e) =>
+                  setSettings((prev) => ({ ...prev, webhook_secret: e.target.value }))
+                }
                 placeholder="Generate or enter webhook secret"
                 className="font-mono text-sm"
               />
-              <Button
-                variant="outline"
-                onClick={generateSecret}
-              >
+              <Button variant="outline" onClick={generateSecret}>
                 Generate
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Send this as the <code className="px-1 py-0.5 bg-muted rounded">x-webhook-secret</code> header with each request
+              The sender signs each request: set{' '}
+              <code className="px-1 py-0.5 bg-muted rounded">x-webhook-timestamp</code> to the
+              current Unix time in seconds and{' '}
+              <code className="px-1 py-0.5 bg-muted rounded">x-webhook-signature</code> to the hex
+              HMAC-SHA256 of <code className="px-1 py-0.5 bg-muted rounded">timestamp.body</code>{' '}
+              keyed with this secret. Requests older than 5 minutes are rejected.
             </p>
           </div>
 
@@ -200,7 +204,9 @@ export const EmailWebhookSettings = () => {
             <Switch
               id="webhook-active"
               checked={settings.is_active}
-              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, is_active: checked }))}
+              onCheckedChange={(checked) =>
+                setSettings((prev) => ({ ...prev, is_active: checked }))
+              }
             />
           </div>
 
@@ -210,11 +216,7 @@ export const EmailWebhookSettings = () => {
             </div>
           )}
 
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="w-full"
-          >
+          <Button onClick={handleSave} disabled={isSaving} className="w-full">
             {isSaving ? 'Saving...' : 'Save Settings'}
           </Button>
         </div>

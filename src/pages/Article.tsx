@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Navigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
@@ -13,12 +14,15 @@ import {
   Eye,
   ArrowLeft,
   Share2,
+  Linkedin,
+  Twitter,
+  Link as LinkIcon,
   ExternalLink,
   Loader2,
   RefreshCw,
   Search as SearchIcon,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
 import { useArticleView } from '@/hooks/useArticleView';
@@ -26,6 +30,7 @@ import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { useToast } from '@/hooks/use-toast';
 import { validateUrlParam } from '@/lib/security';
 import { articlePrerenderKey, readPrerenderData, toStaticArticleRow } from '@/lib/prerenderData';
+import { ARTICLE_HEADER } from '@/lib/prerender-classes';
 import AuthorByline from '../components/article/AuthorByline';
 import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
@@ -33,6 +38,24 @@ import RelatedArticles from '../components/article/RelatedArticles';
 import KeyTakeaways, { extractKeyTakeaways } from '../components/article/KeyTakeaways';
 import TableOfContents from '../components/article/TableOfContents';
 import OptimizedImage from '../components/OptimizedImage';
+import NewsletterSignup from '../components/NewsletterSignup';
+import { useAnalytics } from '@/components/Analytics';
+
+// Fallback for og:image, the Article image and the publisher logo. The 512px
+// icon is what index.html already serves as the site-wide og:image.
+// 1200x630 card for og:image and the Article image; the square icon stays the publisher logo.
+const DEFAULT_SOCIAL_IMAGE = 'https://danpearson.net/og-default.png';
+const PUBLISHER_LOGO = 'https://danpearson.net/android-chrome-512x512.png';
+
+type SharePlatform = 'linkedin' | 'x' | 'copy' | 'native';
+
+/** The article URL with share attribution, so visits from a share show up as such. */
+function buildShareUrl(platform: SharePlatform): string {
+  const url = new URL(window.location.pathname, window.location.origin);
+  url.searchParams.set('utm_source', platform);
+  url.searchParams.set('utm_medium', 'share');
+  return url.toString();
+}
 
 type Article = Tables<'articles'>;
 
@@ -54,6 +77,12 @@ async function loadStaticArticle(slug: string): Promise<Article | null> {
 const Article = () => {
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const { toast } = useToast();
+  const { trackShare, trackCTA } = useAnalytics();
+  // Set after mount so the prerendered markup and the first client render match.
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+  }, []);
   const slug = rawSlug ? validateUrlParam(rawSlug) : null;
   // The prerendered page embeds this query's result, so the first commit is
   // the article rather than a skeleton over the HTML already on screen.
@@ -72,7 +101,7 @@ const Article = () => {
     queryFn: async () => {
       if (!slug) throw new Error('No slug provided');
 
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select('*')
         .eq('slug', slug)
@@ -123,35 +152,52 @@ const Article = () => {
   // there is no row behind it, so there is nothing to count yet.
   useArticleView(slug, Boolean(article) && !article?.id?.startsWith('static-'));
 
-  const handleShare = async (platform: string) => {
-    const url = window.location.href;
+  const handleShare = async (platform: SharePlatform) => {
+    const url = buildShareUrl(platform);
     const title = article?.title || '';
+    // Track only a share that happened. window.open with noopener always
+    // returns null, so for LinkedIn and X a call that didn't throw is the
+    // best signal available.
+    const shared = () => {
+      if (slug) trackShare(platform, slug);
+    };
 
     switch (platform) {
-      case 'twitter':
-        window.open(
-          `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`,
-          '_blank'
-        );
-        break;
-      case 'facebook':
-        window.open(
-          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
-          '_blank'
-        );
-        break;
       case 'linkedin':
         window.open(
           `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
-          '_blank'
+          '_blank',
+          'noopener,noreferrer'
         );
+        shared();
+        break;
+      case 'x':
+        window.open(
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
+        shared();
+        break;
+      case 'native':
+        try {
+          await navigator.share({ title, url });
+          shared();
+        } catch {
+          // Dismissing the share sheet rejects too; nothing to report.
+        }
         break;
       case 'copy':
-        await navigator.clipboard.writeText(url);
-        toast({
-          title: 'Link copied!',
-          description: 'Article link copied to clipboard',
-        });
+        try {
+          await navigator.clipboard.writeText(url);
+          shared();
+          toast({ title: 'Link copied', description: 'The article link is on your clipboard.' });
+        } catch {
+          toast({
+            title: "Couldn't copy the link",
+            description: url,
+          });
+        }
         break;
     }
   };
@@ -351,7 +397,7 @@ const Article = () => {
                 ? article.image_url
                 : article.image_url
                   ? `https://danpearson.net${article.image_url}`
-                  : 'https://danpearson.net/placeholder.svg'
+                  : DEFAULT_SOCIAL_IMAGE
         }
         publishedTime={article.created_at || undefined}
         modifiedTime={article.updated_at || undefined}
@@ -380,7 +426,7 @@ const Article = () => {
                   ? article.image_url
                   : article.image_url
                     ? `https://danpearson.net${article.image_url}`
-                    : 'https://danpearson.net/placeholder.svg',
+                    : DEFAULT_SOCIAL_IMAGE,
           author: {
             '@type': 'Person',
             name: article.author || 'Dan Pearson',
@@ -398,7 +444,7 @@ const Article = () => {
             url: 'https://danpearson.net',
             logo: {
               '@type': 'ImageObject',
-              url: 'https://danpearson.net/placeholder.svg',
+              url: PUBLISHER_LOGO,
             },
           },
           datePublished: article.created_at,
@@ -450,62 +496,57 @@ const Article = () => {
         <div className="container mx-auto max-w-4xl">
           {/* Breadcrumbs */}
           <div className="mb-6">
-            <Breadcrumbs items={breadcrumbItems} />
+            {/* Breadcrumbs adds Home itself; passing it again showed "Home > Home". */}
+            <Breadcrumbs items={breadcrumbItems.slice(1)} />
           </div>
 
           {/* Semantic Article Structure */}
           <article className="space-y-8" itemScope itemType="https://schema.org/Article">
-            <header className="space-y-6">
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  className="bg-primary/10 text-primary border-primary/20"
-                  itemProp="articleSection"
-                >
+            <header className={ARTICLE_HEADER.header}>
+              <div className={ARTICLE_HEADER.badges}>
+                <Badge className={ARTICLE_HEADER.categoryBadge} itemProp="articleSection">
                   {article.category}
                 </Badge>
                 {article.featured && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-                  >
+                  <Badge variant="secondary" className={ARTICLE_HEADER.featuredBadge}>
                     Featured
                   </Badge>
                 )}
               </div>
 
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight" itemProp="headline">
+              <h1 className={ARTICLE_HEADER.title} itemProp="headline">
                 {article.title}
               </h1>
 
-              <p className="text-xl text-muted-foreground leading-relaxed" itemProp="description">
+              <p className={ARTICLE_HEADER.lead} itemProp="description">
                 {article.excerpt}
               </p>
 
-              <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" aria-hidden="true" />
+              <div className={ARTICLE_HEADER.meta}>
+                <div className={ARTICLE_HEADER.metaItem}>
+                  <Calendar className={ARTICLE_HEADER.metaIcon} aria-hidden="true" />
                   <time itemProp="datePublished" dateTime={article.created_at!}>
                     <span className="sr-only">Published on </span>
                     {formatDate(article.created_at!)}
                   </time>
                 </div>
                 {article.updated_at && article.updated_at !== article.created_at && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs">Updated:</span>
+                  <div className={ARTICLE_HEADER.metaItem}>
+                    <span className={ARTICLE_HEADER.metaLabel}>Updated:</span>
                     <time itemProp="dateModified" dateTime={article.updated_at}>
                       {formatDate(article.updated_at)}
                     </time>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" aria-hidden="true" />
+                <div className={ARTICLE_HEADER.metaItem}>
+                  <Clock className={ARTICLE_HEADER.metaIcon} aria-hidden="true" />
                   <span>
                     <span className="sr-only">Reading time: </span>
                     {article.read_time}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4" aria-hidden="true" />
+                <div className={ARTICLE_HEADER.metaItem}>
+                  <Eye className={ARTICLE_HEADER.metaIcon} aria-hidden="true" />
                   <span>
                     <span className="sr-only">Article has </span>
                     {article.view_count || 0} views
@@ -519,13 +560,9 @@ const Article = () => {
               </div>
 
               {article.tags && article.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className={ARTICLE_HEADER.badges}>
                   {article.tags.map((tag, index) => (
-                    <Badge
-                      key={index}
-                      variant="outline"
-                      className="border-border/50 text-muted-foreground hover:border-primary/50"
-                    >
+                    <Badge key={index} variant="outline" className={ARTICLE_HEADER.tagBadge}>
                       {tag}
                     </Badge>
                   ))}
@@ -592,6 +629,24 @@ const Article = () => {
               )}
             </div>
 
+            {/* End of article: the audit for CRM readers, the newsletter for everyone else */}
+            <aside className="mt-12" aria-label="What next">
+              {/\bcrm\b/i.test(article.category || '') ? (
+                <div className="rounded-xl border border-primary/30 bg-card p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                  <p className="text-base sm:text-lg text-foreground max-w-[60ch]">
+                    Want this applied to your CRM? The audit is $2,500 flat and takes two weeks.
+                  </p>
+                  <Button size="lg" className="mobile-button shrink-0" asChild>
+                    <Link to="/connect" onClick={() => trackCTA('Book an audit', 'Article end')}>
+                      Book an audit
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <NewsletterSignup compact />
+              )}
+            </aside>
+
             {/* Author Byline - E-E-A-T Signal */}
             <div className="mt-12 pt-8 border-t border-border">
               <AuthorByline authorName={article.author || 'Dan Pearson'} />
@@ -611,32 +666,21 @@ const Article = () => {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => handleShare('twitter')}
-                    className="mobile-button border-border hover:border-cyan-500"
-                    aria-label={`Share "${article.title}" on Twitter`}
-                  >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                    Twitter
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
                     onClick={() => handleShare('linkedin')}
                     className="mobile-button border-border hover:border-cyan-500"
                     aria-label={`Share "${article.title}" on LinkedIn`}
                   >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                    <Linkedin className="w-4 h-4 mr-2" aria-hidden="true" />
                     LinkedIn
                   </Button>
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => handleShare('facebook')}
+                    onClick={() => handleShare('x')}
                     className="mobile-button border-border hover:border-cyan-500"
-                    aria-label={`Share "${article.title}" on Facebook`}
+                    aria-label={`Share "${article.title}" on X`}
                   >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                    Facebook
+                    <Twitter className="w-4 h-4 mr-2" aria-hidden="true" />X
                   </Button>
                   <Button
                     variant="outline"
@@ -645,9 +689,21 @@ const Article = () => {
                     className="mobile-button border-border hover:border-cyan-500"
                     aria-label="Copy article link to clipboard"
                   >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                    <LinkIcon className="w-4 h-4 mr-2" aria-hidden="true" />
                     Copy Link
                   </Button>
+                  {canNativeShare && (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => handleShare('native')}
+                      className="mobile-button border-border hover:border-cyan-500"
+                      aria-label="Share with another app"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                      More
+                    </Button>
+                  )}
                 </div>
               </div>
             </aside>

@@ -20,12 +20,15 @@
  * NOTE: `page_visits` / `traffic_rules` are not yet in the generated Supabase
  * types (`src/integrations/supabase/types.ts`). Regenerate types after applying
  * the migration to drop the `db` cast below.
+ *
+ * Runs on every public page view, so it uses the lean anon client rather than
+ * the full supabase-js client. Both queries are anonymous by design.
  */
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { logger } from '@/lib/logger';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
+const db = publicDb as any;
 
 export type TrafficMode = 'monitor' | 'soft_handle';
 

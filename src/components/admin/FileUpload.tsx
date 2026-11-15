@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,7 +45,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   className,
   requireAltText = false,
   isDecorativeImage = false,
-  altTextPlaceholder = 'Describe the image for screen readers (e.g., "Team meeting in conference room")'
+  altTextPlaceholder = 'Describe the image for screen readers (e.g., "Team meeting in conference room")',
 }) => {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentImage || null);
@@ -70,86 +70,93 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     return validation.isValid;
   };
 
-  const performUpload = useCallback(async (file: File, altTextValue: string) => {
-    setUploading(true);
+  const performUpload = useCallback(
+    async (file: File, altTextValue: string) => {
+      setUploading(true);
 
-    try {
-      // Generate unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `uploads/${fileName}`;
+      try {
+        // Generate unique filename
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `uploads/${fileName}`;
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('admin-uploads')
-        .upload(filePath, file);
+        // Upload to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('admin-uploads')
+          .upload(filePath, file);
 
-      if (uploadError) {
-        throw uploadError;
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('admin-uploads')
+          .getPublicUrl(filePath);
+
+        const publicUrl = publicUrlData.publicUrl;
+        setPreview(publicUrl);
+        setPendingUpload(null);
+
+        // Call callbacks
+        onUpload(publicUrl);
+        if (onUploadWithAlt) {
+          onUploadWithAlt({ url: publicUrl, altText: altTextValue });
+        }
+
+        toast({
+          title: 'File uploaded successfully',
+          description: requireAltText
+            ? 'Your file has been uploaded with alt text.'
+            : 'Your file has been uploaded and is ready to use.',
+        });
+      } catch (error) {
+        logger.error('Upload error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Upload failed',
+          description: 'There was an error uploading your file. Please try again.',
+        });
+      } finally {
+        setUploading(false);
+      }
+    },
+    [onUpload, onUploadWithAlt, requireAltText, toast]
+  );
+
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      const file = acceptedFiles[0];
+      if (!file) return;
+
+      // If alt text is required and not a decorative image, store the file and prompt for alt text
+      if (requireAltText && !isDecorativeImage) {
+        // Create local preview
+        const localPreview = URL.createObjectURL(file);
+        setPreview(localPreview);
+        setPendingUpload(file);
+        setAltTextValidation(validateImageAltText('', { isDecorativeImage: false }));
+        toast({
+          title: 'Alt text required',
+          description: 'Please add a description for accessibility before the image is saved.',
+        });
+        return;
       }
 
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('admin-uploads')
-        .getPublicUrl(filePath);
-
-      const publicUrl = publicUrlData.publicUrl;
-      setPreview(publicUrl);
-      setPendingUpload(null);
-
-      // Call callbacks
-      onUpload(publicUrl);
-      if (onUploadWithAlt) {
-        onUploadWithAlt({ url: publicUrl, altText: altTextValue });
-      }
-
-      toast({
-        title: "File uploaded successfully",
-        description: requireAltText ? "Your file has been uploaded with alt text." : "Your file has been uploaded and is ready to use.",
-      });
-
-    } catch (error) {
-      logger.error('Upload error:', error);
-      toast({
-        variant: "destructive",
-        title: "Upload failed",
-        description: "There was an error uploading your file. Please try again.",
-      });
-    } finally {
-      setUploading(false);
-    }
-  }, [onUpload, onUploadWithAlt, requireAltText, toast]);
-
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
-
-    // If alt text is required and not a decorative image, store the file and prompt for alt text
-    if (requireAltText && !isDecorativeImage) {
-      // Create local preview
-      const localPreview = URL.createObjectURL(file);
-      setPreview(localPreview);
-      setPendingUpload(file);
-      setAltTextValidation(validateImageAltText('', { isDecorativeImage: false }));
-      toast({
-        title: "Alt text required",
-        description: "Please add a description for accessibility before the image is saved.",
-      });
-      return;
-    }
-
-    // If no alt text required, proceed with upload immediately
-    await performUpload(file, isDecorativeImage ? '' : altText);
-  }, [performUpload, requireAltText, isDecorativeImage, altText, toast]);
+      // If no alt text required, proceed with upload immediately
+      await performUpload(file, isDecorativeImage ? '' : altText);
+    },
+    [performUpload, requireAltText, isDecorativeImage, altText, toast]
+  );
 
   const handleConfirmUpload = async () => {
     if (!pendingUpload) return;
 
     if (!isAltTextValid()) {
       toast({
-        variant: "destructive",
-        title: "Invalid alt text",
-        description: "Please provide a descriptive alt text for the image.",
+        variant: 'destructive',
+        title: 'Invalid alt text',
+        description: 'Please provide a descriptive alt text for the image.',
       });
       return;
     }
@@ -161,7 +168,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     onDrop,
     accept: acceptedTypes.reduce((acc, type) => ({ ...acc, [type]: [] }), {}),
     maxSize,
-    multiple: false
+    multiple: false,
   });
 
   const removeImage = () => {
@@ -197,10 +204,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             <div className="relative">
               <img
                 src={preview}
-                alt={altText || "Preview"}
+                alt={altText || 'Preview'}
                 className="w-full h-48 object-cover rounded-md"
               />
               <Button
+                aria-label={pendingUpload ? 'Cancel upload' : 'Remove image'}
                 type="button"
                 variant="destructive"
                 size="sm"
@@ -223,7 +231,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 <Label htmlFor="alt-text" className="flex items-center gap-2">
                   Alt Text
                   <span className="text-red-500">*</span>
-                  <span className="text-xs text-muted-foreground font-normal">(Required for accessibility)</span>
+                  <span className="text-xs text-muted-foreground font-normal">
+                    (Required for accessibility)
+                  </span>
                 </Label>
                 <Input
                   id="alt-text"
@@ -232,7 +242,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                   onChange={(e) => handleAltTextChange(e.target.value)}
                   placeholder={altTextPlaceholder}
                   className={cn(
-                    altTextValidation && !altTextValidation.isValid && "border-red-500 focus-visible:ring-red-500"
+                    altTextValidation &&
+                      !altTextValidation.isValid &&
+                      'border-red-500 focus-visible:ring-red-500'
                   )}
                   maxLength={125}
                 />
@@ -331,7 +343,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       {isDragActive ? 'Drop the file here' : 'Click to upload or drag and drop'}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {acceptedTypes.includes('image/*') ? 'PNG, JPG, GIF up to' : 'Files up to'} {Math.round(maxSize / (1024 * 1024))}MB
+                      {acceptedTypes.includes('image/*') ? 'PNG, JPG, GIF up to' : 'Files up to'}{' '}
+                      {Math.round(maxSize / (1024 * 1024))}MB
                     </p>
                     {requireAltText && acceptedTypes.includes('image/*') && !isDecorativeImage && (
                       <p className="text-xs text-amber-600 mt-2 flex items-center justify-center gap-1">

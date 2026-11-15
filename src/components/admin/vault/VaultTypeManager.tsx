@@ -4,8 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Trash2, Lock, FileText, Link, Terminal, Key, Shield, Tag } from 'lucide-react';
@@ -61,15 +74,12 @@ export const VaultTypeManager = ({ types, onUpdate }: VaultTypeManagerProps) => 
     },
     onError: (error) => {
       toast.error('Failed to add type: ' + error.message);
-    }
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (typeId: string) => {
-      const { error } = await supabase
-        .from('secure_vault_types')
-        .delete()
-        .eq('id', typeId);
+      const { error } = await supabase.from('secure_vault_types').delete().eq('id', typeId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -78,7 +88,7 @@ export const VaultTypeManager = ({ types, onUpdate }: VaultTypeManagerProps) => 
     },
     onError: (error) => {
       toast.error('Failed to delete type: ' + error.message);
-    }
+    },
   });
 
   const handleAdd = (e: React.FormEvent) => {
@@ -87,7 +97,7 @@ export const VaultTypeManager = ({ types, onUpdate }: VaultTypeManagerProps) => 
       toast.error('Type name is required');
       return;
     }
-    if (types.some(t => t.name.toLowerCase() === newTypeName.toLowerCase())) {
+    if (types.some((t) => t.name.toLowerCase() === newTypeName.toLowerCase())) {
       toast.error('A type with this name already exists');
       return;
     }
@@ -114,7 +124,7 @@ export const VaultTypeManager = ({ types, onUpdate }: VaultTypeManagerProps) => 
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {iconOptions.map(opt => (
+              {iconOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   <span className="flex items-center gap-2">
                     {opt.icon}
@@ -142,11 +152,9 @@ export const VaultTypeManager = ({ types, onUpdate }: VaultTypeManagerProps) => 
           </TableRow>
         </TableHeader>
         <TableBody>
-          {types.map(type => (
+          {types.map((type) => (
             <TableRow key={type.id}>
-              <TableCell>
-                {iconMap[type.icon] || <Key className="h-4 w-4" />}
-              </TableCell>
+              <TableCell>{iconMap[type.icon] || <Key className="h-4 w-4" />}</TableCell>
               <TableCell className="font-medium">{type.name}</TableCell>
               <TableCell>
                 {type.is_system ? (
@@ -158,6 +166,7 @@ export const VaultTypeManager = ({ types, onUpdate }: VaultTypeManagerProps) => 
               <TableCell className="text-right">
                 {!type.is_system && (
                   <Button
+                    aria-label={`Delete type ${type.name}`}
                     variant="ghost"
                     size="icon"
                     onClick={() => deleteMutation.mutate(type.id)}

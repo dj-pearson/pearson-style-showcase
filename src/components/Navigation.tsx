@@ -1,10 +1,12 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, CheckCircle2, Search } from 'lucide-react';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
-import { Button } from './ui/button';
+import { Button, buttonVariants } from './ui/button';
+import { cn } from '@/lib/utils';
+import { trackCTA } from './Analytics';
 
 // The search dialog (Dialog, ScrollArea, the static article index) is closed on
 // every page load, so it is a lazy chunk mounted on first open. Hovering or
@@ -17,6 +19,10 @@ const prefetchGlobalSearch = () => {
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const isMobile = useIsMobile();
   const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen } = useGlobalSearch();
@@ -53,11 +59,53 @@ const Navigation = () => {
     };
   }, [isMenuOpen, isMobile]);
 
-  // Keyboard navigation: ESC to close menu
+  // Opening the panel moves focus to its first link so keyboard and screen
+  // reader users land inside it instead of having to hunt for it.
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    mobilePanelRef.current?.querySelector<HTMLElement>('a[href], button')?.focus();
+  }, [isMenuOpen]);
+
+  // While the panel is open everything outside the nav is inert: Tab can no
+  // longer walk out of the menu into the page dimmed behind the backdrop, and
+  // screen readers stop reading it. Walking up from the nav and marking each
+  // ancestor's other children covers #main-content, the footer and anything
+  // mounted beside them (the accessibility button, banners) without knowing
+  // the page's layout. The backdrop stays live so a tap on it still closes
+  // the menu. Set as an attribute because React 18's DOM typings do not know
+  // the inert prop.
+  useEffect(() => {
+    if (!isMenuOpen || !navRef.current) return;
+    const madeInert: Element[] = [];
+    let node: Element = navRef.current;
+    while (node.parentElement && node !== document.body) {
+      const parent: HTMLElement = node.parentElement;
+      for (const sibling of Array.from(parent.children)) {
+        if (
+          sibling === node ||
+          sibling === backdropRef.current ||
+          sibling.hasAttribute('inert') ||
+          // Global live regions (route announcer, toasts) must keep talking.
+          sibling.matches('[aria-live], [role="status"], [role="alert"]') ||
+          sibling.tagName === 'SCRIPT' ||
+          sibling.tagName === 'STYLE'
+        ) {
+          continue;
+        }
+        sibling.setAttribute('inert', '');
+        madeInert.push(sibling);
+      }
+      node = parent;
+    }
+    return () => madeInert.forEach((element) => element.removeAttribute('inert'));
+  }, [isMenuOpen]);
+
+  // Escape closes the menu and puts focus back on the toggle that opened it.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isMenuOpen) {
         setIsMenuOpen(false);
+        menuToggleRef.current?.focus();
       }
     };
 
@@ -68,16 +116,17 @@ const Navigation = () => {
   }, [isMenuOpen]);
 
   // Six is the practical ceiling on mobile, so the category entry replaces
-  // "AI Tools" rather than joining it — the affiliate catalogue stays reachable
-  // from the footer's quick links.
+  // "AI Tools" rather than joining it; the affiliate catalogue stays reachable
+  // from the footer's quick links. /connect is not a plain item: it is the
+  // primary call to action ("Book an audit") rendered as a button after them.
   const navItems = [
     { name: 'Home', path: '/' },
     { name: 'AI CRM Automation', path: '/ai-crm-automation' },
     { name: 'Projects', path: '/projects' },
     { name: 'News', path: '/news' },
     { name: 'About', path: '/about' },
-    { name: 'Connect', path: '/connect' },
   ];
+  const ctaItem = { name: 'Book an audit', path: '/connect' };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -89,12 +138,13 @@ const Navigation = () => {
       </a>
 
       {/* Mobile Menu Backdrop */}
-      {isMenuOpen && isMobile && (
+      {isMenuOpen && (
         // Dismiss-on-tap backdrop. aria-hidden keeps it out of the tree entirely,
         // which is correct: the keyboard path is Escape, handled above, and the
         // toggle button carries aria-expanded. A focusable backdrop would sit
         // between the user and the menu it is meant to close.
         <div
+          ref={backdropRef}
           aria-hidden="true"
           className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           onClick={() => setIsMenuOpen(false)}
@@ -103,6 +153,7 @@ const Navigation = () => {
       )}
 
       <nav
+        ref={navRef}
         className="fixed top-0 left-0 right-0 z-50 navbar-blur"
         role="navigation"
         aria-label="Main navigation"
@@ -167,6 +218,15 @@ const Navigation = () => {
                   )}
                 </Link>
               ))}
+
+              <Link
+                to={ctaItem.path}
+                aria-current={isActive(ctaItem.path) ? 'page' : undefined}
+                onClick={() => trackCTA(ctaItem.name, 'Nav desktop', ctaItem.path)}
+                className={buttonVariants({ size: 'sm' })}
+              >
+                {ctaItem.name}
+              </Link>
             </div>
 
             {/* Mobile header controls. Search lived only in the desktop bar and
@@ -188,6 +248,7 @@ const Navigation = () => {
 
               {/* Mobile Menu Button - Touch Optimized */}
               <button
+                ref={menuToggleRef}
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
                 aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -203,12 +264,13 @@ const Navigation = () => {
             </div>
           </div>
 
-          {/* Mobile Navigation - Optimized for Touch & Swipe */}
+          {/* Mobile navigation panel. Plain links inside the main <nav>, so no
+              menu role: role="menu" promises arrow-key menu behaviour that
+              links do not have. */}
           {isMenuOpen && (
             <div
+              ref={mobilePanelRef}
               id="mobile-navigation-menu"
-              role="menu"
-              aria-label="Navigation menu"
               className="lg:hidden mt-4 pb-4 border-t border-border animate-in fade-in-0 slide-in-from-top-2 duration-200 ease-out motion-reduce:animate-none"
               style={{
                 maxHeight: 'calc(100vh - 80px)',
@@ -245,23 +307,37 @@ const Navigation = () => {
                     aria-current={isActive(item.path) ? 'page' : undefined}
                     onClick={() => setIsMenuOpen(false)}
                     style={{ animationDelay: `${20 + index * 15}ms` }}
-                    className={`mobile-nav-item ${itemAnimation} px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
+                    className={`mobile-nav-item ${itemAnimation} relative px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
                       isActive(item.path)
                         ? 'text-primary bg-primary/10 shadow-lg shadow-primary/5'
                         : 'text-muted-foreground hover:bg-muted/20 active:bg-muted/30'
                     }`}
                   >
                     {item.name}
+                    {/* Positioned out of the flow so the label stays centred
+                        like the other items instead of being pushed left. */}
                     {isActive(item.path) && (
-                      <div className="ml-auto w-2 h-2 rounded-full bg-primary"></div>
+                      <span
+                        aria-hidden="true"
+                        className="absolute right-6 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-primary"
+                      />
                     )}
                   </Link>
                 ))}
-              </div>
 
-              {/* Swipe indicator */}
-              <div className="flex justify-center mt-6 mb-2">
-                <div className="w-12 h-1 bg-muted rounded-full"></div>
+                <div className={`px-2 pt-3 ${itemAnimation}`}>
+                  <Link
+                    to={ctaItem.path}
+                    aria-current={isActive(ctaItem.path) ? 'page' : undefined}
+                    onClick={() => {
+                      trackCTA(ctaItem.name, 'Nav mobile', ctaItem.path);
+                      setIsMenuOpen(false);
+                    }}
+                    className={cn(buttonVariants({ size: 'lg' }), 'w-full text-base')}
+                  >
+                    {ctaItem.name}
+                  </Link>
+                </div>
               </div>
             </div>
           )}

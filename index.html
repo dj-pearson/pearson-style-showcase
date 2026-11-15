@@ -50,14 +50,10 @@
     <!-- Resource hints for performance optimization -->
     <!-- Preconnect to critical third-party domains -->
     <!-- crossorigin must match how each origin is fetched, or the browser opens
-      a second connection: gtag.js (crossorigin="anonymous") and Supabase API
-      calls are both CORS. -->
-    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+      a second connection: Supabase API calls are CORS. No hints to Google
+      origins: gtag.js loads only after analytics consent (lib/consent.ts). -->
     <link rel="preconnect" href="https://api.danpearson.net" crossorigin />
 
-    <!-- DNS prefetch for other third-party domains -->
-    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-    <link rel="dns-prefetch" href="https://www.google-analytics.com" />
     
     <!-- Inline critical CSS for LCP element -->
     <style>
@@ -77,22 +73,17 @@
     <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 
     <!-- Google tag (gtag.js) -->
-    <!--
-      crossorigin="anonymous" so the script is fetched without credentials and
-      is eligible for integrity checking. NOTE: a static Subresource Integrity
-      (integrity="sha384-...") hash is intentionally NOT set on gtag.js — Google
-      ships this file continuously without publishing stable hashes, and it
-      dynamically loads further scripts that SRI cannot cover, so a pinned hash
-      would break analytics on every Google update. Script provenance is instead
-      constrained via the CSP script-src allow-list (googletagmanager.com).
-    -->
-    <!-- Consent Mode defaults and the gtag() shim live in public/gtag-init.js
-      (CSP has no 'unsafe-inline'). It is a blocking classic script placed
-      BEFORE the async gtag.js tag so consent defaults are always queued
-      first. Not deferred: an async script that arrives first would run
-      gtag.js before the consent defaults exist. -->
-    <script src="/gtag-init.js"></script>
-    <script async crossorigin="anonymous" src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
+    <!-- public/gtag-init.js defines dataLayer, the gtag() shim and the Consent
+      Mode defaults (CSP has no 'unsafe-inline'). It does not load gtag.js:
+      src/lib/consent.ts injects that only after the visitor grants analytics
+      consent. The script is deferred so it does not block first paint;
+      deferred and module scripts run in document order, so it still runs
+      before the module entry, whose initConsent() calls window.gtag.
+      gtag.js is fetched with crossorigin="anonymous" (no credentials). A static
+      Subresource Integrity hash is intentionally NOT set: Google ships the file
+      continuously without stable hashes and it loads further scripts SRI cannot
+      cover. Provenance is constrained by the CSP script-src allow-list. -->
+    <script defer src="/gtag-init.js"></script>
 
     <!-- Canonical URL (default, updated by React for specific pages) -->
     <link rel="canonical" href="https://danpearson.net" />

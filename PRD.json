@@ -1607,6 +1607,332 @@
       ],
       "passes": true,
       "notes": "Done. src/components/ContactForm.tsx set submitProgress to 25 on submit and 100 on response: two invented numbers either side of a request with no progress to report. The spinner and the message stay, in a role=status region; the state is gone. 2 new tests, the first component tests this form has had."
+    },
+    {
+      "id": "US-100",
+      "title": "Require MFA for direct access to admin tables",
+      "description": "As the owner, I need admin tables to refuse aal1 sessions over PostgREST, so a stolen password alone cannot read or change admin data.",
+      "acceptanceCriteria": [
+        "Restrictive aal2 policy on every admin-only table, skipping tables that do not exist",
+        "Browser-written log tables and the MFA-step device tables are left alone",
+        "Rollback migration provided",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done in 20261115000001_require_aal2_for_admin_tables.sql (rollback in migrations/rollbacks/). Owner must apply it; admins without MFA will see empty admin tables."
+    },
+    {
+      "id": "US-101",
+      "title": "Restrict SECURITY DEFINER write RPCs to the service role",
+      "description": "As the owner, I need audit and maintenance RPCs callable only by edge functions, so the anon key cannot forge audit entries or trusted devices.",
+      "acceptanceCriteria": [
+        "log_admin_activity, record_metric, log_ticket_activity, record_maintenance_run, trigger_maintenance_scheduler revoked from PUBLIC/anon/authenticated",
+        "upsert/revoke_trusted_device reject a _user_id other than the caller",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done in 20261115000002_restrict_security_definer_write_rpcs.sql. Owner must apply it."
+    },
+    {
+      "id": "US-102",
+      "title": "Harden admin-auth, notification email, OAuth proxy, webhooks and link checker",
+      "description": "As the owner, I need the edge functions to stop sending attacker-shaped email, minting magic links for unverified identities, accepting replayed webhooks and probing internal hosts.",
+      "acceptanceCriteria": [
+        "Lockout email only to whitelisted addresses, HTML-escaped; IP from getClientIdentifier; reset link from FRONTEND_URL",
+        "Notification email escapes inbound fields",
+        "oauth-proxy requires email_verified, checks iss/aud, refuses non-whitelisted users",
+        "email-webhook-receiver requires a timestamped HMAC and a non-empty secret",
+        "maintenance link checker uses safeFetch",
+        "newsletter-signup uses the shared rate limiter",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Plaintext password logging in admin-auth removed. Owner must redeploy admin-auth, send-notification-email, oauth-proxy, newsletter-signup, email-webhook-receiver, maintenance-runner, and update the inbound email sender to sign x-webhook-timestamp/x-webhook-signature."
+    },
+    {
+      "id": "US-103",
+      "title": "Prerender every public route with its own head, and return real 404s and 301s",
+      "description": "As a crawler without JavaScript, I need each URL to carry its own title, canonical, links and status, so pages are not duplicates of the homepage and old URLs pass their equity on.",
+      "acceptanceCriteria": [
+        "Every sitemap route has its own .html with title, description, canonical, h1 and nav/footer links",
+        "Unknown URLs return 404 via dist/404.html",
+        "Legacy slugs, /article/*, /2023/*, /2025/*, /feed are 301s in _redirects",
+        "Sitemap lists only resolvable URLs",
+        "One JSON-LD graph per page; 1200x630 og-default.png; robots groups repeat shared disallows; llms.txt has an About section",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. scripts/lib/static-routes.mjs holds the table and a test keeps it in step with each page's <SEO> props."
+    },
+    {
+      "id": "US-104",
+      "title": "Cut initial JS on the home and article pages",
+      "description": "As a visitor on a phone, I need the first page to download less JavaScript, so it becomes usable sooner.",
+      "acceptanceCriteria": [
+        "No radix or lucide vendor chunk preloaded everywhere; TooltipProvider only in the admin layout",
+        "gtag.js loaded once, gtag-init.js deferred with consent defaults still first",
+        "Index lazy so gsap stays off non-home pages",
+        "Public reads go through a lean PostgrestClient, keeping supabase-js out of the entry",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Measured home initial JS 258.6 -> 177.3 KB gzip; article 336.5 -> ~219 KB gzip after Article moved to publicDb."
+    },
+    {
+      "id": "US-105",
+      "title": "Make the site sell the CRM automation audit",
+      "description": "As a sales leader landing on the site, I need every CTA to lead to a page that names the audit, its price and length, and to confirm what happened after I act.",
+      "acceptanceCriteria": [
+        "/connect H1 and FAQs describe the $2,500 two-week audit; pricing FAQ rendered from SERVICE_TIERS",
+        "Fake scheduler card removed",
+        "Contact and newsletter forms show an in-place result and fire the real lead events",
+        "Articles end with the audit CTA (CRM category) or the newsletter",
+        "Hero, nav and page CTAs are tracked Links to /connect",
+        "Share buttons tracked, LinkedIn first, noopener, UTM tagged",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done across Connect, ContactForm, NewsletterSignup (now a plain form without react-hook-form/zod), Article, HeroSection, About, Projects, AITools, Accessibility, Index, Navigation."
+    },
+    {
+      "id": "US-106",
+      "title": "Fix admin shortcuts, overlapping fixed buttons, search contrast and mobile nav semantics",
+      "description": "As a keyboard, screen reader or phone user, I need controls that do not fire in text fields, sit under each other, or announce the wrong role.",
+      "acceptanceCriteria": [
+        "Admin shortcuts skip text fields unless allowed, go through the unsaved-changes guard, '?' works",
+        "Scroll-to-top, accessibility button and cookie banner never overlap",
+        "Search highlight passes AA; failed search shows a retry",
+        "Mobile nav has no role=menu, manages focus; admin mobile sidebar closes on pick",
+        "Homepage sections show a retry on error and hide when empty",
+        "44 admin icon buttons have aria-labels",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Cookie banner CLS fix (waits for fonts before showing) is unmeasured: confirm with Lighthouse."
+    },
+    {
+      "id": "US-107",
+      "title": "Add a real newsletter unsubscribe and double opt-in",
+      "description": "As a subscriber, I need a one-click unsubscribe link and to confirm my address before mail starts, so nobody can sign me up and I can leave without writing an email.",
+      "acceptanceCriteria": [
+        "Signed unsubscribe link in every newsletter email and a page that confirms it",
+        "New signups get a confirmation email; welcome email only after confirming",
+        "Unsubscribed addresses are not silently reactivated",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Migration 20261116000107_newsletter_double_opt_in.sql (rollback included); new newsletter-confirm and newsletter-unsubscribe functions registered in danpearson-edge-functions/server.ts; HMAC unsubscribe tokens keyed with NEWSLETTER_TOKEN_SECRET; RFC 8058 one-click headers on the welcome email; /newsletter/confirm and /newsletter/unsubscribe pages. Owner: apply the migration, set NEWSLETTER_TOKEN_SECRET, redeploy functions. Deno tests 23/23."
+    },
+    {
+      "id": "US-108",
+      "title": "Move the remaining public pages to the lean Supabase client",
+      "description": "As a visitor, I need every public page to avoid downloading the full supabase-js client.",
+      "acceptanceCriteria": [
+        "About, Projects, News, AITools, FAQ, Search, RSSFeed, the archive pages, TopicHub, GlobalSearch and AIToolSubmissionForm read through publicDb or getDbForCurrentUser",
+        "supabase-js chunk absent from those pages' initial JS",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. 13 public pages and GlobalSearch read through publicDb; AIToolSubmissionForm uses getDbForCurrentUser (RLS requires admin). Initial JS gzip: news 222.5->172.2, about 194.1->143.8, projects 212.6->162.2 KB. Remaining full-client importers are auth/admin only."
+    },
+    {
+      "id": "US-109",
+      "title": "Make prerendered markup match the React layout so it stays the LCP",
+      "description": "As a visitor, I need the text that paints first to be the largest contentful paint, not replaced by React's first commit.",
+      "acceptanceCriteria": [
+        "Prerendered home hero and article header use the same container and Tailwind classes as the React components",
+        "Lighthouse reports the prerendered element as LCP on home and an article",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. src/lib/prerender-classes.ts shares class strings between HeroSection, the Article header and prerender.mjs. h1 boxes identical with and without JS at 390 and 1280. Playwright LCP (4x CPU, slow 4G): article 5.4s -> 3.4s, home 1280 4.2s -> 3.4s; LCP now equals FCP. Articles with a featured image may still get the image as LCP. Also fixed the duplicate Home breadcrumb."
+    },
+    {
+      "id": "US-110",
+      "title": "Defer below-the-fold homepage sections until they near the viewport",
+      "description": "As a visitor, I need the homepage to fetch section chunks only when I scroll toward them.",
+      "acceptanceCriteria": [
+        "AuthoritySection, CurrentVentures, CaseStudies, Testimonials, FAQSection and NewsletterSignup mount via an IntersectionObserver wrapper",
+        "No layout shift when they mount",
+        "Typecheck and tests pass"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Done. src/components/LazySection.tsx mounts CurrentVentures, CaseStudies, Testimonials and NewsletterSignup within 400px of the viewport. FAQSection stays eager (FAQ text is not in the prerendered HTML) and AuthoritySection is above the fold. CLS unchanged (0.0199 at 390px)."
+    },
+    {
+      "id": "US-111",
+      "title": "Fail the production build when the database article fetch fails",
+      "description": "As the owner, I need a build with credentials that cannot reach the database to fail, so live article URLs do not start returning 404 to crawlers.",
+      "acceptanceCriteria": [
+        "prerender exits non-zero when credentials are set and the fetch errors",
+        "Builds without credentials still succeed",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. scripts/lib/db-articles.mjs throws DbArticlesError on request error, non-OK, bad JSON or non-array when credentials are set; prerender exits 1. No-credential builds still pass."
+    },
+    {
+      "id": "US-112",
+      "title": "Replace native confirm() deletes and label the remaining admin icon buttons",
+      "description": "As an admin, I need delete confirmations that match the rest of the UI and buttons a screen reader can name.",
+      "acceptanceCriteria": [
+        "The 24 admin files using confirm() use a shared AlertDialog confirm",
+        "Icon-only size=sm buttons outside vault/accounting/support have aria-labels",
+        "Typecheck and tests pass"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Done. useConfirm() + ConfirmProvider (one AlertDialog) replace all 26 confirm() calls in 24 admin files, with copy naming the item. Unlabelled icon-only admin buttons 36 -> 0."
+    },
+    {
+      "id": "US-113",
+      "title": "Render the 3D orb with plain three instead of react-three-fiber",
+      "description": "As a desktop visitor, I need the hero orb to cost less parse time.",
+      "acceptanceCriteria": [
+        "Interactive3DOrb uses WebGLRenderer with named three imports and the jsm OrbitControls",
+        "three-vendor shrinks by at least 135 KB raw",
+        "Typecheck and tests pass"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Done. Interactive3DOrb uses plain three; @react-three/fiber and drei removed. three-vendor 842 -> 492 KB raw (226 -> 123 KB gzip); size budget lowered to 130 KB."
+    },
+    {
+      "id": "US-114",
+      "title": "Bound AI and paid-API calls and make the Amazon publish atomic",
+      "description": "As the owner, I need AI generations to time out instead of hanging, never be billed twice by retries, and never publish a guide without its affiliate rows.",
+      "acceptanceCriteria": [
+        "fetchWithTimeout never retries non-idempotent requests after a timeout, honours Retry-After, bounds the body read",
+        "Every provider call in ai-helper has a deadline; duplicated provider clients removed; Gemini key in a header",
+        "Amazon guides insert unpublished, products batch-insert with error checks, then publish",
+        "Accounting documents capped at 15 MB and never left 'processing'",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Deno tests 122/122 at merge time. Optional env AI_DEFAULT_CLAUDE_MODEL."
+    },
+    {
+      "id": "US-115",
+      "title": "Make maintenance jobs, email webhooks and the functions server reliable",
+      "description": "As the owner, I need scheduled jobs that cannot overlap, webhooks that cannot create duplicate tickets, replies that cannot email a customer twice, and a functions server that bounds every request.",
+      "acceptanceCriteria": [
+        "Maintenance tasks claimed atomically; link check paged, parallel, capped",
+        "Inbound email deduped on Message-ID with unique partial indexes",
+        "send-ticket-email idempotent with a bounded SMTP call",
+        "server.ts request deadline, request ids, startup env check; optimize-image size/pixel caps; mem_limit",
+        "Raw email and addresses removed from logs",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261117000301_edge_ops_idempotency.sql before deploying send-ticket-email; set SUPABASE_JWT_SECRET, RESEND_API, CLAUDE_API_KEY; compose needs .env; generate deno.lock with Deno 1.40 (sandbox blocked)."
+    },
+    {
+      "id": "US-116",
+      "title": "Fix accounting money, dates and paging",
+      "description": "As the owner, I need invoices, payments and reports that keep recorded payments, compare money in cents, show the right day, and read every row.",
+      "acceptanceCriteria": [
+        "Invoice edits never zero amount_paid; marking paid in the form settles in full",
+        "Allocations checked in cents against saved allocations and amount_due",
+        "Reports page past 1000 rows and show an error with Retry instead of $0",
+        "DATE columns parsed as local days; default tax year is current",
+        "Draw and estimated-tax numbers never collide",
+        "Accounting tabs lazy-loaded and kept in ?tab=",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261117000101_replace_invoice_items_rpc.sql for atomic line-item saves (form falls back to checked delete+insert until then)."
+    },
+    {
+      "id": "US-117",
+      "title": "Keep admin work from getting lost",
+      "description": "As the owner, I need the admin to remember where I am and not throw away what I typed.",
+      "acceptanceCriteria": [
+        "Admin view in ?view= with Back/Forward and the unsaved-changes guard",
+        "KB, project and task dialogs ask before discarding; ticket reply drafts kept per ticket",
+        "Ticket search and filters run on the server with paging",
+        "Amazon report import batched with error counts and a dedupe-safe unique key",
+        "Newsletter counts from head queries including pending/unsubscribed",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261116000201_amazon_stats_unique_nulls_not_distinct.sql."
+    },
+    {
+      "id": "US-118",
+      "title": "Link the orphaned articles and publish the edited copy",
+      "description": "As a reader and a crawler, I need every article reachable from another, buyer-intent passages linked to the audit, and copy that follows the house style.",
+      "acceptanceCriteria": [
+        "Four orphaned articles each get an inbound link; all articles link /connect and /ai-crm-automation",
+        "Em dashes 80 -> 1, 'actually' 74 -> 32",
+        "/connect prerender copy matches the page; /news and /faq descriptions under 160 chars",
+        "An update migration pushes the edits into existing rows only where they still hold seeded text",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261116000300_update_crm_article_content.sql and check its NOTICEs for skipped slugs."
+    },
+    {
+      "id": "US-119",
+      "title": "Load analytics only after consent and track real conversions",
+      "description": "As a visitor, I need analytics to wait for my consent and never see my tokens; as the owner, I need conversion events GA4 can report on.",
+      "acceptanceCriteria": [
+        "gtag.js and Google connection hints load only after analytics consent",
+        "No tracking on /admin or /auth; tokens and codes stripped from page_location",
+        "page_view once per path; scroll_depth resets per route; GA4 search events",
+        "Leads: contact_form and newsletter_confirmed only; shares tracked after success; nav, byline and mailto CTAs tracked",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done."
+    },
+    {
+      "id": "US-120",
+      "title": "Fix the homepage reveals and phone layout bugs found in a real browser",
+      "description": "As a phone visitor, I need every section visible, nothing wider than the screen, and controls that fit.",
+      "acceptanceCriteria": [
+        "Homepage sections never stay at opacity 0 (0, 2, 7 rows and failed queries)",
+        "No horizontal page overflow at 375 or 1280",
+        "Breadcrumbs, pricing tiers and search cards fit at 375; search CLS 0",
+        "/news uses the double opt-in form",
+        "Contact success takes focus; mobile menu keeps Tab inside",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Fixed a US-110 regression (scrubbed ScrollTriggers never refreshed after LazySection resize)."
+    },
+    {
+      "id": "US-121",
+      "title": "Run Deno tests and coverage in CI, and test what prerender ships",
+      "description": "As the maintainer, I need CI to catch broken edge helpers, prerender output and the MFA gate.",
+      "acceptanceCriteria": [
+        "CI runs deno test over supabase/functions with type checking",
+        "CI enforces coverage thresholds",
+        "prerender HTML helpers extracted and tested; Playwright checks pre-JS HTML on a built dist",
+        "AuthContext MFA gate and AdminLogin enroll/verify tested; webhook signature tests",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Coverage functions 61.25% vs 60% floor. Lighthouse LCP budget (3s) may fail now that it audits prerendered pages (local 3.2-3.9s)."
     }
   ]
 }

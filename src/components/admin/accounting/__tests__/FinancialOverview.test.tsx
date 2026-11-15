@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '@/test/test-utils';
 import type { SupabaseMock } from '@/test/mocks/supabase';
 
@@ -32,7 +33,9 @@ describe('FinancialOverview', () => {
 
   it('displays computed totals from the data', async () => {
     mock.setTableResult('invoices', {
-      data: [{ invoice_type: 'sales', amount_paid: 5000, amount_due: 0, invoice_date: '2026-01-15' }],
+      data: [
+        { invoice_type: 'sales', amount_paid: 5000, amount_due: 0, invoice_date: '2026-01-15' },
+      ],
       error: null,
     });
     mock.setTableResult('platform_transactions', { data: [], error: null });
@@ -52,10 +55,19 @@ describe('FinancialOverview', () => {
     expect(screen.getAllByText('$0.00').length).toBeGreaterThan(0);
   });
 
-  it('does not crash when a query returns an error', async () => {
+  it('shows an error with Retry instead of $0 when a query fails', async () => {
     mock.setTableResult('invoices', { data: null, error: { message: 'db error' } });
+    mock.setTableResult('platform_transactions', { data: [], error: null });
+    mock.setTableResult('amazon_affiliate_stats', { data: [], error: null });
     render(<FinancialOverview />);
-    // The component swallows query errors (metrics default to 0) and still renders.
-    await waitFor(() => expect(screen.getByText('Financial Overview')).toBeInTheDocument());
+
+    expect(await screen.findByText(/couldn't load the financial overview/i)).toBeInTheDocument();
+    expect(screen.getByText(/db error/)).toBeInTheDocument();
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+
+    // Retry recovers once the table answers.
+    mock.setTableResult('invoices', { data: [], error: null });
+    await userEvent.setup().click(screen.getByRole('button', { name: /retry/i }));
+    await waitFor(() => expect(screen.getByText('Total Revenue')).toBeInTheDocument());
   });
 });

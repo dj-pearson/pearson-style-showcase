@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import ContactForm from '../components/ContactForm';
@@ -10,20 +9,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Calendar, HelpCircle, Mail, ExternalLink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { HelpCircle } from 'lucide-react';
 import { useAnalytics } from '@/components/Analytics';
+import { SERVICE_TIERS } from '@/lib/crm-automation';
 
 const Connect = () => {
-  const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
-  const { trackBookingIntent, trackOutboundLink, trackCTA } = useAnalytics();
+  const { trackOutboundLink, trackCTA } = useAnalytics();
   return (
     <div className="min-h-screen flex flex-col">
       <SEO
@@ -37,9 +28,12 @@ const Connect = () => {
         <div className="container mx-auto mobile-section">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <h1 className="mobile-heading-lg text-foreground mb-4">Let's Connect</h1>
-              <p className="mobile-body text-muted-foreground">
-                Ready to collaborate on your next project? I'd love to hear from you.
+              <h1 className="mobile-heading-lg text-foreground mb-4">
+                Book a CRM automation audit
+              </h1>
+              <p className="mobile-body text-muted-foreground max-w-2xl mx-auto">
+                $2,500 flat, two weeks, and the findings are yours whether or not you build with me.
+                Tell me which CRM you're on and what your pipeline gets wrong.
               </p>
             </div>
 
@@ -54,11 +48,14 @@ const Connect = () => {
                 <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
                   <h2 className="mobile-heading-sm mb-3">Email</h2>
                   <p className="text-base sm:text-base text-muted-foreground mb-4 leading-relaxed">
-                    Drop me an email for project inquiries or collaboration opportunities.
+                    Prefer email? Write to me directly about an audit or a build.
                   </p>
                   <a
                     href="mailto:dan@danpearson.net"
                     className="inline-flex items-center text-base sm:text-lg text-primary hover:underline touch-target font-medium"
+                    onClick={() =>
+                      trackCTA('Email Dan', 'Connect page', 'mailto:dan@danpearson.net')
+                    }
                   >
                     dan@danpearson.net
                   </a>
@@ -88,95 +85,11 @@ const Connect = () => {
                 <div className="mobile-card border bg-card hover:border-primary/30 transition-colors">
                   <h2 className="mobile-heading-sm mb-3">Response Time</h2>
                   <p className="text-base sm:text-base text-muted-foreground leading-relaxed">
-                    I typically respond to messages within 24 hours. For urgent matters, feel free
-                    to reach out directly via email.
+                    I reply within one business day. If it's urgent, email me directly.
                   </p>
                 </div>
-
-                {/* Booking Calendar */}
-                <Card className="border-primary/30 bg-card">
-                  <CardContent className="mobile-card text-center">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 text-primary" aria-hidden="true" />
-                    <h2 className="mobile-heading-sm mb-3">Schedule a Call</h2>
-                    <p className="text-base text-muted-foreground mb-4">
-                      Prefer to talk? Book a 15-minute intro call to discuss your project.
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        trackCTA('Book a Time', 'Connect');
-                        setIsBookingDialogOpen(true);
-                      }}
-                    >
-                      Book a Time
-                    </Button>
-                  </CardContent>
-                </Card>
               </div>
             </div>
-
-            {/* Booking Dialog */}
-            <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    Schedule a Call
-                  </DialogTitle>
-                  <DialogDescription>
-                    Choose how you'd like to connect for an introductory call.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-3 h-auto py-4"
-                    asChild
-                  >
-                    <a
-                      href="mailto:dan@danpearson.net?subject=Schedule%20a%20Call&body=Hi%20Dan,%0A%0AI'd%20like%20to%20schedule%20a%20call%20to%20discuss%20a%20potential%20project.%0A%0APreferred%20times:%0A%0ABest%20regards"
-                      onClick={() => trackBookingIntent('email')}
-                    >
-                      <Mail className="w-5 h-5 text-primary" />
-                      <div className="text-left">
-                        <div className="font-medium">Request via Email</div>
-                        <div className="text-sm text-muted-foreground">
-                          Send me your preferred times
-                        </div>
-                      </div>
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-3 h-auto py-4"
-                    asChild
-                  >
-                    <a
-                      href="https://www.linkedin.com/in/danpearson"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => {
-                        trackBookingIntent('linkedin');
-                        trackOutboundLink(
-                          'https://www.linkedin.com/in/danpearson',
-                          'LinkedIn - Booking'
-                        );
-                      }}
-                    >
-                      <ExternalLink className="w-5 h-5 text-primary" />
-                      <div className="text-left">
-                        <div className="font-medium">Connect on LinkedIn</div>
-                        <div className="text-sm text-muted-foreground">Message me directly</div>
-                      </div>
-                    </a>
-                  </Button>
-                  <p className="text-xs text-center text-muted-foreground pt-2">
-                    I typically respond within 24 hours
-                  </p>
-                </div>
-              </DialogContent>
-            </Dialog>
 
             {/* FAQ Section */}
             <div className="mt-16">
@@ -211,9 +124,8 @@ const Connect = () => {
                         What is your availability?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        I'm currently available for select consulting projects and collaborations.
-                        While I'm building my own ventures full-time, I take on interesting projects
-                        that align with my expertise. Reach out to discuss your needs and timeline.
+                        I take a small number of audits each month. Send a note and I'll tell you
+                        when the next slot opens.
                       </AccordionContent>
                     </AccordionItem>
 
@@ -234,10 +146,19 @@ const Connect = () => {
                         How do you charge for your services?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        Pricing depends on the scope and complexity of the project. I offer both
-                        project-based and hourly consulting arrangements. For larger projects, I
-                        provide detailed proposals with milestone-based payment structures. Contact
-                        me to discuss your specific needs and I'll provide a custom quote.
+                        <p className="mb-3">
+                          Every engagement starts with the audit. What comes after is priced from
+                          what the audit finds.
+                        </p>
+                        <ul className="space-y-2">
+                          {SERVICE_TIERS.map((tier) => (
+                            <li key={tier.name}>
+                              <span className="font-semibold text-foreground">{tier.name}</span>
+                              {' - '}
+                              {tier.priceLabel}, {tier.duration.toLowerCase()}. {tier.summary}
+                            </li>
+                          ))}
+                        </ul>
                       </AccordionContent>
                     </AccordionItem>
 
@@ -258,10 +179,9 @@ const Connect = () => {
                         Do you offer ongoing support and maintenance?
                       </AccordionTrigger>
                       <AccordionContent className="text-muted-foreground">
-                        Yes! I offer ongoing support and maintenance packages for projects I build.
-                        This includes bug fixes, updates, feature enhancements, and technical
-                        support. We can discuss the best support arrangement during our initial
-                        consultation.
+                        I offer ongoing support and maintenance for projects I build. This includes
+                        bug fixes, updates, feature enhancements, and technical support. We can
+                        discuss the best support arrangement during our initial consultation.
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>

@@ -12,6 +12,7 @@ import {
   AUDIT_CHECKS,
   CRM_FAQS,
   FAILURE_MODES,
+  METHOD_ARTICLES,
   PIPELINE_AUTOMATION_LADDER,
   SERVICE_TIERS,
   THESIS,
@@ -115,10 +116,10 @@ const AICrmAutomation = () => {
               AI CRM automation that actually sticks
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-[68ch] mb-8">
-              I build AI automation inside the CRM for revenue teams under 50 seats — so sellers
-              stop doing data entry and the pipeline stops lying. Fifteen years carrying a quota,
-              seven SaaS platforms shipped. I have been the person whose deal died because the CRM
-              said something that was not true.
+              I build AI automation inside the CRM for revenue teams under 50 seats, so sellers stop
+              doing data entry and the pipeline stops lying. Fifteen years carrying a quota, seven
+              SaaS platforms shipped. I have been the person whose deal died because the CRM said
+              something that was not true.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
@@ -212,6 +213,21 @@ const AICrmAutomation = () => {
                 </li>
               ))}
             </ol>
+
+            <div className="mt-12 max-w-[68ch]">
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-3">
+                Read the method
+              </h3>
+              <ul className="space-y-2 text-base">
+                {METHOD_ARTICLES.map((article) => (
+                  <li key={article.slug}>
+                    <Link to={`/news/${article.slug}`} className="text-primary hover:underline">
+                      {article.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </section>
 
           {/* Failure modes ----------------------------------------------------- */}
@@ -304,8 +320,33 @@ const AICrmAutomation = () => {
               is guessing.
             </p>
 
-            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <table className="w-full min-w-[42rem] border-collapse text-left">
+            {/* Below sm each tier is its own block, so timeline and price sit
+                under the description instead of off the right edge of a table
+                the reader has to scroll sideways to find. */}
+            <ul className="sm:hidden divide-y divide-border border-y border-border">
+              {SERVICE_TIERS.map((tier) => (
+                <li key={tier.name} className="py-6">
+                  <h3 className="font-semibold text-foreground">{tier.name}</h3>
+                  <p className="mt-1 text-xs text-primary">{tier.tier}</p>
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                    {tier.description}
+                  </p>
+                  <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <dt className="font-semibold text-primary">Timeline</dt>
+                      <dd className="mt-1 text-muted-foreground">{tier.duration}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-primary">Price</dt>
+                      <dd className="mt-1 font-semibold text-foreground">{tier.priceLabel}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden sm:block">
+              <table className="w-full border-collapse text-left">
                 <caption className="sr-only">
                   Engagement tiers, durations and price ranges for AI CRM automation work
                 </caption>

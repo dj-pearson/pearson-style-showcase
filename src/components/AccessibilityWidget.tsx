@@ -137,7 +137,7 @@ const AccessibilityWidget: React.FC = () => {
         aria-expanded={isOpen}
         aria-controls="accessibility-panel"
         aria-label="Accessibility options"
-        className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="fixed bottom-[calc(1.5rem+var(--cookie-banner-offset,0px))] right-6 z-[9999] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <Accessibility className="w-6 h-6" aria-hidden="true" />
       </button>
@@ -158,7 +158,7 @@ const AccessibilityWidget: React.FC = () => {
             role="dialog"
             aria-label="Accessibility settings"
             aria-modal="true"
-            className="fixed bottom-24 right-6 z-[9999] w-[calc(100vw-3rem)] max-w-sm bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
+            className="fixed bottom-[calc(6rem+var(--cookie-banner-offset,0px))] right-6 z-[9999] w-[calc(100vw-3rem)] max-w-sm max-h-[calc(100dvh-7rem-var(--cookie-banner-offset,0px))] overflow-y-auto bg-background border border-border rounded-xl shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">

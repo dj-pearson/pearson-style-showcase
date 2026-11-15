@@ -1,6 +1,10 @@
 // Moved out of index.html so the CSP script-src can drop 'unsafe-inline'.
-// Loaded as a classic, non-async script placed BEFORE the async gtag.js tag,
-// so consent defaults are always queued before gtag.js processes dataLayer.
+// Loaded with `defer` from index.html. It defines dataLayer and gtag() and
+// queues the consent defaults. It does NOT load gtag.js: src/lib/consent.ts
+// injects that only once the visitor grants analytics consent, so Google's
+// script is never fetched for a visitor who hasn't opted in. Deferred and
+// module scripts run in document order, so this runs before the module entry,
+// whose initConsent() calls gtag().
 
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
@@ -22,4 +26,6 @@ gtag('consent', 'default', {
 
 gtag('js', new Date());
 
+// send_page_view is off: src/components/Analytics.tsx sends one page_view per
+// route change, including the first.
 gtag('config', 'G-8R95ZXMV6L', { anonymize_ip: true, send_page_view: false });

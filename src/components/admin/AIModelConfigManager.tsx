@@ -1,18 +1,58 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { PlayCircle, Plus, Star, AlertCircle, CheckCircle2, Edit2, Trash2, ChevronUp, ChevronDown } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
+import {
+  PlayCircle,
+  Plus,
+  Star,
+  AlertCircle,
+  CheckCircle2,
+  Edit2,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 interface AIModelConfig {
@@ -39,21 +79,21 @@ export function AIModelConfigManager() {
   const [editingConfig, setEditingConfig] = useState<AIModelConfig | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newConfig, setNewConfig] = useState({
-    provider: "gemini-paid",
-    model_name: "",
-    api_key_secret_name: "",
+    provider: 'gemini-paid',
+    model_name: '',
+    api_key_secret_name: '',
     priority: 0,
-    use_cases: ["general"] as string[],
-    model_tier: "normal" as 'lightweight' | 'normal',
+    use_cases: ['general'] as string[],
+    model_tier: 'normal' as 'lightweight' | 'normal',
   });
 
   const { data: configs, isLoading } = useQuery({
-    queryKey: ["ai-model-configs"],
+    queryKey: ['ai-model-configs'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ai_model_configs")
-        .select("*")
-        .order("priority", { ascending: false });
+        .from('ai_model_configs')
+        .select('*')
+        .order('priority', { ascending: false });
       if (error) throw error;
       return data as AIModelConfig[];
     },
@@ -61,85 +101,79 @@ export function AIModelConfigManager() {
 
   const addConfigMutation = useMutation({
     mutationFn: async (config: typeof newConfig) => {
-      const { error } = await supabase.from("ai_model_configs").insert([config]);
+      const { error } = await supabase.from('ai_model_configs').insert([config]);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ai-model-configs"] });
+      queryClient.invalidateQueries({ queryKey: ['ai-model-configs'] });
       setIsAddDialogOpen(false);
-      toast.success("AI model configuration added");
+      toast.success('AI model configuration added');
       setNewConfig({
-        provider: "gemini-paid",
-        model_name: "",
-        api_key_secret_name: "",
+        provider: 'gemini-paid',
+        model_name: '',
+        api_key_secret_name: '',
         priority: 0,
-        use_cases: ["general"],
-        model_tier: "normal",
+        use_cases: ['general'],
+        model_tier: 'normal',
       });
     },
     onError: (error) => {
-      toast.error("Failed to add configuration: " + error.message);
+      toast.error('Failed to add configuration: ' + error.message);
     },
   });
 
   const updateConfigMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<AIModelConfig> }) => {
-      const { error } = await supabase
-        .from("ai_model_configs")
-        .update(updates)
-        .eq("id", id);
+      const { error } = await supabase.from('ai_model_configs').update(updates).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ai-model-configs"] });
-      toast.success("Configuration updated");
+      queryClient.invalidateQueries({ queryKey: ['ai-model-configs'] });
+      toast.success('Configuration updated');
     },
     onError: (error) => {
-      toast.error("Failed to update: " + error.message);
+      toast.error('Failed to update: ' + error.message);
     },
   });
 
   const testModelMutation = useMutation({
     mutationFn: async (configId: string) => {
       setTestingModelId(configId);
-      const { data, error } = await invokeEdgeFunction("test-ai-model", {
+      const { data, error } = await invokeEdgeFunction('test-ai-model', {
         body: { config_id: configId },
       });
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["ai-model-configs"] });
+      queryClient.invalidateQueries({ queryKey: ['ai-model-configs'] });
       if (data?.success) {
-        toast.success(data.message || "Model tested successfully");
+        toast.success(data.message || 'Model tested successfully');
       } else {
-        toast.error(data?.message || "Model test failed", {
-          description: data?.errorDetails ? `Details: ${data.errorDetails}` : undefined
+        toast.error(data?.message || 'Model test failed', {
+          description: data?.errorDetails ? `Details: ${data.errorDetails}` : undefined,
         });
       }
       setTestingModelId(null);
     },
     onError: (error) => {
-      toast.error("Failed to test model: " + error.message);
+      toast.error('Failed to test model: ' + error.message);
       setTestingModelId(null);
     },
   });
 
   const deleteConfigMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("ai_model_configs")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from('ai_model_configs').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ai-model-configs"] });
-      toast.success("Configuration deleted");
+      queryClient.invalidateQueries({ queryKey: ['ai-model-configs'] });
+      toast.success('Configuration deleted');
       setDeleteConfirmId(null);
     },
     onError: (error) => {
-      toast.error("Failed to delete: " + error.message);
+      toast.error('Failed to delete: ' + error.message);
     },
   });
 
@@ -150,7 +184,7 @@ export function AIModelConfigManager() {
 
   const saveEdit = () => {
     if (!editingConfig) return;
-    
+
     updateConfigMutation.mutate({
       id: editingConfig.id,
       updates: {
@@ -160,7 +194,7 @@ export function AIModelConfigManager() {
         priority: editingConfig.priority,
         use_case: editingConfig.use_case,
         model_tier: editingConfig.model_tier,
-      }
+      },
     });
     setIsEditDialogOpen(false);
     setEditingConfig(null);
@@ -170,19 +204,19 @@ export function AIModelConfigManager() {
     const newPriority = direction === 'up' ? config.priority + 1 : config.priority - 1;
     updateConfigMutation.mutate({
       id: config.id,
-      updates: { priority: newPriority }
+      updates: { priority: newPriority },
     });
   };
 
   const toggleDefault = async (id: string) => {
     // First, unset all other defaults
     const { error: unsetError } = await supabase
-      .from("ai_model_configs")
+      .from('ai_model_configs')
       .update({ is_default: false })
-      .neq("id", id);
-    
+      .neq('id', id);
+
     if (unsetError) {
-      toast.error("Failed to update defaults");
+      toast.error('Failed to update defaults');
       return;
     }
 
@@ -192,12 +226,18 @@ export function AIModelConfigManager() {
 
   const getProviderBadgeColor = (provider: string) => {
     switch (provider) {
-      case "gemini-paid": return "bg-blue-500";
-      case "gemini-free": return "bg-green-500";
-      case "claude": return "bg-purple-500";
-      case "openai": return "bg-orange-500";
-      case "lovable": return "bg-pink-500";
-      default: return "bg-gray-500";
+      case 'gemini-paid':
+        return 'bg-blue-500';
+      case 'gemini-free':
+        return 'bg-green-500';
+      case 'claude':
+        return 'bg-purple-500';
+      case 'openai':
+        return 'bg-orange-500';
+      case 'lovable':
+        return 'bg-pink-500';
+      default:
+        return 'bg-gray-500';
     }
   };
 
@@ -207,9 +247,7 @@ export function AIModelConfigManager() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>AI Model Configuration</CardTitle>
-            <CardDescription>
-              Manage AI models with priority-based fallback system
-            </CardDescription>
+            <CardDescription>Manage AI models with priority-based fallback system</CardDescription>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -230,9 +268,7 @@ export function AIModelConfigManager() {
                   <Label>Provider</Label>
                   <Select
                     value={newConfig.provider}
-                    onValueChange={(value) =>
-                      setNewConfig({ ...newConfig, provider: value })
-                    }
+                    onValueChange={(value) => setNewConfig({ ...newConfig, provider: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -250,9 +286,7 @@ export function AIModelConfigManager() {
                   <Label>Model Name</Label>
                   <Input
                     value={newConfig.model_name}
-                    onChange={(e) =>
-                      setNewConfig({ ...newConfig, model_name: e.target.value })
-                    }
+                    onChange={(e) => setNewConfig({ ...newConfig, model_name: e.target.value })}
                     placeholder="e.g., gemini-3-pro-preview"
                   />
                 </div>
@@ -299,7 +333,16 @@ export function AIModelConfigManager() {
                 <div>
                   <Label>Use Cases</Label>
                   <div className="space-y-2 mt-2">
-                    {["all", "general", "ticket_response", "content_generation", "article_generation", "social_content", "url_extraction", "document_processing"].map((useCase) => (
+                    {[
+                      'all',
+                      'general',
+                      'ticket_response',
+                      'content_generation',
+                      'article_generation',
+                      'social_content',
+                      'url_extraction',
+                      'document_processing',
+                    ].map((useCase) => (
                       <div key={useCase} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
@@ -317,7 +360,7 @@ export function AIModelConfigManager() {
                           className="w-4 h-4"
                         />
                         <label htmlFor={`new-${useCase}`} className="text-sm capitalize">
-                          {useCase.replace(/_/g, " ")}
+                          {useCase.replace(/_/g, ' ')}
                         </label>
                       </div>
                     ))}
@@ -332,11 +375,15 @@ export function AIModelConfigManager() {
                   onClick={() => {
                     const configToSubmit = {
                       ...newConfig,
-                      use_case: newConfig.use_cases.join(",")
+                      use_case: newConfig.use_cases.join(','),
                     };
                     addConfigMutation.mutate(configToSubmit as any);
                   }}
-                  disabled={!newConfig.model_name || !newConfig.api_key_secret_name || newConfig.use_cases.length === 0}
+                  disabled={
+                    !newConfig.model_name ||
+                    !newConfig.api_key_secret_name ||
+                    newConfig.use_cases.length === 0
+                  }
                 >
                   Add Configuration
                 </Button>
@@ -349,9 +396,7 @@ export function AIModelConfigManager() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Edit AI Model Configuration</DialogTitle>
-                <DialogDescription>
-                  Update the configuration for this AI model
-                </DialogDescription>
+                <DialogDescription>Update the configuration for this AI model</DialogDescription>
               </DialogHeader>
               {editingConfig && (
                 <div className="space-y-4">
@@ -426,13 +471,23 @@ export function AIModelConfigManager() {
                   <div>
                     <Label>Use Cases</Label>
                     <div className="space-y-2 mt-2">
-                      {["all", "general", "ticket_response", "content_generation", "article_generation", "social_content", "url_extraction", "document_processing"].map((useCase) => {
-                        const currentUseCases = typeof editingConfig.use_case === 'string' 
-                          ? editingConfig.use_case.split(',') 
-                          : Array.isArray(editingConfig.use_case) 
-                            ? editingConfig.use_case 
-                            : [];
-                        
+                      {[
+                        'all',
+                        'general',
+                        'ticket_response',
+                        'content_generation',
+                        'article_generation',
+                        'social_content',
+                        'url_extraction',
+                        'document_processing',
+                      ].map((useCase) => {
+                        const currentUseCases =
+                          typeof editingConfig.use_case === 'string'
+                            ? editingConfig.use_case.split(',')
+                            : Array.isArray(editingConfig.use_case)
+                              ? editingConfig.use_case
+                              : [];
+
                         return (
                           <div key={useCase} className="flex items-center space-x-2">
                             <input
@@ -444,15 +499,15 @@ export function AIModelConfigManager() {
                                 const updatedUseCases = checked
                                   ? [...currentUseCases, useCase]
                                   : currentUseCases.filter((uc) => uc !== useCase);
-                                setEditingConfig({ 
-                                  ...editingConfig, 
-                                  use_case: updatedUseCases.join(',')
+                                setEditingConfig({
+                                  ...editingConfig,
+                                  use_case: updatedUseCases.join(','),
                                 });
                               }}
                               className="w-4 h-4"
                             />
                             <label htmlFor={`edit-${useCase}`} className="text-sm capitalize">
-                              {useCase.replace(/_/g, " ")}
+                              {useCase.replace(/_/g, ' ')}
                             </label>
                           </div>
                         );
@@ -465,9 +520,7 @@ export function AIModelConfigManager() {
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={saveEdit}>
-                  Save Changes
-                </Button>
+                <Button onClick={saveEdit}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -478,7 +531,8 @@ export function AIModelConfigManager() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Configuration?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete this AI model configuration.
+                  This action cannot be undone. This will permanently delete this AI model
+                  configuration.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -530,17 +584,18 @@ export function AIModelConfigManager() {
                   <TableCell>{config.priority}</TableCell>
                   <TableCell>
                     {(() => {
-                      const useCases = typeof config.use_case === 'string' 
-                        ? config.use_case.split(',') 
-                        : Array.isArray(config.use_case) 
-                          ? config.use_case 
-                          : ['general'];
-                      
+                      const useCases =
+                        typeof config.use_case === 'string'
+                          ? config.use_case.split(',')
+                          : Array.isArray(config.use_case)
+                            ? config.use_case
+                            : ['general'];
+
                       return (
                         <div className="flex flex-wrap gap-1">
                           {useCases.map((uc) => (
                             <Badge key={uc} variant="outline" className="text-xs">
-                              {uc.replace("_", " ")}
+                              {uc.replace('_', ' ')}
                             </Badge>
                           ))}
                         </div>
@@ -548,12 +603,12 @@ export function AIModelConfigManager() {
                     })()}
                   </TableCell>
                   <TableCell>
-                    {config.last_test_status === "success" ? (
+                    {config.last_test_status === 'success' ? (
                       <div className="flex items-center text-green-600">
                         <CheckCircle2 className="w-4 h-4 mr-1" />
                         <span className="text-xs">Tested</span>
                       </div>
-                    ) : config.last_test_status === "failed" ? (
+                    ) : config.last_test_status === 'failed' ? (
                       <div className="flex items-center text-red-600">
                         <AlertCircle className="w-4 h-4 mr-1" />
                         <span className="text-xs">Failed</span>
@@ -564,6 +619,11 @@ export function AIModelConfigManager() {
                   </TableCell>
                   <TableCell>
                     <Button
+                      aria-label={
+                        config.is_default
+                          ? `${config.model_name} is the default model`
+                          : `Make ${config.model_name} the default model`
+                      }
                       variant="ghost"
                       size="sm"
                       onClick={() => toggleDefault(config.id)}
@@ -571,7 +631,7 @@ export function AIModelConfigManager() {
                     >
                       <Star
                         className={`w-4 h-4 ${
-                          config.is_default ? "fill-yellow-400 text-yellow-400" : ""
+                          config.is_default ? 'fill-yellow-400 text-yellow-400' : ''
                         }`}
                       />
                     </Button>
@@ -590,6 +650,7 @@ export function AIModelConfigManager() {
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button
+                        aria-label={`Move ${config.model_name} up in priority`}
                         variant="ghost"
                         size="sm"
                         onClick={() => movePriority(config, 'up')}
@@ -597,6 +658,7 @@ export function AIModelConfigManager() {
                         <ChevronUp className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label={`Move ${config.model_name} down in priority`}
                         variant="ghost"
                         size="sm"
                         onClick={() => movePriority(config, 'down')}
@@ -617,6 +679,7 @@ export function AIModelConfigManager() {
                         Test
                       </Button>
                       <Button
+                        aria-label={`Edit ${config.model_name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => openEditDialog(config)}
@@ -624,6 +687,7 @@ export function AIModelConfigManager() {
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete ${config.model_name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => setDeleteConfirmId(config.id)}

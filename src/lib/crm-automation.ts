@@ -12,7 +12,7 @@
 
 /** The one-sentence position. Reused verbatim wherever the category is named. */
 export const POSITIONING_STATEMENT =
-  'AI CRM automation for revenue teams under 50 seats — capture-layer automation that keeps the pipeline honest.';
+  'AI CRM automation for revenue teams under 50 seats: capture-layer automation that keeps the pipeline honest.';
 
 /** The contrarian thesis. This is the most-quoted text on the site; keep it prose. */
 export const THESIS =
@@ -68,6 +68,26 @@ export const PIPELINE_AUTOMATION_LADDER: LadderRung[] = [
     reality:
       'The CRM is a byproduct of doing the work rather than a task on top of it. The forecast is trustworthy because capture is automatic.',
     failure: 'Only reachable in sequence. There is no version of this that skips the boring rung.',
+  },
+];
+
+export interface MethodArticle {
+  slug: string;
+  title: string;
+}
+
+/**
+ * The long-form articles behind the ladder, linked from the money page so the
+ * method has a path into the writing. Slugs are content/crm/*.md filenames;
+ * src/lib/__tests__/crm-automation.method.test.ts fails if one stops existing.
+ */
+export const METHOD_ARTICLES: MethodArticle[] = [
+  { slug: 'ai-crm-automation-complete-guide', title: 'AI CRM automation: the complete 2026 guide' },
+  { slug: 'pipeline-automation-ladder', title: 'The Pipeline Automation Ladder, rung by rung' },
+  { slug: 'why-ai-crm-projects-fail', title: 'Why AI CRM projects fail: five failure modes' },
+  {
+    slug: 'agentic-crm-what-actually-works',
+    title: 'Agentic CRM: what works today and what fails',
   },
 ];
 

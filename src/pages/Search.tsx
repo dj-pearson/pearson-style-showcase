@@ -12,10 +12,11 @@ import {
   Wrench,
   ArrowLeft,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
+import { trackSearch } from '@/components/Analytics';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +86,7 @@ const RESULT_LINK_CLASS =
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const lastTrackedQuery = useRef('');
   const navigate = useNavigate();
   const [query, setQuery] = useState((searchParams.get('q') || '').trim().substring(0, 200));
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -129,7 +131,7 @@ const Search = () => {
         }
 
         // Search articles with full-text search
-        const { data: articles, error: articlesError } = await supabase
+        const { data: articles, error: articlesError } = await publicDb
           .from('articles')
           .select('id, title, excerpt, slug, category, tags, image_url')
           .eq('published', true)
@@ -146,7 +148,7 @@ const Search = () => {
         // (NULL stays visible), so archived rows are dropped here too, and a
         // result links to /projects?highlight=<id>. The archived check runs in
         // JS because the text match already uses the query's single `or`.
-        const { data: projectRows, error: projectsError } = await supabase
+        const { data: projectRows, error: projectsError } = await publicDb
           .from('projects')
           .select('id, title, description, image_url, status')
           .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
@@ -159,7 +161,7 @@ const Search = () => {
           .map(({ status: _status, ...rest }) => rest);
 
         // Search AI tools
-        const { data: aiTools, error: aiToolsError } = await supabase
+        const { data: aiTools, error: aiToolsError } = await publicDb
           .from('ai_tools')
           .select('id, title, description, category, link, image_url')
           .or(
@@ -215,6 +217,11 @@ const Search = () => {
   useEffect(() => {
     const trimmed = query.trim();
     const timer = setTimeout(() => {
+      // One GA4 search event per settled query, not per keystroke.
+      if (trimmed && trimmed !== lastTrackedQuery.current) {
+        lastTrackedQuery.current = trimmed;
+        trackSearch(trimmed, 'search_page');
+      }
       setSearchParams(
         (previous) => {
           const next = new URLSearchParams(previous);
@@ -323,8 +330,10 @@ const Search = () => {
             </div>
           </form>
 
-          {/* Results Section */}
-          <div className="mb-16">
+          {/* Results Section. While a query is set the area keeps a floor
+              height, so the spinner giving way to a result list does not
+              shove the footer up and back down (CLS 0.27 before). */}
+          <div className={`mb-16${query.trim() ? ' min-h-[60vh]' : ''}`}>
             {/* Loading state */}
             {isLoading && (
               <div className="text-center py-12">
@@ -375,8 +384,8 @@ const Search = () => {
                     return (
                       <li key={`${result.type}-${result.id}`}>
                         <Card className="relative hover:shadow-lg transition-shadow group">
-                          <CardContent className="p-6">
-                            <div className="flex items-start gap-4">
+                          <CardContent className="p-4 sm:p-6">
+                            <div className="flex items-start gap-3 sm:gap-4">
                               {result.image_url && (
                                 <div className="flex-shrink-0">
                                   <img
@@ -386,21 +395,25 @@ const Search = () => {
                                     decoding="async"
                                     width={96}
                                     height={96}
-                                    className="w-24 h-24 rounded-lg object-cover"
+                                    className="w-16 h-16 sm:w-24 sm:h-24 rounded-lg object-cover"
                                   />
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
                                   <div className="text-primary" aria-hidden="true">
                                     {getIcon(result.type)}
                                   </div>
-                                  <Badge variant="outline">{getTypeLabel(result.type)}</Badge>
+                                  <Badge variant="outline" className="whitespace-nowrap">
+                                    {getTypeLabel(result.type)}
+                                  </Badge>
                                   {result.category && (
-                                    <Badge variant="secondary">{result.category}</Badge>
+                                    <Badge variant="secondary" className="whitespace-nowrap">
+                                      {result.category}
+                                    </Badge>
                                   )}
                                 </div>
-                                <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                                <h3 className="text-lg sm:text-xl font-semibold mb-2 break-words group-hover:text-primary transition-colors line-clamp-2">
                                   {external ? (
                                     <a
                                       href={href}
@@ -425,7 +438,11 @@ const Search = () => {
                                 {result.tags && result.tags.length > 0 && (
                                   <div className="flex gap-2 flex-wrap">
                                     {result.tags.slice(0, 5).map((tag, idx) => (
-                                      <Badge key={idx} variant="outline" className="text-xs">
+                                      <Badge
+                                        key={idx}
+                                        variant="outline"
+                                        className="text-xs whitespace-nowrap"
+                                      >
                                         {tag}
                                       </Badge>
                                     ))}

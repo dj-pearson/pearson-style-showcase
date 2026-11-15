@@ -2,7 +2,7 @@ import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { ChevronDown } from 'lucide-react';
 import StructuredData from '@/components/SEO/StructuredData';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 
 interface FAQItem {
   id: string;
@@ -17,7 +17,7 @@ const FAQSection = () => {
   const { data: faqData = [], isLoading } = useQuery({
     queryKey: ['faqs'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('faqs')
         .select('*')
         .eq('status', 'published')

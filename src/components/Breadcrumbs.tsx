@@ -19,10 +19,7 @@ const Breadcrumbs = ({ items, className = '' }: BreadcrumbsProps) => {
   const breadcrumbs = items || generateBreadcrumbs(location.pathname);
 
   // Always include home
-  const allBreadcrumbs = [
-    { label: 'Home', path: '/' },
-    ...breadcrumbs,
-  ];
+  const allBreadcrumbs = [{ label: 'Home', path: '/' }, ...breadcrumbs];
 
   // Generate structured data for breadcrumbs
   const structuredDataItems = allBreadcrumbs.map((item, index) => ({
@@ -38,17 +35,18 @@ const Breadcrumbs = ({ items, className = '' }: BreadcrumbsProps) => {
           overwrites document.title and all meta tags with defaults when no
           title/description props are supplied, which would clobber the host
           page's real title (e.g. on article pages). */}
-      <StructuredData
-        type="breadcrumb"
-        data={{ items: structuredDataItems }}
-      />
+      <StructuredData type="breadcrumb" data={{ items: structuredDataItems }} />
 
       {/* Visual breadcrumbs */}
-      <nav
-        aria-label="Breadcrumb"
-        className={`flex items-center space-x-2 text-sm ${className}`}
-      >
-        <ol className="flex items-center space-x-2" itemScope itemType="https://schema.org/BreadcrumbList">
+      {/* On a phone a long trail wraps: the ancestor links never shrink or
+          break, and the current page (usually a long article or topic title)
+          takes whatever is left of its line and truncates. */}
+      <nav aria-label="Breadcrumb" className={`min-w-0 text-sm ${className}`}>
+        <ol
+          className="flex flex-wrap items-center gap-y-1 min-w-0"
+          itemScope
+          itemType="https://schema.org/BreadcrumbList"
+        >
           {allBreadcrumbs.map((crumb, index) => {
             const isLast = index === allBreadcrumbs.length - 1;
             const isFirst = index === 0;
@@ -56,29 +54,33 @@ const Breadcrumbs = ({ items, className = '' }: BreadcrumbsProps) => {
             return (
               <li
                 key={crumb.path}
-                className="flex items-center"
+                className={`flex items-center ${isLast ? 'min-w-0' : 'shrink-0'}`}
                 itemProp="itemListElement"
                 itemScope
                 itemType="https://schema.org/ListItem"
               >
                 {/* Separator */}
                 {!isFirst && (
-                  <ChevronRight className="w-4 h-4 mx-2 text-muted-foreground" aria-hidden="true" />
+                  <ChevronRight
+                    className="w-4 h-4 mx-2 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
                 )}
 
                 {/* Breadcrumb link or text */}
                 {isLast ? (
                   <span
-                    className="text-foreground font-medium"
+                    className="min-w-0 truncate text-foreground font-medium"
                     itemProp="name"
                     aria-current="page"
+                    title={crumb.label}
                   >
                     {crumb.label}
                   </span>
                 ) : (
                   <Link
                     to={crumb.path}
-                    className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                    className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap"
                     itemProp="item"
                   >
                     {isFirst && <Home className="w-4 h-4" aria-hidden="true" />}
@@ -140,7 +142,7 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
 function capitalizeWords(str: string): string {
   return str
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }
 

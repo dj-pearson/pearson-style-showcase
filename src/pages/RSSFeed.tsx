@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 
 const BASE_URL = 'https://danpearson.net';
 
@@ -28,7 +28,7 @@ const RSSFeed = () => {
     const generateRSS = async () => {
       try {
         // Fetch the latest published articles
-        const { data: articles, error } = await supabase
+        const { data: articles, error } = await publicDb
           .from('articles')
           .select(
             'slug, title, excerpt, content, category, tags, image_url, created_at, updated_at, author'

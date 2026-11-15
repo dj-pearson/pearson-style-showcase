@@ -3,16 +3,22 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  DollarSign,
-  Receipt,
-  FileText,
-  PieChart,
-  Calendar,
-  AlertCircle,
-} from 'lucide-react';
+import { DollarSign, Receipt, FileText, PieChart, Calendar, AlertCircle } from 'lucide-react';
 import { format, endOfMonth, subMonths, parseISO } from 'date-fns';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+import { fetchAll } from '@/lib/supabase-paging';
+import { toDateOnly } from '@/lib/accounting/dates';
+import { fromCents, toCents } from '@/lib/accounting/money';
+import { QueryErrorAlert } from './QueryErrorAlert';
 
 interface FinancialOverviewProps {
   onNavigate?: (tab: string) => void;
@@ -22,76 +28,85 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
   const currentMonth = useMemo(() => new Date(), []);
   const currentMonthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
   const twelveMonthsAgo = useMemo(() => subMonths(currentMonth, 12), [currentMonth]);
+  // Local calendar days; toISOString() would give the UTC day.
+  const rangeStart = toDateOnly(twelveMonthsAgo);
+  const rangeEnd = toDateOnly(currentMonthEnd);
 
   // Fetch invoices for revenue and expenses (last 12 months for meaningful overview)
-  const { data: invoices } = useQuery({
-    queryKey: ['invoices', 'overview', twelveMonthsAgo.toISOString().slice(0, 7)],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .gte('invoice_date', twelveMonthsAgo.toISOString().split('T')[0])
-        .lte('invoice_date', currentMonthEnd.toISOString().split('T')[0]);
-
-      if (error) throw error;
-      return data;
-    },
+  const invoicesQuery = useQuery({
+    queryKey: ['invoices', 'overview', rangeStart, rangeEnd],
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('invoices')
+          .select('*')
+          .gte('invoice_date', rangeStart)
+          .lte('invoice_date', rangeEnd)
+          .order('id')
+      ),
   });
+  const invoices = invoicesQuery.data;
 
   // Fetch platform transactions (last 12 months)
-  const { data: platformTransactions } = useQuery({
-    queryKey: ['platform_transactions', 'overview', twelveMonthsAgo.toISOString().slice(0, 7)],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('platform_transactions')
-        .select('*, platforms(name, platform_type)')
-        .gte('transaction_date', twelveMonthsAgo.toISOString().split('T')[0])
-        .lte('transaction_date', currentMonthEnd.toISOString().split('T')[0])
-        .order('transaction_date', { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
+  const platformQuery = useQuery({
+    queryKey: ['platform_transactions', 'overview', rangeStart, rangeEnd],
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('platform_transactions')
+          .select('*, platforms(name, platform_type)')
+          .gte('transaction_date', rangeStart)
+          .lte('transaction_date', rangeEnd)
+          .order('transaction_date', { ascending: false })
+          .order('id')
+      ),
   });
+  const platformTransactions = platformQuery.data;
 
   // Fetch Amazon affiliate stats for additional revenue (last 12 months)
-  const { data: amazonStats } = useQuery({
-    queryKey: ['amazon_stats', 'overview', twelveMonthsAgo.toISOString().slice(0, 7)],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('amazon_affiliate_stats')
-        .select('revenue, commission')
-        .gte('date', twelveMonthsAgo.toISOString().split('T')[0])
-        .lte('date', currentMonthEnd.toISOString().split('T')[0]);
-
-      if (error) throw error;
-      return data;
-    },
+  const amazonQuery = useQuery({
+    queryKey: ['amazon_stats', 'overview', rangeStart, rangeEnd],
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('amazon_affiliate_stats')
+          .select('revenue, commission')
+          .gte('date', rangeStart)
+          .lte('date', rangeEnd)
+          .order('id')
+      ),
   });
+  const amazonStats = amazonQuery.data;
 
   // Fetch recent transactions for the last 6 months
-  const { data: last6MonthsData } = useQuery({
+  const last6MonthsQuery = useQuery({
     queryKey: ['transactions', 'last6months'],
     queryFn: async () => {
-      const sixMonthsAgo = subMonths(currentMonth, 6);
+      const sixMonthsAgo = toDateOnly(subMonths(currentMonth, 6));
 
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('invoice_date, invoice_type, total_amount, amount_paid')
-        .gte('invoice_date', sixMonthsAgo.toISOString().split('T')[0]);
-
-      if (invoiceError) throw invoiceError;
-
-      const { data: platformData, error: platformError } = await supabase
-        .from('platform_transactions')
-        .select('transaction_date, transaction_type, amount')
-        .gte('transaction_date', sixMonthsAgo.toISOString().split('T')[0]);
-
-      if (platformError) throw platformError;
+      const [invoiceData, platformData] = await Promise.all([
+        fetchAll(() =>
+          supabase
+            .from('invoices')
+            .select('invoice_date, invoice_type, total_amount, amount_paid')
+            .gte('invoice_date', sixMonthsAgo)
+            .order('id')
+        ),
+        fetchAll(() =>
+          supabase
+            .from('platform_transactions')
+            .select('transaction_date, transaction_type, amount')
+            .gte('transaction_date', sixMonthsAgo)
+            .order('id')
+        ),
+      ]);
 
       return { invoices: invoiceData, platforms: platformData };
     },
   });
+  const last6MonthsData = last6MonthsQuery.data;
+  const queries = [invoicesQuery, platformQuery, amazonQuery, last6MonthsQuery];
+  const loadFailed = queries.some((q) => q.isError);
 
   // Calculate financial metrics
   const financialMetrics = useMemo(() => {
@@ -99,40 +114,40 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
     let totalExpenses = 0;
     let outstandingAmount = 0;
 
-    // Calculate from invoices
+    // Accumulated in whole cents.
     invoices?.forEach((invoice) => {
       if (invoice.invoice_type === 'sales') {
-        totalRevenue += Number(invoice.amount_paid || 0);
-        outstandingAmount += Number(invoice.amount_due || 0);
+        totalRevenue += toCents(invoice.amount_paid);
+        outstandingAmount += toCents(invoice.amount_due);
       } else if (invoice.invoice_type === 'purchase') {
         // Include total_amount as expense (accrual: bills received), amount_paid as cash out
-        totalExpenses += Number(invoice.total_amount || invoice.amount_paid || 0);
-        outstandingAmount += Number(invoice.amount_due || 0); // Bills to pay
+        totalExpenses += toCents(invoice.total_amount || invoice.amount_paid);
+        outstandingAmount += toCents(invoice.amount_due); // Bills to pay
       }
     });
 
     // Calculate from platform transactions
     platformTransactions?.forEach((transaction) => {
       if (transaction.transaction_type === 'revenue') {
-        totalRevenue += Number(transaction.amount || 0);
+        totalRevenue += toCents(transaction.amount);
       } else if (transaction.transaction_type === 'expense') {
-        totalExpenses += Number(transaction.amount || 0);
+        totalExpenses += toCents(transaction.amount);
       }
     });
 
     // Add Amazon affiliate revenue
     amazonStats?.forEach((stat) => {
-      totalRevenue += Number(stat.revenue || 0);
+      totalRevenue += toCents(stat.revenue);
     });
 
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
     return {
-      totalRevenue,
-      totalExpenses,
-      outstandingAmount,
-      netProfit,
+      totalRevenue: fromCents(totalRevenue),
+      totalExpenses: fromCents(totalExpenses),
+      outstandingAmount: fromCents(outstandingAmount),
+      netProfit: fromCents(netProfit),
       profitMargin,
     };
   }, [invoices, platformTransactions, amazonStats]);
@@ -158,7 +173,9 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
         if (invoice.invoice_type === 'sales') {
           monthlyData[monthKey].revenue += Number(invoice.amount_paid || 0);
         } else if (invoice.invoice_type === 'purchase') {
-          monthlyData[monthKey].expenses += Number(invoice.total_amount || invoice.amount_paid || 0);
+          monthlyData[monthKey].expenses += Number(
+            invoice.total_amount || invoice.amount_paid || 0
+          );
         }
       }
     });
@@ -180,7 +197,8 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
 
   // Platform breakdown
   const platformBreakdown = useMemo(() => {
-    const breakdown: Record<string, { revenue: number; expense: number; platform_type: string }> = {};
+    const breakdown: Record<string, { revenue: number; expense: number; platform_type: string }> =
+      {};
 
     platformTransactions?.forEach((transaction) => {
       const platformName = transaction.platforms?.name || 'Unknown';
@@ -199,7 +217,7 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
 
     return Object.entries(breakdown)
       .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => (b.revenue + b.expense) - (a.revenue + a.expense))
+      .sort((a, b) => b.revenue + b.expense - (a.revenue + a.expense))
       .slice(0, 5);
   }, [platformTransactions]);
 
@@ -210,15 +228,25 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
     }).format(amount);
   };
 
+  const header = (
+    <div>
+      <h3 className="text-lg font-semibold">Financial Overview</h3>
+      <p className="text-sm text-muted-foreground">Last 12 months - Real-time financial metrics</p>
+    </div>
+  );
+
+  if (loadFailed) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <QueryErrorAlert queries={queries} subject="the financial overview" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h3 className="text-lg font-semibold">Financial Overview</h3>
-        <p className="text-sm text-muted-foreground">
-          Last 12 months - Real-time financial metrics
-        </p>
-      </div>
+      {header}
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -267,7 +295,9 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
             <PieChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${financialMetrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`text-2xl font-bold ${financialMetrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}
+            >
               {formatCurrency(financialMetrics.netProfit)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -292,7 +322,10 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
                 <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                  }}
                 />
                 <Legend />
                 <Area
@@ -391,9 +424,13 @@ const FinancialOverview: React.FC<FinancialOverviewProps> = ({ onNavigate }) => 
                         </span>
                       </div>
                     </div>
-                    <div className={`font-mono font-medium ${
-                      transaction.transaction_type === 'revenue' ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <div
+                      className={`font-mono font-medium ${
+                        transaction.transaction_type === 'revenue'
+                          ? 'text-green-600'
+                          : 'text-red-600'
+                      }`}
+                    >
                       {transaction.transaction_type === 'revenue' ? '+' : '-'}
                       {formatCurrency(Math.abs(Number(transaction.amount)))}
                     </div>

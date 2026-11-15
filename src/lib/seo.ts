@@ -9,7 +9,11 @@ export const SEO_CONFIG = {
   defaultTitle: 'Dan Pearson - AI CRM Automation Consultant',
   defaultDescription:
     'AI CRM automation for revenue teams under 50 seats. Most AI CRM projects fail because they automate the reporting layer instead of the capture layer — I fix capture first, so the pipeline stops lying.',
-  defaultImage: 'https://danpearson.net/android-chrome-512x512.png',
+  // The social card (public/og-default.png). summary_large_image wants about
+  // 1.91:1; the square icon below is cropped to a sliver in link previews.
+  defaultImage: 'https://danpearson.net/og-default.png',
+  defaultImageSize: { width: 1200, height: 630 },
+  logo: 'https://danpearson.net/android-chrome-512x512.png',
   author: {
     name: 'Dan Pearson',
     jobTitle: 'AI CRM Automation Consultant',
@@ -57,6 +61,44 @@ export function getCanonicalUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const normalizedPath = cleanPath === '/' ? '' : cleanPath.replace(/\/$/, '');
   return `${SEO_CONFIG.siteUrl}${normalizedPath}`;
+}
+
+// --- the build's JSON-LD graph ---------------------------------------------
+
+const PRERENDERED_SCHEMA = 'script[type="application/ld+json"][data-prerendered]';
+const normalizePath = (path: string) => path.replace(/\/+$/, '') || '/';
+
+/**
+ * The top-level @types in the JSON-LD graph scripts/prerender.mjs put in this
+ * page's <head>, so StructuredData can skip a block the graph already has
+ * instead of publishing a second, @id-less copy of it.
+ *
+ * The graph describes the URL the page was loaded at. Once the visitor has
+ * navigated somewhere else it describes the wrong page, so it is removed here
+ * and an empty set returned.
+ */
+export function prerenderedSchemaTypes(): Set<string> {
+  const types = new Set<string>();
+  if (typeof document === 'undefined') return types;
+  const script = document.querySelector<HTMLScriptElement>(PRERENDERED_SCHEMA);
+  if (!script) return types;
+  if (normalizePath(script.dataset.path ?? '') !== normalizePath(window.location.pathname)) {
+    script.remove();
+    return types;
+  }
+  try {
+    const parsed: unknown = JSON.parse(script.textContent || '');
+    const graph = (parsed as { '@graph'?: unknown })?.['@graph'];
+    for (const node of Array.isArray(graph) ? graph : [parsed]) {
+      const type = (node as { '@type'?: unknown })?.['@type'];
+      for (const value of Array.isArray(type) ? type : [type]) {
+        if (typeof value === 'string') types.add(value);
+      }
+    }
+  } catch {
+    // Unparseable graph: treat it as absent and let React render its own.
+  }
+  return types;
 }
 
 /**
@@ -218,7 +260,7 @@ export function getPublisherSchema() {
     url: SEO_CONFIG.siteUrl,
     logo: {
       '@type': 'ImageObject',
-      url: SEO_CONFIG.defaultImage,
+      url: SEO_CONFIG.logo,
     },
   };
 }

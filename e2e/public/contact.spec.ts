@@ -31,10 +31,8 @@ test.describe('Contact form', () => {
 
     await page.getByRole('button', { name: /send/i }).click();
 
-    // The toast renders the message in both a visible title and an
-    // aria-live status region; assert on the visible title specifically.
-    await expect(
-      page.getByText('Message sent successfully!', { exact: true }).first()
-    ).toBeVisible();
+    // The form is replaced in place by a confirmation naming the reply address.
+    await expect(page.getByText('Message sent.', { exact: true })).toBeVisible();
+    await expect(page.getByText('jane@example.com', { exact: true })).toBeVisible();
   });
 });
