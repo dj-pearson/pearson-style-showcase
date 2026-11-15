@@ -56,7 +56,7 @@ describe('fetchAll', () => {
   it('works with the shared supabase query-builder mock', async () => {
     const supabase = createSupabaseMock();
     supabase.setTableResult('invoices', { data: [{ id: 'a' }, { id: 'b' }], error: null });
-    const result = await fetchAll(() => supabase.from('invoices').select('*').order('id') as never);
+    const result = await fetchAll(() => (supabase.from('invoices') as any).select('*').order('id'));
     expect(result).toEqual([{ id: 'a' }, { id: 'b' }]);
   });
 
