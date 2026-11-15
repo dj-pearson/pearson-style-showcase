@@ -46,7 +46,7 @@ export const STATIC_ROUTES = [
     source: 'src/pages/News.tsx',
     title: 'AI Automation & Business Technology Insights | Expert Analysis | Dan Pearson',
     description:
-      'Expert insights on AI automation, business technology, and digital transformation. Learn proven strategies to implement AI, reduce costs, and cut manual CRM work. Real-world teardowns and practical guides from a consultant who spent 15 years carrying a quota before building the automation.',
+      'Teardowns and field notes on AI CRM automation: what works inside HubSpot and Salesforce, what it costs, and why most projects stall at data capture.',
     h1: 'News & Insights',
     intro:
       'Field notes and teardowns on AI CRM automation — what actually works inside the CRM, and why so much of it does not.',
@@ -60,8 +60,9 @@ export const STATIC_ROUTES = [
     title: 'Book a CRM Automation Audit | Dan Pearson',
     description:
       'Book a flat-fee CRM automation audit, or get in touch about capture-layer automation for your revenue team. Two weeks, findings and a roadmap you keep whoever builds it.',
-    h1: "Let's Connect",
-    intro: "Ready to collaborate on your next project? I'd love to hear from you.",
+    h1: 'Book a CRM automation audit',
+    intro:
+      "$2,500 flat, two weeks, and the findings are yours whether or not you build with me. Tell me which CRM you're on and what your pipeline gets wrong.",
     schemaType: 'ContactPage',
     crumb: 'Connect',
     sitemap: { priority: '0.8', changefreq: 'monthly' },
@@ -97,7 +98,7 @@ export const STATIC_ROUTES = [
     source: 'src/pages/FAQ.tsx',
     title: 'FAQ | AI Automation Questions Answered | Dan Pearson',
     description:
-      'Get answers to frequently asked questions about AI automation, business process optimization, implementation costs, and how AI can transform your business. Answers from a consultant who spent 15 years carrying a quota before building the automation.',
+      'Straight answers on AI CRM automation: what the $2,500 audit covers, how long a build takes, and whether you need to switch CRMs.',
     h1: 'Frequently Asked Questions',
     intro:
       'Get answers to common questions about AI automation, implementation, and how it can transform your business operations.',

@@ -59,7 +59,7 @@ const FAQ = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <SEO
         title="FAQ | AI Automation Questions Answered | Dan Pearson"
-        description="Get answers to frequently asked questions about AI automation, business process optimization, implementation costs, and how AI can transform your business. Answers from a consultant who spent 15 years carrying a quota before building the automation."
+        description="Straight answers on AI CRM automation: what the $2,500 audit covers, how long a build takes, and whether you need to switch CRMs."
         keywords="AI automation FAQ, AI implementation questions, business automation help, AI consulting FAQ, AI integration questions, how does AI automation work, AI automation costs, AI for small business, workflow automation FAQ"
         url="https://danpearson.net/faq"
         type="website"
