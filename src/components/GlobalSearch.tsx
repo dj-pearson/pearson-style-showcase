@@ -37,6 +37,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   // Which result Enter would open. The footer has always promised "Enter to
   // select"; nothing implemented it, so a palette opened with Cmd+K could only
   // be finished with the mouse.
@@ -92,10 +93,12 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
   const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
+      setSearchFailed(false);
       return;
     }
 
     setIsLoading(true);
+    setSearchFailed(false);
     saveToRecent(searchQuery);
 
     try {
@@ -115,7 +118,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
       }
 
       // Search articles with full-text search
-      const { data: articles } = await supabase
+      const { data: articles, error: articlesError } = await supabase
         .from('articles')
         .select('id, title, excerpt, slug, category, tags, image_url')
         .eq('published', true)
@@ -180,10 +183,15 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
         ...(aiTools?.map((t) => ({ ...t, type: 'ai_tool' as const, url: t.link })) || []),
       ];
 
+      if (articlesError) logger.error('Article search failed:', articlesError);
       setResults(combined);
+      // Only call it a failure when nothing came back; partial results from
+      // the static index or the other tables are still worth showing.
+      setSearchFailed(Boolean(articlesError) && combined.length === 0);
     } catch (error) {
       logger.error('Search error:', error);
       setResults([]);
+      setSearchFailed(true);
     } finally {
       setIsLoading(false);
     }
@@ -298,8 +306,9 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
                 size="sm"
                 className="absolute right-2 top-1/2 transform -translate-y-1/2"
                 onClick={() => setQuery('')}
+                aria-label="Clear search"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </Button>
             )}
           </div>
@@ -341,7 +350,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
                     <button
                       key={idx}
                       onClick={() => handleRecentClick(recent)}
-                      className="w-full text-left px-3 py-2 rounded-md hover:bg-accent transition-colors text-sm"
+                      className="w-full text-left px-3 py-2 rounded-md hover:bg-primary/10 transition-colors text-sm"
                     >
                       {recent}
                     </button>
@@ -350,8 +359,23 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
               </div>
             )}
 
+            {/* Search failed */}
+            {!isLoading && query && searchFailed && (
+              <div className="text-center py-8 text-muted-foreground" role="alert">
+                <p>Search failed. Try again.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => performSearch(query)}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+
             {/* No results */}
-            {!isLoading && query && results.length === 0 && (
+            {!isLoading && query && !searchFailed && results.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>No results found for "{query}"</p>
@@ -379,7 +403,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
                       onMouseEnter={() => setActiveIndex(index)}
                       className={cn(
                         'w-full text-left px-3 py-3 rounded-md transition-colors group',
-                        index === activeIndex ? 'bg-accent' : 'hover:bg-accent'
+                        index === activeIndex ? 'bg-primary/10' : 'hover:bg-primary/10'
                       )}
                     >
                       <div className="flex items-start gap-3">
