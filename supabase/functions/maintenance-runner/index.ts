@@ -3,6 +3,7 @@ import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { isTaskDue } from '../_shared/cron.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
 import { invokeFunction } from '../_shared/invoke-function.ts';
+import { safeFetch, UrlGuardError } from '../_shared/url-guard.ts';
 
 const SITE = 'https://danpearson.net';
 // IndexNow keys are public by design: the search engine proves ownership by
@@ -189,16 +190,22 @@ async function checkBrokenLinks(supabase: any) {
       checkedUrls.push(url);
 
       try {
-        // Check URL with timeout
+        // Check URL with timeout. Article content is editable, so a link could
+        // point at an internal host; safeFetch refuses private addresses,
+        // including ones reached through a redirect.
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const response = await fetch(url, {
-          method: 'HEAD',
-          signal: controller.signal,
-          redirect: 'follow',
-        });
-        clearTimeout(timeoutId);
+        let response: Response;
+        try {
+          response = await safeFetch(url, {
+            method: 'HEAD',
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        await response.body?.cancel();
 
         const statusCode = response.status;
         const isBroken = statusCode >= 400;
@@ -216,6 +223,9 @@ async function checkBrokenLinks(supabase: any) {
           issuesFound++;
         }
       } catch (error) {
+        // Not a link the checker may fetch; don't record it as broken.
+        if (error instanceof UrlGuardError) continue;
+
         // Network error or timeout
         issuesFound++;
 
