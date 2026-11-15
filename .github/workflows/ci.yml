@@ -1,7 +1,8 @@
 name: CI
 
 # Validate every pull request and every push to main:
-# lint -> typecheck -> test -> build. Any failing step fails the run.
+# lint -> typecheck -> test (with coverage) -> build, plus the Deno edge
+# function tests and the Playwright suites. Any failing step fails the run.
 on:
   pull_request:
   push:
@@ -50,8 +51,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test -- --run
+      # With coverage, so the thresholds in vitest.config.ts fail the run
+      # instead of sitting unenforced. Functions was at 60.4% against a 60%
+      # floor when this was switched on: new untested code can tip it.
+      - name: Test (with coverage thresholds)
+        run: npm run test:coverage -- --run
 
       - name: Build
         run: npm run build
@@ -73,6 +77,33 @@ jobs:
           VITE_SUPABASE_URL: http://localhost:54321
           VITE_SUPABASE_ANON_KEY: test-anon-key
           VITE_FUNCTIONS_URL: http://localhost:54321/functions/v1
+
+  # Edge function tests. vitest excludes supabase/**, so before this job the
+  # Deno tests (webhook signatures, newsletter tokens, CORS, rate limiting,
+  # vault crypto) ran only when someone remembered to. They import nothing
+  # remote, so the run needs no network beyond fetching Deno itself.
+  # --allow-env: cors.ts and friends read their config from Deno.env.
+  # DENO_NO_PACKAGE_JSON: without it Deno reads the root package.json, finds
+  # no node_modules in this job, and type checking fails looking for
+  # @types/node. The edge functions do not use package.json at all.
+  deno:
+    name: Edge function tests (Deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.6
+
+      - name: Run Deno tests (type-checked)
+        run: deno test --allow-env supabase/functions
+        env:
+          DENO_NO_PACKAGE_JSON: '1'
 
   # The Playwright suite covers what the unit tests structurally cannot: the app
   # booting in a real browser, GSAP-animated menus settling visible, axe-core on
@@ -107,6 +138,19 @@ jobs:
       # Supabase env; the specs mock every network call.
       - name: Run E2E tests
         run: npx playwright test --project=chromium
+
+      # The preview project checks what a crawler without JavaScript gets:
+      # the prerendered h1 on an article and /connect, and the 404 page for an
+      # unknown URL. It needs the real build (vite build plus prerender), which
+      # the dev server above never runs. See e2e/preview/vite.preview.config.ts
+      # for how far the preview server mirrors Cloudflare Pages.
+      - name: Build for the prerender E2E tests
+        run: npm run build
+
+      - name: Run prerender E2E tests (vite preview, JavaScript off)
+        run: npx playwright test
+        env:
+          PLAYWRIGHT_PREVIEW: '1'
 
       # The HTML report is where a CI-only failure is actually diagnosable:
       # it carries the trace, the screenshot and the page snapshot.
