@@ -3,6 +3,7 @@ import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { textToHtml } from '../_shared/html-escape.ts';
 
 interface NotificationRequest {
   type: 'new_ticket' | 'new_response' | 'agent_reply';
@@ -61,7 +62,9 @@ async function sendNotificationEmail(
       to: notificationEmail,
       subject: subject,
       content: body,
-      html: `<html><body style="font-family: Arial, sans-serif; line-height: 1.6;">${body.replace(/\n/g, '<br>')}</body></html>`,
+      // body carries inbound-email fields (sender name, subject, preview), so
+      // escape it before turning newlines into <br>.
+      html: `<html><body style="font-family: Arial, sans-serif; line-height: 1.6;">${textToHtml(body)}</body></html>`,
     });
     console.log(`Notification email sent to ${notificationEmail}`);
   } finally {
