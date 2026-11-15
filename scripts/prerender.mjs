@@ -24,7 +24,12 @@ import { join, dirname, resolve } from 'node:path';
 import { marked } from 'marked';
 import { transformSync, build } from 'esbuild';
 import { readArticles, extractFaqs } from './lib/content.mjs';
-import { fetchDbArticles, sanitizeArticleHtml, markAffiliateLinks } from './lib/db-articles.mjs';
+import {
+  fetchDbArticles,
+  sanitizeArticleHtml,
+  markAffiliateLinks,
+  DbArticlesError,
+} from './lib/db-articles.mjs';
 import { STATIC_ROUTES, NAV_LINKS, FOOTER_LINKS } from './lib/static-routes.mjs';
 
 const DIST = 'dist';
@@ -132,6 +137,23 @@ const plainText = (value) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+/** Class strings shared with the React components; see src/lib/prerender-classes.ts. */
+const UI = await loadTsModule('src/lib/prerender-classes.ts');
+
+/** Lucide icons as static SVG, with the attributes lucide-react renders. */
+const ICONS = {
+  arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  house:
+    '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  calendar:
+    '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+};
+const icon = (name, className) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">${ICONS[name]}</svg>`;
+
 // --- head rewriting -------------------------------------------------------
 
 // Every replacement below goes through a function, so a `$` in copy ("$600K+
@@ -236,14 +258,35 @@ const linkList = (links) =>
  * prerendered page linked out only through its own copy, so a crawler that
  * does not run JavaScript had no path from an article to /about, /projects or
  * /connect. React replaces all of it on mount, with the rest of #root.
+ *
+ * `matched` pages (home, articles) lay their body out with the React page's
+ * classes. Their header is fixed like Navigation.tsx, so it takes no space in
+ * the flow and the body sits exactly where React will put it. Other pages
+ * keep the plain in-flow header their unstyled body expects.
  */
-function applyBody(html, body) {
-  const chrome = `
+function applyBody(html, body, { matched = false } = {}) {
+  const header = matched
+    ? `
+    <header class="${UI.PRERENDER_NAV.bar}">
+      <div class="${UI.PRERENDER_NAV.container}">
+        <div class="${UI.PRERENDER_NAV.row}">
+          <a href="/" class="${UI.PRERENDER_NAV.logo}">${AUTHOR}</a>
+          <nav aria-label="Site" class="${UI.PRERENDER_NAV.links}">
+            ${NAV_LINKS.map(
+              ({ href, label }) =>
+                `<a href="${href}" class="${UI.PRERENDER_NAV.link}">${escapeHtml(label)}</a>`
+            ).join('\n            ')}
+          </nav>
+        </div>
+      </div>
+    </header>`
+    : `
     <header>
       <nav aria-label="Site">
         ${linkList(NAV_LINKS)}
       </nav>
-    </header>${body}
+    </header>`;
+  const chrome = `${header}${body}
     <footer>
       <nav aria-label="Legal">
         ${linkList(FOOTER_LINKS)}
@@ -401,7 +444,90 @@ const isCrm = (meta) => meta.source !== 'database' || meta.category === 'CRM';
 const categoryPath = (category) => `/news/category/${encodeURIComponent(category)}`;
 const absoluteImage = (src) => (/^https:\/\//.test(src || '') ? src : OG_IMAGE.url);
 
-function articlePage({ meta, body }) {
+/** Article.tsx's formatDate: the visitor's locale settings, en-US. */
+const formatArticleDate = (value) =>
+  new Date(value).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+/**
+ * The article page in Article.tsx's layout: the same wrappers, breadcrumbs and
+ * header classes, filled from the row React's first render reads (the
+ * embedded query data), so the title and lead paint where React draws them.
+ * Below the header it is the rendered body; React's image, takeaways and
+ * table of contents are not reproduced.
+ */
+function articleShell(meta, row, html, related) {
+  const A = UI.ARTICLE_LAYOUT;
+  const H = UI.ARTICLE_HEADER;
+  const B = UI.ARTICLE_BADGES;
+  const title = row?.title || meta.title;
+  const excerpt = row?.excerpt ?? meta.excerpt;
+  const category = row?.category || meta.category;
+  const created = row?.created_at || isoDate(meta.published_iso || meta.published_at);
+  const updated = row ? row.updated_at : undefined;
+  const tags = (row ? row.tags : meta.tags) || [];
+  const crumbs = [
+    { label: 'Home', path: '/' },
+    { label: 'News', path: '/news' },
+    { label: title, path: `/news/${meta.slug}` },
+  ];
+
+  const crumbItems = crumbs
+    .map(({ label, path }, index) => {
+      const separator = index > 0 ? icon('chevronRight', A.breadcrumbSeparator) : '';
+      const inner =
+        index === crumbs.length - 1
+          ? `<span class="${A.breadcrumbCurrent}" aria-current="page">${escapeHtml(label)}</span>`
+          : `<a href="${path}" class="${A.breadcrumbLink}">${index === 0 ? icon('house', A.breadcrumbIcon) : ''}<span>${escapeHtml(label)}</span></a>`;
+      return `<li class="${A.breadcrumbItem}">${separator}${inner}</li>`;
+    })
+    .join('');
+
+  const metaItems = [
+    `<div class="${H.metaItem}">${icon('calendar', H.metaIcon)}<time datetime="${escapeHtml(created)}"><span class="sr-only">Published on </span>${escapeHtml(formatArticleDate(created))}</time></div>`,
+    updated && updated !== created
+      ? `<div class="${H.metaItem}"><span class="${H.metaLabel}">Updated:</span><time datetime="${escapeHtml(updated)}">${escapeHtml(formatArticleDate(updated))}</time></div>`
+      : '',
+    `<div class="${H.metaItem}">${icon('clock', H.metaIcon)}<span><span class="sr-only">Reading time: </span>${escapeHtml(row?.read_time ?? meta.read_time ?? '')}</span></div>`,
+    `<div class="${H.metaItem}">${icon('eye', H.metaIcon)}<span><span class="sr-only">Article has </span>${Number(row?.view_count) || 0} views</span></div>`,
+    `<div><span>By <span>${escapeHtml(row?.author || meta.author || AUTHOR)}</span></span></div>`,
+  ].join('');
+
+  return `
+    <div class="${A.root}">
+      <main id="main-content" class="${A.main}">
+        <div class="${A.container}">
+          <div class="${A.breadcrumbsWrap}">
+            <nav aria-label="Breadcrumb" class="${A.breadcrumbs}">
+              <ol class="${A.breadcrumbList}">${crumbItems}</ol>
+            </nav>
+          </div>
+          <article class="${A.article}">
+            <header class="${H.header}">
+              <div class="${H.badges}">
+                <div class="${B.category}">${escapeHtml(category)}</div>${(row ? row.featured : meta.featured) ? `<div class="${B.featured}">Featured</div>` : ''}
+              </div>
+              <h1 class="${H.title}">${escapeHtml(title)}</h1>
+              <p class="${H.lead}">${escapeHtml(excerpt)}</p>
+              <div class="${H.meta}">${metaItems}</div>${
+                tags.length
+                  ? `
+              <div class="${H.badges}">${tags.map((tag) => `<div class="${B.tag}">${escapeHtml(tag)}</div>`).join('')}</div>`
+                  : ''
+              }
+            </header>
+            <div class="${A.body}">
+              ${html}
+            </div>
+            <nav aria-label="Related">
+              ${related}
+            </nav>
+          </article>
+        </div>
+      </main>
+    </div>`;
+}
+
+function articlePage({ meta, body }, row) {
   const url = `${SITE}/news/${meta.slug}`;
   const faqs = extractFaqs(body);
   const isNews = meta.category === NEWS_CATEGORY;
@@ -455,16 +581,7 @@ function articlePage({ meta, body }) {
     : `<a href="${categoryPath(meta.category)}">More ${escapeHtml(meta.category)}</a>
         <a href="/ai-crm-automation">AI CRM automation consulting</a>`;
 
-  const content = `
-    <article>
-      <h1>${escapeHtml(meta.title)}</h1>
-      <p><strong>${escapeHtml(meta.excerpt)}</strong></p>
-      <p>By ${escapeHtml(meta.author)} &middot; <time datetime="${escapeHtml(meta.published_at)}">${escapeHtml(meta.published_at)}</time>${meta.read_time ? ` &middot; ${escapeHtml(meta.read_time)}` : ''} &middot; ${escapeHtml(meta.category)}</p>
-      ${html}
-      <nav aria-label="Related">
-        ${related}
-      </nav>
-    </article>`;
+  const content = articleShell(meta, row, html, related);
 
   return {
     path: `/news/${meta.slug}`,
@@ -499,6 +616,7 @@ function articlePage({ meta, body }) {
       tags: meta.tags,
     },
     archive: { category: meta.category, tags: meta.tags || [] },
+    matched: true,
   };
 }
 
@@ -658,21 +776,69 @@ function homePage(crm, articles) {
     breadcrumb([{ name: 'Home', path: '/' }]),
   ];
 
+  const L = UI.INDEX_LAYOUT;
+  const H = UI.HERO_CLASSES;
+  const S = UI.HERO_SHADOWS;
+  const C = UI.HERO_COPY;
+  const shadow = (value) => `style="text-shadow: ${value}"`;
+  const featured = articles
+    .filter(({ meta }) => meta.featured)
+    .map(
+      ({ meta }) =>
+        `<li><a href="/news/${meta.slug}" class="${L.sectionLink}">${escapeHtml(meta.title)}</a></li>`
+    )
+    .join('\n                ');
+
+  // HeroSection.tsx inside Index.tsx's wrappers, from the same class strings
+  // and copy, so the first paint is the element React draws (see
+  // src/lib/prerender-classes.ts). The positioning copy and the start-here
+  // links follow below the fold for crawlers.
   const content = `
-    <main>
-      <h1>Dan Pearson &mdash; AI CRM Automation Consultant</h1>
-      <p><strong>${escapeHtml(crm.POSITIONING_STATEMENT)}</strong></p>
-      <p>${escapeHtml(crm.THESIS)}</p>
-      <h2>Start here</h2>
-      <ul>
-        <li><a href="/ai-crm-automation">AI CRM automation consulting, the 12-point audit and pricing</a></li>
-        <li><a href="/topics/ai-crm-automation">Research and teardowns on AI CRM automation</a></li>
-        ${articles
-          .filter(({ meta }) => meta.featured)
-          .map(({ meta }) => `<li><a href="/news/${meta.slug}">${escapeHtml(meta.title)}</a></li>`)
-          .join('\n        ')}
-      </ul>
-    </main>`;
+    <div class="${L.root}">
+      <div class="${L.backdrop}" aria-hidden="true"><div class="${L.backdropGradient}"></div></div>
+      <main id="main-content" class="${L.main}">
+        <div class="${L.heroWrap}">
+          <section class="${H.section}" ${UI.PRERENDERED_HERO_ATTR}>
+            <div class="${H.content}">
+              <h1 class="${H.title}"><span class="${H.nameWrapper}"><span class="${H.firstName}" ${shadow(S.firstName)}>${C.firstName}</span></span> <span class="${H.nameWrapper}"><span class="${H.lastName}" ${shadow(S.lastName)}>${C.lastName}</span></span></h1>
+              <div class="${H.subtitleWrap}">
+                <p class="${H.subtitle}" ${shadow(S.subtitle)}>${escapeHtml(C.subtitle)}</p>
+              </div>
+              <div class="${H.descWrap}">
+                <p class="${H.desc}" ${shadow(S.desc)}>${escapeHtml(C.desc)}<br><span class="${H.descEmphasis}" ${shadow(S.descEmphasis)}>${escapeHtml(C.descEmphasis)}</span></p>
+              </div>
+              <div class="${H.ctaRow}">
+                <a href="${C.ctaPrimary.href}" class="${H.ctaPrimary}" style="box-shadow: ${S.ctaPrimary}">${escapeHtml(C.ctaPrimary.label)}${icon('arrowRight', H.ctaPrimaryIcon)}</a>
+                <a href="${C.ctaSecondary.href}" class="${H.ctaSecondary}">${escapeHtml(C.ctaSecondary.label)}</a>
+              </div>
+              <div class="${H.scrollHint}" aria-hidden="true">
+                <span class="${H.scrollHintLabel}">Scroll</span>
+                <div class="${H.scrollHintBar}"></div>
+              </div>
+            </div>
+            ${H.dots
+              .map(
+                (className, index) =>
+                  `<div class="${className}" aria-hidden="true"${H.dotDelays[index] ? ` style="animation-delay: ${H.dotDelays[index]}"` : ''}></div>`
+              )
+              .join('\n            ')}
+          </section>
+        </div>
+        <section class="${L.section}">
+          <div class="${L.sectionInner}">
+            <h2 class="${L.sectionHeading}">AI CRM automation consultant</h2>
+            <p class="${L.sectionLead}">${escapeHtml(crm.POSITIONING_STATEMENT)}</p>
+            <p class="${L.sectionBody}">${escapeHtml(crm.THESIS)}</p>
+            <h2 class="${L.sectionHeading}">Start here</h2>
+            <ul class="${L.sectionList}">
+              <li><a href="/ai-crm-automation" class="${L.sectionLink}">AI CRM automation consulting, the 12-point audit and pricing</a></li>
+              <li><a href="/topics/ai-crm-automation" class="${L.sectionLink}">Research and teardowns on AI CRM automation</a></li>
+              ${featured}
+            </ul>
+          </div>
+        </section>
+      </main>
+    </div>`;
 
   return {
     path: '/',
@@ -681,6 +847,7 @@ function homePage(crm, articles) {
     schemas,
     content,
     sitemap: { priority: '1.0', changefreq: 'weekly' },
+    matched: true,
   };
 }
 
@@ -1178,7 +1345,7 @@ const articles = readArticles().filter(({ meta }) => meta.published);
 // carry every column, not the subset fetchDbArticles asks for. Widening the
 // select on its request keeps this to one network call; the raw rows are
 // captured before fetchDbArticles filters and reshapes them. `null` means the
-// database was not read (no credentials, or the fetch failed).
+// database was not read (no credentials).
 let dbRows = null;
 const fetchAllColumns = async (endpoint, init) => {
   const response = await fetch(String(endpoint).replace(/([?&])select=[^&]*/, '$1select=*'), init);
@@ -1195,9 +1362,21 @@ const fetchAllColumns = async (endpoint, init) => {
 // The markdown copy wins when a slug exists in both: it is the reviewed source
 // the database row was seeded from.
 const markdownSlugs = new Set(articles.map(({ meta }) => meta.slug));
-const dbArticles = (await fetchDbArticles({ fetchImpl: fetchAllColumns })).filter(
-  ({ meta }) => !markdownSlugs.has(meta.slug)
-);
+// With credentials set, a failed read stops the build (see db-articles.mjs):
+// shipping without the database articles would 404 every one of their URLs.
+const dbArticles = (
+  await fetchDbArticles({ fetchImpl: fetchAllColumns }).catch((error) => {
+    if (!(error instanceof DbArticlesError)) throw error;
+    console.error(
+      `prerender: ${error.message}.\n` +
+        'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set, so the build needs the database ' +
+        'articles; without them their pages, sitemap entries and feed items would be missing ' +
+        'and the live URLs would 404. Fix the credentials or the API, or unset both variables ' +
+        'to build from the markdown articles only.'
+    );
+    process.exit(1);
+  })
+).filter(({ meta }) => !markdownSlugs.has(meta.slug));
 
 // Data read from the database is stamped with the build time, so react-query
 // treats it as fresh for its staleTime and refetches after. Without the
@@ -1237,10 +1416,10 @@ function topicData(topic) {
   };
 }
 
-const articlePages = [...articles, ...dbArticles].map((article) => ({
-  ...articlePage(article),
-  prerenderData: articleData(article.meta.slug),
-}));
+const articlePages = [...articles, ...dbArticles].map((article) => {
+  const prerenderData = articleData(article.meta.slug);
+  return { ...articlePage(article, prerenderData?.data), prerenderData };
+});
 
 const otherHubs = Object.entries(helpers.TOPIC_HUBS)
   .filter(([topic]) => topic !== 'ai-crm-automation')
@@ -1284,7 +1463,8 @@ for (const page of pages) {
         image: page.image,
         article: page.article,
       }),
-      page.content
+      page.content,
+      { matched: page.matched }
     ),
     page.prerenderData,
     helpers.PRERENDER_DATA_ID

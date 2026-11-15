@@ -5,6 +5,7 @@ import {
   toContentArticle,
   sanitizeArticleHtml,
   markAffiliateLinks,
+  DbArticlesError,
 } from '../lib/db-articles.mjs';
 
 const row = {
@@ -78,16 +79,47 @@ describe('fetchDbArticles', () => {
     expect(articles.map((a: { meta: { slug: string } }) => a.meta.slug)).toEqual([row.slug]);
   });
 
-  it('returns nothing instead of failing the build when Supabase is unreachable', async () => {
+  it('skips the database without failing when no credentials are set', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const failing = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-    expect(await fetchDbArticles({ url: 'https://x', key: 'k', fetchImpl: failing })).toEqual([]);
-
-    const denied = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
-    expect(await fetchDbArticles({ url: 'https://x', key: 'k', fetchImpl: denied })).toEqual([]);
-
-    expect(await fetchDbArticles({ url: '', key: '', fetchImpl: failing })).toEqual([]);
+    const fetchImpl = vi.fn();
+    expect(await fetchDbArticles({ url: '', key: '', fetchImpl })).toEqual([]);
+    expect(fetchImpl).not.toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it('throws when credentials are set and the request errors', async () => {
+    const failing = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    await expect(
+      fetchDbArticles({ url: 'https://x', key: 'k', fetchImpl: failing })
+    ).rejects.toThrow(DbArticlesError);
+    await expect(
+      fetchDbArticles({ url: 'https://x', key: 'k', fetchImpl: failing })
+    ).rejects.toThrow(/ECONNREFUSED/);
+  });
+
+  it('throws on a non-OK response', async () => {
+    const denied = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    await expect(
+      fetchDbArticles({ url: 'https://x', key: 'k', fetchImpl: denied })
+    ).rejects.toThrow(/HTTP 401/);
+  });
+
+  it('throws when the body is not a JSON array', async () => {
+    const notArray = vi.fn().mockResolvedValue(okResponse({ message: 'nope' }));
+    await expect(
+      fetchDbArticles({ url: 'https://x', key: 'k', fetchImpl: notArray })
+    ).rejects.toThrow(DbArticlesError);
+
+    const badJson = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('Unexpected token <');
+      },
+    });
+    await expect(
+      fetchDbArticles({ url: 'https://x', key: 'k', fetchImpl: badJson })
+    ).rejects.toThrow(/not JSON/);
   });
 });
 
