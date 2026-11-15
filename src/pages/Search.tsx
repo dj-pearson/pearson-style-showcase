@@ -323,8 +323,10 @@ const Search = () => {
             </div>
           </form>
 
-          {/* Results Section */}
-          <div className="mb-16">
+          {/* Results Section. While a query is set the area keeps a floor
+              height, so the spinner giving way to a result list does not
+              shove the footer up and back down (CLS 0.27 before). */}
+          <div className={`mb-16${query.trim() ? ' min-h-[60vh]' : ''}`}>
             {/* Loading state */}
             {isLoading && (
               <div className="text-center py-12">
@@ -375,8 +377,8 @@ const Search = () => {
                     return (
                       <li key={`${result.type}-${result.id}`}>
                         <Card className="relative hover:shadow-lg transition-shadow group">
-                          <CardContent className="p-6">
-                            <div className="flex items-start gap-4">
+                          <CardContent className="p-4 sm:p-6">
+                            <div className="flex items-start gap-3 sm:gap-4">
                               {result.image_url && (
                                 <div className="flex-shrink-0">
                                   <img
@@ -386,21 +388,25 @@ const Search = () => {
                                     decoding="async"
                                     width={96}
                                     height={96}
-                                    className="w-24 h-24 rounded-lg object-cover"
+                                    className="w-16 h-16 sm:w-24 sm:h-24 rounded-lg object-cover"
                                   />
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
                                   <div className="text-primary" aria-hidden="true">
                                     {getIcon(result.type)}
                                   </div>
-                                  <Badge variant="outline">{getTypeLabel(result.type)}</Badge>
+                                  <Badge variant="outline" className="whitespace-nowrap">
+                                    {getTypeLabel(result.type)}
+                                  </Badge>
                                   {result.category && (
-                                    <Badge variant="secondary">{result.category}</Badge>
+                                    <Badge variant="secondary" className="whitespace-nowrap">
+                                      {result.category}
+                                    </Badge>
                                   )}
                                 </div>
-                                <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                                <h3 className="text-lg sm:text-xl font-semibold mb-2 break-words group-hover:text-primary transition-colors line-clamp-2">
                                   {external ? (
                                     <a
                                       href={href}
@@ -425,7 +431,11 @@ const Search = () => {
                                 {result.tags && result.tags.length > 0 && (
                                   <div className="flex gap-2 flex-wrap">
                                     {result.tags.slice(0, 5).map((tag, idx) => (
-                                      <Badge key={idx} variant="outline" className="text-xs">
+                                      <Badge
+                                        key={idx}
+                                        variant="outline"
+                                        className="text-xs whitespace-nowrap"
+                                      >
                                         {tag}
                                       </Badge>
                                     ))}
