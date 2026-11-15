@@ -22,7 +22,7 @@ import {
   RefreshCw,
   Search as SearchIcon,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import { Link } from 'react-router-dom';
 import { useArticleView } from '@/hooks/useArticleView';
@@ -100,7 +100,7 @@ const Article = () => {
     queryFn: async () => {
       if (!slug) throw new Error('No slug provided');
 
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select('*')
         .eq('slug', slug)

@@ -277,7 +277,7 @@ function applyPrerenderData(html, payload, id) {
  * Maps each prerendered path to the source file of the page that renders it,
  * read from src/lib/routeComponents.ts (PRERENDERED_ROUTES for the path
  * pattern, routeComponents for the lazy import behind each name) so this stays
- * in step with what main.tsx preloads. '/' is Index, bundled into the entry.
+ * in step with what main.tsx preloads. '/' maps to the lazy Index chunk.
  */
 function loadRouteSources() {
   const source = readFileSync('src/lib/routeComponents.ts', 'utf8');

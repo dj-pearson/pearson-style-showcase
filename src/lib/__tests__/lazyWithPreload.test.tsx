@@ -59,7 +59,7 @@ describe('prerenderedRouteFor', () => {
     expect(prerenderedRouteFor('/news')).toBe('News');
     expect(prerenderedRouteFor('/about')).toBe('About');
     expect(prerenderedRouteFor('/privacy')).toBe('PrivacyPolicy');
-    expect(prerenderedRouteFor('/')).toBeUndefined();
+    expect(prerenderedRouteFor('/')).toBe('Index');
     expect(prerenderedRouteFor('/news/category/ai')).toBeUndefined();
     expect(prerenderedRouteFor('/search')).toBeUndefined();
     expect(prerenderedRouteFor('/topics/other')).toBeUndefined();

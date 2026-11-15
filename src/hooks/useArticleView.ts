@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getDbForCurrentUser } from '@/integrations/supabase/public-client';
 import { logger } from '@/lib/logger';
 
 /** How long a reader has to stay before the visit counts as a read. */
@@ -49,7 +49,10 @@ export function useArticleView(slug: string | null | undefined, enabled = true):
       // a second attempt on the next render.
       markCounted(slug);
 
-      const { error } = await supabase.rpc('increment_article_view', {
+      // Same caller identity as before (the admin's JWT when signed in, anon
+      // otherwise) without loading auth-js on every article view.
+      const db = await getDbForCurrentUser();
+      const { error } = await db.rpc('increment_article_view', {
         article_slug: slug,
       });
 

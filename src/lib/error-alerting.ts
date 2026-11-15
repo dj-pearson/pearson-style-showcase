@@ -11,7 +11,7 @@
  * - Integration with error tracking service
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { getAccessToken, getDbForCurrentUser } from '@/integrations/supabase/public-client';
 import { logger } from '@/lib/logger';
 
 // Alert severity levels
@@ -265,8 +265,7 @@ async function sendEmailAlert(alert: AlertPayload): Promise<void> {
   // body come from the client and would otherwise make it an open relay.
   // Anonymous visitors are covered by Sentry, so skip rather than 401 on every
   // error-rate spike on the public site.
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData?.session) {
+  if (!(await getAccessToken())) {
     logger.debug('[ErrorAlerting] No session; skipping email alert (Sentry still records it)');
     return;
   }
@@ -349,7 +348,10 @@ async function sendWebhookAlert(alert: AlertPayload): Promise<void> {
  */
 async function logAlertToDatabase(alert: AlertPayload): Promise<void> {
   try {
-    await supabase.from('security_events').insert({
+    // Acts as the signed-in user when there is one, as the full client did,
+    // without loading auth-js for anonymous visitors.
+    const db = await getDbForCurrentUser();
+    await db.from('security_events').insert({
       event_type: 'error_alert',
       metadata: {
         severity: alert.severity,

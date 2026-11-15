@@ -77,22 +77,17 @@
     <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 
     <!-- Google tag (gtag.js) -->
-    <!--
-      crossorigin="anonymous" so the script is fetched without credentials and
-      is eligible for integrity checking. NOTE: a static Subresource Integrity
-      (integrity="sha384-...") hash is intentionally NOT set on gtag.js — Google
-      ships this file continuously without publishing stable hashes, and it
-      dynamically loads further scripts that SRI cannot cover, so a pinned hash
-      would break analytics on every Google update. Script provenance is instead
-      constrained via the CSP script-src allow-list (googletagmanager.com).
-    -->
-    <!-- Consent Mode defaults and the gtag() shim live in public/gtag-init.js
-      (CSP has no 'unsafe-inline'). It is a blocking classic script placed
-      BEFORE the async gtag.js tag so consent defaults are always queued
-      first. Not deferred: an async script that arrives first would run
-      gtag.js before the consent defaults exist. -->
-    <script src="/gtag-init.js"></script>
-    <script async crossorigin="anonymous" src="https://www.googletagmanager.com/gtag/js?id=G-8R95ZXMV6L"></script>
+    <!-- public/gtag-init.js defines dataLayer, the gtag() shim and the Consent
+      Mode defaults (CSP has no 'unsafe-inline'), then injects gtag.js itself.
+      That keeps the ordering safe: nothing requests gtag.js until the consent
+      defaults are queued. The script is deferred so it no longer blocks first
+      paint; deferred and module scripts run in document order, so it still
+      runs before the module entry, whose initConsent() calls window.gtag.
+      gtag.js is fetched with crossorigin="anonymous" (no credentials). A static
+      Subresource Integrity hash is intentionally NOT set: Google ships the file
+      continuously without stable hashes and it loads further scripts SRI cannot
+      cover. Provenance is constrained by the CSP script-src allow-list. -->
+    <script defer src="/gtag-init.js"></script>
 
     <!-- Canonical URL (default, updated by React for specific pages) -->
     <link rel="canonical" href="https://danpearson.net" />

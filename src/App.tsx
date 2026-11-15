@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import URLHandler from './components/URLHandler';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
@@ -25,9 +24,8 @@ import AccessibilityWidget from './components/AccessibilityWidget';
 import RouteAnnouncer from './components/RouteAnnouncer';
 import CookieConsentBanner from './components/CookieConsentBanner';
 
-// Index is bundled eagerly; every other page is a lazy chunk with preload()
-// (see src/lib/routeComponents.ts).
-import Index from './pages/Index';
+// Every page, Index included, is a lazy chunk with preload() (see
+// src/lib/routeComponents.ts); main.tsx preloads the entry route's chunk.
 import { routeComponents } from '@/lib/routeComponents';
 import { lazyWithPreload } from '@/lib/lazyWithPreload';
 import { logger } from '@/lib/logger';
@@ -47,6 +45,7 @@ const AuthLayout = lazyWithPreload<object>(() =>
 );
 
 const {
+  Index,
   About,
   Projects,
   News,
@@ -107,83 +106,81 @@ const App = () => (
           <ReactQueryDevtools initialIsOpen={false} />
         </Suspense>
       )}
-      <TooltipProvider>
-        <Toaster />
-        <BrowserRouter>
-          <AccessibilityProvider>
-            <URLHandler>
-              <RouteAnnouncer />
-              <TrafficGuard />
-              <Analytics />
-              <ScrollTracker />
-              <RoutePrefetcher />
-              <Suspense fallback={<SuspenseFallback />}>
-                <Sentry.ErrorBoundary
-                  fallback={({ resetError }) => (
-                    <div
-                      role="alert"
-                      className="min-h-[50vh] flex flex-col items-center justify-center gap-4 p-8 text-center"
+      <Toaster />
+      <BrowserRouter>
+        <AccessibilityProvider>
+          <URLHandler>
+            <RouteAnnouncer />
+            <TrafficGuard />
+            <Analytics />
+            <ScrollTracker />
+            <RoutePrefetcher />
+            <Suspense fallback={<SuspenseFallback />}>
+              <Sentry.ErrorBoundary
+                fallback={({ resetError }) => (
+                  <div
+                    role="alert"
+                    className="min-h-[50vh] flex flex-col items-center justify-center gap-4 p-8 text-center"
+                  >
+                    <h1 className="text-2xl font-bold">Something went wrong</h1>
+                    <p className="text-muted-foreground max-w-md">
+                      An unexpected error occurred and has been reported. Please try again.
+                    </p>
+                    <button
+                      onClick={resetError}
+                      className="px-4 py-2 rounded-md bg-primary text-primary-foreground min-h-[44px]"
                     >
-                      <h1 className="text-2xl font-bold">Something went wrong</h1>
-                      <p className="text-muted-foreground max-w-md">
-                        An unexpected error occurred and has been reported. Please try again.
-                      </p>
-                      <button
-                        onClick={resetError}
-                        className="px-4 py-2 rounded-md bg-primary text-primary-foreground min-h-[44px]"
-                      >
-                        Try again
-                      </button>
-                    </div>
-                  )}
-                >
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/projects" element={<Projects />} />
-                    <Route path="/news" element={<News />} />
-                    <Route path="/news/category/:category" element={<CategoryArchive />} />
-                    <Route path="/news/tag/:tag" element={<TagArchive />} />
-                    <Route path="/author/:author" element={<AuthorArchive />} />
-                    <Route path="/topics" element={<Topics />} />
-                    <Route path="/topics/:topic" element={<TopicHub />} />
-                    <Route path="/news/:slug" element={<Article />} />
-                    <Route path="/ai-crm-automation" element={<AICrmAutomation />} />
-                    <Route path="/ai-tools" element={<AITools />} />
-                    <Route path="/connect" element={<Connect />} />
-                    <Route path="/search" element={<Search />} />
-                    {/* Public system status page (no auth required) */}
-                    <Route path="/status" element={<Status />} />
-                    <Route path="/faq" element={<FAQ />} />
-                    <Route path="/accessibility" element={<Accessibility />} />
-                    <Route path="/privacy" element={<PrivacyPolicy />} />
-                    <Route path="/terms" element={<TermsOfService />} />
-                    <Route path="/cookies" element={<CookiePolicy />} />
-                    <Route path="/showcase" element={<Showcase />} />
-                    <Route element={<AuthLayout />}>
-                      <Route path="/admin/login" element={<AdminLogin />} />
-                      <Route path="/auth/callback" element={<AuthCallback />} />
-                      <Route element={<AdminOnlyOutlet />}>
-                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                      </Route>
+                      Try again
+                    </button>
+                  </div>
+                )}
+              >
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/projects" element={<Projects />} />
+                  <Route path="/news" element={<News />} />
+                  <Route path="/news/category/:category" element={<CategoryArchive />} />
+                  <Route path="/news/tag/:tag" element={<TagArchive />} />
+                  <Route path="/author/:author" element={<AuthorArchive />} />
+                  <Route path="/topics" element={<Topics />} />
+                  <Route path="/topics/:topic" element={<TopicHub />} />
+                  <Route path="/news/:slug" element={<Article />} />
+                  <Route path="/ai-crm-automation" element={<AICrmAutomation />} />
+                  <Route path="/ai-tools" element={<AITools />} />
+                  <Route path="/connect" element={<Connect />} />
+                  <Route path="/search" element={<Search />} />
+                  {/* Public system status page (no auth required) */}
+                  <Route path="/status" element={<Status />} />
+                  <Route path="/faq" element={<FAQ />} />
+                  <Route path="/accessibility" element={<Accessibility />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/cookies" element={<CookiePolicy />} />
+                  <Route path="/showcase" element={<Showcase />} />
+                  <Route element={<AuthLayout />}>
+                    <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route path="/auth/callback" element={<AuthCallback />} />
+                    <Route element={<AdminOnlyOutlet />}>
+                      <Route path="/admin/dashboard" element={<AdminDashboard />} />
                     </Route>
-                    <Route path="/sitemap.xml" element={<SitemapXML />} />
-                    <Route path="/robots.txt" element={<RobotsTxt />} />
-                    <Route path="/rss.xml" element={<RSSFeed />} />
-                    {/* Legacy URLs (/article/*, /feed, /2023/*, old slugs) are 301s in
+                  </Route>
+                  <Route path="/sitemap.xml" element={<SitemapXML />} />
+                  <Route path="/robots.txt" element={<RobotsTxt />} />
+                  <Route path="/rss.xml" element={<RSSFeed />} />
+                  {/* Legacy URLs (/article/*, /feed, /2023/*, old slugs) are 301s in
                         public/_redirects, answered before the app loads. */}
 
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Sentry.ErrorBoundary>
-              </Suspense>
-            </URLHandler>
-            <AccessibilityWidget />
-            <CookieConsentBanner />
-          </AccessibilityProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Sentry.ErrorBoundary>
+            </Suspense>
+          </URLHandler>
+          <AccessibilityWidget />
+          <CookieConsentBanner />
+        </AccessibilityProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </ErrorBoundary>
 );

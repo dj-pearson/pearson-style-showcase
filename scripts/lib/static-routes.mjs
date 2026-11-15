@@ -46,7 +46,7 @@ export const STATIC_ROUTES = [
     source: 'src/pages/News.tsx',
     title: 'AI Automation & Business Technology Insights | Expert Analysis | Dan Pearson',
     description:
-      'Expert insights on AI automation, business technology, and digital transformation. Learn proven strategies to implement AI, reduce costs, and streamline operations. Real-world teardowns and practical guides from a consultant who spent 15 years carrying a quota before building the automation.',
+      'Expert insights on AI automation, business technology, and digital transformation. Learn proven strategies to implement AI, reduce costs, and cut manual CRM work. Real-world teardowns and practical guides from a consultant who spent 15 years carrying a quota before building the automation.',
     h1: 'News & Insights',
     intro:
       'Field notes and teardowns on AI CRM automation — what actually works inside the CRM, and why so much of it does not.',
@@ -84,10 +84,10 @@ export const STATIC_ROUTES = [
     source: 'src/pages/Topics.tsx',
     title: 'Topics - AI & Business Insights Hub | Dan Pearson',
     description:
-      'Explore comprehensive guides and resources on AI automation, machine learning, business optimization, and digital transformation. Expert insights organized by topic.',
+      'Guides and teardowns on AI CRM automation, machine learning, business automation and digital transformation, grouped by topic.',
     h1: 'Topics & Resources',
     intro:
-      'Deep-dive into comprehensive guides on AI, automation, and business transformation. Each topic hub contains curated articles, tutorials, and expert insights.',
+      'Guides and teardowns grouped by topic. Start with AI CRM automation if you run a sales team.',
     schemaType: 'CollectionPage',
     crumb: 'Topics',
     sitemap: { priority: '0.7', changefreq: 'weekly' },

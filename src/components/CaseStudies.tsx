@@ -5,7 +5,7 @@ import { ExternalLink, ArrowRight, Code, Zap, TrendingUp, LucideIcon } from 'luc
 import { useAnalytics } from './Analytics';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 
 interface CaseStudyDB {
   id: string;
@@ -41,7 +41,7 @@ const CaseStudies = () => {
   } = useQuery({
     queryKey: ['case-studies'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('case_studies')
         .select('*')
         .eq('status', 'published')

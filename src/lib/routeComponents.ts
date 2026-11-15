@@ -6,6 +6,7 @@ import { lazyWithPreload } from '@/lib/lazyWithPreload';
  * (idle-time prefetch) share the same cached modules.
  */
 export const routeComponents = {
+  Index: lazyWithPreload(() => import('@/pages/Index')),
   About: lazyWithPreload(() => import('@/pages/About')),
   Projects: lazyWithPreload(() => import('@/pages/Projects')),
   News: lazyWithPreload(() => import('@/pages/News')),
@@ -39,11 +40,15 @@ export const routeComponents = {
 export type RouteComponentName = keyof typeof routeComponents;
 
 /**
- * Paths that scripts/prerender.mjs fills with real HTML ('/' is Index, which
- * is bundled eagerly and needs no preload). /news/category/* and /news/tag/*
- * have an extra segment, so they don't match the article pattern.
+ * Paths that scripts/prerender.mjs fills with real HTML. That script also
+ * parses this list to add modulepreload links for each route's chunk, so keep
+ * every entry on one line in the `[/regex/, 'Name']` form. '/' is Index: lazy
+ * like the rest, so gsap and the homepage code stay off the article pages.
+ * /news/category/* and /news/tag/* have an extra segment, so they don't match
+ * the article pattern.
  */
 const PRERENDERED_ROUTES: Array<[RegExp, RouteComponentName]> = [
+  [/^\/$/, 'Index'],
   [/^\/news\/[^/]+\/?$/, 'Article'],
   [/^\/ai-crm-automation\/?$/, 'AICrmAutomation'],
   [
