@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { lazy, Suspense, useCallback, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -16,23 +17,102 @@ import {
   Zap,
   Download,
 } from 'lucide-react';
-import { ChartOfAccountsManager } from './accounting/ChartOfAccountsManager';
-import { InvoicesManager } from './accounting/InvoicesManager';
-import { PaymentsManager } from './accounting/PaymentsManager';
-import { ImportIntegrationsManager } from './accounting/ImportIntegrationsManager';
-import { FinancialReports } from './accounting/FinancialReports';
-import { ContactsManager } from './accounting/ContactsManager';
-import { JournalEntriesManager } from './accounting/JournalEntriesManager';
-import PlatformsManager from './accounting/PlatformsManager';
-import RecurringTransactionsManager from './accounting/RecurringTransactionsManager';
-import ExpenseCategoriesManager from './accounting/ExpenseCategoriesManager';
-import FinancialOverview from './accounting/FinancialOverview';
-import { TaxCenter } from './accounting/TaxCenter';
-import { AIBillingTracker } from './accounting/AIBillingTracker';
-import { DataExporter } from './accounting/DataExporter';
+import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+
+// Each tab's module loads the first time the tab opens, so the accounting
+// view no longer pulls every manager into one chunk.
+const FinancialOverview = lazy(() => import('./accounting/FinancialOverview'));
+const AIBillingTracker = lazy(() =>
+  import('./accounting/AIBillingTracker').then((m) => ({ default: m.AIBillingTracker }))
+);
+const PlatformsManager = lazy(() => import('./accounting/PlatformsManager'));
+const InvoicesManager = lazy(() =>
+  import('./accounting/InvoicesManager').then((m) => ({ default: m.InvoicesManager }))
+);
+const PaymentsManager = lazy(() =>
+  import('./accounting/PaymentsManager').then((m) => ({ default: m.PaymentsManager }))
+);
+const RecurringTransactionsManager = lazy(
+  () => import('./accounting/RecurringTransactionsManager')
+);
+const ExpenseCategoriesManager = lazy(() => import('./accounting/ExpenseCategoriesManager'));
+const ChartOfAccountsManager = lazy(() =>
+  import('./accounting/ChartOfAccountsManager').then((m) => ({
+    default: m.ChartOfAccountsManager,
+  }))
+);
+const ContactsManager = lazy(() =>
+  import('./accounting/ContactsManager').then((m) => ({ default: m.ContactsManager }))
+);
+const JournalEntriesManager = lazy(() =>
+  import('./accounting/JournalEntriesManager').then((m) => ({
+    default: m.JournalEntriesManager,
+  }))
+);
+const ImportIntegrationsManager = lazy(() =>
+  import('./accounting/ImportIntegrationsManager').then((m) => ({
+    default: m.ImportIntegrationsManager,
+  }))
+);
+const DataExporter = lazy(() =>
+  import('./accounting/DataExporter').then((m) => ({ default: m.DataExporter }))
+);
+const FinancialReports = lazy(() =>
+  import('./accounting/FinancialReports').then((m) => ({ default: m.FinancialReports }))
+);
+const TaxCenter = lazy(() =>
+  import('./accounting/TaxCenter').then((m) => ({ default: m.TaxCenter }))
+);
+
+const TABS = [
+  'overview',
+  'ai-billing',
+  'platforms',
+  'invoices',
+  'payments',
+  'recurring',
+  'categories',
+  'accounts',
+  'contacts',
+  'journal',
+  'import',
+  'export',
+  'reports',
+  'tax',
+] as const;
+type AccountingTab = (typeof TABS)[number];
+
+/** Query param holding the open tab. AdminDashboard owns `view`. */
+const TAB_PARAM = 'tab';
+
+function isAccountingTab(value: string | null): value is AccountingTab {
+  return !!value && (TABS as readonly string[]).includes(value);
+}
+
+const TabFallback = () => <TableSkeleton rows={6} columns={4} />;
+
+const Lazy = ({ children }: { children: ReactNode }) => (
+  <Suspense fallback={<TabFallback />}>{children}</Suspense>
+);
 
 export const AccountingDashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  // The open tab lives in the URL (?tab=invoices) so a refresh keeps it and
+  // Back returns to the previous tab. Other params (view, ...) are kept.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get(TAB_PARAM);
+  const activeTab: AccountingTab = isAccountingTab(tabParam) ? tabParam : 'overview';
+
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (tab === 'overview' || !isAccountingTab(tab)) next.delete(TAB_PARAM);
+        else next.set(TAB_PARAM, tab);
+        return next;
+      });
+    },
+    [setSearchParams]
+  );
 
   return (
     <div className="space-y-6">
@@ -108,14 +188,14 @@ export const AccountingDashboard = () => {
         </div>
 
         <TabsContent value="overview" className="space-y-4">
-          <FinancialOverview onNavigate={setActiveTab} />
+          <Lazy>
+            <FinancialOverview onNavigate={setActiveTab} />
+          </Lazy>
 
           <Card>
             <CardHeader>
               <CardTitle>Quick Start</CardTitle>
-              <CardDescription>
-                Get started with your accounting module
-              </CardDescription>
+              <CardDescription>Get started with your accounting module</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -197,55 +277,81 @@ export const AccountingDashboard = () => {
         </TabsContent>
 
         <TabsContent value="ai-billing">
-          <AIBillingTracker />
+          <Lazy>
+            <AIBillingTracker />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="platforms">
-          <PlatformsManager />
+          <Lazy>
+            <PlatformsManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="invoices">
-          <InvoicesManager />
+          <Lazy>
+            <InvoicesManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="payments">
-          <PaymentsManager />
+          <Lazy>
+            <PaymentsManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="recurring">
-          <RecurringTransactionsManager />
+          <Lazy>
+            <RecurringTransactionsManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="categories">
-          <ExpenseCategoriesManager />
+          <Lazy>
+            <ExpenseCategoriesManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="accounts">
-          <ChartOfAccountsManager />
+          <Lazy>
+            <ChartOfAccountsManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="contacts">
-          <ContactsManager />
+          <Lazy>
+            <ContactsManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="journal">
-          <JournalEntriesManager />
+          <Lazy>
+            <JournalEntriesManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="import">
-          <ImportIntegrationsManager />
+          <Lazy>
+            <ImportIntegrationsManager />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="export">
-          <DataExporter />
+          <Lazy>
+            <DataExporter />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="reports">
-          <FinancialReports />
+          <Lazy>
+            <FinancialReports />
+          </Lazy>
         </TabsContent>
 
         <TabsContent value="tax">
-          <TaxCenter />
+          <Lazy>
+            <TaxCenter />
+          </Lazy>
         </TabsContent>
       </Tabs>
     </div>

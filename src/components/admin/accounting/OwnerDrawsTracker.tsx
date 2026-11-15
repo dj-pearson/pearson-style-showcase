@@ -33,13 +33,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useConfirm } from '@/hooks/useConfirm';
+import { monthKeyOfDateOnly, parseDateOnly, todayDateOnly } from '@/lib/accounting/dates';
+import { fromCents, sumCents, toCents } from '@/lib/accounting/money';
+import { insertWithNextSequence } from '@/lib/accounting/numbering';
 
 export const OwnerDrawsTracker = () => {
   const [taxYear, setTaxYear] = useState(new Date().getFullYear().toString());
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newDraw, setNewDraw] = useState({
     amount: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: todayDateOnly(),
     method: 'Bank Transfer',
     description: '',
   });
@@ -64,37 +67,52 @@ export const OwnerDrawsTracker = () => {
   // Create a new draw
   const createDrawMutation = useMutation({
     mutationFn: async () => {
-      // Generate sequential number
-      const existingCount = draws?.length || 0;
-      const seq = String(existingCount + 1).padStart(3, '0');
+      // File the draw under the year it was taken, not the year being viewed.
+      const year = newDraw.date.slice(0, 4);
+      const prefix = `DRAW-${year}`;
+      const amountCents = toCents(newDraw.amount);
+      if (amountCents <= 0) throw new Error('Enter an amount greater than zero');
 
-      const { error } = await supabase.from('payments').insert({
-        payment_type: 'made',
-        payment_number: `DRAW-${taxYear}-${seq}`,
-        payment_date: newDraw.date,
-        amount: parseFloat(newDraw.amount),
-        payment_method: newDraw.method,
-        reference_number: `OWNER-DRAW-${taxYear}-${seq}`,
-        notes:
-          newDraw.description ||
-          `Owner's distribution — ${format(new Date(newDraw.date), 'MMM yyyy')}`,
-        status: 'completed',
+      await insertWithNextSequence({
+        prefix,
+        fetchNumbers: async () => {
+          const { data, error } = await supabase
+            .from('payments')
+            .select('payment_number')
+            .like('payment_number', `${prefix}-%`);
+          if (error) throw error;
+          return (data || []).map((r) => r.payment_number as string);
+        },
+        insert: (n) => {
+          const seq = String(n).padStart(3, '0');
+          return supabase.from('payments').insert({
+            payment_type: 'made',
+            payment_number: `${prefix}-${seq}`,
+            payment_date: newDraw.date,
+            amount: fromCents(amountCents),
+            payment_method: newDraw.method,
+            reference_number: `OWNER-DRAW-${year}-${seq}`,
+            notes:
+              newDraw.description ||
+              `Owner's distribution — ${format(parseDateOnly(newDraw.date), 'MMM yyyy')}`,
+          });
+        },
       });
-      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner_draws', taxYear] });
+      queryClient.invalidateQueries({ queryKey: ['owner_draws'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
       setIsAddOpen(false);
       setNewDraw({
         amount: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: todayDateOnly(),
         method: 'Bank Transfer',
         description: '',
       });
       toast.success("Owner's draw recorded");
     },
-    onError: () => {
-      toast.error('Failed to record draw');
+    onError: (error: { message?: string }) => {
+      toast.error(`Failed to record draw${error?.message ? `: ${error.message}` : ''}`);
     },
   });
 
@@ -105,27 +123,32 @@ export const OwnerDrawsTracker = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner_draws', taxYear] });
+      queryClient.invalidateQueries({ queryKey: ['owner_draws'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
       toast.success('Draw deleted');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(`Failed to delete draw${error?.message ? `: ${error.message}` : ''}`);
     },
   });
 
   // Calculate totals
-  const totalDrawsYTD = draws?.reduce((sum, d) => sum + Number(d.amount || 0), 0) || 0;
+  const totalDrawsYTD = fromCents(sumCents((draws ?? []).map((d) => d.amount)));
 
   // Monthly breakdown
   const monthlyBreakdown = useMemo(() => {
+    // Grouped in cents; DATE values parsed locally so the 1st stays in its month.
     const months: Record<string, number> = {};
     draws?.forEach((draw) => {
-      const monthKey = format(new Date(draw.payment_date), 'yyyy-MM');
-      months[monthKey] = (months[monthKey] || 0) + Number(draw.amount || 0);
+      const monthKey = monthKeyOfDateOnly(draw.payment_date);
+      months[monthKey] = (months[monthKey] || 0) + toCents(draw.amount);
     });
 
     return Object.entries(months)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, amount]) => ({
-        month: format(new Date(month + '-01'), 'MMM yyyy'),
-        amount,
+      .map(([month, cents]) => ({
+        month: format(parseDateOnly(`${month}-01`), 'MMM yyyy'),
+        amount: fromCents(cents),
       }));
   }, [draws]);
 
@@ -196,7 +219,7 @@ export const OwnerDrawsTracker = () => {
           <CardContent>
             <p className="text-xs text-muted-foreground">
               {draws && draws.length > 0
-                ? format(new Date(draws[0].payment_date), 'MMM d, yyyy')
+                ? format(parseDateOnly(draws[0].payment_date), 'MMM d, yyyy')
                 : 'No draws recorded'}
             </p>
           </CardContent>
@@ -322,7 +345,7 @@ export const OwnerDrawsTracker = () => {
               <TableBody>
                 {draws.map((draw) => (
                   <TableRow key={draw.id}>
-                    <TableCell>{format(new Date(draw.payment_date), 'MMM d, yyyy')}</TableCell>
+                    <TableCell>{format(parseDateOnly(draw.payment_date), 'MMM d, yyyy')}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {draw.notes || "Owner's distribution"}
                     </TableCell>
@@ -338,7 +361,7 @@ export const OwnerDrawsTracker = () => {
                         className="h-8 w-8"
                         onClick={async () => {
                           const ok = await confirm({
-                            title: `Delete the ${formatCurrency(Number(draw.amount))} owner draw from ${format(new Date(draw.payment_date), 'MMM d, yyyy')}?`,
+                            title: `Delete the ${formatCurrency(Number(draw.amount))} owner draw from ${format(parseDateOnly(draw.payment_date), 'MMM d, yyyy')}?`,
                             description: 'Year-to-date draws are recalculated without it.',
                             confirmLabel: 'Delete draw',
                             destructive: true,

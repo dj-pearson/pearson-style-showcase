@@ -22,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAll } from '@/lib/supabase-paging';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import {
@@ -392,14 +393,15 @@ async function fetchExportData(
 ): Promise<Record<string, any>[]> {
   switch (type) {
     case 'invoices': {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*, contacts(contact_name)')
-        .gte('invoice_date', from)
-        .lte('invoice_date', to)
-        .order('invoice_date', { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchAll(() =>
+        supabase
+          .from('invoices')
+          .select('*, contacts(contact_name)')
+          .gte('invoice_date', from)
+          .lte('invoice_date', to)
+          .order('invoice_date', { ascending: false })
+          .order('id')
+      );
 
       return (data || []).map((inv: any) => ({
         invoice_number: inv.invoice_number,
@@ -417,14 +419,15 @@ async function fetchExportData(
     }
 
     case 'payments': {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*, contacts(contact_name)')
-        .gte('payment_date', from)
-        .lte('payment_date', to)
-        .order('payment_date', { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchAll(() =>
+        supabase
+          .from('payments')
+          .select('*, contacts(contact_name)')
+          .gte('payment_date', from)
+          .lte('payment_date', to)
+          .order('payment_date', { ascending: false })
+          .order('id')
+      );
 
       return (data || []).map((pay: any) => ({
         payment_number: pay.payment_number,
@@ -440,14 +443,15 @@ async function fetchExportData(
     }
 
     case 'transactions': {
-      const { data, error } = await supabase
-        .from('platform_transactions')
-        .select('*, platforms(name), expense_categories(name)')
-        .gte('transaction_date', from)
-        .lte('transaction_date', to)
-        .order('transaction_date', { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchAll(() =>
+        supabase
+          .from('platform_transactions')
+          .select('*, platforms(name), expense_categories(name)')
+          .gte('transaction_date', from)
+          .lte('transaction_date', to)
+          .order('transaction_date', { ascending: false })
+          .order('id')
+      );
 
       return (data || []).map((tx: any) => ({
         platform_name: tx.platforms?.name || '',
@@ -462,14 +466,15 @@ async function fetchExportData(
     }
 
     case 'journal_entries': {
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select(`*, journal_entry_lines(*, accounts(account_name, account_number))`)
-        .gte('entry_date', from)
-        .lte('entry_date', to)
-        .order('entry_date', { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchAll(() =>
+        supabase
+          .from('journal_entries')
+          .select(`*, journal_entry_lines(*, accounts(account_name, account_number))`)
+          .gte('entry_date', from)
+          .lte('entry_date', to)
+          .order('entry_date', { ascending: false })
+          .order('id')
+      );
 
       const rows: Record<string, any>[] = [];
       (data || []).forEach((entry: any) => {
@@ -490,9 +495,9 @@ async function fetchExportData(
     }
 
     case 'contacts': {
-      const { data, error } = await supabase.from('contacts').select('*').order('contact_name');
-
-      if (error) throw error;
+      const data = await fetchAll(() =>
+        supabase.from('contacts').select('*').order('contact_name').order('id')
+      );
 
       return (data || []).map((c: any) => ({
         contact_name: c.contact_name,
@@ -521,21 +526,18 @@ async function fetchExportData(
 
       const aiPlatformIds = aiPlatforms?.map((p) => p.id) || [];
 
-      let query = supabase
-        .from('platform_transactions')
-        .select('*, platforms(name)')
-        .eq('transaction_type', 'expense')
-        .gte('transaction_date', from)
-        .lte('transaction_date', to)
-        .order('transaction_date', { ascending: false });
-
-      if (aiPlatformIds.length > 0) {
-        query = query.in('platform_id', aiPlatformIds);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const data = await fetchAll(() => {
+        let query = supabase
+          .from('platform_transactions')
+          .select('*, platforms(name)')
+          .eq('transaction_type', 'expense')
+          .gte('transaction_date', from)
+          .lte('transaction_date', to);
+        if (aiPlatformIds.length > 0) {
+          query = query.in('platform_id', aiPlatformIds);
+        }
+        return query.order('transaction_date', { ascending: false }).order('id');
+      });
 
       return (data || []).map((tx: any) => ({
         platform_name: tx.platforms?.name || '',

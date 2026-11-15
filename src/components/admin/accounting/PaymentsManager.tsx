@@ -1,5 +1,5 @@
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { DocumentUpload } from './DocumentUpload';
 import { useConfirm } from '@/hooks/useConfirm';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
+import { todayDateOnly } from '@/lib/accounting/dates';
+import { fromCents, sumCents, toCents } from '@/lib/accounting/money';
+import {
+  clampAllocationAmount,
+  unallocatedCents,
+  validateAllocations,
+} from '@/lib/accounting/allocations';
 
 interface Payment {
   id: string;
@@ -93,7 +102,7 @@ const getDefaultFormData = () => ({
   payment_type: 'received' as 'received' | 'made',
   payment_number: '',
   contact_id: '',
-  payment_date: new Date().toISOString().split('T')[0],
+  payment_date: todayDateOnly(),
   amount: '',
   payment_method: 'Bank Transfer',
   reference_number: '',
@@ -101,6 +110,8 @@ const getDefaultFormData = () => ({
   to_account_id: '',
   notes: '',
 });
+
+type PaymentFormData = ReturnType<typeof getDefaultFormData>;
 
 export const PaymentsManager = () => {
   const confirm = useConfirm();
@@ -114,7 +125,17 @@ export const PaymentsManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState(getDefaultFormData());
+  const [formData, setFormData] = useState<PaymentFormData>(getDefaultFormData());
+  // What the form held when it opened; anything else is unsaved input. Parsed
+  // receipt data is compared against the blank form, so it counts as unsaved.
+  const baselineRef = useRef(JSON.stringify(formData));
+  const isFormDirty = JSON.stringify(formData) !== baselineRef.current;
+  const {
+    isBlocking: isCloseBlocked,
+    requestNavigation: requestClose,
+    confirmDiscard: confirmClose,
+    cancelDiscard: cancelClose,
+  } = useUnsavedChanges(isDialogOpen && isFormDirty);
 
   const [allocationData, setAllocationData] = useState<
     {
@@ -190,6 +211,21 @@ export const PaymentsManager = () => {
 
       if (error) throw error;
       return data as Invoice[];
+    },
+  });
+
+  // Allocations already saved against this payment
+  const { data: existingAllocations = [], isLoading: existingAllocationsLoading } = useQuery({
+    queryKey: ['payment_allocations', allocatingPayment?.id],
+    enabled: !!allocatingPayment,
+    queryFn: async () => {
+      if (!allocatingPayment) return [];
+      const { data, error } = await supabase
+        .from('payment_allocations')
+        .select('amount_allocated')
+        .eq('payment_id', allocatingPayment.id);
+      if (error) throw error;
+      return (data || []).map((a) => a.amount_allocated as number);
     },
   });
 
@@ -309,6 +345,7 @@ export const PaymentsManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['payment_allocations'] });
       toast({ title: 'Success', description: 'Payment allocated successfully' });
       setIsAllocateDialogOpen(false);
       setAllocationData([]);
@@ -324,24 +361,20 @@ export const PaymentsManager = () => {
   });
 
   const resetForm = () => {
-    setFormData({
-      payment_type: 'received',
-      payment_number: '',
-      contact_id: '',
-      payment_date: new Date().toISOString().split('T')[0],
-      amount: '',
-      payment_method: 'Bank Transfer',
-      reference_number: '',
-      from_account_id: '',
-      to_account_id: '',
-      notes: '',
-    });
+    const blank = getDefaultFormData();
+    baselineRef.current = JSON.stringify(blank);
+    setFormData(blank);
     setEditingPayment(null);
+  };
+
+  const closePaymentDialog = () => {
+    setIsDialogOpen(false);
+    resetForm();
   };
 
   const handleEdit = (payment: Payment) => {
     setEditingPayment(payment);
-    setFormData({
+    const loaded: PaymentFormData = {
       payment_type: payment.payment_type,
       payment_number: payment.payment_number,
       contact_id: payment.contact_id || '',
@@ -352,7 +385,9 @@ export const PaymentsManager = () => {
       from_account_id: payment.from_account_id || '',
       to_account_id: payment.to_account_id || '',
       notes: payment.notes || '',
-    });
+    };
+    baselineRef.current = JSON.stringify(loaded);
+    setFormData(loaded);
     setIsDialogOpen(true);
   };
 
@@ -363,7 +398,7 @@ export const PaymentsManager = () => {
       payment_type: formData.payment_type,
       contact_id: formData.contact_id || null,
       payment_date: formData.payment_date,
-      amount: parseFloat(formData.amount),
+      amount: fromCents(toCents(formData.amount)),
       currency_id: null,
       payment_method: formData.payment_method || null,
       reference_number: formData.reference_number || null,
@@ -396,35 +431,39 @@ export const PaymentsManager = () => {
 
   const handleAllocateSubmit = () => {
     if (!allocatingPayment) return;
+    if (existingAllocationsLoading) return;
 
-    const allocations = allocationData
-      .filter((a) => a.invoice_id && parseFloat(a.amount) > 0)
-      .map((a) => ({
-        payment_id: allocatingPayment.id,
-        invoice_id: a.invoice_id,
-        amount_allocated: parseFloat(a.amount),
-      }));
+    const result = validateAllocations({
+      paymentAmount: allocatingPayment.amount,
+      existingAllocations,
+      rows: allocationData,
+      invoices: unpaidInvoices ?? [],
+    });
 
-    if (allocations.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one invoice and amount',
-        variant: 'destructive',
-      });
+    if (!result.ok) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
       return;
     }
 
-    const totalAllocated = allocations.reduce((sum, a) => sum + a.amount_allocated, 0);
-    if (totalAllocated > allocatingPayment.amount) {
-      toast({
-        title: 'Error',
-        description: 'Total allocated amount exceeds payment amount',
-        variant: 'destructive',
-      });
-      return;
-    }
+    allocateMutation.mutate(
+      result.allocations.map((a) => ({ ...a, payment_id: allocatingPayment.id }))
+    );
+  };
 
-    allocateMutation.mutate(allocations);
+  // Cents left on the payment after saved allocations and the rows typed so far.
+  const unallocatedBeforeRowsCents = allocatingPayment
+    ? unallocatedCents(allocatingPayment.amount, existingAllocations)
+    : 0;
+  const typedAllocationCents = sumCents(allocationData.map((a) => a.amount));
+  const remainingForRow = (index: number) =>
+    unallocatedBeforeRowsCents -
+    sumCents(allocationData.filter((_, i) => i !== index).map((a) => a.amount));
+
+  /** Cap a row at its invoice's amount due and the payment's remaining balance. */
+  const clampRow = (index: number, invoiceId: string, amount: string) => {
+    const invoice = unpaidInvoices?.find((i) => i.id === invoiceId);
+    if (!invoice) return amount;
+    return clampAllocationAmount(amount, invoice.amount_due, remainingForRow(index));
   };
 
   const addAllocationRow = () => {
@@ -488,9 +527,7 @@ export const PaymentsManager = () => {
                             parsedData.transactionId ||
                             '',
                           payment_date:
-                            parsedData.payment_date ||
-                            parsedData.date ||
-                            new Date().toISOString().split('T')[0],
+                            parsedData.payment_date || parsedData.date || todayDateOnly(),
                           amount: (parsedData.amount || parsedData.total || '').toString(),
                           payment_method:
                             parsedData.payment_method || parsedData.method || 'Bank Transfer',
@@ -522,8 +559,12 @@ export const PaymentsManager = () => {
               <Dialog
                 open={isDialogOpen}
                 onOpenChange={(open) => {
-                  setIsDialogOpen(open);
-                  if (!open) resetForm();
+                  if (open) {
+                    setIsDialogOpen(true);
+                    return;
+                  }
+                  // Esc / outside click: ask before throwing away typed input.
+                  requestClose(closePaymentDialog);
                 }}
               >
                 <DialogTrigger asChild>
@@ -663,14 +704,16 @@ export const PaymentsManager = () => {
                       />
                     </div>
 
+                    <UnsavedChangesDialog
+                      open={isCloseBlocked}
+                      onDiscard={confirmClose}
+                      onKeepEditing={cancelClose}
+                    />
                     <DialogFooter>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => {
-                          resetForm();
-                          setIsDialogOpen(false);
-                        }}
+                        onClick={() => requestClose(closePaymentDialog)}
                       >
                         Cancel
                       </Button>
@@ -804,7 +847,13 @@ export const PaymentsManager = () => {
       </Card>
 
       {/* Allocate Payment Dialog */}
-      <Dialog open={isAllocateDialogOpen} onOpenChange={setIsAllocateDialogOpen}>
+      <Dialog
+        open={isAllocateDialogOpen}
+        onOpenChange={(open) => {
+          setIsAllocateDialogOpen(open);
+          if (!open) setAllocationData([]);
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Allocate Payment to Invoices</DialogTitle>
@@ -828,7 +877,22 @@ export const PaymentsManager = () => {
                     value={allocation.invoice_id}
                     onValueChange={(value) => {
                       const newData = [...allocationData];
-                      newData[index].invoice_id = value;
+                      const invoice = unpaidInvoices?.find((i) => i.id === value);
+                      // Prefill with what the invoice can take, capped at what's left.
+                      const amount =
+                        allocationData[index].amount ||
+                        (invoice
+                          ? fromCents(
+                              Math.max(
+                                0,
+                                Math.min(toCents(invoice.amount_due), remainingForRow(index))
+                              )
+                            ).toFixed(2)
+                          : '');
+                      newData[index] = {
+                        invoice_id: value,
+                        amount: clampRow(index, value, amount),
+                      };
                       setAllocationData(newData);
                     }}
                   >
@@ -851,8 +915,16 @@ export const PaymentsManager = () => {
                   value={allocation.amount}
                   onChange={(e) => {
                     const newData = [...allocationData];
-                    newData[index].amount = e.target.value;
+                    newData[index] = { ...newData[index], amount: e.target.value };
                     setAllocationData(newData);
+                  }}
+                  onBlur={() => {
+                    const clamped = clampRow(index, allocation.invoice_id, allocation.amount);
+                    if (clamped !== allocation.amount) {
+                      const newData = [...allocationData];
+                      newData[index] = { ...newData[index], amount: clamped };
+                      setAllocationData(newData);
+                    }
                   }}
                 />
                 <Button
@@ -875,11 +947,7 @@ export const PaymentsManager = () => {
             <div className="pt-4 border-t">
               <div className="flex justify-between text-sm">
                 <span>Total Allocated:</span>
-                <span className="font-mono">
-                  {formatCurrency(
-                    allocationData.reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0)
-                  )}
-                </span>
+                <span className="font-mono">{formatCurrency(fromCents(typedAllocationCents))}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
                 <span>Payment Amount:</span>
@@ -887,14 +955,19 @@ export const PaymentsManager = () => {
                   {allocatingPayment && formatCurrency(allocatingPayment.amount)}
                 </span>
               </div>
+              {existingAllocations.length > 0 && (
+                <div className="flex justify-between text-sm mt-1">
+                  <span>Already Allocated:</span>
+                  <span className="font-mono">
+                    {formatCurrency(fromCents(sumCents(existingAllocations)))}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-sm mt-1 font-semibold">
                 <span>Remaining:</span>
                 <span className="font-mono">
                   {allocatingPayment &&
-                    formatCurrency(
-                      allocatingPayment.amount -
-                        allocationData.reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0)
-                    )}
+                    formatCurrency(fromCents(unallocatedBeforeRowsCents - typedAllocationCents))}
                 </span>
               </div>
             </div>
@@ -910,7 +983,12 @@ export const PaymentsManager = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleAllocateSubmit}>Allocate Payment</Button>
+            <Button
+              onClick={handleAllocateSubmit}
+              disabled={existingAllocationsLoading || allocateMutation.isPending}
+            >
+              Allocate Payment
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -8,10 +8,14 @@ import { HomeOfficeCalculator } from './HomeOfficeCalculator';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfYear, endOfYear } from 'date-fns';
+import { fetchAll } from '@/lib/supabase-paging';
+import { defaultTaxYear } from '@/lib/accounting/dates';
+import { fromCents, toCents } from '@/lib/accounting/money';
 
 export const TaxCenter = () => {
   const [homeOfficeDeduction, setHomeOfficeDeduction] = useState(0);
-  const taxYear = '2025';
+  // Same default as the Schedule C and quarterly views.
+  const taxYear = String(defaultTaxYear());
 
   const { dateFrom, dateTo } = useMemo(() => {
     const year = parseInt(taxYear);
@@ -25,43 +29,43 @@ export const TaxCenter = () => {
   // Fetch data needed to pass estimated profit to QuarterlyTaxTracker
   const { data: salesInvoices } = useQuery({
     queryKey: ['invoices', 'sales', 'tax-center', dateFrom, dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('amount_paid')
-        .eq('invoice_type', 'sales')
-        .gte('invoice_date', dateFrom)
-        .lte('invoice_date', dateTo);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('invoices')
+          .select('amount_paid')
+          .eq('invoice_type', 'sales')
+          .gte('invoice_date', dateFrom)
+          .lte('invoice_date', dateTo)
+          .order('id')
+      ),
   });
 
   const { data: purchaseInvoices } = useQuery({
     queryKey: ['invoices', 'purchase', 'tax-center', dateFrom, dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('amount_paid, total_amount')
-        .eq('invoice_type', 'purchase')
-        .gte('invoice_date', dateFrom)
-        .lte('invoice_date', dateTo);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('invoices')
+          .select('amount_paid, total_amount')
+          .eq('invoice_type', 'purchase')
+          .gte('invoice_date', dateFrom)
+          .lte('invoice_date', dateTo)
+          .order('id')
+      ),
   });
 
   const { data: platformTransactions } = useQuery({
     queryKey: ['platform_transactions', 'tax-center', dateFrom, dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('platform_transactions')
-        .select('transaction_type, amount')
-        .gte('transaction_date', dateFrom)
-        .lte('transaction_date', dateTo);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('platform_transactions')
+          .select('transaction_type, amount')
+          .gte('transaction_date', dateFrom)
+          .lte('transaction_date', dateTo)
+          .order('id')
+      ),
   });
 
   // Rough estimate of net profit for quarterly tax tracker
@@ -69,23 +73,24 @@ export const TaxCenter = () => {
     let revenue = 0;
     let expenses = 0;
 
-    salesInvoices?.forEach(inv => {
-      revenue += Number(inv.amount_paid || 0);
+    salesInvoices?.forEach((inv) => {
+      revenue += toCents(inv.amount_paid);
     });
 
-    platformTransactions?.forEach(tx => {
+    platformTransactions?.forEach((tx) => {
       if (tx.transaction_type === 'revenue') {
-        revenue += Number(tx.amount || 0);
+        revenue += toCents(tx.amount);
       } else if (tx.transaction_type === 'expense') {
-        expenses += Number(tx.amount || 0);
+        expenses += toCents(tx.amount);
       }
     });
 
-    purchaseInvoices?.forEach(inv => {
-      expenses += Number(inv.amount_paid || inv.total_amount || 0);
+    purchaseInvoices?.forEach((inv) => {
+      expenses += toCents(inv.amount_paid || inv.total_amount);
     });
 
-    const netProfit = revenue - expenses - homeOfficeDeduction;
+    // revenue and expenses are whole cents.
+    const netProfit = fromCents(revenue - expenses - toCents(homeOfficeDeduction));
     const seNetEarnings = Math.max(0, netProfit * 0.9235);
     const seTax = Math.min(seNetEarnings, 176100) * 0.124 + seNetEarnings * 0.029;
 

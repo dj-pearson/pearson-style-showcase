@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { formatDateOnly } from '@/lib/accounting/dates';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import {
@@ -464,11 +465,8 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
   const formatDate = (date: string | null) => {
     if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    // extracted_date is a DATE; parse it as a local day.
+    return formatDateOnly(date);
   };
 
   return (
