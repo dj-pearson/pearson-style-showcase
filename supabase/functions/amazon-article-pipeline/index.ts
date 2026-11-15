@@ -14,6 +14,7 @@ import {
   parseJSONResponse,
   type AIConfig,
 } from '../_shared/ai-helper.ts';
+import { fetchJsonWithTimeout } from '../_shared/fetch-with-timeout.ts';
 import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
 import { triggerSiteRebuild } from '../_shared/site-publish.ts';
 import {
@@ -57,6 +58,16 @@ const PIPELINE_RATE_LIMIT: RateLimitConfig = {
 };
 
 const SITE = 'https://danpearson.net';
+/**
+ * A 'running' run older than this is treated as dead. It has to stay well
+ * above the longest a run can take: up to five product searches (30s per
+ * attempt, two attempts each) plus the AI budget (AI_DEFAULT_TOTAL_BUDGET_MS,
+ * five minutes). Reclaiming sooner let a slow run and its replacement both
+ * publish.
+ */
+const STALE_RUN_MS = 30 * 60_000;
+/** Product search calls are GETs, so one retry on a timeout or 5xx is safe. */
+const SEARCH_FETCH = { timeoutMs: 30_000, maxRetries: 2 };
 const MIN_PRODUCTS = 3;
 const MAX_PRODUCTS = 5;
 
@@ -72,10 +83,16 @@ async function fetchViaSerpAmazon(niche: string): Promise<Product[]> {
   url.searchParams.set('k', niche);
   url.searchParams.set('api_key', key);
 
-  const response = await fetch(url.toString());
-  if (!response.ok)
-    throw new Error(`SerpAPI amazon ${response.status}: ${(await response.text()).slice(0, 200)}`);
-  return normalizeSerpAmazon(await response.json());
+  // The URL carries the API key, so the label (not the URL) names the call.
+  const { data } = await fetchJsonWithTimeout(
+    url.toString(),
+    {},
+    {
+      ...SEARCH_FETCH,
+      label: 'serpapi-amazon',
+    }
+  );
+  return normalizeSerpAmazon(data);
 }
 
 /** Fallback when SerpAPI is out of credit: Google Custom Search restricted to amazon.com. */
@@ -91,10 +108,15 @@ async function fetchViaGoogleSearch(niche: string): Promise<Product[]> {
   url.searchParams.set('q', `best ${niche} site:amazon.com`);
   url.searchParams.set('num', '10');
 
-  const response = await fetch(url.toString());
-  if (!response.ok)
-    throw new Error(`Google Search ${response.status}: ${(await response.text()).slice(0, 200)}`);
-  const data = await response.json();
+  // deno-lint-ignore no-explicit-any
+  const { data } = await fetchJsonWithTimeout<any>(
+    url.toString(),
+    {},
+    {
+      ...SEARCH_FETCH,
+      label: 'google-cse',
+    }
+  );
 
   // deno-lint-ignore no-explicit-any
   return (data.items || []).flatMap((item: any) => {
@@ -281,6 +303,11 @@ export default async (req: Request): Promise<Response> => {
   );
 
   let runId: string | null = null;
+  // Cleanup state for the catch block: an article inserted by this run is
+  // removed again unless the run reached 'success'.
+  let articleId: string | null = null;
+  let searchTermId = '';
+  let finalized = false;
 
   try {
     const aiConfigs = await getAIConfigs(supabase, 'normal', 'article_generation');
@@ -308,15 +335,22 @@ export default async (req: Request): Promise<Response> => {
     const todayStart = `${new Date().toISOString().slice(0, 10)}T00:00:00Z`;
     const { data: todaysRuns } = await supabase
       .from('amazon_pipeline_runs')
-      .select('id, status, started_at')
+      .select('id, status, started_at, posts_created')
       .gte('started_at', todayStart);
 
+    type RunRow = { status: string; started_at: string; posts_created: number | null };
+    // A run that already inserted its article (posts_created is set right
+    // after the insert) has used the day's slot even if it is still running
+    // or died before marking itself done.
+    const hasArticle = (r: RunRow) => r.status === 'running' && (r.posts_created ?? 0) > 0;
     const successes = (todaysRuns || []).filter(
-      (r: { status: string }) => r.status === 'success'
+      (r: RunRow) => r.status === 'success' || hasArticle(r)
     ).length;
     const inFlight = (todaysRuns || []).some(
-      (r: { status: string; started_at: string }) =>
-        r.status === 'running' && Date.now() - new Date(r.started_at).getTime() < 20 * 60_000
+      (r: RunRow) =>
+        r.status === 'running' &&
+        !hasArticle(r) &&
+        Date.now() - new Date(r.started_at).getTime() < STALE_RUN_MS
     );
     if (inFlight) {
       return json(
@@ -389,7 +423,6 @@ export default async (req: Request): Promise<Response> => {
 
     // Try up to five unused terms until one yields enough products.
     let niche = '';
-    let searchTermId = '';
     let products: Product[] = [];
     const filter = {
       minRating: settings.min_rating,
@@ -552,6 +585,9 @@ export default async (req: Request): Promise<Response> => {
       .maybeSingle();
     if (clash) slug = `${slug}-${new Date().toISOString().slice(0, 10)}`;
 
+    // Insert as a draft first. It is only published once its products are
+    // saved and the run is about to be marked done, so a failure part way
+    // through never leaves a live guide with no product rows.
     const { data: article, error: articleError } = await supabase
       .from('articles')
       .insert({
@@ -560,7 +596,7 @@ export default async (req: Request): Promise<Response> => {
         excerpt,
         content,
         category: 'Product Reviews',
-        published: publish,
+        published: false,
         author: 'Dan Pearson',
         seo_title: stripInvisible(guide.seo_title || title),
         seo_description: stripInvisible(guide.seo_description || excerpt),
@@ -569,12 +605,38 @@ export default async (req: Request): Promise<Response> => {
         tags: ['Amazon', 'Buying Guide', niche],
         read_time: readTime(content),
       })
-      .select('id, title, slug, published')
+      .select('id, title, slug')
       .single();
     if (articleError) throw articleError;
+    articleId = article.id;
+
+    // Claim the day's slot as soon as the article exists (see hasArticle).
+    const { error: claimError } = await supabase
+      .from('amazon_pipeline_runs')
+      .update({ posts_created: 1, errors: { article_id: article.id } })
+      .eq('id', runId);
+    if (claimError) throw claimError;
+
+    const details = new Map((guide.products || []).map((p) => [p.asin, p]));
+    const { error: productsError } = await supabase.from('article_products').insert(
+      products.map((product) => {
+        const detail = details.get(product.asin);
+        return {
+          article_id: article.id,
+          asin: product.asin,
+          summary: detail?.summary || null,
+          pros: detail?.pros || [],
+          cons: detail?.cons || [],
+          specs: detail?.specs || {},
+          best_for: detail?.best_for || null,
+          affiliate_url: buildAffiliateUrl(product.asin, tag),
+        };
+      })
+    );
+    if (productsError) throw new Error(`Saving article products failed: ${productsError.message}`);
 
     if (searchTermId) {
-      await supabase
+      const { error: termError } = await supabase
         .from('amazon_search_terms')
         .update({
           used_at: new Date().toISOString(),
@@ -582,30 +644,15 @@ export default async (req: Request): Promise<Response> => {
           product_count: products.length,
         })
         .eq('id', searchTermId);
+      if (termError) throw new Error(`Marking the search term failed: ${termError.message}`);
     }
 
-    const details = new Map((guide.products || []).map((p) => [p.asin, p]));
-    for (const product of products) {
-      const detail = details.get(product.asin);
-      await supabase.from('article_products').insert({
-        article_id: article.id,
-        asin: product.asin,
-        summary: detail?.summary || null,
-        pros: detail?.pros || [],
-        cons: detail?.cons || [],
-        specs: detail?.specs || {},
-        best_for: detail?.best_for || null,
-        affiliate_url: buildAffiliateUrl(product.asin, tag),
-      });
-    }
-
-    let rebuild = null;
-    if (article.published) {
-      await invokeFunctionAndForget('send-article-webhook', {
-        articleId: article.id,
-        isTest: false,
-      });
-      rebuild = await triggerSiteRebuild(`Amazon guide ${article.slug}`);
+    if (publish) {
+      const { error: publishError } = await supabase
+        .from('articles')
+        .update({ published: true })
+        .eq('id', article.id);
+      if (publishError) throw new Error(`Publishing failed: ${publishError.message}`);
     }
 
     const note = publish
@@ -619,7 +666,7 @@ export default async (req: Request): Promise<Response> => {
                 .join('; ')
         }`;
 
-    await supabase
+    const { error: finishError } = await supabase
       .from('amazon_pipeline_runs')
       .update({
         status: 'success',
@@ -627,9 +674,31 @@ export default async (req: Request): Promise<Response> => {
         posts_created: 1,
         posts_published: publish ? 1 : 0,
         note,
-        errors: { quality: report.issues, wordCount: report.wordCount, model },
+        errors: {
+          article_id: article.id,
+          quality: report.issues,
+          wordCount: report.wordCount,
+          model,
+        },
       })
       .eq('id', runId);
+    if (finishError) throw new Error(`Marking the run done failed: ${finishError.message}`);
+    finalized = true;
+
+    // Side effects only after the run is recorded; a failure here must not
+    // undo a finished guide.
+    let rebuild = null;
+    if (publish) {
+      try {
+        await invokeFunctionAndForget('send-article-webhook', {
+          articleId: article.id,
+          isTest: false,
+        });
+        rebuild = await triggerSiteRebuild(`Amazon guide ${article.slug}`);
+      } catch (error) {
+        console.error('[amazon] post-publish hooks failed:', error);
+      }
+    }
 
     if (settings.id) {
       await supabase
@@ -659,15 +728,40 @@ export default async (req: Request): Promise<Response> => {
       corsHeaders
     );
   } catch (error) {
-    if (runId) {
+    const reason = error instanceof Error ? error.message : String(error);
+    if (articleId && !finalized) {
+      // Undo the half-finished guide: free the search term, then delete the
+      // article (article_products cascade). If the delete fails, at least
+      // make sure it is not live.
+      if (searchTermId) {
+        await supabase
+          .from('amazon_search_terms')
+          .update({ used_at: null, article_id: null })
+          .eq('id', searchTermId)
+          .eq('article_id', articleId);
+      }
+      const { error: deleteError } = await supabase.from('articles').delete().eq('id', articleId);
+      if (deleteError) {
+        console.error('[amazon] could not delete the failed article:', deleteError);
+        await supabase.from('articles').update({ published: false }).eq('id', articleId);
+      }
+    }
+    if (runId && !finalized) {
       await supabase
         .from('amazon_pipeline_runs')
         .update({
           status: 'fail',
           finished_at: new Date().toISOString(),
-          note: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
+          posts_created: 0,
+          posts_published: 0,
+          note: reason.slice(0, 1000),
+          ...(articleId ? { errors: { removed_article_id: articleId } } : {}),
         })
         .eq('id', runId);
+    }
+    if (finalized) {
+      // The guide is saved and the run recorded; only bookkeeping failed.
+      console.error('[amazon] error after the run finished:', error);
     }
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
