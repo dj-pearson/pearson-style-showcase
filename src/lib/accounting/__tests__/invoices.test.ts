@@ -20,15 +20,36 @@ const form: InvoiceFormValues = {
 };
 
 describe('buildInvoiceWrite', () => {
-  it('never writes amount_paid when editing', () => {
+  it('never writes amount_paid when editing an already-paid invoice', () => {
     const row = buildInvoiceWrite({ ...form, status: 'paid' }, 200000, {
       import_source: 'manual',
       amount_paid: 2000,
+      status: 'paid',
     });
     expect(row).not.toHaveProperty('amount_paid');
     expect(row.total_amount).toBe(2000);
     expect(row.amount_due).toBe(0);
     expect(row.notes).toBe('updated notes');
+  });
+
+  it('settles in full when an edit marks an unpaid invoice paid', () => {
+    const row = buildInvoiceWrite({ ...form, status: 'paid' }, 250000, {
+      import_source: 'manual',
+      amount_paid: 500,
+      status: 'partially_paid',
+    });
+    expect(row.amount_paid).toBe(2500);
+    expect(row.amount_due).toBe(0);
+  });
+
+  it('leaves recorded payments alone when an edit keeps a non-paid status', () => {
+    const row = buildInvoiceWrite({ ...form, status: 'sent' }, 250000, {
+      import_source: 'manual',
+      amount_paid: 500,
+      status: 'sent',
+    });
+    expect(row).not.toHaveProperty('amount_paid');
+    expect(row.amount_due).toBe(2000);
   });
 
   it('keeps amount_due in line with payments already recorded', () => {

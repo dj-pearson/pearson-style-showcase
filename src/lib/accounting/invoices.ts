@@ -86,11 +86,12 @@ export function expenseCategoryOf(item: { metadata?: unknown }): string | undefi
 interface ExistingInvoice {
   import_source: string | null;
   amount_paid: number | null;
+  status?: string | null;
 }
 
 /**
- * The invoices row to insert (existing = null) or update. Never includes
- * amount_paid on update.
+ * The invoices row to insert (existing = null) or update. On update it
+ * includes amount_paid only when the edit marks an unpaid invoice paid.
  */
 export function buildInvoiceWrite(
   form: InvoiceFormValues,
@@ -111,6 +112,17 @@ export function buildInvoiceWrite(
   };
 
   if (existing) {
+    // Switching an unpaid invoice to "paid" in the form settles it in full,
+    // the same as the row's "mark paid" action; otherwise revenue would never
+    // see it. Any other edit leaves recorded payments alone.
+    if (form.status === 'paid' && existing.status !== 'paid') {
+      return {
+        ...base,
+        amount_paid: total,
+        amount_due: 0,
+        import_source: existing.import_source,
+      };
+    }
     // amount_due follows the payments already recorded. The items trigger
     // recomputes it from the stored amount_paid anyway once items change.
     const paidCents = toCents(existing.amount_paid);
