@@ -2,34 +2,71 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { Resend } from 'npm:resend@2.0.0';
 import { validateEmail } from './validation.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, getClientIdentifier } from '../_shared/rate-limiter.ts';
 
 interface SubscribeRequest {
   email: string;
 }
 
-// Rate limiting map: IP -> { count, resetTime }
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_MAX = 5; // 5 requests
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+// 5 signups per client IP per hour. Keyed with the shared getClientIdentifier,
+// which ignores the client-supplied first X-Forwarded-For hop.
+const NEWSLETTER_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 5,
+  burstAllowance: 0,
+  keyPrefix: 'newsletter',
+};
 
 // DISPOSABLE_DOMAINS + validateEmail extracted to ./validation.ts for unit tests (US-012).
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
+// No unsubscribe endpoint exists yet, so the footer link is a mailto.
+const UNSUBSCRIBE_HREF = 'mailto:dan@danpearson.net?subject=Unsubscribe';
 
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
+const WELCOME_SUBJECT = "You're on the list: pipeline notes from Dan Pearson";
 
-  if (record.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
+const WELCOME_TEXT = `Thanks for signing up.
 
-  record.count++;
-  return true;
-}
+Here's what you'll get from me: teardowns of real CRM automations (what the workflow does, where it breaks, what it cost to run) and step-by-step guides you can copy into your own pipeline. No filler, and not more than a couple of emails a month.
+
+Start here:
+- AI CRM automation, the overview: https://danpearson.net/ai-crm-automation
+- Every guide on the topic: https://danpearson.net/topics/ai-crm-automation
+
+If you're working on something specific, reply to this email. I read every one.
+
+Dan Pearson
+https://danpearson.net
+LinkedIn: https://www.linkedin.com/in/danpearson
+GitHub: https://github.com/dj-pearson
+
+You're getting this because you subscribed at danpearson.net. To unsubscribe, email dan@danpearson.net with "Unsubscribe" in the subject.`;
+
+const WELCOME_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${WELCOME_SUBJECT}</title>
+</head>
+<body style="margin: 0; padding: 0; background: #ffffff;">
+  <div style="max-width: 560px; margin: 0 auto; padding: 32px 20px; font-family: Georgia, 'Times New Roman', serif; font-size: 17px; line-height: 1.6; color: #1f2328;">
+    <p style="margin: 0 0 20px;">Thanks for signing up.</p>
+    <p style="margin: 0 0 20px;">Here's what you'll get from me: teardowns of real CRM automations (what the workflow does, where it breaks, what it cost to run) and step-by-step guides you can copy into your own pipeline. No filler, and not more than a couple of emails a month.</p>
+    <p style="margin: 0 0 8px; font-weight: bold;">Start here</p>
+    <p style="margin: 0 0 6px;"><a href="https://danpearson.net/ai-crm-automation" style="color: #0b5cad;">AI CRM automation, the overview</a></p>
+    <p style="margin: 0 0 20px;"><a href="https://danpearson.net/topics/ai-crm-automation" style="color: #0b5cad;">Every guide on the topic</a></p>
+    <p style="margin: 0 0 20px;">If you're working on something specific, reply to this email. I read every one.</p>
+    <p style="margin: 0 0 32px;">Dan Pearson</p>
+    <p style="margin: 0; padding-top: 16px; border-top: 1px solid #d8dee4; font-family: Arial, Helvetica, sans-serif; font-size: 13px; line-height: 1.5; color: #57606a;">
+      <a href="https://danpearson.net" style="color: #57606a;">danpearson.net</a> &middot;
+      <a href="https://www.linkedin.com/in/danpearson" style="color: #57606a;">LinkedIn</a> &middot;
+      <a href="https://github.com/dj-pearson" style="color: #57606a;">GitHub</a><br>
+      You're getting this because you subscribed at danpearson.net.
+      <a href="${UNSUBSCRIBE_HREF}" style="color: #57606a;">Unsubscribe</a>
+    </p>
+  </div>
+</body>
+</html>`;
 
 const handler = async (req: Request): Promise<Response> => {
   // CORS from the shared allow-list (per request; never a wildcard).
@@ -41,18 +78,13 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    // Get client IP for rate limiting
-    const clientIP =
-      req.headers.get('x-forwarded-for')?.split(',')[0] ||
-      req.headers.get('x-real-ip') ||
-      'unknown';
-
-    // Check rate limit
-    if (!checkRateLimit(clientIP)) {
-      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+    const clientIP = getClientIdentifier(req);
+    const rateLimit = checkRateLimit(clientIP, NEWSLETTER_RATE_LIMIT);
+    if (!rateLimit.allowed) {
+      console.warn('Newsletter signup rate limit exceeded');
       return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
         status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, ...rateLimit.headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -61,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Validate and normalize email
     const validation = validateEmail(rawEmail);
     if (!validation.valid) {
-      console.warn(`Invalid email submission: ${rawEmail} - ${validation.error}`);
+      console.warn(`Invalid email submission: ${validation.error}`);
       return new Response(JSON.stringify({ error: validation.error }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -116,57 +148,11 @@ const handler = async (req: Request): Promise<Response> => {
     const welcomeEmailResponse = await resend.emails.send({
       from: 'Dan Pearson <noreply@danpearson.net>',
       to: [email],
-      subject: "Welcome to Dan Pearson's Newsletter! 🚀",
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to Dan Pearson's Newsletter</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
-            <h1 style="margin: 0; font-size: 28px;">Welcome aboard! 🎉</h1>
-            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Thanks for joining the Dan Pearson community</p>
-          </div>
-          
-          <div style="background: #f8fafc; padding: 25px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-            <h2 style="color: #1e293b; margin-top: 0;">What to expect:</h2>
-            <ul style="color: #64748b; padding-left: 20px;">
-              <li><strong>🚀 Project Updates:</strong> Behind-the-scenes looks at my latest AI and blockchain projects</li>
-              <li><strong>💡 Tech Insights:</strong> Lessons learned from building innovative solutions</li>
-              <li><strong>📈 Business Tips:</strong> Strategies for growing tech businesses</li>
-              <li><strong>🔮 Industry Trends:</strong> My take on where AI and web3 are heading</li>
-            </ul>
-          </div>
-          
-          <div style="margin: 30px 0; text-align: center;">
-            <h3 style="color: #1e293b;">Explore My Work</h3>
-            <div style="display: inline-block; margin: 10px;">
-              <a href="https://danpearson.net/projects" style="display: inline-block; background: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Projects</a>
-            </div>
-            <div style="display: inline-block; margin: 10px;">
-              <a href="https://danpearson.net/ai-tools" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">AI Tools</a>
-            </div>
-          </div>
-          
-          <div style="text-align: center; padding: 20px 0; border-top: 1px solid #e2e8f0; margin-top: 30px; color: #64748b;">
-            <p style="margin: 0;">Follow me for more updates:</p>
-            <div style="margin: 15px 0;">
-              <a href="https://linkedin.com/in/danpearson" style="color: #0ea5e9; text-decoration: none; margin: 0 10px;">LinkedIn</a> |
-              <a href="https://twitter.com/danpearson" style="color: #0ea5e9; text-decoration: none; margin: 0 10px;">Twitter</a> |
-              <a href="https://github.com/danpearson" style="color: #0ea5e9; text-decoration: none; margin: 0 10px;">GitHub</a>
-            </div>
-            <p style="font-size: 12px; color: #94a3b8; margin: 15px 0 0 0;">
-              You're receiving this because you subscribed to updates from danpearson.net
-              <br>
-              <a href="mailto:dan@danpearson.net" style="color: #94a3b8;">Unsubscribe</a>
-            </p>
-          </div>
-        </body>
-        </html>
-      `,
+      // The copy invites replies; noreply@ would swallow them.
+      reply_to: 'dan@danpearson.net',
+      subject: WELCOME_SUBJECT,
+      html: WELCOME_HTML,
+      text: WELCOME_TEXT,
     });
 
     console.log('Welcome email sent:', welcomeEmailResponse);
