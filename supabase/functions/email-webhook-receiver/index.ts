@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors, corsJsonResponse } from '../_shared/cors.ts';
-import { verifyWebhookSignature, verifySecret } from '../_shared/webhook-security.ts';
+import { verifyWebhookSignature } from '../_shared/webhook-security.ts';
 import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
 
 interface EmailWebhookPayload {
@@ -53,47 +53,38 @@ export default async (req: Request): Promise<Response> => {
     // Get the raw request body for signature verification
     const rawBody = await req.text();
 
-    // Check for HMAC signature first (preferred method)
+    // An empty secret would make every HMAC trivially forgeable.
+    const webhookSecret =
+      typeof settings.webhook_secret === 'string' ? settings.webhook_secret : '';
+    if (!webhookSecret.trim()) {
+      console.error('Webhook secret is not configured');
+      return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // HMAC over "<timestamp>.<body>" is the only accepted scheme. The static
+    // x-webhook-secret header and untimestamped signatures were dropped: both
+    // could be replayed indefinitely once captured.
     const signature = req.headers.get('x-webhook-signature');
     const timestamp = req.headers.get('x-webhook-timestamp');
 
-    if (signature) {
-      // Verify HMAC signature
-      const signatureResult = await verifyWebhookSignature(
-        rawBody,
-        signature,
-        settings.webhook_secret,
-        timestamp,
-        300,
-        // Legacy senders sign without a timestamp; keep accepting them here.
-        // TODO: drop this once senders send x-webhook-timestamp.
-        { requireTimestamp: false }
-      );
+    const signatureResult = await verifyWebhookSignature(
+      rawBody,
+      signature,
+      webhookSecret,
+      timestamp,
+      300,
+      { requireTimestamp: true }
+    );
 
-      if (!signatureResult.valid) {
-        console.error('Webhook signature verification failed:', signatureResult.error);
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized', message: signatureResult.error }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-      console.log('Webhook signature verified successfully');
-    } else {
-      // Fallback to simple secret header check (legacy support)
-      const webhookSecret = req.headers.get('x-webhook-secret');
-      if (!verifySecret(webhookSecret, settings.webhook_secret)) {
-        console.error('Invalid webhook secret');
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      console.warn(
-        'Using legacy webhook secret verification - consider upgrading to HMAC signature'
-      );
+    if (!signatureResult.valid) {
+      console.error('Webhook signature verification failed:', signatureResult.error);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Parse the payload
