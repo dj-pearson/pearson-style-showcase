@@ -73,6 +73,8 @@ const {
   PrivacyPolicy,
   TermsOfService,
   CookiePolicy,
+  NewsletterConfirm,
+  NewsletterUnsubscribe,
 } = routeComponents;
 
 // Configure QueryClient with optimized defaults for better caching
@@ -158,6 +160,8 @@ const App = () => (
                   <Route path="/terms" element={<TermsOfService />} />
                   <Route path="/cookies" element={<CookiePolicy />} />
                   <Route path="/showcase" element={<Showcase />} />
+                  <Route path="/newsletter/confirm" element={<NewsletterConfirm />} />
+                  <Route path="/newsletter/unsubscribe" element={<NewsletterUnsubscribe />} />
                   <Route element={<AuthLayout />}>
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route path="/auth/callback" element={<AuthCallback />} />

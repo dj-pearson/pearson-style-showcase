@@ -64,6 +64,8 @@
 # Static paths first; Pages matches these before any pattern below.
 
 /search                                      /spa        200
+/newsletter/confirm                          /spa        200
+/newsletter/unsubscribe                      /spa        200
 /auth/callback                               /spa        200
 
 # --- patterns ---------------------------------------------------------------
