@@ -55,7 +55,8 @@ describe('prerenderedRouteFor', () => {
     expect(prerenderedRouteFor('/news/some-article')).toBe('Article');
     expect(prerenderedRouteFor('/ai-crm-automation')).toBe('AICrmAutomation');
     expect(prerenderedRouteFor('/topics/ai-crm-automation')).toBe('TopicHub');
-    expect(prerenderedRouteFor('/')).toBeUndefined();
+    expect(prerenderedRouteFor('/')).toBe('Index');
+    expect(prerenderedRouteFor('/about')).toBeUndefined();
     expect(prerenderedRouteFor('/news')).toBeUndefined();
     expect(prerenderedRouteFor('/news/category/ai')).toBeUndefined();
     expect(prerenderedRouteFor('/topics/other')).toBeUndefined();

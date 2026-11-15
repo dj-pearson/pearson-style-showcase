@@ -24,9 +24,8 @@ import AccessibilityWidget from './components/AccessibilityWidget';
 import RouteAnnouncer from './components/RouteAnnouncer';
 import CookieConsentBanner from './components/CookieConsentBanner';
 
-// Index is bundled eagerly; every other page is a lazy chunk with preload()
-// (see src/lib/routeComponents.ts).
-import Index from './pages/Index';
+// Every page, Index included, is a lazy chunk with preload() (see
+// src/lib/routeComponents.ts); main.tsx preloads the entry route's chunk.
 import { routeComponents } from '@/lib/routeComponents';
 import { lazyWithPreload } from '@/lib/lazyWithPreload';
 import { logger } from '@/lib/logger';
@@ -46,6 +45,7 @@ const AuthLayout = lazyWithPreload<object>(() =>
 );
 
 const {
+  Index,
   About,
   Projects,
   News,

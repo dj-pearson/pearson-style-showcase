@@ -43,11 +43,12 @@ initPerformanceMonitoring();
 // Register Service Worker for PWA offline support
 registerServiceWorker();
 
-// scripts/prerender.mjs paints real HTML into #root for the article, money and
-// topic-hub routes. Those pages are lazy chunks, so rendering immediately would
-// commit the Suspense skeleton over that content. Wait (at most 1.5s) for the
-// entry route's chunk first; createRoot leaves the prerendered markup on screen
-// until the first commit. Index ('/') is eager and renders without waiting.
+// scripts/prerender.mjs paints real HTML into #root for the home, article,
+// money and topic-hub routes. Those pages are lazy chunks, so rendering
+// immediately would commit the Suspense skeleton over that content. Wait (at
+// most 1.5s) for the entry route's chunk first; createRoot leaves the
+// prerendered markup on screen until the first commit. The prerender step also
+// modulepreloads that chunk, so the wait is normally just its execution.
 const root = createRoot(document.getElementById('root')!);
 const entryPreload = preloadPrerenderedRoute(window.location.pathname);
 if (entryPreload) {
