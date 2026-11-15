@@ -5,6 +5,7 @@ import { publicDb } from '@/integrations/supabase/public-client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
+import { trackSearch } from '@/components/Analytics';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -208,6 +209,8 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
 
   // Handle result click
   const handleResultClick = (result: SearchResult) => {
+    // Picking a result is when a palette search has settled.
+    trackSearch(query, 'palette');
     if (result.type === 'article' && result.slug) {
       navigate(`/news/${result.slug}`);
     } else if (result.type === 'project') {

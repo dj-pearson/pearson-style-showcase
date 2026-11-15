@@ -10,13 +10,23 @@ vi.mock('@/integrations/supabase/client', async () => {
   return { supabase: createSupabaseMock() };
 });
 
+import { acceptAll } from '@/lib/consent';
 import NewsletterConfirm from '../NewsletterConfirm';
 import NewsletterUnsubscribe from '../NewsletterUnsubscribe';
 
 const TOKEN = 'a'.repeat(43);
 
+let gtag: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
+
+const leadEvents = () =>
+  gtag.mock.calls.filter((call) => call[0] === 'event' && call[1] === 'generate_lead');
+
 beforeEach(() => {
   invokeEdgeFunction.mockReset();
+  localStorage.clear();
+  acceptAll();
+  gtag = vi.fn<(...args: unknown[]) => void>();
+  window.gtag = gtag;
 });
 
 describe('NewsletterConfirm', () => {
@@ -31,12 +41,26 @@ describe('NewsletterConfirm', () => {
     });
   });
 
+  it('counts a confirmed subscription as a newsletter lead', async () => {
+    invokeEdgeFunction.mockResolvedValue({ data: { status: 'confirmed' }, error: null });
+    render(<NewsletterConfirm />, { initialEntries: [`/newsletter/confirm?token=${TOKEN}`] });
+
+    await screen.findByText("You're subscribed.");
+    expect(leadEvents()).toHaveLength(1);
+    expect(leadEvents()[0][2]).toMatchObject({
+      lead_source: 'newsletter_confirmed',
+      currency: 'USD',
+      value: 1,
+    });
+  });
+
   it('tells the visitor an expired link needs a new signup', async () => {
     invokeEdgeFunction.mockResolvedValue({ data: { status: 'expired' }, error: null });
     render(<NewsletterConfirm />, { initialEntries: [`/newsletter/confirm?token=${TOKEN}`] });
 
     expect(await screen.findByText('That link has expired.')).toBeInTheDocument();
     expect(screen.getByText('Sign up again on the homepage.')).toBeInTheDocument();
+    expect(leadEvents()).toHaveLength(0);
   });
 
   it('does not call the function without a token', () => {

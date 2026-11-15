@@ -77,7 +77,7 @@ async function loadStaticArticle(slug: string): Promise<Article | null> {
 const Article = () => {
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const { toast } = useToast();
-  const { trackEvent, trackCTA } = useAnalytics();
+  const { trackShare, trackCTA } = useAnalytics();
   // Set after mount so the prerendered markup and the first client render match.
   const [canNativeShare, setCanNativeShare] = useState(false);
   useEffect(() => {
@@ -155,7 +155,12 @@ const Article = () => {
   const handleShare = async (platform: SharePlatform) => {
     const url = buildShareUrl(platform);
     const title = article?.title || '';
-    trackEvent('share', 'Article', `${platform} - ${slug}`);
+    // Track only a share that happened. window.open with noopener always
+    // returns null, so for LinkedIn and X a call that didn't throw is the
+    // best signal available.
+    const shared = () => {
+      if (slug) trackShare(platform, slug);
+    };
 
     switch (platform) {
       case 'linkedin':
@@ -164,6 +169,7 @@ const Article = () => {
           '_blank',
           'noopener,noreferrer'
         );
+        shared();
         break;
       case 'x':
         window.open(
@@ -171,10 +177,12 @@ const Article = () => {
           '_blank',
           'noopener,noreferrer'
         );
+        shared();
         break;
       case 'native':
         try {
           await navigator.share({ title, url });
+          shared();
         } catch {
           // Dismissing the share sheet rejects too; nothing to report.
         }
@@ -182,6 +190,7 @@ const Article = () => {
       case 'copy':
         try {
           await navigator.clipboard.writeText(url);
+          shared();
           toast({ title: 'Link copied', description: 'The article link is on your clipboard.' });
         } catch {
           toast({

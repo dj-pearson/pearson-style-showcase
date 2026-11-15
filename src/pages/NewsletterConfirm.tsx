@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
+import { trackNewsletterConfirmed } from '@/components/Analytics';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 import { logger } from '@/lib/logger';
 
@@ -47,6 +48,8 @@ const NewsletterConfirm = () => {
       .then(({ data, error }) => {
         if (error) throw error;
         const status = data?.status;
+        // The lead counts here, once the address is confirmed, not at signup.
+        if (status === 'confirmed') trackNewsletterConfirmed();
         setState(status === 'confirmed' || status === 'expired' ? status : 'invalid');
       })
       .catch((error) => {
