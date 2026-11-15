@@ -54,7 +54,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { hasUnsavedChanges } from '@/lib/unsaved-changes';
+import { useUnsavedChangesViewParam } from '@/hooks/useUnsavedChangesViewParam';
 import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
@@ -303,7 +303,6 @@ const AdminDashboard = () => {
     aiToolsQuery.refetch();
   };
 
-  const [activeView, setActiveView] = useState('overview');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -361,6 +360,15 @@ const AdminDashboard = () => {
     },
   ];
 
+  // Active view lives in ?view= so refresh keeps it and Back/Forward move
+  // between views. Switches are guarded by the unsaved-changes registry:
+  // a dirty form prompts before the view changes.
+  const { activeView, requestView, pendingView, confirmViewChange, cancelViewChange } =
+    useUnsavedChangesViewParam({
+      validViews: [overviewItem.id, ...menuGroups.flatMap((g) => g.items.map((i) => i.id))],
+      fallback: overviewItem.id,
+    });
+
   // Persisted expand/collapse state for the sidebar groups. On first load with
   // no stored preference: expand everything on desktop, but on mobile (<640px)
   // collapse all groups except the one containing the active view.
@@ -390,23 +398,6 @@ const AdminDashboard = () => {
   }, [openGroups]);
 
   const toggleGroup = (id: string) => setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
-
-  // Guard sidebar tab switches: if a mounted form has unsaved changes, confirm
-  // before changing views (tab switches are state changes, not route nav).
-  const [pendingView, setPendingView] = useState<string | null>(null);
-  const requestView = (id: string) => {
-    if (id === activeView) return;
-    if (hasUnsavedChanges()) {
-      setPendingView(id);
-    } else {
-      setActiveView(id);
-    }
-  };
-  const confirmViewChange = () => {
-    if (pendingView) setActiveView(pendingView);
-    setPendingView(null);
-  };
-  const cancelViewChange = () => setPendingView(null);
 
   // Aggregate error flag (true if any stat query failed) for the overview
   // system-status card.
