@@ -12,6 +12,11 @@ import { join } from 'node:path';
  * - Chromium + Firefox projects. In managed environments where Playwright's
  *   bundled browser is unavailable, a system Chromium is discovered
  *   automatically (see resolveChromium); PLAYWRIGHT_CHROMIUM_PATH overrides it.
+ * - PLAYWRIGHT_PREVIEW=1 (`npm run test:e2e:preview`, which builds first)
+ *   swaps the dev server for `vite preview` of dist/ and runs only the
+ *   `preview` project: e2e/preview/**, chromium with JavaScript disabled, to
+ *   check the prerendered HTML a non-rendering crawler receives. The dev
+ *   server never runs scripts/prerender.mjs, so these specs cannot run there.
  */
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8080';
@@ -37,12 +42,48 @@ function resolveChromium(): string | undefined {
     .filter((entry) => entry.startsWith('chromium-') || entry === 'chromium')
     // Highest build revision first, so the newest install wins.
     .sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))
-    .map((entry) => join(root, entry, 'chrome-linux', 'chrome'));
+    // chrome-linux64 is the layout of newer Playwright builds (1200+).
+    .flatMap((entry) => [
+      join(root, entry, 'chrome-linux', 'chrome'),
+      join(root, entry, 'chrome-linux64', 'chrome'),
+    ]);
 
   return candidates.find((candidate) => existsSync(candidate));
 }
 
 const chromiumExecutable = resolveChromium();
+const chromiumLaunch = chromiumExecutable
+  ? { launchOptions: { executablePath: chromiumExecutable } }
+  : {};
+
+const previewMode = !!process.env.PLAYWRIGHT_PREVIEW;
+const previewURL = 'http://127.0.0.1:4173';
+
+const devServer = {
+  // Bind explicitly to IPv4; the vite config's default host ("::") can fail
+  // to bind on IPv6-less hosts.
+  command: 'npm run dev -- --host 127.0.0.1 --port 8080',
+  url: baseURL,
+  reuseExistingServer: !process.env.CI,
+  timeout: 120_000,
+  env: {
+    // Dummy config so the Supabase client (which fails fast on missing env)
+    // can initialize; E2E tests mock network calls rather than hit real APIs.
+    VITE_SUPABASE_URL: 'http://localhost:54321',
+    VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    VITE_FUNCTIONS_URL: 'http://localhost:54321/functions/v1',
+  },
+};
+
+// Serves the existing dist/; it does not build. See e2e/preview/vite.preview.config.ts
+// for how it approximates Cloudflare Pages (404.html with a 404 status).
+const previewServer = {
+  command:
+    'npx vite preview --config e2e/preview/vite.preview.config.ts --host 127.0.0.1 --port 4173 --strictPort',
+  url: previewURL,
+  reuseExistingServer: !process.env.CI,
+  timeout: 60_000,
+};
 
 export default defineConfig({
   testDir: './e2e',
@@ -60,33 +101,32 @@ export default defineConfig({
     video: 'on-first-retry',
   },
 
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        ...(chromiumExecutable ? { launchOptions: { executablePath: chromiumExecutable } } : {}),
-      },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-  ],
+  projects: previewMode
+    ? [
+        {
+          name: 'preview',
+          testDir: './e2e/preview',
+          testMatch: '**/*.spec.ts',
+          use: {
+            ...devices['Desktop Chrome'],
+            ...chromiumLaunch,
+            baseURL: previewURL,
+            javaScriptEnabled: false,
+          },
+        },
+      ]
+    : [
+        {
+          name: 'chromium',
+          testIgnore: 'preview/**',
+          use: { ...devices['Desktop Chrome'], ...chromiumLaunch },
+        },
+        {
+          name: 'firefox',
+          testIgnore: 'preview/**',
+          use: { ...devices['Desktop Firefox'] },
+        },
+      ],
 
-  webServer: {
-    // Bind explicitly to IPv4; the vite config's default host ("::") can fail
-    // to bind on IPv6-less hosts.
-    command: 'npm run dev -- --host 127.0.0.1 --port 8080',
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      // Dummy config so the Supabase client (which fails fast on missing env)
-      // can initialize; E2E tests mock network calls rather than hit real APIs.
-      VITE_SUPABASE_URL: 'http://localhost:54321',
-      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-      VITE_FUNCTIONS_URL: 'http://localhost:54321/functions/v1',
-    },
-  },
+  webServer: previewMode ? previewServer : devServer,
 });

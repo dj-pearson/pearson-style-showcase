@@ -1,5 +1,10 @@
 import { test, expect } from '../fixtures/test-base';
-import { STATIC_ARTICLE_SLUGS } from '../../src/lib/static-articles';
+// The generated index, not src/lib/static-articles: that module imports the
+// Supabase client and logger, which read import.meta.env and so cannot load
+// under Playwright's Node runner (every spec failed to list).
+import { CRM_ARTICLE_INDEX } from '../../src/content/crm-article-index.generated';
+
+const STATIC_ARTICLE_SLUGS = CRM_ARTICLE_INDEX.map((article) => article.slug);
 
 /**
  * E2E coverage for the article reading flow:
