@@ -5,7 +5,7 @@ import { ExternalLink, ArrowRight, Code, Zap, TrendingUp, LucideIcon } from 'luc
 import { useAnalytics } from './Analytics';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 
 interface CaseStudyDB {
   id: string;
@@ -37,7 +37,7 @@ const CaseStudies = () => {
   const { data: caseStudies = [], isLoading } = useQuery({
     queryKey: ['case-studies'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('case_studies')
         .select('*')
         .eq('status', 'published')
@@ -50,7 +50,11 @@ const CaseStudies = () => {
 
   if (isLoading) {
     return (
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8" role="status" aria-label="Loading case studies">
+      <section
+        className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8"
+        role="status"
+        aria-label="Loading case studies"
+      >
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
             <Skeleton className="h-12 w-64 mx-auto mb-4" />
@@ -100,11 +104,10 @@ const CaseStudies = () => {
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-12 sm:mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-primary">
-            Case Studies
-          </h2>
+          <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-primary">Case Studies</h2>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
-            Real projects, real results. Here's how I've helped clients achieve their goals with innovative solutions.
+            Real projects, real results. Here's how I've helped clients achieve their goals with
+            innovative solutions.
           </p>
         </div>
 
@@ -122,7 +125,9 @@ const CaseStudies = () => {
                 <CardContent className="p-0">
                   <div className="flex flex-col lg:flex-row">
                     {/* Visual/Icon Section */}
-                    <div className={`lg:w-1/3 p-8 sm:p-12 bg-gradient-to-br ${study.gradient} flex items-center justify-center relative overflow-hidden`}>
+                    <div
+                      className={`lg:w-1/3 p-8 sm:p-12 bg-gradient-to-br ${study.gradient} flex items-center justify-center relative overflow-hidden`}
+                    >
                       <div className="absolute inset-0 bg-black/10"></div>
                       <div className="relative text-center text-white">
                         <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
@@ -138,9 +143,7 @@ const CaseStudies = () => {
                         <h3 className="text-2xl sm:text-3xl font-bold mb-3 text-foreground">
                           {study.title}
                         </h3>
-                        <p className="text-muted-foreground leading-relaxed">
-                          {study.description}
-                        </p>
+                        <p className="text-muted-foreground leading-relaxed">{study.description}</p>
                       </div>
 
                       <div className="space-y-4 mb-6">
@@ -164,7 +167,10 @@ const CaseStudies = () => {
                             <h4 className="font-semibold text-foreground mb-3">Key Results</h4>
                             <ul className="space-y-2">
                               {study.results.map((result, idx) => (
-                                <li key={idx} className="text-sm text-muted-foreground flex items-center">
+                                <li
+                                  key={idx}
+                                  className="text-sm text-muted-foreground flex items-center"
+                                >
                                   <div className="w-1.5 h-1.5 rounded-full bg-primary mr-2 flex-shrink-0"></div>
                                   {result}
                                 </li>

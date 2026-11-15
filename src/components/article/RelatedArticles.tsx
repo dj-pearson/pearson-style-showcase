@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Eye, ArrowRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { fetchSeededStaticSlugs, selectStaticArticles } from '@/lib/static-articles';
 
 interface RelatedArticlesProps {
@@ -39,7 +39,7 @@ const RelatedArticles = ({
     queryKey: ['related-articles-smart', currentArticleId, currentArticleSlug, category, tags],
     queryFn: async () => {
       // Fetch candidates from same category or with overlapping tags
-      let query = supabase
+      let query = publicDb
         .from('articles')
         .select(
           'id, slug, title, excerpt, category, image_url, created_at, read_time, view_count, tags'

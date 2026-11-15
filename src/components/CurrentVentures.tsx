@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,7 +44,7 @@ const CurrentVentures = () => {
   const { data: ventures, isLoading } = useQuery({
     queryKey: ['ventures'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('ventures')
         .select('*')
         .order('display_order', { ascending: true });

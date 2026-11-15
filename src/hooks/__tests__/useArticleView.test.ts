@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc } }));
+vi.mock('@/integrations/supabase/public-client', () => import('@/test/mocks/public-client'));
 
 import { useArticleView } from '../useArticleView';
 

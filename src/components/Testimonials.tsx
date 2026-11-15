@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Star, Quote } from 'lucide-react';
 
@@ -19,7 +19,7 @@ const Testimonials = () => {
   const { data: testimonials, isLoading } = useQuery({
     queryKey: ['testimonials'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('testimonials')
         .select('*')
         .eq('status', 'published')
