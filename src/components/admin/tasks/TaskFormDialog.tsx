@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -20,6 +22,25 @@ interface TaskFormDialogProps {
   editingTask: any;
   projects: any[];
   onSuccess: () => void;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formFromTask(task: any) {
+  return {
+    title: task?.title || '',
+    description: task?.description || '',
+    project_id: task?.project_id || '',
+    status: task?.status || 'to_do',
+    priority: task?.priority || 'medium',
+    due_date: task?.due_date ? String(task.due_date).split('T')[0] : '',
+    start_date: task?.start_date ? String(task.start_date).split('T')[0] : '',
+    links: JSON.stringify(task?.links || []),
+    category: task?.category || '',
+    effort: task?.effort || '',
+    dependencies: task?.dependencies || '',
+    source: task?.source || '',
+    original_priority: task?.original_priority || '',
+  };
 }
 
 export const TaskFormDialog = ({
@@ -30,57 +51,25 @@ export const TaskFormDialog = ({
   onSuccess,
 }: TaskFormDialogProps) => {
   const fieldId = useId();
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    project_id: '',
-    status: 'to_do',
-    priority: 'medium',
-    due_date: '',
-    start_date: '',
-    links: '[]',
-    category: '',
-    effort: '',
-    dependencies: '',
-    source: '',
-    original_priority: '',
-  });
+  const [formData, setFormData] = useState(() => formFromTask(editingTask));
+  // Snapshot of the form as loaded; typing moves formData away from it and
+  // arms the close guard so Esc / outside click / Cancel ask first.
+  const [baseline, setBaseline] = useState(() => JSON.stringify(formFromTask(editingTask)));
 
   useEffect(() => {
-    if (editingTask) {
-      setFormData({
-        title: editingTask.title || '',
-        description: editingTask.description || '',
-        project_id: editingTask.project_id || '',
-        status: editingTask.status || 'to_do',
-        priority: editingTask.priority || 'medium',
-        due_date: editingTask.due_date ? editingTask.due_date.split('T')[0] : '',
-        start_date: editingTask.start_date ? editingTask.start_date.split('T')[0] : '',
-        links: JSON.stringify(editingTask.links || []),
-        category: editingTask.category || '',
-        effort: editingTask.effort || '',
-        dependencies: editingTask.dependencies || '',
-        source: editingTask.source || '',
-        original_priority: editingTask.original_priority || '',
-      });
-    } else {
-      setFormData({
-        title: '',
-        description: '',
-        project_id: '',
-        status: 'to_do',
-        priority: 'medium',
-        due_date: '',
-        start_date: '',
-        links: '[]',
-        category: '',
-        effort: '',
-        dependencies: '',
-        source: '',
-        original_priority: '',
-      });
-    }
+    const next = formFromTask(editingTask);
+    setFormData(next);
+    setBaseline(JSON.stringify(next));
   }, [editingTask, open]);
+
+  const isDirty = open && JSON.stringify(formData) !== baseline;
+  const {
+    isBlocking: isCloseBlocked,
+    requestNavigation: requestClose,
+    confirmDiscard: confirmClose,
+    cancelDiscard: cancelClose,
+  } = useUnsavedChanges(isDirty);
+  const guardedClose = () => requestClose(() => onOpenChange(false));
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -120,202 +109,215 @@ export const TaskFormDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editingTask ? 'Edit Task' : 'New Task'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
-              Title *
-            </label>
-            <Input
-              id={`${fieldId}-title`}
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor={`${fieldId}-description`} className="text-sm font-medium">
-              Description
-            </label>
-            <Textarea
-              id={`${fieldId}-description`}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={4}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange(true);
+          else guardedClose();
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingTask ? 'Edit Task' : 'New Task'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor={`${fieldId}-category`} className="text-sm font-medium">
-                Category
+              <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
+                Title *
               </label>
               <Input
-                id={`${fieldId}-category`}
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                placeholder="e.g., Core Auth, Security, CRM"
+                id={`${fieldId}-title`}
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
               />
             </div>
             <div>
-              <label htmlFor={`${fieldId}-source-platform`} className="text-sm font-medium">
-                Source/Platform
+              <label htmlFor={`${fieldId}-description`} className="text-sm font-medium">
+                Description
               </label>
-              <Input
-                id={`${fieldId}-source-platform`}
-                value={formData.source}
-                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                placeholder="e.g., Enterprise Readiness"
+              <Textarea
+                id={`${fieldId}-description`}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={4}
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor={`${fieldId}-project`} className="text-sm font-medium">
-                Project
-              </label>
-              <Select
-                value={formData.project_id}
-                onValueChange={(value) => setFormData({ ...formData, project_id: value })}
-              >
-                <SelectTrigger id={`${fieldId}-project`}>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor={`${fieldId}-category`} className="text-sm font-medium">
+                  Category
+                </label>
+                <Input
+                  id={`${fieldId}-category`}
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="e.g., Core Auth, Security, CRM"
+                />
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-source-platform`} className="text-sm font-medium">
+                  Source/Platform
+                </label>
+                <Input
+                  id={`${fieldId}-source-platform`}
+                  value={formData.source}
+                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                  placeholder="e.g., Enterprise Readiness"
+                />
+              </div>
             </div>
-            <div>
-              <label htmlFor={`${fieldId}-status`} className="text-sm font-medium">
-                Status
-              </label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger id={`${fieldId}-status`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="to_do">To Do</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label htmlFor={`${fieldId}-priority`} className="text-sm font-medium">
-                Priority
-              </label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger id={`${fieldId}-priority`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor={`${fieldId}-project`} className="text-sm font-medium">
+                  Project
+                </label>
+                <Select
+                  value={formData.project_id}
+                  onValueChange={(value) => setFormData({ ...formData, project_id: value })}
+                >
+                  <SelectTrigger id={`${fieldId}-project`}>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-status`} className="text-sm font-medium">
+                  Status
+                </label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger id={`${fieldId}-status`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="to_do">To Do</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label htmlFor={`${fieldId}-priority`} className="text-sm font-medium">
+                  Priority
+                </label>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                >
+                  <SelectTrigger id={`${fieldId}-priority`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-original-priority`} className="text-sm font-medium">
+                  Original Priority
+                </label>
+                <Input
+                  id={`${fieldId}-original-priority`}
+                  value={formData.original_priority}
+                  onChange={(e) => setFormData({ ...formData, original_priority: e.target.value })}
+                  placeholder="e.g., P0-Critical"
+                />
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-effort`} className="text-sm font-medium">
+                  Effort
+                </label>
+                <Input
+                  id={`${fieldId}-effort`}
+                  value={formData.effort}
+                  onChange={(e) => setFormData({ ...formData, effort: e.target.value })}
+                  placeholder="e.g., 2 hours, 4 hours"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor={`${fieldId}-due-date`} className="text-sm font-medium">
+                  Due Date
+                </label>
+                <Input
+                  id={`${fieldId}-due-date`}
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-start-date`} className="text-sm font-medium">
+                  Start Date
+                </label>
+                <Input
+                  id={`${fieldId}-start-date`}
+                  type="date"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                />
+              </div>
+            </div>
+
             <div>
-              <label htmlFor={`${fieldId}-original-priority`} className="text-sm font-medium">
-                Original Priority
+              <label htmlFor={`${fieldId}-dependencies`} className="text-sm font-medium">
+                Dependencies
               </label>
               <Input
-                id={`${fieldId}-original-priority`}
-                value={formData.original_priority}
-                onChange={(e) => setFormData({ ...formData, original_priority: e.target.value })}
-                placeholder="e.g., P0-Critical"
+                id={`${fieldId}-dependencies`}
+                value={formData.dependencies}
+                onChange={(e) => setFormData({ ...formData, dependencies: e.target.value })}
+                placeholder="e.g., OAuth state validation, CRM system"
               />
             </div>
-            <div>
-              <label htmlFor={`${fieldId}-effort`} className="text-sm font-medium">
-                Effort
-              </label>
-              <Input
-                id={`${fieldId}-effort`}
-                value={formData.effort}
-                onChange={(e) => setFormData({ ...formData, effort: e.target.value })}
-                placeholder="e.g., 2 hours, 4 hours"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor={`${fieldId}-due-date`} className="text-sm font-medium">
-                Due Date
+              <label htmlFor={`${fieldId}-links-json-array`} className="text-sm font-medium">
+                Links (JSON array)
               </label>
-              <Input
-                id={`${fieldId}-due-date`}
-                type="date"
-                value={formData.due_date}
-                onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+              <Textarea
+                id={`${fieldId}-links-json-array`}
+                value={formData.links}
+                onChange={(e) => setFormData({ ...formData, links: e.target.value })}
+                rows={2}
+                placeholder='["https://example.com"]'
               />
             </div>
-            <div>
-              <label htmlFor={`${fieldId}-start-date`} className="text-sm font-medium">
-                Start Date
-              </label>
-              <Input
-                id={`${fieldId}-start-date`}
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-              />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={guardedClose}>
+                Cancel
+              </Button>
+              <Button type="submit">{editingTask ? 'Update' : 'Create'}</Button>
             </div>
-          </div>
-
-          <div>
-            <label htmlFor={`${fieldId}-dependencies`} className="text-sm font-medium">
-              Dependencies
-            </label>
-            <Input
-              id={`${fieldId}-dependencies`}
-              value={formData.dependencies}
-              onChange={(e) => setFormData({ ...formData, dependencies: e.target.value })}
-              placeholder="e.g., OAuth state validation, CRM system"
-            />
-          </div>
-
-          <div>
-            <label htmlFor={`${fieldId}-links-json-array`} className="text-sm font-medium">
-              Links (JSON array)
-            </label>
-            <Textarea
-              id={`${fieldId}-links-json-array`}
-              value={formData.links}
-              onChange={(e) => setFormData({ ...formData, links: e.target.value })}
-              rows={2}
-              placeholder='["https://example.com"]'
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">{editingTask ? 'Update' : 'Create'}</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <UnsavedChangesDialog
+        open={isCloseBlocked}
+        onDiscard={confirmClose}
+        onKeepEditing={cancelClose}
+      />
+    </>
   );
 };
