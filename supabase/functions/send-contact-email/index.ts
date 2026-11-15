@@ -8,8 +8,9 @@ import {
   type RateLimitConfig,
 } from '../_shared/rate-limiter.ts';
 import { validateEmail, sanitizeInput, escapeHtml, messageToHtml } from './validation.ts';
+import { createEdgeFunctionLogger } from '../_shared/production-logger.ts';
 
-const resend = new Resend(Deno.env.get('RESEND_API'));
+const baseLogger = createEdgeFunctionLogger('send-contact-email');
 
 // Where contact form submissions are delivered. Overridable per environment;
 // the fallback matches the owner address send-notification-email defaults to.
@@ -48,16 +49,29 @@ const handler = async (req: Request): Promise<Response> => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  const log = baseLogger.forRequest(req);
+
+  // Built per request: at module scope a missing key threw on import, so the
+  // server answered every call with a generic 500 and no hint why.
+  const resendKey = Deno.env.get('RESEND_API');
+  if (!resendKey) {
+    log.error('RESEND_API is not set; contact form cannot send');
+    return new Response(JSON.stringify({ error: 'Contact form is temporarily unavailable.' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+  const resend = new Resend(resendKey);
+
   try {
     // Get client IP for rate limiting
     const ip = getClientIdentifier(req);
 
-    console.log(`Contact form submission from IP: ${ip}`);
-
     // Check rate limit using shared rate limiter
     const rateLimitResult = checkRateLimit(ip, CONTACT_RATE_LIMIT, 'contact-form');
     if (!rateLimitResult.allowed) {
-      console.warn(`Rate limit exceeded for IP: ${ip}`);
+      // The logger masks the address to its first octet.
+      log.warn('Contact form rate limit exceeded', { ip });
       return createRateLimitResponse(rateLimitResult, corsHeaders);
     }
 
@@ -98,8 +112,6 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    console.log(`Sending contact email from: ${email}`);
-
     // Send email to site owner
     const emailResponse = await resend.emails.send({
       from: CONTACT_FROM,
@@ -119,13 +131,16 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log('Email sent successfully:', emailResponse);
+    if (emailResponse.error) {
+      throw new Error(`Resend rejected the owner email: ${emailResponse.error.message}`);
+    }
+    log.info('Contact email delivered to owner', { resend_id: emailResponse.data?.id });
 
     // Send confirmation email to sender. The recipient address is whatever the
     // caller typed, so nothing they submitted (name, subject, message) goes in
     // this body; echoing it would let anyone relay their own text to any inbox
     // from our verified sender.
-    await resend.emails.send({
+    const confirmation = await resend.emails.send({
       from: CONTACT_FROM,
       to: [email],
       subject: 'Thank you for contacting us!',
@@ -136,6 +151,14 @@ const handler = async (req: Request): Promise<Response> => {
         <p>Best regards,<br>Dan Pearson</p>
       `,
     });
+
+    if (confirmation.error) {
+      // The owner already has the message; a failed courtesy copy shouldn't
+      // make the visitor resubmit.
+      log.warn('Confirmation email to submitter failed', {
+        error: confirmation.error.message,
+      });
+    }
 
     return new Response(
       JSON.stringify({
@@ -151,7 +174,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   } catch (error) {
-    console.error('Error in send-contact-email function:', error);
+    log.error('send-contact-email failed', error);
     return new Response(
       JSON.stringify({
         error: 'Failed to send message. Please try again later.',
