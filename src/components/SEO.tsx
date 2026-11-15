@@ -1,7 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import StructuredData from './SEO/StructuredData';
-import { SEO_CONFIG, getCanonicalUrl, truncateDescription } from '@/lib/seo';
+import {
+  SEO_CONFIG,
+  getCanonicalUrl,
+  prerenderedSchemaTypes,
+  truncateDescription,
+} from '@/lib/seo';
 
 interface SEOProps {
   title?: string;
@@ -117,14 +122,27 @@ const SEO = ({
     updateMetaTag('og:title', title, true);
     updateMetaTag('og:description', optimizedDescription, true);
     updateMetaTag('og:image', absoluteImageUrl, true);
-    updateMetaTag('og:image:width', '1200', true);
-    updateMetaTag('og:image:height', '630', true);
+    // Only the default card has known dimensions. An article's own image can
+    // be any size, and claiming 1200x630 for it makes previews crop wrongly.
+    if (absoluteImageUrl === SEO_CONFIG.defaultImage) {
+      updateMetaTag('og:image:width', String(SEO_CONFIG.defaultImageSize.width), true);
+      updateMetaTag('og:image:height', String(SEO_CONFIG.defaultImageSize.height), true);
+    } else {
+      removeMetaTag('og:image:width', true);
+      removeMetaTag('og:image:height', true);
+    }
     updateMetaTag('og:url', canonicalUrl, true);
     updateMetaTag('og:type', type, true);
     updateMetaTag('og:site_name', SEO_CONFIG.siteName, true);
     updateMetaTag('og:locale', 'en_US', true);
 
+    // article:tag repeats, one element per tag, so it cannot go through
+    // updateMetaTag (which would leave only the last tag).
+    const removeArticleTags = () =>
+      document.querySelectorAll('meta[property="article:tag"]').forEach((el) => el.remove());
+
     // Article-specific Open Graph tags
+    removeArticleTags();
     if (type === 'article') {
       if (publishedTime) {
         updateMetaTag('article:published_time', publishedTime, true);
@@ -135,9 +153,12 @@ const SEO = ({
       if (section) {
         updateMetaTag('article:section', section, true);
       }
-      tags.forEach((tag, index) => {
-        updateMetaTag(`article:tag`, tag, true);
-      });
+      for (const tag of new Set(tags.filter(Boolean))) {
+        const element = document.createElement('meta');
+        element.setAttribute('property', 'article:tag');
+        element.setAttribute('content', tag);
+        document.head.appendChild(element);
+      }
       updateMetaTag('article:author', author, true);
     } else {
       // Clean up article tags when not on an article page
@@ -185,6 +206,10 @@ const SEO = ({
       document.head.appendChild(canonicalLink);
     }
 
+    // Drops the build's JSON-LD graph once it describes a page the visitor
+    // has navigated away from, including pages that render no StructuredData.
+    prerenderedSchemaTypes();
+
     // Cleanup function to remove article-specific meta tags when unmounting
     return () => {
       if (type === 'article') {
@@ -192,6 +217,7 @@ const SEO = ({
         removeMetaTag('article:modified_time', true);
         removeMetaTag('article:section', true);
         removeMetaTag('article:author', true);
+        removeArticleTags();
       }
     };
   }, [
