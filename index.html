@@ -78,11 +78,11 @@
 
     <!-- Google tag (gtag.js) -->
     <!-- public/gtag-init.js defines dataLayer, the gtag() shim and the Consent
-      Mode defaults (CSP has no 'unsafe-inline'), then injects gtag.js itself.
-      That keeps the ordering safe: nothing requests gtag.js until the consent
-      defaults are queued. The script is deferred so it no longer blocks first
-      paint; deferred and module scripts run in document order, so it still
-      runs before the module entry, whose initConsent() calls window.gtag.
+      Mode defaults (CSP has no 'unsafe-inline'). It does not load gtag.js:
+      src/lib/consent.ts injects that only after the visitor grants analytics
+      consent. The script is deferred so it does not block first paint;
+      deferred and module scripts run in document order, so it still runs
+      before the module entry, whose initConsent() calls window.gtag.
       gtag.js is fetched with crossorigin="anonymous" (no credentials). A static
       Subresource Integrity hash is intentionally NOT set: Google ships the file
       continuously without stable hashes and it loads further scripts SRI cannot
