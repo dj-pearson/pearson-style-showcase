@@ -84,9 +84,37 @@ describe('FinancialReports balance sheet', () => {
     await waitFor(() => expect(screen.getByText('Financial Reports')).toBeInTheDocument());
   });
 
-  it('does not crash when a query errors', async () => {
+  it('shows an error with Retry instead of a $0 report when a query errors', async () => {
     mock.setTableResult('invoices', { data: null, error: { message: 'db error' } });
     render(<FinancialReports />);
     await waitFor(() => expect(screen.getByText('Financial Reports')).toBeInTheDocument());
+    expect(await screen.findByText(/couldn't load the financial reports/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText('Total Revenue')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /export csv/i })).toBeDisabled();
+  });
+
+  it('adds amounts in cents so the balance sheet balances exactly', async () => {
+    // 0.1 + 0.2 in floats is 0.30000000000000004; in cents it is 30.
+    mock.setTableResult('invoices', {
+      data: [
+        { invoice_type: 'sales', amount_paid: 0, amount_due: 0.1, invoice_date: '2026-01-15' },
+        { invoice_type: 'sales', amount_paid: 0, amount_due: 0.2, invoice_date: '2026-01-16' },
+      ],
+      error: null,
+    });
+    mock.setTableResult('platform_transactions', { data: [], error: null });
+    mock.setTableResult('journal_entries', { data: [], error: null });
+    mock.setTableResult('accounts', {
+      data: [
+        { id: 'eq', account_name: 'Owner Equity', account_type: 'Equity', opening_balance: 0.3 },
+      ],
+      error: null,
+    });
+
+    render(<FinancialReports />);
+    await openBalanceSheet();
+    await waitFor(() => expect(screen.getAllByText('$0.30').length).toBeGreaterThan(0));
+    expect(screen.getByText(/Balance Sheet is balanced/)).toBeInTheDocument();
   });
 });
