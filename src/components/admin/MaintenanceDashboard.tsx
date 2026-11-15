@@ -170,6 +170,7 @@ export const MaintenanceDashboard: React.FC = () => {
       success: { label: 'Success', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
       failed: { label: 'Failed', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
       running: { label: 'Running', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+      skipped: { label: 'Skipped', color: 'bg-muted text-muted-foreground border-border' },
     };
 
     const { label, color } = config[status as keyof typeof config] || config.failed;
@@ -188,6 +189,8 @@ export const MaintenanceDashboard: React.FC = () => {
         return <XCircle className="h-4 w-4 text-red-500" />;
       case 'running':
         return <Clock className="h-4 w-4 text-blue-500 animate-spin" />;
+      case 'skipped':
+        return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
@@ -206,13 +209,15 @@ export const MaintenanceDashboard: React.FC = () => {
     return descriptions[cron] || cron;
   };
 
+  // Skipped runs did no work, so they count neither for nor against the rate.
+  const ranResults = recentResults.filter((r) => r.status !== 'skipped');
   const stats = {
     totalTasks: tasks.length,
     enabledTasks: tasks.filter((t) => t.enabled).length,
     successRate:
-      recentResults.length > 0
+      ranResults.length > 0
         ? (
-            (recentResults.filter((r) => r.status === 'success').length / recentResults.length) *
+            (ranResults.filter((r) => r.status === 'success').length / ranResults.length) *
             100
           ).toFixed(1)
         : '0',

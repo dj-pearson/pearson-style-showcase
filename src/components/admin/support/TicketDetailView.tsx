@@ -252,7 +252,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
 
       if (sendAsEmail && !isInternal) {
         // Send via email using Edge Function
-        const draft = `${selectedMailbox}\n${emailSubject}\n${replyMessage}`;
+        // Ticket id included: the same text sent to two tickets is two emails.
+        const draft = `${ticket.id}\n${selectedMailbox}\n${emailSubject}\n${replyMessage}`;
         if (sendKeyRef.current?.draft !== draft) {
           sendKeyRef.current = { key: crypto.randomUUID(), draft };
         }
