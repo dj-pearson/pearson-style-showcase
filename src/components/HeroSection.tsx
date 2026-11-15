@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
+import { useAnalytics } from '@/components/Analytics';
 
 /**
  * Check if animations should be reduced for accessibility or performance
@@ -41,7 +42,8 @@ const HeroSection = () => {
   const surnameRef = useRef<HTMLSpanElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const descRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
+  const ctaRef = useRef<HTMLDivElement>(null);
+  const { trackCTA } = useAnalytics();
 
   useGSAP(
     () => {
@@ -327,18 +329,30 @@ const HeroSection = () => {
           </p>
         </div>
 
-        {/* CTA Button - Enhanced with strong glow, mobile optimized, fully functional */}
-        <Link
+        {/* CTAs: the audit is the primary action; the explainer is secondary */}
+        <div
           ref={ctaRef}
-          to="/ai-crm-automation"
-          className="relative z-20 btn-futuristic group mobile-button inline-flex items-center justify-center text-base sm:text-lg font-bold active:scale-95"
-          style={{
-            boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)',
-          }}
+          className="relative z-20 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4"
         >
-          See how it works
-          <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
-        </Link>
+          <Link
+            to="/connect"
+            onClick={() => trackCTA('Book a CRM automation audit', 'Hero')}
+            className="btn-futuristic group mobile-button inline-flex items-center justify-center text-base sm:text-lg font-bold active:scale-95"
+            style={{
+              boxShadow: '0 0 40px rgba(0, 212, 255, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            Book a CRM automation audit
+            <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
+          </Link>
+          <Link
+            to="/ai-crm-automation"
+            onClick={() => trackCTA('See how it works', 'Hero')}
+            className="mobile-button inline-flex items-center justify-center rounded-lg border border-primary/60 bg-background/70 px-6 py-3 text-base sm:text-lg font-semibold text-foreground transition-colors hover:bg-primary/10 active:scale-95"
+          >
+            See how it works
+          </Link>
+        </div>
 
         {/* Scroll indicator for mobile */}
         <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60 animate-float">
