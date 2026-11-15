@@ -55,10 +55,10 @@ const NewsletterSignup = ({ compact = false }: NewsletterSignupProps) => {
 
       if (error) throw error;
 
-      // The function answers an address it already holds with 200 and a
-      // message saying so. That is not a new lead, so it is not tracked as one.
-      const message: unknown = data?.message;
-      const alreadySubscribed = typeof message === 'string' && /already/i.test(message);
+      // A confirmed address gets 200 with status 'already_subscribed'. That is
+      // not a new lead, so it is not tracked as one. Anything else means a
+      // confirmation email is on its way.
+      const alreadySubscribed = data?.status === 'already_subscribed';
       if (!alreadySubscribed) trackNewsletterSignup('success');
 
       setResult({ email: valid, alreadySubscribed });
@@ -83,7 +83,7 @@ const NewsletterSignup = ({ compact = false }: NewsletterSignupProps) => {
               aria-hidden="true"
             />
             <h3 className={cn(heading, 'font-bold mb-2')}>
-              {result.alreadySubscribed ? "You're already on the list." : "You're in."}
+              {result.alreadySubscribed ? "You're already on the list." : 'One more step.'}
             </h3>
             <p className="text-muted-foreground">
               {result.alreadySubscribed ? (
@@ -93,8 +93,8 @@ const NewsletterSignup = ({ compact = false }: NewsletterSignupProps) => {
                 </>
               ) : (
                 <>
-                  Check <span className="font-medium text-foreground">{result.email}</span> for the
-                  welcome note.
+                  Check <span className="font-medium text-foreground">{result.email}</span> for a
+                  link to confirm.
                 </>
               )}
             </p>

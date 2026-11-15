@@ -35,6 +35,8 @@ export const routeComponents = {
   PrivacyPolicy: lazyWithPreload(() => import('@/pages/PrivacyPolicy')),
   TermsOfService: lazyWithPreload(() => import('@/pages/TermsOfService')),
   CookiePolicy: lazyWithPreload(() => import('@/pages/CookiePolicy')),
+  NewsletterConfirm: lazyWithPreload(() => import('@/pages/NewsletterConfirm')),
+  NewsletterUnsubscribe: lazyWithPreload(() => import('@/pages/NewsletterUnsubscribe')),
 };
 
 export type RouteComponentName = keyof typeof routeComponents;
