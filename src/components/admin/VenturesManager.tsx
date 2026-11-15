@@ -503,10 +503,16 @@ const VenturesManager = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(venture)}>
+                      <Button
+                        aria-label={`Edit ${venture.name}`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(venture)}
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete ${venture.name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(venture.id)}

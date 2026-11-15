@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,10 +33,7 @@ const AnalyticsSettings = () => {
   const loadAnalyticsConfig = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('analytics_settings')
-        .select('*')
-        .single();
+      const { data, error } = await supabase.from('analytics_settings').select('*').single();
 
       if (error) {
         logger.error('Error loading analytics config:', error);
@@ -67,12 +64,12 @@ const AnalyticsSettings = () => {
         .eq('id', config.id!);
 
       if (error) throw error;
-      
+
       toast({
-        title: "Analytics settings saved",
-        description: config.enabled 
-          ? "Google Analytics is now active with your tracking ID" 
-          : "Analytics tracking has been disabled",
+        title: 'Analytics settings saved',
+        description: config.enabled
+          ? 'Google Analytics is now active with your tracking ID'
+          : 'Analytics tracking has been disabled',
       });
 
       // Reload page to apply new analytics settings
@@ -83,9 +80,9 @@ const AnalyticsSettings = () => {
       }
     } catch (error) {
       toast({
-        title: "Error saving settings",
-        description: (error instanceof Error ? error.message : String(error)) || "Please try again",
-        variant: "destructive",
+        title: 'Error saving settings',
+        description: (error instanceof Error ? error.message : String(error)) || 'Please try again',
+        variant: 'destructive',
       });
     } finally {
       setIsSaving(false);
@@ -143,7 +140,7 @@ const AnalyticsSettings = () => {
             </div>
             <Switch
               checked={config.enabled}
-              onCheckedChange={(enabled) => setConfig(prev => ({ ...prev, enabled }))}
+              onCheckedChange={(enabled) => setConfig((prev) => ({ ...prev, enabled }))}
             />
           </div>
 
@@ -159,10 +156,17 @@ const AnalyticsSettings = () => {
                   type={showTrackingId ? 'text' : 'password'}
                   placeholder="G-XXXXXXXXXX or Property ID"
                   value={config.google_analytics_id}
-                  onChange={(e) => setConfig(prev => ({ ...prev, google_analytics_id: e.target.value }))}
-                  className={!isValidTrackingId(config.google_analytics_id) && config.google_analytics_id ? 'border-destructive' : ''}
+                  onChange={(e) =>
+                    setConfig((prev) => ({ ...prev, google_analytics_id: e.target.value }))
+                  }
+                  className={
+                    !isValidTrackingId(config.google_analytics_id) && config.google_analytics_id
+                      ? 'border-destructive'
+                      : ''
+                  }
                 />
                 <Button
+                  aria-label={showTrackingId ? 'Hide tracking ID' : 'Show tracking ID'}
                   type="button"
                   variant="ghost"
                   size="sm"
@@ -193,15 +197,18 @@ const AnalyticsSettings = () => {
           {/* Save Button */}
           <div className="flex justify-between items-center pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              {config.enabled && config.google_analytics_id && isValidTrackingId(config.google_analytics_id) && (
-                <span className="text-green-600">✓ Configuration is valid and ready to use</span>
-              )}
+              {config.enabled &&
+                config.google_analytics_id &&
+                isValidTrackingId(config.google_analytics_id) && (
+                  <span className="text-green-600">✓ Configuration is valid and ready to use</span>
+                )}
             </div>
             <Button
               onClick={saveAnalyticsConfig}
               disabled={
                 isSaving ||
-                (config.enabled && (!config.google_analytics_id || !isValidTrackingId(config.google_analytics_id)))
+                (config.enabled &&
+                  (!config.google_analytics_id || !isValidTrackingId(config.google_analytics_id)))
               }
             >
               <Save className="h-4 w-4 mr-2" />
@@ -212,32 +219,32 @@ const AnalyticsSettings = () => {
       </Card>
 
       {/* Analytics Preview */}
-      {config.enabled && config.google_analytics_id && isValidTrackingId(config.google_analytics_id) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Analytics Preview</CardTitle>
-            <CardDescription>
-              Current tracking configuration that will be applied
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tracking ID:</span>
-                <span className="font-mono">{config.google_analytics_id}</span>
+      {config.enabled &&
+        config.google_analytics_id &&
+        isValidTrackingId(config.google_analytics_id) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Analytics Preview</CardTitle>
+              <CardDescription>Current tracking configuration that will be applied</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tracking ID:</span>
+                  <span className="font-mono">{config.google_analytics_id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="text-green-600">✓ Active</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Page View Tracking:</span>
+                  <span className="text-green-600">✓ Enabled</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Status:</span>
-                <span className="text-green-600">✓ Active</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Page View Tracking:</span>
-                <span className="text-green-600">✓ Enabled</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
     </div>
   );
 };

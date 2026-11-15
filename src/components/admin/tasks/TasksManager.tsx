@@ -409,6 +409,7 @@ export const TasksManager = ({
               />
               {searchQuery && (
                 <Button
+                  aria-label="Clear search"
                   variant="ghost"
                   size="sm"
                   onClick={() => setSearchQuery('')}

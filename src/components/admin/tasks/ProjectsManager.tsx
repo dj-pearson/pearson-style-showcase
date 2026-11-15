@@ -271,6 +271,7 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button
+                      aria-label={`Edit ${project.name}`}
                       size="sm"
                       variant="ghost"
                       onClick={(e) => {
@@ -281,6 +282,7 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
+                      aria-label={`Delete ${project.name}`}
                       size="sm"
                       variant="ghost"
                       onClick={async (e) => {

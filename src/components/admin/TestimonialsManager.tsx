@@ -411,10 +411,16 @@ const TestimonialsManager = () => {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(testimonial)}>
+                      <Button
+                        aria-label={`Edit testimonial from ${testimonial.client_name}`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(testimonial)}
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete testimonial from ${testimonial.client_name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(testimonial.id)}

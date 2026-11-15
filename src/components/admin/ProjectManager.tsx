@@ -641,6 +641,7 @@ export const ProjectManager: React.FC = () => {
                       <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
                       <div className="flex flex-col space-y-1">
                         <Button
+                          aria-label={`Move ${project.title} up`}
                           variant="ghost"
                           size="sm"
                           onClick={() => moveProject(project.id, 'up')}
@@ -650,6 +651,7 @@ export const ProjectManager: React.FC = () => {
                           <ChevronUp className="h-3 w-3" />
                         </Button>
                         <Button
+                          aria-label={`Move ${project.title} down`}
                           variant="ghost"
                           size="sm"
                           onClick={() => moveProject(project.id, 'down')}
@@ -719,6 +721,7 @@ export const ProjectManager: React.FC = () => {
                   <div className="flex items-center space-x-2 ml-4">
                     {project.live_link && (
                       <Button
+                        aria-label={`Open ${project.title} live site in a new tab`}
                         variant="outline"
                         size="sm"
                         onClick={() => window.open(project.live_link!, '_blank')}
@@ -726,10 +729,20 @@ export const ProjectManager: React.FC = () => {
                         <Eye className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => editProject(project)}>
+                    <Button
+                      aria-label={`Edit ${project.title}`}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => editProject(project)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => deleteProject(project.id)}>
+                    <Button
+                      aria-label={`Delete ${project.title}`}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteProject(project.id)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

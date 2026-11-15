@@ -1,7 +1,20 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,14 +30,21 @@ interface TasksTableProps {
   onSelectionChange: (selected: Set<string>) => void;
 }
 
-export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTasks, onSelectionChange }: TasksTableProps) => {
+export const TasksTable = ({
+  tasks,
+  onEdit,
+  onDelete,
+  onUpdateField,
+  selectedTasks,
+  onSelectionChange,
+}: TasksTableProps) => {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const toggleSelectAll = () => {
     if (selectedTasks.size === tasks.length) {
       onSelectionChange(new Set());
     } else {
-      onSelectionChange(new Set(tasks.map(t => t.id)));
+      onSelectionChange(new Set(tasks.map((t) => t.id)));
     }
   };
 
@@ -50,11 +70,16 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'text-red-500';
-      case 'high': return 'text-orange-500';
-      case 'medium': return 'text-yellow-500';
-      case 'low': return 'text-green-500';
-      default: return '';
+      case 'urgent':
+        return 'text-red-500';
+      case 'high':
+        return 'text-orange-500';
+      case 'medium':
+        return 'text-yellow-500';
+      case 'low':
+        return 'text-green-500';
+      default:
+        return '';
     }
   };
 
@@ -92,7 +117,10 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
             ) : (
               tasks.map((task) => (
                 <>
-                  <TableRow key={task.id} className={selectedTasks.has(task.id) ? 'bg-muted/50' : ''}>
+                  <TableRow
+                    key={task.id}
+                    className={selectedTasks.has(task.id) ? 'bg-muted/50' : ''}
+                  >
                     <TableCell>
                       <Checkbox
                         checked={selectedTasks.has(task.id)}
@@ -102,11 +130,7 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
                     </TableCell>
                     <TableCell>
                       {task.subtasks && task.subtasks.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleExpand(task.id)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => toggleExpand(task.id)}>
                           {expandedTasks.has(task.id) ? (
                             <ChevronDown className="h-4 w-4" />
                           ) : (
@@ -138,7 +162,10 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
                     <TableCell>
                       {task.project && (
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: task.project.color }} />
+                          <div
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: task.project.color }}
+                          />
                           <span className="truncate">{task.project.name}</span>
                         </div>
                       )}
@@ -179,9 +206,7 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
                           </div>
                         </TooltipTrigger>
                         {task.original_priority && (
-                          <TooltipContent>
-                            Original: {task.original_priority}
-                          </TooltipContent>
+                          <TooltipContent>Original: {task.original_priority}</TooltipContent>
                         )}
                       </Tooltip>
                     </TableCell>
@@ -207,7 +232,12 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
                       <div className="flex justify-end gap-2">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="sm" variant="ghost" onClick={() => onEdit(task)}>
+                            <Button
+                              aria-label="Edit task"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onEdit(task)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -215,7 +245,12 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="sm" variant="ghost" onClick={() => onDelete(task.id)}>
+                            <Button
+                              aria-label="Delete task"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onDelete(task.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -224,28 +259,29 @@ export const TasksTable = ({ tasks, onEdit, onDelete, onUpdateField, selectedTas
                       </div>
                     </TableCell>
                   </TableRow>
-                  {expandedTasks.has(task.id) && task.subtasks?.map((subtask: any) => (
-                    <TableRow key={subtask.id} className="bg-muted/30">
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className="pl-8">↳ {subtask.title}</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>
-                        <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
-                          {subtask.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className={getPriorityColor(subtask.priority)}>
-                        {subtask.priority}
-                      </TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>
-                        {subtask.due_date ? new Date(subtask.due_date).toLocaleDateString() : '-'}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  ))}
+                  {expandedTasks.has(task.id) &&
+                    task.subtasks?.map((subtask: any) => (
+                      <TableRow key={subtask.id} className="bg-muted/30">
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="pl-8">↳ {subtask.title}</TableCell>
+                        <TableCell>-</TableCell>
+                        <TableCell>-</TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
+                            {subtask.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className={getPriorityColor(subtask.priority)}>
+                          {subtask.priority}
+                        </TableCell>
+                        <TableCell>-</TableCell>
+                        <TableCell>
+                          {subtask.due_date ? new Date(subtask.due_date).toLocaleDateString() : '-'}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    ))}
                 </>
               ))
             )}

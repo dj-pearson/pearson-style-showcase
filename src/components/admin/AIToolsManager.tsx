@@ -875,6 +875,7 @@ export const AIToolsManager: React.FC = () => {
                           <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
                           <div className="flex flex-col space-y-1">
                             <Button
+                              aria-label={`Move ${tool.title} up`}
                               variant="ghost"
                               size="sm"
                               onClick={() => moveTool(tool.id, 'up')}
@@ -884,6 +885,7 @@ export const AIToolsManager: React.FC = () => {
                               <ChevronUp className="h-3 w-3" />
                             </Button>
                             <Button
+                              aria-label={`Move ${tool.title} down`}
                               variant="ghost"
                               size="sm"
                               onClick={() => moveTool(tool.id, 'down')}
@@ -975,6 +977,7 @@ export const AIToolsManager: React.FC = () => {
                       <div className="flex items-center space-x-2 ml-4">
                         {tool.link && (
                           <Button
+                            aria-label={`Open ${tool.title} in a new tab`}
                             variant="outline"
                             size="sm"
                             onClick={() => window.open(tool.link!, '_blank')}
@@ -982,10 +985,20 @@ export const AIToolsManager: React.FC = () => {
                             <Eye className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => editTool(tool)}>
+                        <Button
+                          aria-label={`Edit ${tool.title}`}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editTool(tool)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => deleteTool(tool.id)}>
+                        <Button
+                          aria-label={`Delete ${tool.title}`}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteTool(tool.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1092,6 +1105,7 @@ export const AIToolsManager: React.FC = () => {
                       <div className="flex items-center space-x-2 ml-4">
                         {tool.link && (
                           <Button
+                            aria-label={`Open ${tool.title} in a new tab`}
                             variant="outline"
                             size="sm"
                             onClick={() => window.open(tool.link!, '_blank')}
@@ -1099,10 +1113,16 @@ export const AIToolsManager: React.FC = () => {
                             <Eye className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => editTool(tool)}>
+                        <Button
+                          aria-label={`Edit ${tool.title}`}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editTool(tool)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
+                          aria-label={`Approve ${tool.title}`}
                           variant="default"
                           size="sm"
                           onClick={() => approveTool(tool)}
@@ -1110,7 +1130,12 @@ export const AIToolsManager: React.FC = () => {
                         >
                           <CheckCircle className="h-4 w-4" />
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => rejectTool(tool)}>
+                        <Button
+                          aria-label={`Reject ${tool.title}`}
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => rejectTool(tool)}
+                        >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
