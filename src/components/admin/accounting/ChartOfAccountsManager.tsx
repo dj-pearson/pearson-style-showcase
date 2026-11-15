@@ -600,10 +600,20 @@ export const ChartOfAccountsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
+                          <Button
+                            aria-label={`Edit account ${account.account_name}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(account)}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(account)}>
+                          <Button
+                            aria-label={`Delete account ${account.account_name}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(account)}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>

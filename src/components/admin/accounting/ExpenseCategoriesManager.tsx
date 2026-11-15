@@ -149,10 +149,7 @@ const ExpenseCategoriesManager: React.FC = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('expense_categories')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('expense_categories').delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -248,10 +245,13 @@ const ExpenseCategoriesManager: React.FC = () => {
             Tax-ready expense categorization for IRS reporting
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -283,9 +283,7 @@ const ExpenseCategoriesManager: React.FC = () => {
                 <Label htmlFor="category_code">IRS Schedule C Line Number</Label>
                 <Select
                   value={formData.category_code}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category_code: value })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, category_code: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select IRS category (optional)" />
@@ -318,9 +316,7 @@ const ExpenseCategoriesManager: React.FC = () => {
                 <Label htmlFor="account_id">Linked Expense Account</Label>
                 <Select
                   value={formData.account_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, account_id: value })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, account_id: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select account (optional)" />
@@ -339,19 +335,19 @@ const ExpenseCategoriesManager: React.FC = () => {
                 <Label htmlFor="parent_category_id">Parent Category (Optional)</Label>
                 <Select
                   value={formData.parent_category_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, parent_category_id: value })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, parent_category_id: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select parent category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories?.filter(c => c.id !== editingCategory?.id).map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                    {categories
+                      ?.filter((c) => c.id !== editingCategory?.id)
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -394,9 +390,7 @@ const ExpenseCategoriesManager: React.FC = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingCategory ? 'Update' : 'Create'} Category
-                </Button>
+                <Button type="submit">{editingCategory ? 'Update' : 'Create'} Category</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -461,6 +455,7 @@ const ExpenseCategoriesManager: React.FC = () => {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
+                        aria-label={`Edit category ${category.name}`}
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEdit(category)}
@@ -468,6 +463,7 @@ const ExpenseCategoriesManager: React.FC = () => {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete category ${category.name}`}
                         variant="ghost"
                         size="icon"
                         onClick={() => {

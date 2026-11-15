@@ -97,7 +97,13 @@ export const QuarterlyTaxTracker = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estimated_tax_payments', taxYear] });
       setIsAddOpen(false);
-      setNewPayment({ quarter: 'Q1', amount: '', datePaid: format(new Date(), 'yyyy-MM-dd'), method: 'Bank Transfer', confirmationNumber: '' });
+      setNewPayment({
+        quarter: 'Q1',
+        amount: '',
+        datePaid: format(new Date(), 'yyyy-MM-dd'),
+        method: 'Bank Transfer',
+        confirmationNumber: '',
+      });
       toast.success('Estimated tax payment recorded');
     },
     onError: () => {
@@ -119,10 +125,8 @@ export const QuarterlyTaxTracker = ({
 
   // Group payments by quarter
   const quarterlyData = useMemo(() => {
-    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
-      const quarterPayments = payments?.filter(p =>
-        p.reference_number?.includes(`-${q}`)
-      ) || [];
+    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map((q) => {
+      const quarterPayments = payments?.filter((p) => p.reference_number?.includes(`-${q}`)) || [];
 
       const totalPaid = quarterPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
@@ -194,11 +198,13 @@ export const QuarterlyTaxTracker = ({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Paid YTD</CardDescription>
-            <CardTitle className="text-2xl text-green-700">{formatCurrency(totalPaidYTD)}</CardTitle>
+            <CardTitle className="text-2xl text-green-700">
+              {formatCurrency(totalPaidYTD)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              {quarterlyData.filter(q => q.totalPaid > 0).length} of 4 quarters paid
+              {quarterlyData.filter((q) => q.totalPaid > 0).length} of 4 quarters paid
             </p>
           </CardContent>
         </Card>
@@ -206,7 +212,9 @@ export const QuarterlyTaxTracker = ({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Remaining Liability</CardDescription>
-            <CardTitle className={`text-2xl ${remainingLiability > 0 ? 'text-red-700' : 'text-green-700'}`}>
+            <CardTitle
+              className={`text-2xl ${remainingLiability > 0 ? 'text-red-700' : 'text-green-700'}`}
+            >
               {formatCurrency(remainingLiability)}
             </CardTitle>
           </CardHeader>
@@ -224,7 +232,9 @@ export const QuarterlyTaxTracker = ({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Quarterly Estimated Payments (Form 1040-ES)</CardTitle>
-              <CardDescription>Track your quarterly estimated tax payments to the IRS</CardDescription>
+              <CardDescription>
+                Track your quarterly estimated tax payments to the IRS
+              </CardDescription>
             </div>
             <div className="flex items-center gap-3">
               <Select value={taxYear} onValueChange={setTaxYear}>
@@ -232,8 +242,10 @@ export const QuarterlyTaxTracker = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {yearOptions.map(year => (
-                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  {yearOptions.map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -257,14 +269,16 @@ export const QuarterlyTaxTracker = ({
                       <Label>Quarter</Label>
                       <Select
                         value={newPayment.quarter}
-                        onValueChange={(v) => setNewPayment(prev => ({ ...prev, quarter: v }))}
+                        onValueChange={(v) => setNewPayment((prev) => ({ ...prev, quarter: v }))}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {Object.entries(QUARTERLY_DEADLINES).map(([q, info]) => (
-                            <SelectItem key={q} value={q}>{info.label}</SelectItem>
+                            <SelectItem key={q} value={q}>
+                              {info.label}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -276,7 +290,9 @@ export const QuarterlyTaxTracker = ({
                         step="0.01"
                         placeholder="0.00"
                         value={newPayment.amount}
-                        onChange={(e) => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                        onChange={(e) =>
+                          setNewPayment((prev) => ({ ...prev, amount: e.target.value }))
+                        }
                       />
                     </div>
                     <div>
@@ -284,14 +300,16 @@ export const QuarterlyTaxTracker = ({
                       <Input
                         type="date"
                         value={newPayment.datePaid}
-                        onChange={(e) => setNewPayment(prev => ({ ...prev, datePaid: e.target.value }))}
+                        onChange={(e) =>
+                          setNewPayment((prev) => ({ ...prev, datePaid: e.target.value }))
+                        }
                       />
                     </div>
                     <div>
                       <Label>Payment Method</Label>
                       <Select
                         value={newPayment.method}
-                        onValueChange={(v) => setNewPayment(prev => ({ ...prev, method: v }))}
+                        onValueChange={(v) => setNewPayment((prev) => ({ ...prev, method: v }))}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -310,12 +328,16 @@ export const QuarterlyTaxTracker = ({
                       <Input
                         placeholder="e.g., IRS confirmation #"
                         value={newPayment.confirmationNumber}
-                        onChange={(e) => setNewPayment(prev => ({ ...prev, confirmationNumber: e.target.value }))}
+                        onChange={(e) =>
+                          setNewPayment((prev) => ({ ...prev, confirmationNumber: e.target.value }))
+                        }
                       />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+                      Cancel
+                    </Button>
                     <Button
                       onClick={() => createPaymentMutation.mutate()}
                       disabled={!newPayment.amount || createPaymentMutation.isPending}
@@ -342,7 +364,7 @@ export const QuarterlyTaxTracker = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {quarterlyData.map(q => (
+              {quarterlyData.map((q) =>
                 q.payments.length > 0 ? (
                   q.payments.map((payment, idx) => (
                     <TableRow key={payment.id}>
@@ -357,7 +379,10 @@ export const QuarterlyTaxTracker = ({
                         </>
                       )}
                       <TableCell>
-                        <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        <Badge
+                          variant="default"
+                          className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        >
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Paid
                         </Badge>
@@ -366,9 +391,12 @@ export const QuarterlyTaxTracker = ({
                         {formatCurrency(Number(payment.amount))}
                       </TableCell>
                       <TableCell>{format(new Date(payment.payment_date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{payment.payment_method}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {payment.payment_method}
+                      </TableCell>
                       <TableCell>
                         <Button
+                          aria-label="Delete tax payment"
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
@@ -403,10 +431,12 @@ export const QuarterlyTaxTracker = ({
                     <TableCell></TableCell>
                   </TableRow>
                 )
-              ))}
+              )}
               <TableRow className="font-semibold bg-muted">
                 <TableCell colSpan={3}>Total Paid</TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(totalPaidYTD)}</TableCell>
+                <TableCell className="text-right font-mono">
+                  {formatCurrency(totalPaidYTD)}
+                </TableCell>
                 <TableCell colSpan={3}></TableCell>
               </TableRow>
             </TableBody>

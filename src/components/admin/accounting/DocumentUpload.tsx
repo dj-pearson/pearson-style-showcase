@@ -10,7 +10,18 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, File, CheckCircle, XCircle, Loader2, Eye, Download, Trash2, Check, X } from 'lucide-react';
+import {
+  Upload,
+  File,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Eye,
+  Download,
+  Trash2,
+  Check,
+  X,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -24,8 +35,17 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
-export type DocumentType = 'invoice' | 'bill' | 'receipt' | 'payment_proof' | 'bank_statement' | 'contract' | 'tax_document' | 'other';
-export type RelatedEntityType = 'invoice' | 'payment' | 'journal_entry' | 'contact' | 'expense' | 'none';
+export type DocumentType =
+  | 'invoice'
+  | 'bill'
+  | 'receipt'
+  | 'payment_proof'
+  | 'bank_statement'
+  | 'contract'
+  | 'tax_document'
+  | 'other';
+export type RelatedEntityType =
+  'invoice' | 'payment' | 'journal_entry' | 'contact' | 'expense' | 'none';
 
 interface DocumentUploadProps {
   documentType?: DocumentType;
@@ -396,7 +416,10 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }> = {
+    const variants: Record<
+      string,
+      { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }
+    > = {
       pending: { variant: 'outline', icon: <Loader2 className="h-3 w-3 animate-spin" /> },
       processing: { variant: 'secondary', icon: <Loader2 className="h-3 w-3 animate-spin" /> },
       completed: { variant: 'default', icon: <CheckCircle className="h-3 w-3" /> },
@@ -445,13 +468,17 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
             Upload Document
           </CardTitle>
           <CardDescription>
-            Upload invoices, receipts, or other accounting documents for automatic OCR and AI processing
+            Upload invoices, receipts, or other accounting documents for automatic OCR and AI
+            processing
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="documentType">Document Type</Label>
-            <Select value={documentType} onValueChange={(value) => setDocumentType(value as DocumentType)}>
+            <Select
+              value={documentType}
+              onValueChange={(value) => setDocumentType(value as DocumentType)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -573,38 +600,43 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
                         Approved
                       </Badge>
                     )}
-                    {doc.ai_status === 'completed' && doc.ai_parsed_data && onApprove && doc.related_entity_type !== 'invoice' && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleApprove(doc)}
-                        disabled={!!approvingId}
-                        title="Approve and create invoice"
-                      >
-                        {approvingId === doc.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="h-4 w-4" />
-                        )}
-                        <span className="ml-1 sr-only sm:not-sr-only">Approve</span>
-                      </Button>
-                    )}
-                    {doc.ai_status === 'completed' && onDeny && doc.related_entity_type !== 'invoice' && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeny(doc)}
-                        disabled={!!denyingId}
-                        title="Deny document"
-                      >
-                        {denyingId === doc.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <X className="h-4 w-4" />
-                        )}
-                        <span className="ml-1 sr-only sm:not-sr-only">Deny</span>
-                      </Button>
-                    )}
+                    {doc.ai_status === 'completed' &&
+                      doc.ai_parsed_data &&
+                      onApprove &&
+                      doc.related_entity_type !== 'invoice' && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleApprove(doc)}
+                          disabled={!!approvingId}
+                          title="Approve and create invoice"
+                        >
+                          {approvingId === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}
+                          <span className="ml-1 sr-only sm:not-sr-only">Approve</span>
+                        </Button>
+                      )}
+                    {doc.ai_status === 'completed' &&
+                      onDeny &&
+                      doc.related_entity_type !== 'invoice' && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeny(doc)}
+                          disabled={!!denyingId}
+                          title="Deny document"
+                        >
+                          {denyingId === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <X className="h-4 w-4" />
+                          )}
+                          <span className="ml-1 sr-only sm:not-sr-only">Deny</span>
+                        </Button>
+                      )}
                     {doc.ai_status === 'completed' && doc.ai_parsed_data && (
                       <Button
                         variant="ghost"
@@ -614,6 +646,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
                           setShowParsedData(true);
                         }}
                         title="View parsed data"
+                        aria-label={`View parsed data for ${doc.file_name}`}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -623,6 +656,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
                       size="icon"
                       onClick={() => handleDownload(doc)}
                       title="Download"
+                      aria-label={`Download ${doc.file_name}`}
                     >
                       <Download className="h-4 w-4" />
                     </Button>
@@ -631,6 +665,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
                       size="icon"
                       onClick={() => handleDelete(doc)}
                       title="Delete"
+                      aria-label={`Delete ${doc.file_name}`}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -665,7 +700,9 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
               </div>
 
               <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">Structured Data (JSON)</Label>
+                <Label className="text-xs text-muted-foreground mb-2 block">
+                  Structured Data (JSON)
+                </Label>
                 <Textarea
                   value={JSON.stringify(selectedDocument.ai_parsed_data, null, 2)}
                   readOnly
@@ -676,7 +713,9 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
               <Button
                 onClick={() => {
-                  navigator.clipboard.writeText(JSON.stringify(selectedDocument.ai_parsed_data, null, 2));
+                  navigator.clipboard.writeText(
+                    JSON.stringify(selectedDocument.ai_parsed_data, null, 2)
+                  );
                   toast({
                     title: 'Copied to clipboard',
                     description: 'Parsed data copied to clipboard',

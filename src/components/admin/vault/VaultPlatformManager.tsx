@@ -24,24 +24,19 @@ export const VaultPlatformManager = () => {
   const { data: platforms = [], isLoading } = useQuery({
     queryKey: ['vault-platforms'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vault_platforms')
-        .select('*')
-        .order('name');
+      const { data, error } = await supabase.from('vault_platforms').select('*').order('name');
       if (error) throw error;
       return data as VaultPlatform[];
-    }
+    },
   });
 
   const addMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from('vault_platforms')
-        .insert({ 
-          name: newPlatformName.trim(),
-          url: newPlatformUrl.trim() || null,
-          icon: 'globe'
-        });
+      const { error } = await supabase.from('vault_platforms').insert({
+        name: newPlatformName.trim(),
+        url: newPlatformUrl.trim() || null,
+        icon: 'globe',
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -52,15 +47,12 @@ export const VaultPlatformManager = () => {
     },
     onError: (error) => {
       toast.error('Failed to add platform: ' + error.message);
-    }
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('vault_platforms')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('vault_platforms').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -69,7 +61,7 @@ export const VaultPlatformManager = () => {
     },
     onError: (error) => {
       toast.error('Failed to delete platform: ' + error.message);
-    }
+    },
   });
 
   const handleAdd = () => {
@@ -88,7 +80,9 @@ export const VaultPlatformManager = () => {
     <div className="space-y-4">
       <div className="flex gap-2">
         <div className="flex-1 space-y-1">
-          <Label htmlFor="platform-name" className="text-xs">Name</Label>
+          <Label htmlFor="platform-name" className="text-xs">
+            Name
+          </Label>
           <Input
             id="platform-name"
             value={newPlatformName}
@@ -98,7 +92,9 @@ export const VaultPlatformManager = () => {
           />
         </div>
         <div className="flex-1 space-y-1">
-          <Label htmlFor="platform-url" className="text-xs">URL (optional)</Label>
+          <Label htmlFor="platform-url" className="text-xs">
+            URL (optional)
+          </Label>
           <Input
             id="platform-url"
             value={newPlatformUrl}
@@ -108,18 +104,24 @@ export const VaultPlatformManager = () => {
           />
         </div>
         <div className="flex items-end">
-          <Button size="sm" onClick={handleAdd} disabled={addMutation.isPending}>
+          <Button
+            aria-label="Add platform"
+            size="sm"
+            onClick={handleAdd}
+            disabled={addMutation.isPending}
+          >
             <Plus className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {platforms.map(platform => (
+        {platforms.map((platform) => (
           <Badge key={platform.id} variant="secondary" className="gap-1 pr-1">
             <Globe className="h-3 w-3" />
             <span>{platform.name}</span>
             <Button
+              aria-label={`Delete platform ${platform.name}`}
               variant="ghost"
               size="icon"
               className="h-4 w-4 ml-1 hover:bg-destructive/20"

@@ -1130,6 +1130,7 @@ const InvoiceForm = ({
                   <TableCell className="p-1">
                     {lineItems.length > 1 && (
                       <Button
+                        aria-label="Remove line item"
                         type="button"
                         variant="ghost"
                         size="sm"

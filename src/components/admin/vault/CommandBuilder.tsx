@@ -6,19 +6,50 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  Terminal, Copy, Check, RefreshCw, Wand2, Eye, EyeOff,
-  Database, Server, Cloud, GitBranch, Code2, Settings,
-  ChevronRight, AlertCircle, Lock, Sparkles, ChevronDown,
-  Plus, Save, Key, Edit2, Trash2
+  Terminal,
+  Copy,
+  Check,
+  RefreshCw,
+  Wand2,
+  Eye,
+  EyeOff,
+  Database,
+  Server,
+  Cloud,
+  GitBranch,
+  Code2,
+  Settings,
+  ChevronRight,
+  AlertCircle,
+  Lock,
+  Sparkles,
+  ChevronDown,
+  Plus,
+  Save,
+  Key,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
 
@@ -105,7 +136,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
         .order('name');
       if (error) throw error;
       return data as CommandTemplate[];
-    }
+    },
   });
 
   // Fetch ALL vault items (with and without placeholder keys)
@@ -118,47 +149,53 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
         .order('name');
       if (error) throw error;
       return data as VaultItem[];
-    }
+    },
   });
 
   // Filter to items with placeholder keys
   const vaultItemsWithKeys = useMemo(() => {
-    return allVaultItems.filter(item => item.placeholder_key);
+    return allVaultItems.filter((item) => item.placeholder_key);
   }, [allVaultItems]);
 
   // Filter to items without placeholder keys
   const vaultItemsWithoutKeys = useMemo(() => {
-    return allVaultItems.filter(item => !item.placeholder_key);
+    return allVaultItems.filter((item) => !item.placeholder_key);
   }, [allVaultItems]);
 
   // Decrypt mutation for fetching secret values
   const decryptMutation = useMutation({
     mutationFn: async (itemId: string) => {
       const response = await invokeEdgeFunction('secure-vault', {
-        body: { action: 'decrypt', itemId }
+        body: { action: 'decrypt', itemId },
       });
       if (response.error) throw new Error(response.error.message);
       return response.data.value;
-    }
+    },
   });
 
   // Save template mutation
   const saveTemplateMutation = useMutation({
-    mutationFn: async (template: { name: string; description: string; category: string; template: string; placeholders: string[] }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+    mutationFn: async (template: {
+      name: string;
+      description: string;
+      category: string;
+      template: string;
+      placeholders: string[];
+    }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
-        .from('vault_command_templates')
-        .insert({
-          name: template.name,
-          description: template.description || null,
-          category: template.category,
-          template: template.template,
-          placeholders: template.placeholders,
-          is_system: false,
-          user_id: user.id
-        });
+      const { error } = await supabase.from('vault_command_templates').insert({
+        name: template.name,
+        description: template.description || null,
+        category: template.category,
+        template: template.template,
+        placeholders: template.placeholders,
+        is_system: false,
+        user_id: user.id,
+      });
 
       if (error) throw error;
     },
@@ -172,13 +209,13 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
     },
     onError: (error) => {
       toast.error('Failed to save template: ' + error.message);
-    }
+    },
   });
 
   // Group templates by category
   const categorizedTemplates = useMemo(() => {
     const grouped: Record<string, CommandTemplate[]> = {};
-    templates.forEach(template => {
+    templates.forEach((template) => {
       if (!grouped[template.category]) {
         grouped[template.category] = [];
       }
@@ -195,13 +232,13 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
   // Filter templates by category
   const filteredTemplates = useMemo(() => {
     if (selectedCategory === 'all') return templates;
-    return templates.filter(t => t.category === selectedCategory);
+    return templates.filter((t) => t.category === selectedCategory);
   }, [templates, selectedCategory]);
 
   // Map placeholder keys to vault items
   const placeholderToVaultItem = useMemo(() => {
     const map: Record<string, VaultItem> = {};
-    allVaultItems.forEach(item => {
+    allVaultItems.forEach((item) => {
       if (item.placeholder_key) {
         map[item.placeholder_key] = item;
       }
@@ -216,44 +253,48 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
   }, [selectedTemplate]);
 
   // Auto-fill placeholders from vault when template is selected
-  const handleTemplateSelect = useCallback(async (template: CommandTemplate) => {
-    setSelectedTemplate(template);
-    setCopied(false);
+  const handleTemplateSelect = useCallback(
+    async (template: CommandTemplate) => {
+      setSelectedTemplate(template);
+      setCopied(false);
 
-    // Auto-fill from vault
-    const newValues: Record<string, string> = {};
-    const promises: Promise<void>[] = [];
+      // Auto-fill from vault
+      const newValues: Record<string, string> = {};
+      const promises: Promise<void>[] = [];
 
-    (template.placeholders || []).forEach(placeholder => {
-      const vaultItem = placeholderToVaultItem[placeholder];
-      if (vaultItem) {
-        promises.push(
-          decryptMutation.mutateAsync(vaultItem.id)
-            .then(value => {
-              newValues[placeholder] = value;
-            })
-            .catch(() => {
-              // Silently fail for individual items
-            })
-        );
-      }
-    });
+      (template.placeholders || []).forEach((placeholder) => {
+        const vaultItem = placeholderToVaultItem[placeholder];
+        if (vaultItem) {
+          promises.push(
+            decryptMutation
+              .mutateAsync(vaultItem.id)
+              .then((value) => {
+                newValues[placeholder] = value;
+              })
+              .catch(() => {
+                // Silently fail for individual items
+              })
+          );
+        }
+      });
 
-    await Promise.allSettled(promises);
-    setPlaceholderValues(prev => ({ ...prev, ...newValues }));
-  }, [placeholderToVaultItem, decryptMutation]);
+      await Promise.allSettled(promises);
+      setPlaceholderValues((prev) => ({ ...prev, ...newValues }));
+    },
+    [placeholderToVaultItem, decryptMutation]
+  );
 
   // Build the final command
   const builtCommand = useMemo(() => {
     if (!selectedTemplate) return customCommand;
 
     let command = selectedTemplate.template;
-    currentPlaceholders.forEach(placeholder => {
+    currentPlaceholders.forEach((placeholder) => {
       const value = placeholderValues[placeholder] || `[${placeholder}]`;
       command = command.replace(new RegExp(`\\[${placeholder}\\]`, 'g'), value);
     });
     // Also apply custom placeholders
-    customPlaceholders.forEach(cp => {
+    customPlaceholders.forEach((cp) => {
       command = command.replace(new RegExp(`\\[${cp.key}\\]`, 'g'), cp.value);
     });
     return command;
@@ -276,12 +317,12 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
   };
 
   const handlePlaceholderChange = (placeholder: string, value: string) => {
-    setPlaceholderValues(prev => ({ ...prev, [placeholder]: value }));
+    setPlaceholderValues((prev) => ({ ...prev, [placeholder]: value }));
     setCopied(false);
   };
 
   const toggleShowSecret = (placeholder: string) => {
-    setShowSecrets(prev => ({ ...prev, [placeholder]: !prev[placeholder] }));
+    setShowSecrets((prev) => ({ ...prev, [placeholder]: !prev[placeholder] }));
   };
 
   const handleRefreshFromVault = async (placeholder: string) => {
@@ -293,7 +334,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
 
     try {
       const value = await decryptMutation.mutateAsync(vaultItem.id);
-      setPlaceholderValues(prev => ({ ...prev, [placeholder]: value }));
+      setPlaceholderValues((prev) => ({ ...prev, [placeholder]: value }));
       toast.success(`Refreshed ${placeholder} from vault`);
     } catch {
       toast.error(`Failed to fetch ${placeholder}`);
@@ -304,7 +345,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
     try {
       const value = await decryptMutation.mutateAsync(item.id);
       if (item.placeholder_key) {
-        setPlaceholderValues(prev => ({ ...prev, [item.placeholder_key!]: value }));
+        setPlaceholderValues((prev) => ({ ...prev, [item.placeholder_key!]: value }));
         toast.success(`Loaded ${item.name}`);
       } else {
         // Copy to clipboard if no placeholder key
@@ -317,29 +358,31 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
   };
 
   const addCustomPlaceholder = () => {
-    const key = newCustomPlaceholderKey.trim().toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+    const key = newCustomPlaceholderKey
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^A-Z0-9_]/g, '');
     if (!key) {
       toast.error('Please enter a placeholder key');
       return;
     }
-    if (customPlaceholders.some(cp => cp.key === key) || placeholderToVaultItem[key]) {
+    if (customPlaceholders.some((cp) => cp.key === key) || placeholderToVaultItem[key]) {
       toast.error('This placeholder key already exists');
       return;
     }
-    setCustomPlaceholders(prev => [...prev, { key, value: '', isCustom: true }]);
+    setCustomPlaceholders((prev) => [...prev, { key, value: '', isCustom: true }]);
     setNewCustomPlaceholderKey('');
     toast.success(`Added custom placeholder [${key}]`);
   };
 
   const updateCustomPlaceholder = (key: string, value: string) => {
-    setCustomPlaceholders(prev =>
-      prev.map(cp => cp.key === key ? { ...cp, value } : cp)
-    );
+    setCustomPlaceholders((prev) => prev.map((cp) => (cp.key === key ? { ...cp, value } : cp)));
     setCopied(false);
   };
 
   const removeCustomPlaceholder = (key: string) => {
-    setCustomPlaceholders(prev => prev.filter(cp => cp.key !== key));
+    setCustomPlaceholders((prev) => prev.filter((cp) => cp.key !== key));
   };
 
   const clearTemplate = () => {
@@ -368,21 +411,21 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
 
     const templateString = selectedTemplate ? selectedTemplate.template : customCommand;
     const matches = templateString.match(/\[([A-Z0-9_]+)\]/g) || [];
-    const placeholders = [...new Set(matches.map(m => m.slice(1, -1)))];
+    const placeholders = [...new Set(matches.map((m) => m.slice(1, -1)))];
 
     saveTemplateMutation.mutate({
       name: newTemplateName.trim(),
       description: newTemplateDescription.trim(),
       category: newTemplateCategory,
       template: templateString,
-      placeholders
+      placeholders,
     });
   };
 
   // Extract placeholders from custom command
   const customCommandPlaceholders = useMemo(() => {
     const matches = customCommand.match(/\[([A-Z0-9_]+)\]/g) || [];
-    return [...new Set(matches.map(m => m.slice(1, -1)))];
+    return [...new Set(matches.map((m) => m.slice(1, -1)))];
   }, [customCommand]);
 
   // Build custom command with values
@@ -391,7 +434,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
     Object.entries(placeholderValues).forEach(([key, value]) => {
       cmd = cmd.replace(new RegExp(`\\[${key}\\]`, 'g'), value);
     });
-    customPlaceholders.forEach(cp => {
+    customPlaceholders.forEach((cp) => {
       cmd = cmd.replace(new RegExp(`\\[${cp.key}\\]`, 'g'), cp.value);
     });
     return cmd;
@@ -439,7 +482,9 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                     Click a secret to use it • Secrets with placeholder keys auto-fill in templates
                   </CardDescription>
                 </div>
-                <ChevronDown className={`h-4 w-4 transition-transform ${vaultSecretsOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${vaultSecretsOpen ? 'rotate-180' : ''}`}
+                />
               </div>
             </CardHeader>
           </CollapsibleTrigger>
@@ -453,15 +498,14 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                       Mapped Secrets (click to insert)
                     </Label>
                     <div className="flex flex-wrap gap-2">
-                      {vaultItemsWithKeys.map(item => (
+                      {vaultItemsWithKeys.map((item) => (
                         <Badge
                           key={item.id}
                           variant="outline"
                           className="cursor-pointer hover:bg-primary/10 transition-colors"
                           onClick={() => handleFetchVaultItem(item)}
                         >
-                          <Lock className="h-3 w-3 mr-1" />
-                          [{item.placeholder_key}]
+                          <Lock className="h-3 w-3 mr-1" />[{item.placeholder_key}]
                           <span className="text-muted-foreground ml-1">• {item.name}</span>
                         </Badge>
                       ))}
@@ -476,7 +520,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                       Unmapped Secrets (click to copy value)
                     </Label>
                     <div className="flex flex-wrap gap-2">
-                      {vaultItemsWithoutKeys.map(item => (
+                      {vaultItemsWithoutKeys.map((item) => (
                         <Badge
                           key={item.id}
                           variant="secondary"
@@ -536,7 +580,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
             {/* List of custom placeholders */}
             {customPlaceholders.length > 0 && (
               <div className="space-y-2 pt-2">
-                {customPlaceholders.map(cp => (
+                {customPlaceholders.map((cp) => (
                   <div key={cp.key} className="flex items-center gap-2">
                     <Badge variant="outline" className="font-mono shrink-0">
                       [{cp.key}]
@@ -549,14 +593,22 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                       className="font-mono text-sm flex-1"
                     />
                     <Button
+                      aria-label={
+                        showSecrets[cp.key] ? `Hide value of ${cp.key}` : `Show value of ${cp.key}`
+                      }
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => toggleShowSecret(cp.key)}
                     >
-                      {showSecrets[cp.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showSecrets[cp.key] ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </Button>
                     <Button
+                      aria-label={`Remove placeholder ${cp.key}`}
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive"
@@ -600,7 +652,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(cat => (
+                {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     <span className="flex items-center gap-2">
                       {categoryIcons[cat] || <Terminal className="h-4 w-4" />}
@@ -629,32 +681,43 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Available Templates</CardTitle>
                 <CardDescription>
-                  {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''} available
+                  {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''}{' '}
+                  available
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[320px]">
                   {loadingTemplates ? (
-                    <div className="p-4 text-center text-muted-foreground">Loading templates...</div>
+                    <div className="p-4 text-center text-muted-foreground">
+                      Loading templates...
+                    </div>
                   ) : filteredTemplates.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">No templates found</div>
                   ) : (
                     <div className="space-y-1 p-2">
-                      {filteredTemplates.map(template => (
+                      {filteredTemplates.map((template) => (
                         <button
                           key={template.id}
                           onClick={() => handleTemplateSelect(template)}
                           className={`w-full text-left p-3 rounded-md transition-colors hover:bg-muted ${
-                            selectedTemplate?.id === template.id ? 'bg-primary/10 border border-primary' : ''
+                            selectedTemplate?.id === template.id
+                              ? 'bg-primary/10 border border-primary'
+                              : ''
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                {categoryIcons[template.category] || <Terminal className="h-4 w-4" />}
-                                <span className="font-medium text-sm truncate">{template.name}</span>
+                                {categoryIcons[template.category] || (
+                                  <Terminal className="h-4 w-4" />
+                                )}
+                                <span className="font-medium text-sm truncate">
+                                  {template.name}
+                                </span>
                                 {!template.is_system && (
-                                  <Badge variant="secondary" className="text-xs">Custom</Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    Custom
+                                  </Badge>
                                 )}
                               </div>
                               {template.description && (
@@ -663,7 +726,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                                 </p>
                               )}
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {(template.placeholders || []).slice(0, 3).map(p => (
+                                {(template.placeholders || []).slice(0, 3).map((p) => (
                                   <Badge key={p} variant="outline" className="text-xs">
                                     {placeholderToVaultItem[p] ? (
                                       <Lock className="h-2 w-2 mr-1" />
@@ -697,8 +760,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                 <CardDescription>
                   {selectedTemplate
                     ? `Fill in the values for ${currentPlaceholders.length} placeholder${currentPlaceholders.length !== 1 ? 's' : ''}`
-                    : 'Choose a template from the list to get started'
-                  }
+                    : 'Choose a template from the list to get started'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -710,10 +772,14 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                           This template has no placeholders to configure.
                         </p>
                       ) : (
-                        currentPlaceholders.map(placeholder => {
+                        currentPlaceholders.map((placeholder) => {
                           const vaultItem = placeholderToVaultItem[placeholder];
-                          const customPlaceholder = customPlaceholders.find(cp => cp.key === placeholder);
-                          const hasValue = !!(placeholderValues[placeholder] || customPlaceholder?.value);
+                          const customPlaceholder = customPlaceholders.find(
+                            (cp) => cp.key === placeholder
+                          );
+                          const hasValue = !!(
+                            placeholderValues[placeholder] || customPlaceholder?.value
+                          );
 
                           return (
                             <div key={placeholder} className="space-y-2">
@@ -726,24 +792,36 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                                       {vaultItem.name}
                                     </Badge>
                                   ) : customPlaceholder ? (
-                                    <Badge variant="outline" className="text-xs">Custom</Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      Custom
+                                    </Badge>
                                   ) : (
-                                    <Badge variant="destructive" className="text-xs">Not mapped</Badge>
+                                    <Badge variant="destructive" className="text-xs">
+                                      Not mapped
+                                    </Badge>
                                   )}
                                 </Label>
                                 <div className="flex items-center gap-1">
                                   {vaultItem && (
                                     <Button
+                                      aria-label={`Reload ${placeholder} from the vault`}
                                       variant="ghost"
                                       size="icon"
                                       className="h-6 w-6"
                                       onClick={() => handleRefreshFromVault(placeholder)}
                                       disabled={decryptMutation.isPending}
                                     >
-                                      <RefreshCw className={`h-3 w-3 ${decryptMutation.isPending ? 'animate-spin' : ''}`} />
+                                      <RefreshCw
+                                        className={`h-3 w-3 ${decryptMutation.isPending ? 'animate-spin' : ''}`}
+                                      />
                                     </Button>
                                   )}
                                   <Button
+                                    aria-label={
+                                      showSecrets[placeholder]
+                                        ? `Hide value of ${placeholder}`
+                                        : `Show value of ${placeholder}`
+                                    }
                                     variant="ghost"
                                     size="icon"
                                     className="h-6 w-6"
@@ -758,7 +836,9 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                                 </div>
                               </div>
                               <Input
-                                value={customPlaceholder?.value || placeholderValues[placeholder] || ''}
+                                value={
+                                  customPlaceholder?.value || placeholderValues[placeholder] || ''
+                                }
                                 onChange={(e) => {
                                   if (customPlaceholder) {
                                     updateCustomPlaceholder(placeholder, e.target.value);
@@ -766,7 +846,11 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                                     handlePlaceholderChange(placeholder, e.target.value);
                                   }
                                 }}
-                                placeholder={vaultItem ? `Auto-filled from ${vaultItem.name}` : 'Enter value or add as custom placeholder...'}
+                                placeholder={
+                                  vaultItem
+                                    ? `Auto-filled from ${vaultItem.name}`
+                                    : 'Enter value or add as custom placeholder...'
+                                }
                                 type={showSecrets[placeholder] ? 'text' : 'password'}
                                 className={`font-mono text-sm ${hasValue ? 'border-green-500/50' : ''}`}
                               />
@@ -810,6 +894,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                     className="font-mono text-sm min-h-[80px] pr-12 bg-muted/50"
                   />
                   <Button
+                    aria-label={copied ? 'Command copied' : 'Copy command'}
                     variant="ghost"
                     size="icon"
                     className="absolute right-2 top-2"
@@ -868,34 +953,33 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                 <div className="flex flex-wrap gap-2">
                   {vaultItemsWithKeys.length === 0 && customPlaceholders.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No mapped vault items or custom placeholders. Add a placeholder key to vault items or create custom placeholders above.
+                      No mapped vault items or custom placeholders. Add a placeholder key to vault
+                      items or create custom placeholders above.
                     </p>
                   ) : (
                     <>
-                      {vaultItemsWithKeys.map(item => (
+                      {vaultItemsWithKeys.map((item) => (
                         <Badge
                           key={item.id}
                           variant="outline"
                           className="cursor-pointer hover:bg-primary/10"
                           onClick={() => {
-                            setCustomCommand(prev => prev + `[${item.placeholder_key}]`);
+                            setCustomCommand((prev) => prev + `[${item.placeholder_key}]`);
                           }}
                         >
-                          <Lock className="h-3 w-3 mr-1" />
-                          [{item.placeholder_key}]
+                          <Lock className="h-3 w-3 mr-1" />[{item.placeholder_key}]
                         </Badge>
                       ))}
-                      {customPlaceholders.map(cp => (
+                      {customPlaceholders.map((cp) => (
                         <Badge
                           key={cp.key}
                           variant="secondary"
                           className="cursor-pointer hover:bg-secondary/80"
                           onClick={() => {
-                            setCustomCommand(prev => prev + `[${cp.key}]`);
+                            setCustomCommand((prev) => prev + `[${cp.key}]`);
                           }}
                         >
-                          <Edit2 className="h-3 w-3 mr-1" />
-                          [{cp.key}]
+                          <Edit2 className="h-3 w-3 mr-1" />[{cp.key}]
                         </Badge>
                       ))}
                     </>
@@ -915,9 +999,11 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {customCommandPlaceholders.map(placeholder => {
+                      {customCommandPlaceholders.map((placeholder) => {
                         const vaultItem = placeholderToVaultItem[placeholder];
-                        const customPlaceholder = customPlaceholders.find(cp => cp.key === placeholder);
+                        const customPlaceholder = customPlaceholders.find(
+                          (cp) => cp.key === placeholder
+                        );
                         return (
                           <div key={placeholder} className="flex items-center gap-2">
                             <Label className="font-mono text-xs min-w-[150px] flex items-center gap-1">
@@ -929,7 +1015,9 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                               ) : null}
                             </Label>
                             <Input
-                              value={customPlaceholder?.value || placeholderValues[placeholder] || ''}
+                              value={
+                                customPlaceholder?.value || placeholderValues[placeholder] || ''
+                              }
                               onChange={(e) => {
                                 if (customPlaceholder) {
                                   updateCustomPlaceholder(placeholder, e.target.value);
@@ -937,26 +1025,44 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                                   handlePlaceholderChange(placeholder, e.target.value);
                                 }
                               }}
-                              placeholder={vaultItem ? `From: ${vaultItem.name}` : customPlaceholder ? 'Custom value...' : 'Enter value...'}
+                              placeholder={
+                                vaultItem
+                                  ? `From: ${vaultItem.name}`
+                                  : customPlaceholder
+                                    ? 'Custom value...'
+                                    : 'Enter value...'
+                              }
                               type={showSecrets[placeholder] ? 'text' : 'password'}
                               className="font-mono text-sm flex-1"
                             />
                             {vaultItem && (
                               <Button
+                                aria-label={`Reload ${placeholder} from the vault`}
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleRefreshFromVault(placeholder)}
                                 disabled={decryptMutation.isPending}
                               >
-                                <RefreshCw className={`h-3 w-3 ${decryptMutation.isPending ? 'animate-spin' : ''}`} />
+                                <RefreshCw
+                                  className={`h-3 w-3 ${decryptMutation.isPending ? 'animate-spin' : ''}`}
+                                />
                               </Button>
                             )}
                             <Button
+                              aria-label={
+                                showSecrets[placeholder]
+                                  ? `Hide value of ${placeholder}`
+                                  : `Show value of ${placeholder}`
+                              }
                               variant="ghost"
                               size="icon"
                               onClick={() => toggleShowSecret(placeholder)}
                             >
-                              {showSecrets[placeholder] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showSecrets[placeholder] ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         );
@@ -976,6 +1082,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                         className="font-mono text-sm min-h-[80px] pr-12 bg-muted/50"
                       />
                       <Button
+                        aria-label="Copy command"
                         variant="ghost"
                         size="icon"
                         className="absolute right-2 top-2"
@@ -1025,7 +1132,7 @@ export const CommandBuilder = ({ onClose }: CommandBuilderProps) => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map(opt => (
+                  {categoryOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       <span className="flex items-center gap-2">
                         {categoryIcons[opt.value] || <Terminal className="h-4 w-4" />}
