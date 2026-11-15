@@ -14,7 +14,7 @@ import { useAnalytics } from '@/components/Analytics';
 import { SERVICE_TIERS } from '@/lib/crm-automation';
 
 const Connect = () => {
-  const { trackOutboundLink } = useAnalytics();
+  const { trackOutboundLink, trackCTA } = useAnalytics();
   return (
     <div className="min-h-screen flex flex-col">
       <SEO
@@ -53,6 +53,9 @@ const Connect = () => {
                   <a
                     href="mailto:dan@danpearson.net"
                     className="inline-flex items-center text-base sm:text-lg text-primary hover:underline touch-target font-medium"
+                    onClick={() =>
+                      trackCTA('Email Dan', 'Connect page', 'mailto:dan@danpearson.net')
+                    }
                   >
                     dan@danpearson.net
                   </a>

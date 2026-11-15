@@ -1,14 +1,19 @@
 import { useEffect, useRef } from 'react';
-import { useAnalytics } from './Analytics';
+import { useLocation } from 'react-router-dom';
+import { trackScroll } from './Analytics';
 
+const MILESTONES = [25, 50, 75, 90, 100];
+
+/** Sends scroll_depth once per milestone per page; a route change starts over. */
 const ScrollTracker = () => {
   // Milestones live in a ref so reaching one doesn't re-run the effect and
-  // rebind the scroll listener; trackScroll is read through a ref for the
-  // same reason (useAnalytics returns fresh functions each render).
+  // rebind the scroll listener.
   const milestonesRef = useRef(new Set<number>());
-  const { trackScroll } = useAnalytics();
-  const trackScrollRef = useRef(trackScroll);
-  trackScrollRef.current = trackScroll;
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    milestonesRef.current = new Set<number>();
+  }, [pathname]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,12 +24,10 @@ const ScrollTracker = () => {
       const totalScrollable = documentHeight - windowHeight;
       const percentage = Math.round((scrollTop / totalScrollable) * 100);
 
-      // Track scroll milestones
-      const milestonePoints = [25, 50, 75, 90, 100];
-      milestonePoints.forEach((point) => {
+      MILESTONES.forEach((point) => {
         if (percentage >= point && !milestonesRef.current.has(point)) {
           milestonesRef.current.add(point);
-          trackScrollRef.current(point);
+          trackScroll(point);
         }
       });
     };

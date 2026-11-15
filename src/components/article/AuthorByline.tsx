@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Linkedin, Mail, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
+import { trackCTA } from '@/components/Analytics';
 
 interface AuthorBylineProps {
   authorName?: string;
@@ -128,7 +129,11 @@ const AuthorByline = ({ authorName = 'Dan Pearson', showFullBio = true }: Author
                 asChild
                 className="hover:bg-primary/10 hover:border-primary"
               >
-                <Link to="/connect" className="flex items-center gap-2">
+                <Link
+                  to="/connect"
+                  className="flex items-center gap-2"
+                  onClick={() => trackCTA('Schedule a Call', 'Author byline', '/connect')}
+                >
                   <ExternalLink className="w-4 h-4" />
                   Schedule a Call
                 </Link>

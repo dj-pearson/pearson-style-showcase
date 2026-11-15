@@ -57,7 +57,8 @@
 /
   Cache-Control: public, max-age=0, must-revalidate
 
-# Consent defaults + gtag shim, loaded with defer in <head>; it injects gtag.js. Not
+# Consent defaults + gtag shim, loaded with defer in <head>. gtag.js itself is
+# injected by the app after analytics consent (src/lib/consent.ts). Not
 # content-hashed, so keep the browser TTL short and revalidate in the background.
 /gtag-init.js
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400

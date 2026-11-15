@@ -38,7 +38,7 @@ export const CONSENT_CHANGE_EVENT = 'consent:change';
 
 declare global {
   interface Window {
-    // Matches the declarations in analytics.ts / Analytics.tsx (non-optional).
+    // Matches the declaration in components/Analytics.tsx (non-optional).
     dataLayer: unknown[];
     gtag: (...args: unknown[]) => void;
   }
@@ -124,6 +124,27 @@ function applyToGoogleConsentMode(state: ConsentState): void {
   });
 }
 
+/** GA4 property; gtag-init.js configures the same ID. */
+export const GA_MEASUREMENT_ID = 'G-8R95ZXMV6L';
+const GTAG_SRC = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+
+/**
+ * Inject gtag.js, at most once per page. public/gtag-init.js only defines the
+ * dataLayer shim and the denied Consent Mode defaults; Google's script is not
+ * requested until the visitor grants analytics consent. Withdrawing consent
+ * later cannot unload it, but Consent Mode is updated to denied and every
+ * tracking call in Analytics.tsx re-checks consent before sending.
+ */
+export function loadGtag(): void {
+  if (typeof document === 'undefined') return;
+  if (document.querySelector(`script[src="${GTAG_SRC}"]`)) return;
+  const script = document.createElement('script');
+  script.async = true;
+  script.crossOrigin = 'anonymous';
+  script.src = GTAG_SRC;
+  document.head.appendChild(script);
+}
+
 /**
  * Persist a consent decision, sync Google Consent Mode, and notify listeners.
  */
@@ -145,6 +166,7 @@ export function setConsent(choice: { analytics: boolean; functional: boolean }):
   }
 
   applyToGoogleConsentMode(state);
+  if (state.analytics) loadGtag();
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<ConsentState>(CONSENT_CHANGE_EVENT, { detail: state }));
@@ -165,13 +187,14 @@ export function rejectAll(): ConsentState {
 
 /**
  * Re-apply whatever decision is currently stored to Google Consent Mode. Call
- * once on app startup so a returning visitor's choice takes effect immediately.
- * No-ops (leaving the denied default in place) when no decision exists.
+ * once on app startup so a returning visitor's choice takes effect immediately,
+ * and load gtag.js if that choice included analytics. No-ops (leaving the denied default in place) when no decision exists.
  */
 export function initConsent(): void {
   const stored = getStoredConsent();
   if (stored) {
     applyToGoogleConsentMode(stored);
+    if (stored.analytics) loadGtag();
   }
 }
 

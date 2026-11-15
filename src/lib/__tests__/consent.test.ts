@@ -10,7 +10,13 @@ import {
   initConsent,
   onConsentChange,
   CONSENT_VERSION,
+  GA_MEASUREMENT_ID,
 } from '../consent';
+
+const gtagScripts = () =>
+  Array.from(
+    document.querySelectorAll<HTMLScriptElement>('script[src*="googletagmanager.com/gtag/js"]')
+  );
 
 describe('consent module', () => {
   beforeEach(() => {
@@ -18,6 +24,7 @@ describe('consent module', () => {
     // Reset the gtag/dataLayer spies each test.
     window.dataLayer = [];
     window.gtag = vi.fn();
+    gtagScripts().forEach((script) => script.remove());
   });
 
   it('defaults to denied for all optional categories before any choice', () => {
@@ -97,5 +104,28 @@ describe('consent module', () => {
     unsubscribe();
     rejectAll();
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not load gtag.js before analytics consent', () => {
+    initConsent();
+    setConsent({ analytics: false, functional: true });
+    expect(gtagScripts()).toHaveLength(0);
+  });
+
+  it('loads gtag.js once when analytics consent is granted', () => {
+    acceptAll();
+    setConsent({ analytics: true, functional: false });
+    initConsent();
+    const scripts = gtagScripts();
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0].src).toBe(`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`);
+    expect(scripts[0].async).toBe(true);
+  });
+
+  it('loads gtag.js on startup for a returning visitor who granted analytics', () => {
+    acceptAll();
+    gtagScripts().forEach((script) => script.remove());
+    initConsent();
+    expect(gtagScripts()).toHaveLength(1);
   });
 });
