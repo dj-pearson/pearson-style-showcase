@@ -55,7 +55,7 @@
     {
       "name": "three-vendor",
       "path": "dist/assets/three-vendor-*.js",
-      "limit": "200 KB",
+      "limit": "130 KB",
       "running": false
     },
     {
