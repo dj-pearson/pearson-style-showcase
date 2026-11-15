@@ -1,17 +1,80 @@
-# SPA fallback for React Router
-# Cloudflare Pages automatically serves static assets first,
-# then falls through to these rules for client-side routing.
+# Cloudflare Pages redirects and rewrites.
+#
+# How Pages resolves a request: a rule here is matched first (static rules
+# before ones with a splat or :placeholder), then a file in dist (/about is
+# served from about.html), then dist/404.html with a 404 status. Because
+# 404.html exists, Pages no longer serves index.html for every unknown path,
+# so a URL nothing answers is a real 404 instead of a copy of the home page.
+#
+# Pages that scripts/prerender.mjs writes (the home page, the static routes,
+# the topic hubs, every article) need no rule. Do not add a rewrite whose
+# pattern covers them: rules win over files, so `/news/* ...` would hide every
+# prerendered article behind the app shell.
+#
+# Rewrites point at /spa (dist/spa.html, the bare app shell), not
+# /index.html: Pages ignores `/* /index.html` style rules as a redirect loop,
+# and index.html is the prerendered home page now anyway.
 
-# Exclude static assets from the SPA fallback
-/sw.js             /sw.js             200
-/manifest.json     /manifest.json     200
-/robots.txt        /robots.txt        200
-/favicon.ico       /favicon.ico       200
-/sitemap.xml       /sitemap.xml       200
-/rss.xml           /rss.xml           200
-/news-sitemap.xml  /news-sitemap.xml  200
-/llms.txt          /llms.txt          200
-/d90917c1bdd64177234048c4f1dc5ff0.txt  /d90917c1bdd64177234048c4f1dc5ff0.txt  200
+# --- legacy URLs, 301 ------------------------------------------------------
+# These were <Navigate replace> routes in src/App.tsx, which answered with a
+# 200 and the home page's head until JavaScript ran.
 
-# SPA catch-all: serve index.html for all other routes
-/*    /index.html    200
+/feed                                        /rss.xml    301
+/article                                     /news       301
+/product                                     /ai-tools   301
+/2023                                        /news       301
+/2025                                        /news       301
+/unveiling-the-future-of-ai-prompt-engineering  /news    301
+/what-is-prompt-engineering                  /news       301
+/news-tech-insights                          /news       301
+/cloud-and-hybrid-printing                   /news       301
+/basics-of-prompt-engineering                /news       301
+/ai-powered-threat-analysis                  /news       301
+/eco-friendly-printing                       /news       301
+/ai-prompt-engineer                          /news       301
+/ai-vs-human                                 /news       301
+/prompt-engineering                          /news       301
+/secure-print-management                     /news       301
+/impact-of-nfts-on-social-media              /news       301
+/prompt-engineering-for-chatbots             /news       301
+/ai-prompt-engineering-and-misinformation    /news       301
+/store-cryptocurrencies                      /news       301
+/quest-ai                                    /ai-tools   301
+/brandmark-ai                                /ai-tools   301
+/apollo-io-review                            /ai-tools   301
+/cliqly-email                                /ai-tools   301
+/zendesk-ai                                  /ai-tools   301
+/apollo-conversations                        /ai-tools   301
+/financial-ai                                /ai-tools   301
+/finalscout-ai                               /ai-tools   301
+/fine-tuner-ai                               /ai-tools   301
+/ai-predictive-analytics                     /ai-tools   301
+/intuitive-ai                                /ai-tools   301
+/apollo-lead-generation                      /ai-tools   301
+/reel-fyi                                    /ai-tools   301
+/ai-sentiment-analysis                       /ai-tools   301
+/cybersecurity-ai                            /ai-tools   301
+/ia-presenter                                /ai-tools   301
+/notion-ai                                   /ai-tools   301
+
+# The shell itself is not a page.
+/spa                                         /           301
+
+# --- client-only routes, rewritten to the app shell (200) -------------------
+# Static paths first; Pages matches these before any pattern below.
+
+/search                                      /spa        200
+/auth/callback                               /spa        200
+
+# --- patterns ---------------------------------------------------------------
+
+/article/:slug                               /news/:slug 301
+/article/*                                   /news       301
+/product/*                                   /ai-tools   301
+/2023/*                                      /news       301
+/2025/*                                      /news       301
+
+/news/category/*                             /spa        200
+/news/tag/*                                  /spa        200
+/author/*                                    /spa        200
+/admin/*                                     /spa        200
