@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,6 +62,7 @@ const ContactForm = () => {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState(false);
   const startTracked = useRef(false);
+  const sentHeadingRef = useRef<HTMLHeadingElement>(null);
   const { trackContactForm } = useAnalytics();
 
   const form = useForm<ContactFormData>({
@@ -121,12 +122,44 @@ const ContactForm = () => {
     }
   };
 
+  // The confirmation replaces a form the reader may have scrolled well past
+  // on a phone, and the button that had focus is gone. Move focus to the new
+  // heading and bring it into view so neither keyboard nor touch users are
+  // left looking at the page footer.
+  useEffect(() => {
+    if (!sentTo) return;
+    const heading = sentHeadingRef.current;
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: 'center' });
+  }, [sentTo]);
+
+  // One live region that stays mounted for the component's lifetime. A region
+  // inserted together with its text is often not announced at all, so the
+  // text changes here instead.
+  const statusMessage = sentTo
+    ? `Message sent. I'll reply to ${sentTo} within one business day.`
+    : isSubmitting
+      ? 'Sending your message...'
+      : '';
+  const liveRegion = (
+    <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      {statusMessage}
+    </p>
+  );
+
   if (sentTo) {
     return (
       <div className="max-w-lg mx-auto">
-        <div className="mobile-card bg-card border rounded-xl" role="status">
+        {liveRegion}
+        <div className="mobile-card bg-card border rounded-xl">
           <CheckCircle className="w-10 h-10 text-primary mb-4" aria-hidden="true" />
-          <h2 className="mobile-heading-sm mb-2">Message sent.</h2>
+          <h2
+            ref={sentHeadingRef}
+            tabIndex={-1}
+            className="mobile-heading-sm mb-2 focus:outline-none"
+          >
+            Message sent.
+          </h2>
           <p className="text-base text-muted-foreground">
             I&apos;ll reply to <span className="font-medium text-foreground">{sentTo}</span> within
             one business day.
@@ -138,6 +171,7 @@ const ContactForm = () => {
 
   return (
     <div className="max-w-lg mx-auto">
+      {liveRegion}
       <div className="mobile-card bg-card border rounded-xl">
         {/* Form Completion Indicator */}
         <div className="mb-6">
@@ -159,7 +193,7 @@ const ContactForm = () => {
             progress to report. A spinner says the same thing honestly. */}
         {isSubmitting && (
           <div
-            role="status"
+            aria-hidden="true"
             className="mb-6 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4"
           >
             <Loader2
