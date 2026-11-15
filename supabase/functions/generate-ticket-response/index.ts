@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { callAIWithConfig, type AIConfig } from '../_shared/ai-helper.ts';
 
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
@@ -89,7 +90,7 @@ export default async (req: Request): Promise<Response> => {
       timestamp: thread.created_at,
     }));
 
-    const systemPrompt = `You are a helpful customer support agent for BuildDesk. 
+    const ticketPrompt = `You are a helpful customer support agent for BuildDesk. 
 Review the ticket history below and generate a professional, empathetic response to the customer's latest message.
 
 Ticket Subject: ${ticket.subject}
@@ -112,109 +113,14 @@ Generate a response that:
 
 Generate ONLY the response text, no additional formatting or metadata.`;
 
-    let generatedResponse = null;
-    let usedConfig = null;
-
-    // Try each config in priority order until one succeeds
-    for (const config of orderedConfigs) {
-      console.log(`Trying model: ${config.provider} - ${config.model_name}`);
-
-      try {
-        const apiKey = Deno.env.get(config.api_key_secret_name);
-        if (!apiKey) {
-          console.error(`API key ${config.api_key_secret_name} not found`);
-          continue;
-        }
-
-        if (config.provider === 'gemini-paid' || config.provider === 'gemini-free') {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [{ text: systemPrompt }],
-                  },
-                ],
-                generationConfig: config.configuration || {},
-              }),
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (generatedResponse) {
-              usedConfig = config;
-              break;
-            }
-          }
-        } else if (config.provider === 'claude') {
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: config.model_name,
-              max_tokens: 1024,
-              messages: [{ role: 'user', content: systemPrompt }],
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.content?.[0]?.text;
-            if (generatedResponse) {
-              usedConfig = config;
-              break;
-            }
-          }
-        } else if (config.provider === 'openai' || config.provider === 'lovable') {
-          // Deprecated: redirect openai/lovable configs to Claude
-          console.warn(`Provider "${config.provider}" is deprecated, falling back to Claude`);
-          const claudeKey = Deno.env.get('CLAUDE_API_KEY');
-          if (!claudeKey) {
-            console.error('CLAUDE_API_KEY not configured for fallback');
-            continue;
-          }
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': claudeKey,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-6',
-              max_tokens: 1024,
-              system: 'You are a helpful customer support agent.',
-              messages: [{ role: 'user', content: systemPrompt }],
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.content?.[0]?.text;
-            if (generatedResponse) {
-              usedConfig = config;
-              break;
-            }
-          }
-        }
-      } catch (error) {
-        console.error(`Failed with ${config.provider}:`, error);
-        continue;
-      }
-    }
-
-    if (!generatedResponse) {
-      throw new Error('All AI models failed to generate a response');
-    }
+    // ai-helper applies the timeout and retry policy and runs deprecated
+    // openai/lovable rows on Claude, reporting the model that actually ran.
+    const { response: generatedResponse, usedConfig } = await callAIWithConfig(
+      orderedConfigs as AIConfig[],
+      'You are a helpful customer support agent.',
+      ticketPrompt,
+      { maxTokens: 1024, redirectDeprecatedToClaude: true }
+    );
 
     return new Response(
       JSON.stringify({

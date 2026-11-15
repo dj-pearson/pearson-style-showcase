@@ -11,6 +11,22 @@ import {
 } from '../_shared/ai-helper.ts';
 import { structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
 
+/**
+ * Largest file sent to a vision model. The whole file is held in memory and
+ * then again as base64 (4/3 larger) in a shared Deno process, and providers
+ * reject request bodies much past this anyway.
+ */
+const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
+
+class DocumentTooLargeError extends Error {
+  constructor(bytes: number) {
+    super(
+      `File is ${(bytes / 1024 / 1024).toFixed(1)} MB; the limit for AI processing is ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB`
+    );
+    this.name = 'DocumentTooLargeError';
+  }
+}
+
 interface ProcessDocumentRequest {
   documentId: string;
   documentType:
@@ -53,13 +69,17 @@ export default async (req: Request): Promise<Response> => {
   }
 
   let documentId: string | null = null;
+  // Set once the row says 'processing'; cleared when the results are saved.
+  // The finally block uses it so a timeout or any other failure never leaves
+  // the document stuck in 'processing'.
+  let markedProcessing = false;
+  let completed = false;
+  const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const requestData: ProcessDocumentRequest = await req.json();
     documentId = requestData.documentId;
     const { documentType, relatedEntityType, relatedEntityId } = requestData;
@@ -77,7 +97,13 @@ export default async (req: Request): Promise<Response> => {
       throw new Error('Document not found');
     }
 
+    // Reject before downloading when the recorded size is already too big.
+    if (Number(document.file_size) > MAX_DOCUMENT_BYTES) {
+      throw new DocumentTooLargeError(Number(document.file_size));
+    }
+
     // Update status to processing
+    markedProcessing = true;
     await supabaseClient
       .from('accounting_documents')
       .update({
@@ -98,6 +124,11 @@ export default async (req: Request): Promise<Response> => {
     }
 
     console.log('[Document] File downloaded, size:', fileData.size);
+
+    // file_size is client-reported; check the real size before base64.
+    if (fileData.size > MAX_DOCUMENT_BYTES) {
+      throw new DocumentTooLargeError(fileData.size);
+    }
 
     // Convert file to base64 using Deno std library (avoids call stack overflow from spread operator)
     const arrayBuffer = await fileData.arrayBuffer();
@@ -270,7 +301,8 @@ Return ONLY valid JSON.`,
       aiConfigs,
       ocrPrompt,
       dataUrl,
-      { temperature: 0.1, maxTokens: 4096 }
+      // 60s per vision call, two minutes across fallbacks.
+      { temperature: 0.1, maxTokens: 4096, totalBudgetMs: 120_000 }
     );
 
     console.log(
@@ -284,7 +316,7 @@ Return ONLY valid JSON.`,
       aiConfigs,
       'You are an expert at extracting structured data from financial documents. Always return valid JSON without any explanations or markdown formatting.',
       `${parsingPrompt}\n\nDocument text:\n${ocrText}`,
-      { temperature: 0.2, maxTokens: 4096, jsonMode: true }
+      { temperature: 0.2, maxTokens: 4096, jsonMode: true, totalBudgetMs: 120_000 }
     );
 
     console.log(
@@ -343,6 +375,7 @@ Return ONLY valid JSON.`,
       console.error('[Document] Failed to update document:', updateError);
       throw updateError;
     }
+    completed = true;
 
     console.log('[Document] Document processing completed successfully');
 
@@ -365,24 +398,8 @@ Return ONLY valid JSON.`,
   } catch (error) {
     console.error('[Document] Error in process-accounting-document function:', error);
 
-    // Try to update document status to failed
-    if (documentId) {
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-
-        await supabaseClient
-          .from('accounting_documents')
-          .update({
-            ocr_status: 'failed',
-            ai_status: 'failed',
-          })
-          .eq('id', documentId);
-      } catch (e) {
-        console.error('[Document] Failed to update error status:', e);
-      }
+    if (error instanceof DocumentTooLargeError) {
+      return structuredErrorResponse(error.message, 'DOCUMENT_TOO_LARGE', 413, corsHeaders);
     }
 
     return structuredErrorResponse(
@@ -391,5 +408,16 @@ Return ONLY valid JSON.`,
       500,
       corsHeaders
     );
+  } finally {
+    if (documentId && markedProcessing && !completed) {
+      // Only flip rows still marked 'processing', so a concurrent successful
+      // run is not overwritten.
+      const { error: resetError } = await supabaseClient
+        .from('accounting_documents')
+        .update({ ocr_status: 'failed', ai_status: 'failed' })
+        .eq('id', documentId)
+        .eq('ocr_status', 'processing');
+      if (resetError) console.error('[Document] Failed to reset processing status:', resetError);
+    }
   }
 };

@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { AIProviderError, callSingleConfig, type AIConfig } from '../_shared/ai-helper.ts';
 
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
@@ -36,9 +37,12 @@ export default async (req: Request): Promise<Response> => {
       });
     }
 
-    const apiKey = Deno.env.get(config.api_key_secret_name);
-    if (!apiKey) {
-      console.error(`API key secret not found: ${config.api_key_secret_name}`);
+    // Deprecated openai/lovable rows are tested on Claude, matching how the
+    // generating functions run them.
+    const redirected = config.provider === 'openai' || config.provider === 'lovable';
+    const keyName = redirected ? 'CLAUDE_API_KEY' : config.api_key_secret_name;
+    if (!Deno.env.get(keyName)) {
+      console.error(`API key secret not found: ${keyName}`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -51,99 +55,28 @@ export default async (req: Request): Promise<Response> => {
     let success = false;
     let errorMessage = '';
 
-    // Test based on provider
-    if (config.provider === 'gemini-paid' || config.provider === 'gemini-free') {
-      try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [{ text: "Say 'test successful' if you can read this." }],
-                },
-              ],
-            }),
-          }
-        );
-
-        const testResult = await response.json();
-        success = response.ok && !!testResult.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!success) {
-          errorMessage = `Provider returned status ${response.status}`;
-          console.error('Gemini test failed:', JSON.stringify(testResult));
-        }
-      } catch (err) {
-        errorMessage = 'Failed to connect to Gemini API';
-        console.error('Gemini test error:', err);
-      }
-    } else if (config.provider === 'claude') {
-      try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: config.model_name,
-            max_tokens: 100,
-            messages: [{ role: 'user', content: "Say 'test successful' if you can read this." }],
-          }),
-        });
-
-        const testResult = await response.json();
-        success = response.ok && !!testResult.content?.[0]?.text;
-
-        if (!success) {
-          errorMessage = `Provider returned status ${response.status}`;
-          console.error('Claude test failed:', JSON.stringify(testResult));
-        }
-      } catch (err) {
-        errorMessage = 'Failed to connect to Claude API';
-        console.error('Claude test error:', err);
-      }
-    } else if (config.provider === 'openai' || config.provider === 'lovable') {
-      // Deprecated providers: redirect to Claude for testing
-      console.warn(`Provider "${config.provider}" is deprecated, testing with Claude instead`);
-      const claudeKey = Deno.env.get('CLAUDE_API_KEY');
-      if (!claudeKey) {
-        errorMessage = 'Fallback API key is not configured';
-        console.error('CLAUDE_API_KEY not configured for deprecated provider fallback');
-      } else {
-        try {
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': claudeKey,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-6',
-              max_tokens: 100,
-              messages: [{ role: 'user', content: "Say 'test successful' if you can read this." }],
-            }),
-          });
-
-          const testResult = await response.json();
-          success = response.ok && !!testResult.content?.[0]?.text;
-
-          if (!success) {
-            errorMessage = `Provider returned status ${response.status}`;
-            console.error('Claude fallback test failed:', JSON.stringify(testResult));
-          }
-        } catch (err) {
-          errorMessage = 'Failed to connect to Claude API';
-          console.error('Claude fallback test error:', err);
-        }
-      }
-    } else {
+    if (!['gemini-paid', 'gemini-free', 'claude', 'openai', 'lovable'].includes(config.provider)) {
       errorMessage = 'Unsupported provider';
+    } else {
+      try {
+        await callSingleConfig(
+          config as AIConfig,
+          // Room for Gemini thinking models, which spend output tokens before
+          // they answer; the reply itself is a few words either way.
+          { prompt: "Say 'test successful' if you can read this.", maxTokens: 2048 },
+          { timeoutMs: 30_000, redirectDeprecatedToClaude: true }
+        );
+        success = true;
+      } catch (err) {
+        if (err instanceof AIProviderError && err.status) {
+          errorMessage = `Provider returned status ${err.status}`;
+        } else if (err instanceof AIProviderError) {
+          errorMessage = 'Provider returned no text';
+        } else {
+          errorMessage = `Failed to connect to ${redirected ? 'claude' : config.provider} API`;
+        }
+        console.error('Model test failed:', err instanceof Error ? err.message : err);
+      }
     }
 
     // Update config with test results
