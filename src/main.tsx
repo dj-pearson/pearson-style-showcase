@@ -37,8 +37,9 @@ connectToErrorTracking();
 // Initialize performance monitoring for Core Web Vitals
 initPerformanceMonitoring();
 
-// Google Analytics needs no call here: public/gtag-init.js sets up gtag and
-// loads gtag.js, and components/Analytics.tsx sends the page views.
+// Google Analytics needs no call here: public/gtag-init.js sets up gtag with
+// consent denied, lib/consent.ts loads gtag.js once analytics consent is
+// given, and components/Analytics.tsx sends the page views.
 
 // Register Service Worker for PWA offline support
 registerServiceWorker();

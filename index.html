@@ -50,14 +50,10 @@
     <!-- Resource hints for performance optimization -->
     <!-- Preconnect to critical third-party domains -->
     <!-- crossorigin must match how each origin is fetched, or the browser opens
-      a second connection: gtag.js (crossorigin="anonymous") and Supabase API
-      calls are both CORS. -->
-    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+      a second connection: Supabase API calls are CORS. No hints to Google
+      origins: gtag.js loads only after analytics consent (lib/consent.ts). -->
     <link rel="preconnect" href="https://api.danpearson.net" crossorigin />
 
-    <!-- DNS prefetch for other third-party domains -->
-    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-    <link rel="dns-prefetch" href="https://www.google-analytics.com" />
     
     <!-- Inline critical CSS for LCP element -->
     <style>
