@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
-import { fetchWithTimeout, structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import { structuredErrorResponse } from '../_shared/fetch-with-timeout.ts';
+import { callAIWithConfig, type AIConfig } from '../_shared/ai-helper.ts';
 import {
   checkRateLimit,
   getClientIdentifier,
@@ -147,136 +148,15 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 TEXT TO ANALYZE:
 ${text}`;
 
-    let generatedResponse = null;
-    let usedConfig = null;
-
-    // Try each config in priority order until one succeeds
-    for (const config of orderedConfigs) {
-      console.log(`Trying model: ${config.provider} - ${config.model_name}`);
-
-      try {
-        const apiKey = Deno.env.get(config.api_key_secret_name);
-        if (!apiKey) {
-          console.error(`API key ${config.api_key_secret_name} not found`);
-          continue;
-        }
-
-        if (config.provider === 'gemini-paid' || config.provider === 'gemini-free') {
-          const response = await fetchWithTimeout(
-            `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
-                  },
-                ],
-                generationConfig: {
-                  temperature: 0.3,
-                  topP: 0.8,
-                  maxOutputTokens: 4096,
-                  ...(config.configuration || {}),
-                },
-              }),
-            },
-            { timeoutMs: 30_000, maxRetries: 2, label: 'gemini-tasks' }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (generatedResponse) {
-              usedConfig = config;
-              break;
-            }
-          } else {
-            const errorText = await response.text();
-            console.error(`Gemini API error: ${response.status} - ${errorText}`);
-          }
-        } else if (config.provider === 'claude') {
-          const response = await fetchWithTimeout(
-            'https://api.anthropic.com/v1/messages',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-              },
-              body: JSON.stringify({
-                model: config.model_name,
-                max_tokens: 4096,
-                messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }],
-              }),
-            },
-            { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks' }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.content?.[0]?.text;
-            if (generatedResponse) {
-              usedConfig = config;
-              break;
-            }
-          } else {
-            const errorText = await response.text();
-            console.error(`Claude API error: ${response.status} - ${errorText}`);
-          }
-        } else if (config.provider === 'openai' || config.provider === 'lovable') {
-          // Deprecated: redirect openai/lovable configs to Claude
-          console.warn(`Provider "${config.provider}" is deprecated, falling back to Claude`);
-          const FALLBACK_MODEL = 'claude-sonnet-4-6';
-          const claudeKey = Deno.env.get('CLAUDE_API_KEY');
-          if (!claudeKey) {
-            console.error('CLAUDE_API_KEY not configured for fallback');
-            continue;
-          }
-          const response = await fetchWithTimeout(
-            'https://api.anthropic.com/v1/messages',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': claudeKey,
-                'anthropic-version': '2023-06-01',
-              },
-              body: JSON.stringify({
-                model: FALLBACK_MODEL,
-                max_tokens: 4096,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userPrompt }],
-              }),
-            },
-            { timeoutMs: 30_000, maxRetries: 2, label: 'claude-tasks-fallback' }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.content?.[0]?.text;
-            if (generatedResponse) {
-              // Claude produced this text, not config.provider/config.model_name.
-              // Report what actually ran; config_id still points at the row that
-              // triggered the fallback so the deprecated config stays traceable.
-              usedConfig = { ...config, provider: 'claude', model_name: FALLBACK_MODEL };
-              break;
-            }
-          } else {
-            const errorText = await response.text();
-            console.error(`Claude API fallback error: ${response.status} - ${errorText}`);
-          }
-        }
-      } catch (error) {
-        console.error(`Failed with ${config.provider}:`, error);
-        continue;
-      }
-    }
-
-    if (!generatedResponse) {
-      throw new Error('All AI models failed to generate tasks');
-    }
+    // ai-helper applies the timeout and retry policy (a paid POST is never
+    // repeated after a timeout) and runs deprecated openai/lovable rows on
+    // Claude, reporting the model that actually ran.
+    const { response: generatedResponse, usedConfig } = await callAIWithConfig(
+      orderedConfigs as AIConfig[],
+      systemPrompt,
+      userPrompt,
+      { temperature: 0.3, maxTokens: 4096, redirectDeprecatedToClaude: true }
+    );
 
     // Clean up the response - remove markdown code blocks if present
     let cleanedResponse = generatedResponse.trim();
