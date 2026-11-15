@@ -19,7 +19,6 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { checkRateLimit, getClientIdentifier } from '../_shared/rate-limiter.ts';
 import {
   hashToken,
-  isConfirmationExpired,
   isWellFormedConfirmationToken,
   signUnsubscribeToken,
 } from '../_shared/newsletter-tokens.ts';
@@ -31,6 +30,7 @@ import {
   unsubscribePageUrl,
   welcomeEmail,
 } from '../_shared/newsletter-emails.ts';
+import { decideConfirmAction, wonConfirmRace } from './policy.ts';
 
 const CONFIRM_RATE_LIMIT = {
   windowMs: 60 * 60 * 1000,
@@ -94,14 +94,11 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Newsletter confirm lookup failed:', lookupError);
       return json({ error: 'Internal server error' }, 500, corsHeaders);
     }
-    if (!row) return json({ status: 'invalid' }, 200, corsHeaders);
-
+    const action = decideConfirmAction(row);
+    if (action === 'invalid') return json({ status: 'invalid' }, 200, corsHeaders);
     // A second click on the same link: already done, nothing to send.
-    if (row.active && row.confirmed_at) return json({ status: 'confirmed' }, 200, corsHeaders);
-
-    if (isConfirmationExpired(row.confirmation_sent_at)) {
-      return json({ status: 'expired' }, 200, corsHeaders);
-    }
+    if (action === 'already_confirmed') return json({ status: 'confirmed' }, 200, corsHeaders);
+    if (action === 'expired') return json({ status: 'expired' }, 200, corsHeaders);
 
     const now = new Date().toISOString();
     // Conditional on confirmed_at IS NULL so two racing clicks send one welcome.
@@ -121,7 +118,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Newsletter confirm update failed:', updateError);
       return json({ error: 'Internal server error' }, 500, corsHeaders);
     }
-    if (!updated || updated.length === 0) {
+    if (!wonConfirmRace(updated)) {
       return json({ status: 'confirmed' }, 200, corsHeaders);
     }
 
