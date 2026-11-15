@@ -6,6 +6,7 @@ import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
 import { Button, buttonVariants } from './ui/button';
 import { cn } from '@/lib/utils';
+import { trackCTA } from './Analytics';
 
 // The search dialog (Dialog, ScrollArea, the static article index) is closed on
 // every page load, so it is a lazy chunk mounted on first open. Hovering or
@@ -221,6 +222,7 @@ const Navigation = () => {
               <Link
                 to={ctaItem.path}
                 aria-current={isActive(ctaItem.path) ? 'page' : undefined}
+                onClick={() => trackCTA(ctaItem.name, 'Nav desktop', ctaItem.path)}
                 className={buttonVariants({ size: 'sm' })}
               >
                 {ctaItem.name}
@@ -327,7 +329,10 @@ const Navigation = () => {
                   <Link
                     to={ctaItem.path}
                     aria-current={isActive(ctaItem.path) ? 'page' : undefined}
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={() => {
+                      trackCTA(ctaItem.name, 'Nav mobile', ctaItem.path);
+                      setIsMenuOpen(false);
+                    }}
                     className={cn(buttonVariants({ size: 'lg' }), 'w-full text-base')}
                   >
                     {ctaItem.name}

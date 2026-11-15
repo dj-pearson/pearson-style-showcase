@@ -116,10 +116,10 @@ const AICrmAutomation = () => {
               AI CRM automation that actually sticks
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-[68ch] mb-8">
-              I build AI automation inside the CRM for revenue teams under 50 seats — so sellers
-              stop doing data entry and the pipeline stops lying. Fifteen years carrying a quota,
-              seven SaaS platforms shipped. I have been the person whose deal died because the CRM
-              said something that was not true.
+              I build AI automation inside the CRM for revenue teams under 50 seats, so sellers stop
+              doing data entry and the pipeline stops lying. Fifteen years carrying a quota, seven
+              SaaS platforms shipped. I have been the person whose deal died because the CRM said
+              something that was not true.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link

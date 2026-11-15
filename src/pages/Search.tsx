@@ -16,6 +16,7 @@ import { publicDb } from '@/integrations/supabase/public-client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
+import { trackSearch } from '@/components/Analytics';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +86,7 @@ const RESULT_LINK_CLASS =
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const lastTrackedQuery = useRef('');
   const navigate = useNavigate();
   const [query, setQuery] = useState((searchParams.get('q') || '').trim().substring(0, 200));
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -215,6 +217,11 @@ const Search = () => {
   useEffect(() => {
     const trimmed = query.trim();
     const timer = setTimeout(() => {
+      // One GA4 search event per settled query, not per keystroke.
+      if (trimmed && trimmed !== lastTrackedQuery.current) {
+        lastTrackedQuery.current = trimmed;
+        trackSearch(trimmed, 'search_page');
+      }
       setSearchParams(
         (previous) => {
           const next = new URLSearchParams(previous);
