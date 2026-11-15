@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, Filter, X, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import { ProjectListSkeleton } from '@/components/skeletons';
 import { cn } from '@/lib/utils';
@@ -101,7 +101,7 @@ const Projects = () => {
        * fetching a page at a time meant search, the tag list and the result
        * count only ever saw the current nine rows.
        */
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('projects')
         .select(
           'id, title, description, image_url, live_link, github_link, tags, featured, sort_order, created_at, status, updated_at'

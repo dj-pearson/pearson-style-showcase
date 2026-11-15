@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, BookOpen, TrendingUp, Clock, ArrowRight, Layers } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
@@ -52,7 +52,7 @@ const TopicHub = () => {
       if (!topic || !topicConfig) throw new Error('Invalid topic');
 
       // Search for articles matching topic categories or tags
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select(TOPIC_HUB_COLUMNS)
         .eq('published', true)

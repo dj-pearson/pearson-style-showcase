@@ -12,7 +12,7 @@ import {
   Wrench,
   ArrowLeft,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
@@ -129,7 +129,7 @@ const Search = () => {
         }
 
         // Search articles with full-text search
-        const { data: articles, error: articlesError } = await supabase
+        const { data: articles, error: articlesError } = await publicDb
           .from('articles')
           .select('id, title, excerpt, slug, category, tags, image_url')
           .eq('published', true)
@@ -146,7 +146,7 @@ const Search = () => {
         // (NULL stays visible), so archived rows are dropped here too, and a
         // result links to /projects?highlight=<id>. The archived check runs in
         // JS because the text match already uses the query's single `or`.
-        const { data: projectRows, error: projectsError } = await supabase
+        const { data: projectRows, error: projectsError } = await publicDb
           .from('projects')
           .select('id, title, description, image_url, status')
           .or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
@@ -159,7 +159,7 @@ const Search = () => {
           .map(({ status: _status, ...rest }) => rest);
 
         // Search AI tools
-        const { data: aiTools, error: aiToolsError } = await supabase
+        const { data: aiTools, error: aiToolsError } = await publicDb
           .from('ai_tools')
           .select('id, title, description, category, link, image_url')
           .or(

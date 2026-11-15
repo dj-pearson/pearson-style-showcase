@@ -17,7 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Search, Filter, X, Loader2, RefreshCw, ChevronDown } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { mergeStaticArticles, STATIC_ARTICLE_SLUGS } from '@/lib/static-articles';
 
@@ -169,7 +169,7 @@ const News = () => {
       // handful of known slugs, so this is a cheap lookup, and it returns
       // nothing once the seed migrations have been applied - at which point
       // every branch below collapses back to plain server-side pagination.
-      const { data: seeded, error: seededError } = await supabase
+      const { data: seeded, error: seededError } = await publicDb
         .from('articles')
         .select('slug')
         .in('slug', STATIC_ARTICLE_SLUGS);
@@ -180,7 +180,7 @@ const News = () => {
       const missingCount = STATIC_ARTICLE_SLUGS.filter((slug) => !seededSlugs.has(slug)).length;
 
       // Get total count for pagination
-      const { count, error: countError } = await supabase
+      const { count, error: countError } = await publicDb
         .from('articles')
         .select('*', { count: 'exact', head: true })
         .eq('published', true);
@@ -193,7 +193,7 @@ const News = () => {
         // The count query carries the same filters, or the pager would offer
         // pages the filtered set does not have.
         const { count: matchingCount, error: filteredCountError } = await applyFilters(
-          supabase
+          publicDb
             .from('articles')
             .select('*', { count: 'exact', head: true })
             .eq('published', true)
@@ -202,7 +202,7 @@ const News = () => {
         if (filteredCountError) throw filteredCountError;
 
         const { data, error } = await applyOrder(
-          applyFilters(supabase.from('articles').select(LISTING_COLUMNS).eq('published', true))
+          applyFilters(publicDb.from('articles').select(LISTING_COLUMNS).eq('published', true))
         ).range(from, to);
 
         if (error) throw error;
@@ -216,7 +216,7 @@ const News = () => {
       // That is one bounded query over a few hundred small rows, it only runs
       // while rows are genuinely missing, and it keeps page boundaries exact
       // rather than approximately right.
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select(LISTING_COLUMNS)
         .eq('published', true)
@@ -256,7 +256,7 @@ const News = () => {
   const { data: categoryRows } = useQuery({
     queryKey: ['articles', 'categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select('category')
         .eq('published', true);

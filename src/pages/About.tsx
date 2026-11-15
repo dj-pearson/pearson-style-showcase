@@ -3,7 +3,7 @@ import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
-import { supabase } from '../integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import {
   Briefcase,
   GraduationCap,
@@ -84,7 +84,7 @@ const About = () => {
   } = useQuery({
     queryKey: ['achievements'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('achievements')
         .select('*')
         .eq('status', 'published')
@@ -105,7 +105,7 @@ const About = () => {
   } = useQuery({
     queryKey: ['work-experience'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('work_experience')
         .select('*')
         .eq('status', 'published')
@@ -126,7 +126,7 @@ const About = () => {
   } = useQuery({
     queryKey: ['certifications'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('certifications')
         .select('*')
         .eq('status', 'published')

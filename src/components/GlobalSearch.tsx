@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Clock, TrendingUp, FileText, Folder, Wrench } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { searchStaticArticles } from '@/lib/static-articles';
 import { logger } from '@/lib/logger';
@@ -118,7 +118,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
       }
 
       // Search articles with full-text search
-      const { data: articles, error: articlesError } = await supabase
+      const { data: articles, error: articlesError } = await publicDb
         .from('articles')
         .select('id, title, excerpt, slug, category, tags, image_url')
         .eq('published', true)
@@ -140,7 +140,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
        * The visibility filter matches Projects.tsx and is fail-open for the
        * same NULL-handling reason documented there.
        */
-      const { data: projects, error: projectsError } = await supabase
+      const { data: projects, error: projectsError } = await publicDb
         .from('projects')
         .select('id, title, description, image_url')
         .or('status.is.null,status.neq.archived')
@@ -150,7 +150,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
       if (projectsError) logger.error('Project search failed:', projectsError);
 
       // Search AI tools
-      const { data: aiTools } = await supabase
+      const { data: aiTools } = await publicDb
         .from('ai_tools')
         .select('id, title, description, category, link, image_url')
         .or(

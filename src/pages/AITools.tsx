@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { AIToolSubmissionForm } from '@/components/AIToolSubmissionForm';
 import { useAnalytics } from '@/components/Analytics';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import {
   Bot,
@@ -49,7 +49,7 @@ const AITools = () => {
     queryKey: ['ai_tools'],
     queryFn: async () => {
       // Only select fields needed for AI tools list view to reduce payload size
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('ai_tools')
         .select(
           'id, title, description, category, features, link, pricing, complexity, status, sort_order, created_at'

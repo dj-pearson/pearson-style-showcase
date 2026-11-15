@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
@@ -32,7 +32,7 @@ const FAQ = () => {
   } = useQuery({
     queryKey: ['faqs'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('faqs')
         .select('*')
         .eq('status', 'published')

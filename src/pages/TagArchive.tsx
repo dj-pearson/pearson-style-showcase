@@ -7,7 +7,7 @@ import { ArticleCard } from '../components/ArticleCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Tag as TagIcon } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
 import Breadcrumbs from '@/components/Breadcrumbs';
@@ -50,7 +50,7 @@ const TagArchive = () => {
       if (!tag) throw new Error('No tag provided');
 
       // Fetch published articles with a reasonable limit and filter by tag
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select(
           'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author'

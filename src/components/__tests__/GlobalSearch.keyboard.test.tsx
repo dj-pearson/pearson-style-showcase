@@ -7,6 +7,7 @@ vi.mock('@/integrations/supabase/client', async () => {
   const { createSupabaseMock } = await import('@/test/mocks/supabase');
   return { supabase: createSupabaseMock() };
 });
+vi.mock('@/integrations/supabase/public-client', () => import('@/test/mocks/public-client'));
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 vi.mock('react-router-dom', async () => {
