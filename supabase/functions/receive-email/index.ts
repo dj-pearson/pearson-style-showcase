@@ -3,6 +3,9 @@ import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { normalizedErrorResponse, classifyError } from '../_shared/error-normalizer.ts';
 import { verifyWebhookSignature, verifySecret } from '../_shared/webhook-security.ts';
 import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
+import { createEdgeFunctionLogger } from '../_shared/production-logger.ts';
+
+const baseLogger = createEdgeFunctionLogger('receive-email');
 
 interface MakeComEmailPayload {
   to: string; // Email address message was sent to
@@ -43,6 +46,37 @@ function collectMessageIds(inReplyTo?: string, references?: string): string[] {
   return Array.from(ids);
 }
 
+const UNIQUE_VIOLATION = '23505';
+
+/**
+ * Find an inbound message that was already processed, by its Message-ID.
+ * Make.com retries a webhook it thinks timed out, and before this check every
+ * retry became a second ticket or a second reply.
+ */
+async function findProcessed(
+  supabase: any,
+  messageId: string
+): Promise<{ ticketId: string; mailboxId: string | null } | null> {
+  const { data: thread } = await supabase
+    .from('email_threads')
+    .select('ticket_id, mailbox_id')
+    .eq('message_id', messageId)
+    .eq('direction', 'inbound')
+    .limit(1)
+    .maybeSingle();
+  if (thread) return { ticketId: thread.ticket_id, mailboxId: thread.mailbox_id };
+
+  const { data: ticket } = await supabase
+    .from('support_tickets')
+    .select('id, mailbox_id')
+    .eq('email_message_id', messageId)
+    .limit(1)
+    .maybeSingle();
+  if (ticket) return { ticketId: ticket.id, mailboxId: ticket.mailbox_id };
+
+  return null;
+}
+
 /** Escape LIKE/ILIKE wildcards so user text matches literally. */
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
@@ -56,6 +90,22 @@ export default async (req: Request): Promise<Response> => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  const log = baseLogger.forRequest(req);
+
+  const duplicateResponse = (found: { ticketId: string; mailboxId: string | null }) => {
+    log.info('Duplicate inbound email ignored', { ticket_id: found.ticketId });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        duplicate: true,
+        ticket_id: found.ticketId,
+        mailbox_id: found.mailboxId,
+        message: 'Email already processed',
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  };
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -66,7 +116,7 @@ export default async (req: Request): Promise<Response> => {
     // so a missing env var can't silently open the endpoint.
     const webhookSecret = Deno.env.get('MAKE_WEBHOOK_SECRET');
     if (!webhookSecret) {
-      console.error('MAKE_WEBHOOK_SECRET is not set; rejecting request');
+      log.error('MAKE_WEBHOOK_SECRET is not set; rejecting request');
       return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
         status: 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -86,25 +136,23 @@ export default async (req: Request): Promise<Response> => {
       const timestamp = req.headers.get('x-webhook-timestamp');
       const result = await verifyWebhookSignature(rawBody, signature, webhookSecret, timestamp);
       if (!result.valid) {
-        console.error('Webhook signature verification failed:', result.error);
+        log.warn('Webhook signature verification failed', { reason: result.error });
         return new Response(JSON.stringify({ error: 'Unauthorized', message: result.error }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      console.log('Webhook signature verified');
     } else if (providedSecret) {
       // Fallback to shared-secret verification
       if (!verifySecret(providedSecret, webhookSecret)) {
-        console.error('Invalid webhook secret');
+        log.warn('Invalid webhook secret');
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      console.log('Webhook secret verified');
     } else {
-      console.error('Rejected request with no webhook credentials');
+      log.warn('Rejected request with no webhook credentials');
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -112,7 +160,6 @@ export default async (req: Request): Promise<Response> => {
     }
 
     const contentType = req.headers.get('content-type') || '';
-    console.log('Content-Type:', contentType);
 
     let payload: MakeComEmailPayload;
 
@@ -186,16 +233,8 @@ export default async (req: Request): Promise<Response> => {
         in_reply_to: getField('in_reply_to') || getField('In-Reply-To') || getField('inReplyTo'),
         references: getField('references') || getField('References'),
       };
-
-      console.log('Parsed as multipart form-data', {
-        to: payload.to,
-        from: payload.from_email,
-        subject: payload.subject,
-        hasBody: !!payload.body,
-      });
     } else {
       const rawBody = await req.text();
-      console.log('Raw body received (first 200 chars):', rawBody.substring(0, 200));
 
       // Handle different content types from Make.com
       if (contentType.includes('application/x-www-form-urlencoded')) {
@@ -210,14 +249,12 @@ export default async (req: Request): Promise<Response> => {
           body: params.get('body') || '',
           id: params.get('id') || '',
         };
-        console.log('Parsed as form-encoded data');
       } else {
         // Try to parse as JSON
         try {
           payload = JSON.parse(rawBody);
-          console.log('Parsed as JSON');
         } catch (parseError) {
-          console.error('Failed to parse payload:', parseError);
+          log.warn('Failed to parse payload', { content_type: contentType });
           return new Response(
             JSON.stringify({
               error:
@@ -234,12 +271,6 @@ export default async (req: Request): Promise<Response> => {
         }
       }
     }
-    console.log('Received email from Make.com:', {
-      to: payload.to,
-      from: payload.from_email,
-      subject: payload.subject,
-    });
-
     // Validate and trim email fields
     payload.to = payload.to?.trim() || '';
     payload.from_email = payload.from_email?.trim() || '';
@@ -262,7 +293,7 @@ export default async (req: Request): Promise<Response> => {
     };
 
     if (!isValidEmail(payload.from_email) || payload.from_email.length > 254) {
-      console.error('Invalid from_email format');
+      log.warn('Invalid from_email format');
       return new Response(
         JSON.stringify({
           error: 'Invalid from_email format. Must be a valid email address.',
@@ -275,7 +306,7 @@ export default async (req: Request): Promise<Response> => {
     }
 
     if (!isValidEmail(payload.to) || payload.to.length > 254) {
-      console.error('Invalid to email format');
+      log.warn('Invalid to email format');
       return new Response(JSON.stringify({ error: 'Invalid recipient email format.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -285,6 +316,15 @@ export default async (req: Request): Promise<Response> => {
     // Validate subject length to prevent abuse
     if (payload.subject && payload.subject.length > 998) {
       payload.subject = payload.subject.substring(0, 998);
+    }
+
+    // Message-ID (Make.com's id field) is the dedupe key. An empty value can't
+    // dedupe anything and would collide in the unique index, so store NULL.
+    const messageId =
+      typeof payload.id === 'string' && payload.id.trim() ? payload.id.trim() : null;
+    if (messageId) {
+      const found = await findProcessed(supabase, messageId);
+      if (found) return duplicateResponse(found);
     }
 
     // Extract domain from "to" email for grouping
@@ -299,7 +339,7 @@ export default async (req: Request): Promise<Response> => {
 
     // If mailbox doesn't exist, create it
     if (!mailbox) {
-      console.log(`Creating new mailbox for: ${payload.to}`);
+      log.info('Creating mailbox for unseen recipient domain', { domain: toDomain });
 
       const { data: newMailbox, error: createError } = await supabase
         .from('email_mailboxes')
@@ -320,12 +360,11 @@ export default async (req: Request): Promise<Response> => {
         .single();
 
       if (createError) {
-        console.error('Failed to create mailbox:', createError);
+        log.error('Failed to create mailbox', createError);
         throw createError;
       }
 
       mailbox = newMailbox;
-      console.log(`Mailbox created with ID: ${mailbox.id}`);
     }
 
     // Check if this is a reply to an existing ticket
@@ -349,7 +388,6 @@ export default async (req: Request): Promise<Response> => {
       if (threadTicket) {
         ticketId = threadTicket.ticket_id;
         isReply = true;
-        console.log(`Found existing ticket via email threading: ${ticketId}`);
       }
     }
 
@@ -370,7 +408,6 @@ export default async (req: Request): Promise<Response> => {
       if (existingTicket) {
         ticketId = existingTicket.id;
         isReply = true;
-        console.log(`Found existing ticket via subject: ${existingTicket.ticket_number}`);
       }
     }
 
@@ -418,7 +455,7 @@ export default async (req: Request): Promise<Response> => {
           status: 'open',
           priority: 2, // Normal priority
           mailbox_id: mailbox.id,
-          email_message_id: payload.id,
+          email_message_id: messageId,
           created_at: parsedDate,
           last_activity_at: parsedDate,
         })
@@ -426,44 +463,28 @@ export default async (req: Request): Promise<Response> => {
         .single();
 
       if (ticketError) {
-        console.error('Error creating ticket:', ticketError);
+        // A concurrent retry of the same message won the insert.
+        if (ticketError.code === UNIQUE_VIOLATION && messageId) {
+          const found = await findProcessed(supabase, messageId);
+          if (found) return duplicateResponse(found);
+        }
+        log.error('Error creating ticket', ticketError);
         throw ticketError;
       }
 
       ticketId = ticket.id;
-      console.log(`Created new ticket: ${ticket.ticket_number}`);
-    } else {
-      // Update existing ticket with new activity
-      await supabase
-        .from('support_tickets')
-        .update({
-          last_activity_at: parsedDate,
-          status: 'waiting_for_agent',
-        })
-        .eq('id', ticketId);
-
-      // Add as a response to the existing ticket
-      await supabase.from('ticket_responses').insert({
-        ticket_id: ticketId,
-        author_email: payload.from_email,
-        author_name: payload.from || payload.from_email.split('@')[0],
-        author_type: 'user',
-        message: payload.body,
-        is_internal: false,
-        created_at: parsedDate,
-      });
-
-      console.log(`Added response to existing ticket`);
     }
 
-    // Create email thread entry
+    // Create the email thread entry. For a reply this insert goes first: the
+    // unique index on inbound message_id makes it the dedupe claim, so a
+    // concurrent retry stops here before writing a second ticket response.
     const { error: threadError } = await supabase.from('email_threads').insert({
       ticket_id: ticketId,
       mailbox_id: mailbox.id,
       from_email: payload.from_email,
       to_email: payload.to,
       subject: payload.subject,
-      message_id: payload.id,
+      message_id: messageId,
       body_text: payload.body,
       body_html: payload.body, // Assuming body might contain HTML
       direction: 'inbound',
@@ -472,13 +493,51 @@ export default async (req: Request): Promise<Response> => {
     });
 
     if (threadError) {
-      console.error('Error creating email thread:', threadError);
+      if (threadError.code === UNIQUE_VIOLATION && isReply && messageId) {
+        const found = await findProcessed(supabase, messageId);
+        if (found) return duplicateResponse(found);
+      }
       // Don't fail the whole request if thread creation fails
+      log.error('Error creating email thread', threadError, { ticket_id: ticketId });
     }
 
-    console.log('Successfully processed email from Make.com');
+    if (isReply) {
+      // Update existing ticket with new activity
+      const { error: activityError } = await supabase
+        .from('support_tickets')
+        .update({
+          last_activity_at: parsedDate,
+          status: 'waiting_for_agent',
+        })
+        .eq('id', ticketId);
+      if (activityError) {
+        log.error('Error updating ticket activity', activityError, { ticket_id: ticketId });
+      }
 
-    // Send notification email
+      // Add as a response to the existing ticket
+      const { error: responseError } = await supabase.from('ticket_responses').insert({
+        ticket_id: ticketId,
+        author_email: payload.from_email,
+        author_name: payload.from || payload.from_email.split('@')[0],
+        author_type: 'user',
+        message: payload.body,
+        is_internal: false,
+        created_at: parsedDate,
+      });
+      if (responseError) {
+        log.error('Error adding ticket response', responseError, { ticket_id: ticketId });
+      }
+    }
+
+    log.info('Inbound email processed', {
+      ticket_id: ticketId,
+      mailbox_id: mailbox.id,
+      is_reply: isReply,
+      has_message_id: Boolean(messageId),
+    });
+
+    // Send notification email. Fire-and-forget: the webhook answers without
+    // waiting on SMTP, so Make.com has no reason to retry.
     try {
       const { data: ticketData } = await supabase
         .from('support_tickets')
@@ -487,7 +546,7 @@ export default async (req: Request): Promise<Response> => {
         .single();
 
       if (ticketData) {
-        await invokeFunctionAndForget('send-notification-email', {
+        invokeFunctionAndForget('send-notification-email', {
           type: isReply ? 'new_response' : 'new_ticket',
           ticket_number: ticketData.ticket_number,
           ticket_id: ticketId,
@@ -496,11 +555,10 @@ export default async (req: Request): Promise<Response> => {
           from_name: payload.from,
           message_preview: payload.body,
         });
-        console.log('Notification email sent');
       }
     } catch (notifyError) {
       // Don't fail the request if notification fails
-      console.error('Failed to send notification:', notifyError);
+      log.error('Failed to queue notification', notifyError);
     }
 
     return new Response(
@@ -517,6 +575,7 @@ export default async (req: Request): Promise<Response> => {
       }
     );
   } catch (error: any) {
+    log.error('receive-email failed', error);
     return normalizedErrorResponse(classifyError(error), error, corsHeaders);
   }
 };
