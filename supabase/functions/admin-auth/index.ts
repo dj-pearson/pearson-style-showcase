@@ -10,6 +10,12 @@ import {
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { validateCsrf, isStateChanging } from '../_shared/csrf.ts';
 import { MFA_REQUIRED_ERROR, tokenHasAal2 } from '../_shared/require-admin-helpers.ts';
+import { getClientIdentifier } from '../_shared/rate-limiter.ts';
+import { escapeHtml } from '../_shared/html-escape.ts';
+
+// Base URL for links in auth emails. Never taken from the request Origin, which
+// the caller controls.
+const FRONTEND_URL = (Deno.env.get('FRONTEND_URL') || 'https://danpearson.net').replace(/\/+$/, '');
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -155,6 +161,13 @@ async function sendLockoutNotification(
   userAgent: string,
   attemptCount: number
 ): Promise<void> {
+  // Only whitelisted admins get a lockout email. The address comes straight
+  // from the login request body, so without this check anyone could make the
+  // server mail arbitrary addresses.
+  if (typeof email !== 'string' || !(await isEmailWhitelisted(email))) {
+    return;
+  }
+
   // Check cooldown to avoid spam
   const lastNotification = lockoutNotificationsSent.get(email);
   if (lastNotification && Date.now() - lastNotification < LOCKOUT_NOTIFICATION_COOLDOWN) {
@@ -219,6 +232,11 @@ For assistance, contact support.
 This is an automated security notification from Dan Pearson Admin Portal.
     `.trim();
 
+    const safeEmail = escapeHtml(email);
+    const safeIp = escapeHtml(ip);
+    const safeUserAgent = escapeHtml(userAgent);
+    const safeAttempts = escapeHtml(attemptCount);
+
     const htmlBody = `
 <!DOCTYPE html>
 <html>
@@ -236,15 +254,15 @@ This is an automated security notification from Dan Pearson Admin Portal.
   <h1>🔒 Security Alert - Account Temporarily Locked</h1>
 
   <div class="alert-box">
-    <p class="warning">Your admin account (${email}) has been temporarily locked due to ${attemptCount} failed login attempts.</p>
+    <p class="warning">Your admin account (${safeEmail}) has been temporarily locked due to ${safeAttempts} failed login attempts.</p>
   </div>
 
   <div class="details">
     <h3>Lockout Details:</h3>
     <ul>
       <li><strong>Time:</strong> ${lockoutTime}</li>
-      <li><strong>IP Address:</strong> ${ip}</li>
-      <li><strong>Browser/Device:</strong> ${userAgent}</li>
+      <li><strong>IP Address:</strong> ${safeIp}</li>
+      <li><strong>Browser/Device:</strong> ${safeUserAgent}</li>
       <li><strong>Lock Duration:</strong> 15 minutes</li>
       <li><strong>Unlock Time:</strong> ${unlockTime}</li>
     </ul>
@@ -501,8 +519,8 @@ export default async (req: Request): Promise<Response> => {
   console.log(`Admin Auth Request: ${req.method} ${req.url}`);
 
   try {
+    // Never log the body: login requests carry the plaintext password.
     const requestBody = await req.text();
-    console.log('Request body:', requestBody);
 
     let bodyData: any = {};
 
@@ -521,7 +539,10 @@ export default async (req: Request): Promise<Response> => {
 
     // Handle login action
     if (action === 'login') {
-      const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+      // Spoof-resistant client IP (cf-connecting-ip / x-real-ip / last XFF
+      // hop). The first XFF entry is client-supplied and let an attacker
+      // rotate it to dodge the lockout.
+      const clientIP = getClientIdentifier(req);
       const userAgent = req.headers.get('user-agent') || 'unknown';
 
       // SECURITY: Don't log sensitive email addresses or IPs
@@ -746,7 +767,7 @@ export default async (req: Request): Promise<Response> => {
 
       // Create/update admin session for OAuth users
       if (authProvider !== 'email') {
-        const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+        const clientIP = getClientIdentifier(req);
         const sessionToken = crypto.randomUUID();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -808,7 +829,7 @@ export default async (req: Request): Promise<Response> => {
             }
 
             // Log the logout event
-            const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+            const clientIP = getClientIdentifier(req);
             const userAgent = req.headers.get('user-agent') || 'unknown';
 
             // A Postgrest builder is a thenable, not a Promise: it has no
@@ -875,7 +896,7 @@ export default async (req: Request): Promise<Response> => {
 
       // Use Supabase Auth password reset
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${req.headers.get('origin')}/admin/reset-password`,
+        redirectTo: `${FRONTEND_URL}/admin/reset-password`,
       });
 
       if (resetError) {
