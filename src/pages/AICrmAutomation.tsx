@@ -320,8 +320,33 @@ const AICrmAutomation = () => {
               is guessing.
             </p>
 
-            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <table className="w-full min-w-[42rem] border-collapse text-left">
+            {/* Below sm each tier is its own block, so timeline and price sit
+                under the description instead of off the right edge of a table
+                the reader has to scroll sideways to find. */}
+            <ul className="sm:hidden divide-y divide-border border-y border-border">
+              {SERVICE_TIERS.map((tier) => (
+                <li key={tier.name} className="py-6">
+                  <h3 className="font-semibold text-foreground">{tier.name}</h3>
+                  <p className="mt-1 text-xs text-primary">{tier.tier}</p>
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                    {tier.description}
+                  </p>
+                  <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <dt className="font-semibold text-primary">Timeline</dt>
+                      <dd className="mt-1 text-muted-foreground">{tier.duration}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-primary">Price</dt>
+                      <dd className="mt-1 font-semibold text-foreground">{tier.priceLabel}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden sm:block">
+              <table className="w-full border-collapse text-left">
                 <caption className="sr-only">
                   Engagement tiers, durations and price ranges for AI CRM automation work
                 </caption>
