@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Routes, Route } from 'react-router-dom';
-import { render, screen, waitFor } from '@/test/test-utils';
+import { render, screen, waitFor, within } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import type { SupabaseMock } from '@/test/mocks/supabase';
 
@@ -201,7 +201,9 @@ describe('Article page', () => {
   it('ends a CRM article with the audit offer', async () => {
     mock.setTableResult('articles', { data: articleFixture({ category: 'CRM' }), error: null });
     renderArticleAt('automating-with-ai');
-    const link = await screen.findByRole('link', { name: 'Book an audit' });
+    // Scope to the article ending: the site nav carries its own "Book an audit" link.
+    const ending = await screen.findByRole('complementary', { name: 'What next' });
+    const link = within(ending).getByRole('link', { name: 'Book an audit' });
     expect(link).toHaveAttribute('href', '/connect');
     expect(screen.queryByText('The pipeline notes')).not.toBeInTheDocument();
   });
@@ -210,7 +212,8 @@ describe('Article page', () => {
     mock.setTableResult('articles', { data: articleFixture(), error: null });
     renderArticleAt('automating-with-ai');
     expect(await screen.findByText('The pipeline notes')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Book an audit' })).not.toBeInTheDocument();
+    const ending = screen.getByRole('complementary', { name: 'What next' });
+    expect(within(ending).queryByRole('link', { name: 'Book an audit' })).not.toBeInTheDocument();
   });
 
   it('shares LinkedIn, X and copy link in that order, with no Facebook', async () => {

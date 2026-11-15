@@ -185,9 +185,12 @@ export const EmailWebhookSettings = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Send this as the{' '}
-              <code className="px-1 py-0.5 bg-muted rounded">x-webhook-secret</code> header with
-              each request
+              The sender signs each request: set{' '}
+              <code className="px-1 py-0.5 bg-muted rounded">x-webhook-timestamp</code> to the
+              current Unix time in seconds and{' '}
+              <code className="px-1 py-0.5 bg-muted rounded">x-webhook-signature</code> to the hex
+              HMAC-SHA256 of <code className="px-1 py-0.5 bg-muted rounded">timestamp.body</code>{' '}
+              keyed with this secret. Requests older than 5 minutes are rejected.
             </p>
           </div>
 

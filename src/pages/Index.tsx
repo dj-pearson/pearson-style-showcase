@@ -570,28 +570,10 @@ const Index = () => {
           </Suspense>
         </div>
 
-        {/* Testimonials Section */}
-        <section className="mobile-section mobile-container animate-section pointer-events-auto">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-10 sm:mb-12">
-              <h2 className="mobile-heading-lg text-primary mb-4">What Clients Say</h2>
-              <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-                Don't just take my word for it. Here's what people I've worked with have to say.
-              </p>
-            </div>
-            <Suspense
-              fallback={
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="skeleton w-full h-64 rounded-lg"></div>
-                  ))}
-                </div>
-              }
-            >
-              <Testimonials />
-            </Suspense>
-          </div>
-        </section>
+        {/* Testimonials Section: renders nothing until there are published testimonials */}
+        <Suspense fallback={null}>
+          <Testimonials />
+        </Suspense>
 
         {/* FAQ Section - SEO Enhancement */}
         <div className="animate-section pointer-events-auto">
