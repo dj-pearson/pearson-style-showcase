@@ -46,7 +46,23 @@ export type RouteComponentName = keyof typeof routeComponents;
 const PRERENDERED_ROUTES: Array<[RegExp, RouteComponentName]> = [
   [/^\/news\/[^/]+\/?$/, 'Article'],
   [/^\/ai-crm-automation\/?$/, 'AICrmAutomation'],
-  [/^\/topics\/ai-crm-automation\/?$/, 'TopicHub'],
+  [
+    /^\/topics\/(ai-crm-automation|ai-automation|business-optimization|machine-learning|digital-transformation)\/?$/,
+    'TopicHub',
+  ],
+  [/^\/about\/?$/, 'About'],
+  [/^\/projects\/?$/, 'Projects'],
+  [/^\/news\/?$/, 'News'],
+  [/^\/connect\/?$/, 'Connect'],
+  [/^\/ai-tools\/?$/, 'AITools'],
+  [/^\/topics\/?$/, 'Topics'],
+  [/^\/faq\/?$/, 'FAQ'],
+  [/^\/showcase\/?$/, 'Showcase'],
+  [/^\/privacy\/?$/, 'PrivacyPolicy'],
+  [/^\/terms\/?$/, 'TermsOfService'],
+  [/^\/cookies\/?$/, 'CookiePolicy'],
+  [/^\/accessibility\/?$/, 'Accessibility'],
+  [/^\/status\/?$/, 'Status'],
 ];
 
 export function prerenderedRouteFor(pathname: string): RouteComponentName | undefined {

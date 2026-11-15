@@ -25,10 +25,15 @@ import { marked } from 'marked';
 import { transformSync, build } from 'esbuild';
 import { readArticles, extractFaqs } from './lib/content.mjs';
 import { fetchDbArticles, sanitizeArticleHtml, markAffiliateLinks } from './lib/db-articles.mjs';
+import { STATIC_ROUTES, NAV_LINKS, FOOTER_LINKS } from './lib/static-routes.mjs';
 
 const DIST = 'dist';
 const SITE = 'https://danpearson.net';
+// The square icon stays the feed's channel image. Social cards and article
+// schema images get og-default.png: summary_large_image wants roughly 1.91:1,
+// and a 512x512 icon is cropped to a sliver in every link preview.
 const IMAGE = `${SITE}/android-chrome-512x512.png`;
+const OG_IMAGE = { url: `${SITE}/og-default.png`, width: 1200, height: 630 };
 const AUTHOR = 'Dan Pearson';
 const FEED_TITLE = 'Dan Pearson - AI CRM Automation and AI News';
 const FEED_DESCRIPTION =
@@ -43,11 +48,13 @@ marked.setOptions({ gfm: true, breaks: false });
  * esbuild (already present as a Vite dependency) can transpile it in memory
  * rather than duplicating the framework, tiers and FAQs into this script.
  */
-async function loadCrmData() {
-  const source = readFileSync('src/lib/crm-automation.ts', 'utf8');
+async function loadTsModule(file) {
+  const source = readFileSync(file, 'utf8');
   const { code } = transformSync(source, { loader: 'ts', format: 'esm' });
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
+
+const loadCrmData = () => loadTsModule('src/lib/crm-automation.ts');
 
 /**
  * Loads src/lib/prerenderData.ts (key builders, the static-article row shape,
@@ -127,49 +134,124 @@ const plainText = (value) =>
 
 // --- head rewriting -------------------------------------------------------
 
+// Every replacement below goes through a function, so a `$` in copy ("$600K+
+// monthly") is inserted as text rather than read as a replacement pattern.
+const beforeHeadClose = (html, markup) => html.replace('</head>', () => `    ${markup}\n  </head>`);
+
 function setTag(html, attr, name, content) {
   const pattern = new RegExp(`<meta\\s+${attr}="${name}"[^>]*>`, 'i');
   const tag = `<meta ${attr}="${name}" content="${escapeHtml(content)}" />`;
-  return pattern.test(html)
-    ? html.replace(pattern, tag)
-    : html.replace('</head>', `    ${tag}\n  </head>`);
+  return pattern.test(html) ? html.replace(pattern, () => tag) : beforeHeadClose(html, tag);
 }
 
-function applyHead(template, { title, description, url, type = 'website', schemas }) {
+function removeTag(html, attr, name) {
+  return html.replace(new RegExp(`[ \\t]*<meta\\s+${attr}="${name}"[^>]*>\\n?`, 'gi'), '');
+}
+
+/**
+ * Rewrites the template head for one route.
+ *
+ * `url: null` drops the canonical and og:url rather than leaving them on the
+ * home page: the 404 page and the SPA shell have no URL of their own. `image`
+ * is { url, width?, height? }, and the dimensions are only emitted when known,
+ * so an article's own image never claims to be 1200x630. The description is
+ * cut the way SEO.tsx cuts it, so the head does not change when React mounts.
+ */
+function applyHead(
+  template,
+  { title, description, url, path, type = 'website', schemas, image = OG_IMAGE, article, noIndex }
+) {
   let html = template;
+  const summary = seo.truncateDescription(description, 160);
 
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
-  html = html.replace(
-    /<link\s+rel="canonical"[^>]*>/i,
-    `<link rel="canonical" href="${escapeHtml(url)}" />`
-  );
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeHtml(title)}</title>`);
+  if (url) {
+    html = html.replace(
+      /<link\s+rel="canonical"[^>]*>/i,
+      () => `<link rel="canonical" href="${escapeHtml(url)}" />`
+    );
+    html = setTag(html, 'property', 'og:url', url);
+  } else {
+    html = html.replace(/[ \t]*<link\s+rel="canonical"[^>]*>\n?/i, '');
+    html = removeTag(html, 'property', 'og:url');
+  }
 
-  html = setTag(html, 'name', 'description', description);
+  html = setTag(html, 'name', 'description', summary);
+  if (noIndex) html = setTag(html, 'name', 'robots', 'noindex, follow');
   html = setTag(html, 'property', 'og:title', title);
-  html = setTag(html, 'property', 'og:description', description);
-  html = setTag(html, 'property', 'og:url', url);
+  html = setTag(html, 'property', 'og:description', summary);
   html = setTag(html, 'property', 'og:type', type);
-  html = setTag(html, 'property', 'og:image', IMAGE);
+  html = setTag(html, 'property', 'og:locale', 'en_US');
+  html = setTag(html, 'property', 'og:image', image.url);
+  html = removeTag(html, 'property', 'og:image:width');
+  html = removeTag(html, 'property', 'og:image:height');
+  if (image.width && image.height) {
+    html = setTag(html, 'property', 'og:image:width', String(image.width));
+    html = setTag(html, 'property', 'og:image:height', String(image.height));
+  }
   html = setTag(html, 'name', 'twitter:title', title);
-  html = setTag(html, 'name', 'twitter:description', description);
-  html = setTag(html, 'name', 'twitter:image', IMAGE);
+  html = setTag(html, 'name', 'twitter:description', summary);
+  html = setTag(html, 'name', 'twitter:image', image.url);
+
+  if (article) {
+    const tags = [
+      article.published && ['article:published_time', article.published],
+      article.modified && ['article:modified_time', article.modified],
+      article.section && ['article:section', article.section],
+      ['article:author', AUTHOR],
+      // article:tag repeats, one element per tag.
+      ...[...new Set(article.tags || [])].map((tag) => ['article:tag', tag]),
+    ].filter(Boolean);
+    for (const [property, content] of tags) {
+      html = beforeHeadClose(
+        html,
+        `<meta property="${property}" content="${escapeHtml(content)}" />`
+      );
+    }
+  }
+
+  if (!schemas || schemas.length === 0) return html;
 
   // One graph per page rather than several loose blocks: a single @graph is
-  // easier for parsers to resolve @id references across.
+  // easier for parsers to resolve @id references across. data-prerendered and
+  // data-path let StructuredData.tsx skip the types this graph already holds,
+  // and drop the graph once the visitor navigates to a different route.
   const graph = JSON.stringify(
     { '@context': 'https://schema.org', '@graph': schemas },
     null,
     2
   ).replace(/</g, '\\u003c');
 
-  return html.replace(
-    '</head>',
-    `    <script type="application/ld+json">\n${graph}\n    </script>\n  </head>`
+  return beforeHeadClose(
+    html,
+    `<script type="application/ld+json" data-prerendered data-path="${escapeHtml(path)}">\n${graph}\n    </script>`
   );
 }
 
+const linkList = (links) =>
+  links.map(({ href, label }) => `<a href="${href}">${escapeHtml(label)}</a>`).join('\n        ');
+
+/**
+ * The page body between a header and footer of plain links. Without them a
+ * prerendered page linked out only through its own copy, so a crawler that
+ * does not run JavaScript had no path from an article to /about, /projects or
+ * /connect. React replaces all of it on mount, with the rest of #root.
+ */
 function applyBody(html, body) {
-  return html.replace(/<div id="root"><\/div>/, `<div id="root">${body}</div>`);
+  const chrome = `
+    <header>
+      <nav aria-label="Site">
+        ${linkList(NAV_LINKS)}
+      </nav>
+    </header>${body}
+    <footer>
+      <nav aria-label="Legal">
+        ${linkList(FOOTER_LINKS)}
+      </nav>
+      <p>&copy; ${new Date().getFullYear()} ${AUTHOR} &middot; Pearson Media LLC</p>
+    </footer>
+  `;
+  return html.replace(/<div id="root"><\/div>/, () => `<div id="root">${chrome}</div>`);
 }
 
 /**
@@ -271,7 +353,11 @@ const PERSON = {
   '@type': 'Person',
   '@id': `${SITE}/#dan-pearson`,
   name: AUTHOR,
-  url: SITE,
+  // /about is the page that is about him; the home page is about the service.
+  // No `image` yet: the headshot lives in the profile_settings table, not in
+  // public/, so the build has no stable URL to give it.
+  url: `${SITE}/about`,
+  mainEntityOfPage: { '@id': `${SITE}/about#profile` },
   jobTitle: 'AI CRM Automation Consultant',
   description:
     'AI CRM automation consultant for revenue teams under 50 seats. Builds capture-layer automation so sellers stop doing data entry and the pipeline stops lying.',
@@ -313,7 +399,7 @@ const faqPage = (faqs) => ({
 
 const isCrm = (meta) => meta.source !== 'database' || meta.category === 'CRM';
 const categoryPath = (category) => `/news/category/${encodeURIComponent(category)}`;
-const absoluteImage = (src) => (/^https:\/\//.test(src || '') ? src : IMAGE);
+const absoluteImage = (src) => (/^https:\/\//.test(src || '') ? src : OG_IMAGE.url);
 
 function articlePage({ meta, body }) {
   const url = `${SITE}/news/${meta.slug}`;
@@ -403,7 +489,23 @@ function articlePage({ meta, body }) {
     sitemap: crm
       ? { priority: meta.featured ? '0.9' : '0.8', changefreq: 'monthly' }
       : { priority: isNews ? '0.6' : '0.5', changefreq: 'monthly' },
+    // The article's own image when it has an absolute one, size unknown; the
+    // default card otherwise.
+    image: /^https:\/\//.test(meta.image_url || '') ? { url: meta.image_url } : OG_IMAGE,
+    article: {
+      published: isoDate(meta.published_iso || meta.published_at),
+      modified: isoDate(meta.updated_at || meta.published_at),
+      section: meta.category,
+      tags: meta.tags,
+    },
+    archive: { category: meta.category, tags: meta.tags || [] },
   };
+}
+
+/** Markdown front matter carries a bare date; OG wants a full ISO 8601 time. */
+function isoDate(value) {
+  if (!value) return undefined;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00Z` : value;
 }
 
 function moneyPage(crm, articles) {
@@ -640,52 +742,278 @@ function hubPage(articles) {
   };
 }
 
+/**
+ * The other topic hubs in TOPIC_HUBS. Title and description follow
+ * TopicHub.tsx; the article list is the same selection the hub embeds as
+ * prerender data, so the links here are the links React renders.
+ */
+function topicHubPage(topic, config, list) {
+  const path = `/topics/${topic}`;
+  const url = `${SITE}${path}`;
+
+  const schemas = [
+    {
+      '@type': 'CollectionPage',
+      '@id': `${url}#collection`,
+      url,
+      name: config.title,
+      description: config.description,
+      isPartOf: { '@id': `${SITE}/#website` },
+      about: { '@id': `${SITE}/#dan-pearson` },
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: list.length,
+        itemListElement: list.map((article, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: `${SITE}/news/${article.slug}`,
+          name: article.title,
+        })),
+      },
+    },
+    PERSON,
+    breadcrumb([
+      { name: 'Home', path: '/' },
+      { name: 'Topics', path: '/topics' },
+      { name: config.title, path },
+    ]),
+  ];
+
+  const items = list.length
+    ? `<ul>
+        ${list
+          .map(
+            (article) =>
+              `<li><h2><a href="/news/${article.slug}">${escapeHtml(article.title)}</a></h2>${article.excerpt ? `<p>${escapeHtml(plainText(article.excerpt))}</p>` : ''}</li>`
+          )
+          .join('\n        ')}
+      </ul>`
+    : `<p>No articles on this topic yet. <a href="/news">Browse all writing</a>.</p>`;
+
+  const content = `
+    <main>
+      <h1>${escapeHtml(config.title)}</h1>
+      <p>${escapeHtml(config.description)}</p>
+      ${items}
+      <p><a href="/topics">All topics</a></p>
+    </main>`;
+
+  return {
+    path,
+    title: `${config.title} - Complete Guide & Resources | ${AUTHOR}`,
+    description: config.description,
+    schemas,
+    content,
+    // A hub with nothing in it is a thin page; keep it out of the sitemap.
+    sitemap: list.length ? { priority: '0.6', changefreq: 'weekly' } : null,
+  };
+}
+
+/**
+ * Extra body copy for the static routes whose page is mostly a list: real
+ * links a crawler can follow, built from data the build already has.
+ */
+function staticRouteExtras(route, { articlePages, topicHubs }) {
+  switch (route.path) {
+    case '/news': {
+      const latest = articlePages
+        .filter((page) => page.feed)
+        .sort((a, b) => String(b.article.published).localeCompare(String(a.article.published)))
+        .slice(0, 30);
+      return `<h2>Latest writing</h2>
+      <ul>
+        ${latest.map((page) => `<li><a href="${page.path}">${escapeHtml(page.feed.title)}</a></li>`).join('\n        ')}
+      </ul>`;
+    }
+    case '/topics':
+      return `<ul>
+        ${Object.entries(topicHubs)
+          .map(
+            ([slug, hub]) =>
+              `<li><h2><a href="/topics/${slug}">${escapeHtml(hub.title)}</a></h2><p>${escapeHtml(hub.description)}</p></li>`
+          )
+          .join('\n        ')}
+      </ul>`;
+    case '/about':
+      return `<p>${escapeHtml(PERSON.description)}</p>
+      <ul>
+        <li><a href="/ai-crm-automation">AI CRM automation consulting and the 12-point audit</a></li>
+        <li><a href="/projects">The SaaS platforms behind the CRM automation work</a></li>
+        <li><a href="/connect">Book an audit or get in touch</a></li>
+      </ul>`;
+    case '/faq':
+      return `<p><a href="/ai-crm-automation">Questions on AI CRM automation, answered on the services page</a></p>`;
+    case '/connect':
+      return `<p><a href="/ai-crm-automation">What the CRM automation audit covers and what it costs</a></p>`;
+    default:
+      return '';
+  }
+}
+
+function staticPage(route, context) {
+  const url = `${SITE}${route.path}`;
+  const node = {
+    '@type': route.schemaType,
+    '@id': `${url}#${route.schemaType === 'ProfilePage' ? 'profile' : 'webpage'}`,
+    url,
+    name: route.title,
+    description: route.description,
+    isPartOf: { '@id': `${SITE}/#website` },
+    inLanguage: 'en',
+    ...(route.schemaType === 'ProfilePage'
+      ? { mainEntity: { '@id': `${SITE}/#dan-pearson` } }
+      : { about: { '@id': `${SITE}/#dan-pearson` } }),
+  };
+
+  const content = `
+    <main>
+      <h1>${escapeHtml(route.h1)}</h1>
+      <p>${escapeHtml(route.intro)}</p>
+      ${staticRouteExtras(route, context)}
+    </main>`;
+
+  return {
+    path: route.path,
+    title: route.title,
+    description: route.description,
+    schemas: [
+      node,
+      PERSON,
+      breadcrumb([
+        { name: 'Home', path: '/' },
+        { name: route.crumb, path: route.path },
+      ]),
+    ],
+    content,
+    sitemap: route.sitemap,
+  };
+}
+
+// --- 404 and the SPA shell -------------------------------------------------
+
+/**
+ * dist/404.html. Cloudflare Pages serves it, with a 404 status, for any path
+ * that matches neither a file nor a rule in _redirects; its presence is also
+ * what turns off Pages' "serve index.html for everything" SPA mode. The app
+ * bundle is still in it, so a visitor on a URL the build did not know about
+ * (an article published since the last deploy) still gets the React page.
+ */
+function writeNotFound(template) {
+  const html = applyBody(
+    applyHead(template, {
+      title: `404 - Page Not Found | ${AUTHOR}`,
+      description: "The page you're looking for doesn't exist.",
+      url: null,
+      noIndex: true,
+    }),
+    `
+    <main>
+      <h1>Page not found</h1>
+      <p>There is nothing at this address. It may have moved, or the link may be wrong.</p>
+      <p><a href="/">Go to the home page</a> or <a href="/news">browse the writing</a>.</p>
+    </main>`
+  );
+  writeFileSync(join(DIST, '404.html'), html);
+}
+
+/**
+ * dist/spa.html: the untouched app shell, for the client-only routes that
+ * public/_redirects rewrites to /spa (search, archives, admin). Kept separate
+ * from index.html, which now carries the home page's copy and schema. No
+ * canonical: React sets the route's own on mount, and a crawler that does not
+ * run JavaScript is better off with none than with the home page's.
+ */
+function writeSpaShell(template) {
+  let html = template.replace(/[ \t]*<link\s+rel="canonical"[^>]*>\n?/i, '');
+  html = removeTag(html, 'property', 'og:url');
+  html = setTag(html, 'property', 'og:image', OG_IMAGE.url);
+  html = setTag(html, 'property', 'og:image:width', String(OG_IMAGE.width));
+  html = setTag(html, 'property', 'og:image:height', String(OG_IMAGE.height));
+  html = setTag(html, 'name', 'twitter:image', OG_IMAGE.url);
+  writeFileSync(join(DIST, 'spa.html'), html);
+}
+
 // --- sitemap --------------------------------------------------------------
 
 /**
- * Rebuilds sitemap.xml from the prerendered routes, preserving any URL already
- * present in public/sitemap.xml.
+ * Category and tag archives with enough articles to be worth a crawl, at the
+ * URLs CategoryArchive.tsx and TagArchive.tsx give as canonical: the category
+ * as stored, and the tag lowercased with spaces turned into hyphens. A tag on
+ * a single article is a one-link page, so tags need two.
+ */
+function archiveEntries(pages) {
+  const categories = new Map();
+  const tags = new Map();
+  const bump = (map, key, lastmod) => {
+    const entry = map.get(key) || { count: 0, lastmod: '' };
+    entry.count += 1;
+    if (lastmod && lastmod > entry.lastmod) entry.lastmod = lastmod;
+    map.set(key, entry);
+  };
+  for (const page of pages) {
+    if (!page.archive) continue;
+    const lastmod = String(page.lastmod || '').slice(0, 10);
+    if (page.archive.category) bump(categories, page.archive.category, lastmod);
+    for (const tag of new Set(page.archive.tags.map((t) => t.toLowerCase().replace(/\s+/g, '-')))) {
+      bump(tags, tag, lastmod);
+    }
+  }
+  return [
+    ...[...categories].map(([category, { lastmod }]) => ({
+      loc: `${SITE}/news/category/${encodeURIComponent(category)}`,
+      lastmod,
+      changefreq: 'weekly',
+      priority: '0.5',
+    })),
+    ...[...tags]
+      .filter(([, { count }]) => count >= 2)
+      .map(([tag, { lastmod }]) => ({
+        loc: `${SITE}/news/tag/${encodeURIComponent(tag)}`,
+        lastmod,
+        changefreq: 'weekly',
+        priority: '0.4',
+      })),
+  ];
+}
+
+/**
+ * Rebuilds sitemap.xml from what this build serves: the routes written above
+ * (static pages, topic hubs, every article it could read) and the archives
+ * those articles fill.
  *
- * The preservation matters: legacy articles live only in the database, so this
- * script cannot see them, and dropping them would be a regression. Note that
+ * It used to carry forward every URL already in public/sitemap.xml so database
+ * articles survived a build without credentials. That also kept URLs alive
+ * that matched nothing, and with dist/404.html in place an article the build
+ * did not write is a 404 anyway. The production build reads the database, so
+ * its articles are pages here and land in the sitemap on their own. Note that
  * the React route at src/pages/SitemapXML.tsx never serves /sitemap.xml in
- * production - public/_redirects maps that path to the static file, so this is
- * the sitemap crawlers actually fetch.
+ * production: the static file wins, so this is the sitemap crawlers fetch.
  */
 function writeSitemap(pages) {
   const today = new Date().toISOString().split('T')[0];
   const entries = new Map();
 
   for (const page of pages) {
+    if (!page.sitemap) continue;
     const loc = page.path === '/' ? SITE : `${SITE}${page.path}`;
     entries.set(loc, {
       loc,
-      lastmod: page.lastmod || today,
+      lastmod: String(page.lastmod || today).slice(0, 10),
       changefreq: page.sitemap.changefreq,
       priority: page.sitemap.priority,
     });
   }
 
-  const existing = join('public', 'sitemap.xml');
-  if (existsSync(existing)) {
-    const previous = readFileSync(existing, 'utf8');
-    for (const block of previous.match(/<url>[\s\S]*?<\/url>/g) || []) {
-      const loc = block.match(/<loc>([^<]+)<\/loc>/)?.[1];
-      if (!loc || entries.has(loc)) continue;
-      entries.set(loc, {
-        loc,
-        lastmod: block.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1] || today,
-        changefreq: block.match(/<changefreq>([^<]+)<\/changefreq>/)?.[1] || 'monthly',
-        priority: block.match(/<priority>([^<]+)<\/priority>/)?.[1] || '0.5',
-      });
-    }
+  for (const entry of archiveEntries(pages)) {
+    if (!entries.has(entry.loc))
+      entries.set(entry.loc, { ...entry, lastmod: entry.lastmod || today });
   }
 
   const urls = [...entries.values()]
     .sort((a, b) => Number(b.priority) - Number(a.priority) || a.loc.localeCompare(b.loc))
     .map(
       (url) => `  <url>
-    <loc>${url.loc}</loc>
+    <loc>${escapeXml(url.loc)}</loc>
     <lastmod>${url.lastmod}</lastmod>
     <changefreq>${url.changefreq}</changefreq>
     <priority>${url.priority}</priority>
@@ -821,6 +1149,7 @@ function writeLlmsTxt(crm, crmArticles, dbArticles) {
     `# ${AUTHOR}`,
     `> ${plainText(crm.POSITIONING_STATEMENT)}`,
     plainText(crm.THESIS),
+    `## About\n\n- [About Dan Pearson](${SITE}/about): fifteen years in sales and business development, then seven SaaS platforms, then AI CRM automation.\n- [Projects](${SITE}/projects): the SaaS platforms and the CRM automation case studies behind them.\n- [News and insights](${SITE}/news): every article, newest first.\n- [AI CRM automation topic hub](${SITE}/topics/ai-crm-automation): all the CRM automation writing in one place.`,
     `## Services\n\n- [AI CRM automation consulting](${SITE}/ai-crm-automation): the Pipeline Automation Ladder, the 12-point audit and published pricing.\n- [Contact](${SITE}/connect)`,
     `## AI CRM automation\n\n${crmArticles.map(line).join('\n')}`,
   ];
@@ -840,6 +1169,7 @@ if (!existsSync(templatePath)) {
 }
 
 const template = readFileSync(templatePath, 'utf8');
+const seo = await loadTsModule('src/lib/seo.ts');
 const crm = await loadCrmData();
 const helpers = await loadPrerenderHelpers();
 const articles = readArticles().filter(({ meta }) => meta.published);
@@ -907,15 +1237,32 @@ function topicData(topic) {
   };
 }
 
+const articlePages = [...articles, ...dbArticles].map((article) => ({
+  ...articlePage(article),
+  prerenderData: articleData(article.meta.slug),
+}));
+
+const otherHubs = Object.entries(helpers.TOPIC_HUBS)
+  .filter(([topic]) => topic !== 'ai-crm-automation')
+  .map(([topic, config]) => {
+    const prerenderData = topicData(topic);
+    return { ...topicHubPage(topic, config, prerenderData.data), prerenderData };
+  });
+
 const pages = [
   homePage(crm, articles),
   moneyPage(crm, articles),
   { ...hubPage(articles), prerenderData: topicData('ai-crm-automation') },
-  ...[...articles, ...dbArticles].map((article) => ({
-    ...articlePage(article),
-    prerenderData: articleData(article.meta.slug),
-  })),
+  ...otherHubs,
+  ...STATIC_ROUTES.map((route) =>
+    staticPage(route, { articlePages, topicHubs: helpers.TOPIC_HUBS })
+  ),
+  ...articlePages,
 ];
+
+// Written from the untouched template before index.html is overwritten below.
+writeNotFound(template);
+writeSpaShell(template);
 
 const routeSourceFor = loadRouteSources();
 const manifest = loadManifest();
@@ -931,8 +1278,11 @@ for (const page of pages) {
         title: page.title,
         description: page.description,
         url: page.path === '/' ? SITE : `${SITE}${page.path}`,
+        path: page.path,
         type: page.type,
         schemas: page.schemas,
+        image: page.image,
+        article: page.article,
       }),
       page.content
     ),
