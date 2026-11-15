@@ -1728,8 +1728,8 @@
         "Typecheck and tests pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Open. Needs a migration for confirmation and unsubscribe tokens."
+      "passes": true,
+      "notes": "Done. Migration 20261116000107_newsletter_double_opt_in.sql (rollback included); new newsletter-confirm and newsletter-unsubscribe functions registered in danpearson-edge-functions/server.ts; HMAC unsubscribe tokens keyed with NEWSLETTER_TOKEN_SECRET; RFC 8058 one-click headers on the welcome email; /newsletter/confirm and /newsletter/unsubscribe pages. Owner: apply the migration, set NEWSLETTER_TOKEN_SECRET, redeploy functions. Deno tests 23/23."
     },
     {
       "id": "US-108",
@@ -1741,8 +1741,8 @@
         "Typecheck and tests pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Open. Pattern is in src/integrations/supabase/public-client.ts."
+      "passes": true,
+      "notes": "Done. 13 public pages and GlobalSearch read through publicDb; AIToolSubmissionForm uses getDbForCurrentUser (RLS requires admin). Initial JS gzip: news 222.5->172.2, about 194.1->143.8, projects 212.6->162.2 KB. Remaining full-client importers are auth/admin only."
     },
     {
       "id": "US-109",
@@ -1754,8 +1754,8 @@
         "Typecheck and tests pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Open. Perf audit measured render delay at 95% of article LCP."
+      "passes": true,
+      "notes": "Done. src/lib/prerender-classes.ts shares class strings between HeroSection, the Article header and prerender.mjs. h1 boxes identical with and without JS at 390 and 1280. Playwright LCP (4x CPU, slow 4G): article 5.4s -> 3.4s, home 1280 4.2s -> 3.4s; LCP now equals FCP. Articles with a featured image may still get the image as LCP. Also fixed the duplicate Home breadcrumb."
     },
     {
       "id": "US-110",
@@ -1767,8 +1767,8 @@
         "Typecheck and tests pass"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Open."
+      "passes": true,
+      "notes": "Done. src/components/LazySection.tsx mounts CurrentVentures, CaseStudies, Testimonials and NewsletterSignup within 400px of the viewport. FAQSection stays eager (FAQ text is not in the prerendered HTML) and AuthoritySection is above the fold. CLS unchanged (0.0199 at 390px)."
     },
     {
       "id": "US-111",
@@ -1780,8 +1780,8 @@
         "Typecheck and tests pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Open. Currently it only warns."
+      "passes": true,
+      "notes": "Done. scripts/lib/db-articles.mjs throws DbArticlesError on request error, non-OK, bad JSON or non-array when credentials are set; prerender exits 1. No-credential builds still pass."
     },
     {
       "id": "US-112",
@@ -1793,8 +1793,8 @@
         "Typecheck and tests pass"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Open."
+      "passes": true,
+      "notes": "Done. useConfirm() + ConfirmProvider (one AlertDialog) replace all 26 confirm() calls in 24 admin files, with copy naming the item. Unlabelled icon-only admin buttons 36 -> 0."
     },
     {
       "id": "US-113",
@@ -1806,8 +1806,8 @@
         "Typecheck and tests pass"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Open."
+      "passes": true,
+      "notes": "Done. Interactive3DOrb uses plain three; @react-three/fiber and drei removed. three-vendor 842 -> 492 KB raw (226 -> 123 KB gzip); size budget lowered to 130 KB."
     }
   ]
 }

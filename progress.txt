@@ -598,3 +598,21 @@ branches were merged here.
 #### Verification
 - tsc clean; eslint 0 errors; vitest 77 files, 761 tests passing; npm run build passes (no DB).
 - Not run: Playwright e2e, Lighthouse, deno check (deno not installed).
+
+### Iteration - Deep dive follow-ups (US-107 to US-113)
+**Date**: 2026-11-15
+**Branch**: claude/backlog-platform-improvements-5hmnuy
+**Stories Completed**: 7
+
+Six agents in parallel worktrees, merged here. Details in each story's notes in PRD.json.
+- US-107 newsletter double opt-in and signed one-click unsubscribe (migration + 2 new functions)
+- US-108 lean client on the remaining public pages (~50 KB gzip off each)
+- US-109 prerendered hero/article header match React's layout; article LCP 5.4s -> 3.4s
+- US-110 below-the-fold homepage sections mount near the viewport
+- US-111 prerender fails the build when the DB article fetch fails
+- US-112 shared confirm dialog in admin; icon-only buttons all labelled
+- US-113 orb on plain three; three-vendor 226 -> 123 KB gzip
+
+#### Verification
+- tsc clean; eslint 0 errors; vitest 80 files, 782 tests passing; npm run build passes.
+- Homepage screenshot at 390px with and without JS: h1 at the same box (y=210, h=85), no page errors.
