@@ -616,3 +616,22 @@ Six agents in parallel worktrees, merged here. Details in each story's notes in 
 #### Verification
 - tsc clean; eslint 0 errors; vitest 80 files, 782 tests passing; npm run build passes.
 - Homepage screenshot at 390px with and without JS: h1 at the same box (y=210, h=85), no page errors.
+
+### Iteration - Second deep dive (US-114 to US-121)
+**Date**: 2026-11-15
+**Branch**: claude/backlog-platform-improvements-5hmnuy
+**Stories Completed**: 8
+
+Backlog empty again, so four new audits ran (real-browser UX walk, admin, edge reliability,
+content/analytics/tests), then ten fix agents. Details in each story's notes.
+
+Merge-time fixes by the orchestrator: ticket reply idempotency key scoped to the ticket (same text to
+two tickets would have dropped the second email); skipped maintenance runs badged and excluded from
+the success rate; marking an invoice paid in the edit form settles it in full; Amazon stats refresh
+after import; pre-consent Google connection hints removed; logout e2e selector; search and nav CTA
+tracking; health-check probe bounded.
+
+#### Verification
+- tsc clean; eslint 0 errors; vitest 102 files, 961 tests; coverage passes (functions 61.25%);
+  npm run build passes.
+- Pending on the owner: 5 migrations (see US-114..US-118 notes), function env vars, deno.lock.

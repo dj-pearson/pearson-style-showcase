@@ -1808,6 +1808,131 @@
       "priority": 3,
       "passes": true,
       "notes": "Done. Interactive3DOrb uses plain three; @react-three/fiber and drei removed. three-vendor 842 -> 492 KB raw (226 -> 123 KB gzip); size budget lowered to 130 KB."
+    },
+    {
+      "id": "US-114",
+      "title": "Bound AI and paid-API calls and make the Amazon publish atomic",
+      "description": "As the owner, I need AI generations to time out instead of hanging, never be billed twice by retries, and never publish a guide without its affiliate rows.",
+      "acceptanceCriteria": [
+        "fetchWithTimeout never retries non-idempotent requests after a timeout, honours Retry-After, bounds the body read",
+        "Every provider call in ai-helper has a deadline; duplicated provider clients removed; Gemini key in a header",
+        "Amazon guides insert unpublished, products batch-insert with error checks, then publish",
+        "Accounting documents capped at 15 MB and never left 'processing'",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Deno tests 122/122 at merge time. Optional env AI_DEFAULT_CLAUDE_MODEL."
+    },
+    {
+      "id": "US-115",
+      "title": "Make maintenance jobs, email webhooks and the functions server reliable",
+      "description": "As the owner, I need scheduled jobs that cannot overlap, webhooks that cannot create duplicate tickets, replies that cannot email a customer twice, and a functions server that bounds every request.",
+      "acceptanceCriteria": [
+        "Maintenance tasks claimed atomically; link check paged, parallel, capped",
+        "Inbound email deduped on Message-ID with unique partial indexes",
+        "send-ticket-email idempotent with a bounded SMTP call",
+        "server.ts request deadline, request ids, startup env check; optimize-image size/pixel caps; mem_limit",
+        "Raw email and addresses removed from logs",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261117000301_edge_ops_idempotency.sql before deploying send-ticket-email; set SUPABASE_JWT_SECRET, RESEND_API, CLAUDE_API_KEY; compose needs .env; generate deno.lock with Deno 1.40 (sandbox blocked)."
+    },
+    {
+      "id": "US-116",
+      "title": "Fix accounting money, dates and paging",
+      "description": "As the owner, I need invoices, payments and reports that keep recorded payments, compare money in cents, show the right day, and read every row.",
+      "acceptanceCriteria": [
+        "Invoice edits never zero amount_paid; marking paid in the form settles in full",
+        "Allocations checked in cents against saved allocations and amount_due",
+        "Reports page past 1000 rows and show an error with Retry instead of $0",
+        "DATE columns parsed as local days; default tax year is current",
+        "Draw and estimated-tax numbers never collide",
+        "Accounting tabs lazy-loaded and kept in ?tab=",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261117000101_replace_invoice_items_rpc.sql for atomic line-item saves (form falls back to checked delete+insert until then)."
+    },
+    {
+      "id": "US-117",
+      "title": "Keep admin work from getting lost",
+      "description": "As the owner, I need the admin to remember where I am and not throw away what I typed.",
+      "acceptanceCriteria": [
+        "Admin view in ?view= with Back/Forward and the unsaved-changes guard",
+        "KB, project and task dialogs ask before discarding; ticket reply drafts kept per ticket",
+        "Ticket search and filters run on the server with paging",
+        "Amazon report import batched with error counts and a dedupe-safe unique key",
+        "Newsletter counts from head queries including pending/unsubscribed",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261116000201_amazon_stats_unique_nulls_not_distinct.sql."
+    },
+    {
+      "id": "US-118",
+      "title": "Link the orphaned articles and publish the edited copy",
+      "description": "As a reader and a crawler, I need every article reachable from another, buyer-intent passages linked to the audit, and copy that follows the house style.",
+      "acceptanceCriteria": [
+        "Four orphaned articles each get an inbound link; all articles link /connect and /ai-crm-automation",
+        "Em dashes 80 -> 1, 'actually' 74 -> 32",
+        "/connect prerender copy matches the page; /news and /faq descriptions under 160 chars",
+        "An update migration pushes the edits into existing rows only where they still hold seeded text",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Owner: apply 20261116000300_update_crm_article_content.sql and check its NOTICEs for skipped slugs."
+    },
+    {
+      "id": "US-119",
+      "title": "Load analytics only after consent and track real conversions",
+      "description": "As a visitor, I need analytics to wait for my consent and never see my tokens; as the owner, I need conversion events GA4 can report on.",
+      "acceptanceCriteria": [
+        "gtag.js and Google connection hints load only after analytics consent",
+        "No tracking on /admin or /auth; tokens and codes stripped from page_location",
+        "page_view once per path; scroll_depth resets per route; GA4 search events",
+        "Leads: contact_form and newsletter_confirmed only; shares tracked after success; nav, byline and mailto CTAs tracked",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done."
+    },
+    {
+      "id": "US-120",
+      "title": "Fix the homepage reveals and phone layout bugs found in a real browser",
+      "description": "As a phone visitor, I need every section visible, nothing wider than the screen, and controls that fit.",
+      "acceptanceCriteria": [
+        "Homepage sections never stay at opacity 0 (0, 2, 7 rows and failed queries)",
+        "No horizontal page overflow at 375 or 1280",
+        "Breadcrumbs, pricing tiers and search cards fit at 375; search CLS 0",
+        "/news uses the double opt-in form",
+        "Contact success takes focus; mobile menu keeps Tab inside",
+        "Typecheck and tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Done. Fixed a US-110 regression (scrubbed ScrollTriggers never refreshed after LazySection resize)."
+    },
+    {
+      "id": "US-121",
+      "title": "Run Deno tests and coverage in CI, and test what prerender ships",
+      "description": "As the maintainer, I need CI to catch broken edge helpers, prerender output and the MFA gate.",
+      "acceptanceCriteria": [
+        "CI runs deno test over supabase/functions with type checking",
+        "CI enforces coverage thresholds",
+        "prerender HTML helpers extracted and tested; Playwright checks pre-JS HTML on a built dist",
+        "AuthContext MFA gate and AdminLogin enroll/verify tested; webhook signature tests",
+        "Typecheck and tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Done. Coverage functions 61.25% vs 60% floor. Lighthouse LCP budget (3s) may fail now that it audits prerendered pages (local 3.2-3.9s)."
     }
   ]
 }
