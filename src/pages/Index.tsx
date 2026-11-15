@@ -14,8 +14,10 @@ import { PIPELINE_AUTOMATION_LADDER, SERVICE_TIERS, THESIS } from '@/lib/crm-aut
 import { useAnalytics } from '../components/Analytics';
 import { shouldSuppressForOddTraffic } from '@/lib/traffic-detection';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
+import LazySection from '@/components/LazySection';
 
-// Lazy load below-the-fold components to improve FID
+// Below-the-fold sections. Each one except FAQSection sits in a LazySection,
+// so its chunk and its Supabase query wait until the reader scrolls near it.
 const CaseStudies = lazy(() => import('../components/CaseStudies'));
 const NewsletterSignup = lazy(() => import('../components/NewsletterSignup'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
@@ -375,17 +377,14 @@ const Index = () => {
         </div>
 
         {/* Authority Section - SEO Enhancement */}
-        <div className="animate-section pointer-events-auto">
-          <Suspense
-            fallback={
-              <div className="mobile-section text-center">
-                <div className="skeleton w-full h-96"></div>
-              </div>
-            }
-          >
-            <AuthoritySection />
-          </Suspense>
-        </div>
+        <LazySection
+          id="authority"
+          anchorIds={['authority-heading']}
+          className="animate-section pointer-events-auto"
+          reserveClassName="min-h-[2570px] sm:min-h-[1960px] md:min-h-[1730px] lg:min-h-[1630px]"
+        >
+          <AuthoritySection />
+        </LazySection>
 
         {/* The thesis — the most-quoted text on the site. Deliberately prose,
             deliberately early, deliberately not in a card. */}
@@ -533,7 +532,10 @@ const Index = () => {
         </section>
 
         {/* Current Ventures Section */}
-        <section className="mobile-section mobile-container animate-section pointer-events-auto">
+        <section
+          id="current-ventures"
+          className="mobile-section mobile-container animate-section pointer-events-auto"
+        >
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-10 sm:mb-12">
               <h2 className="mobile-heading-lg text-primary mb-4">Current Ventures</h2>
@@ -542,40 +544,33 @@ const Index = () => {
                 working on right now.
               </p>
             </div>
-            <Suspense
-              fallback={
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
-                  ))}
-                </div>
-              }
+            <LazySection
+              anchorIds={['current-ventures']}
+              reserveClassName="min-h-[2280px] sm:min-h-[1990px] md:min-h-[1430px] lg:min-h-[1150px]"
             >
               <CurrentVentures />
-            </Suspense>
+            </LazySection>
           </div>
         </section>
 
         {/* Case Studies Section */}
-        <div className="animate-section pointer-events-auto">
-          <Suspense
-            fallback={
-              <div className="mobile-section text-center">
-                <div className="skeleton w-16 h-16 mx-auto mb-4 rounded-full"></div>
-                <div className="skeleton w-48 h-6 mx-auto"></div>
-              </div>
-            }
-          >
-            <CaseStudies />
-          </Suspense>
-        </div>
+        <LazySection
+          id="case-studies"
+          className="animate-section pointer-events-auto"
+          reserveClassName="min-h-[3100px] sm:min-h-[2860px] md:min-h-[2740px] lg:min-h-[2080px]"
+        >
+          <CaseStudies />
+        </LazySection>
 
-        {/* Testimonials Section: renders nothing until there are published testimonials */}
-        <Suspense fallback={null}>
+        {/* Testimonials Section: renders nothing until there are published
+            testimonials, so it reserves no space rather than risk a gap. */}
+        <LazySection id="testimonials" reserveClassName="">
           <Testimonials />
-        </Suspense>
+        </LazySection>
 
-        {/* FAQ Section - SEO Enhancement */}
+        {/* FAQ Section - SEO Enhancement. Mounted eagerly, not in a LazySection:
+            the prerendered homepage carries none of this text or its FAQPage
+            JSON-LD, so a crawler that never scrolls should still render it. */}
         <div className="animate-section pointer-events-auto">
           <Suspense
             fallback={
@@ -589,18 +584,17 @@ const Index = () => {
         </div>
 
         {/* Newsletter Signup Section */}
-        <section className="mobile-section mobile-container bg-muted/30 animate-section pointer-events-auto">
+        <section
+          id="newsletter"
+          className="mobile-section mobile-container bg-muted/30 animate-section pointer-events-auto"
+        >
           <div className="max-w-2xl mx-auto">
-            <Suspense
-              fallback={
-                <div className="text-center">
-                  <div className="skeleton w-full h-32 mb-4"></div>
-                  <div className="skeleton w-full h-12"></div>
-                </div>
-              }
+            <LazySection
+              anchorIds={['newsletter']}
+              reserveClassName="min-h-[420px] sm:min-h-[320px]"
             >
               <NewsletterSignup />
-            </Suspense>
+            </LazySection>
           </div>
         </section>
       </main>
