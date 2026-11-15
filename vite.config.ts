@@ -115,8 +115,11 @@ export default defineConfig(({ mode }) => {
             if (inPkg('three', '@react-three/fiber', '@react-three/drei')) return 'three-vendor';
             if (inPkg('react', 'react-dom', 'react-router', 'react-router-dom', 'scheduler'))
               return 'react-vendor';
-            if (id.includes('node_modules/@radix-ui/')) return 'ui-vendor';
-            if (inPkg('lucide-react')) return 'icons-vendor';
+            // @radix-ui/* and lucide-react are deliberately left unassigned. As
+            // single ui-vendor / icons-vendor chunks they were modulepreloaded on
+            // every page (47 kB and 11 kB gzip), although the public pages use
+            // only a few primitives and icons. Unassigned, each primitive and icon
+            // ships with the chunks that import it.
             // Kept apart from markdown-vendor on purpose. react-markdown is needed
             // by any article, but the Prism build behind react-syntax-highlighter
             // is roughly 780 kB of language definitions and is loaded lazily by

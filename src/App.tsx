@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import URLHandler from './components/URLHandler';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -108,7 +107,7 @@ const App = () => (
           <ReactQueryDevtools initialIsOpen={false} />
         </Suspense>
       )}
-      <TooltipProvider>
+      <>
         <Toaster />
         <BrowserRouter>
           <AccessibilityProvider>
@@ -267,7 +266,7 @@ const App = () => (
             <CookieConsentBanner />
           </AccessibilityProvider>
         </BrowserRouter>
-      </TooltipProvider>
+      </>
     </QueryClientProvider>
   </ErrorBoundary>
 );
