@@ -30,6 +30,7 @@ import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { useToast } from '@/hooks/use-toast';
 import { validateUrlParam } from '@/lib/security';
 import { articlePrerenderKey, readPrerenderData, toStaticArticleRow } from '@/lib/prerenderData';
+import { ARTICLE_HEADER } from '@/lib/prerender-classes';
 import AuthorByline from '../components/article/AuthorByline';
 import Breadcrumbs from '../components/Breadcrumbs';
 import StructuredData from '../components/SEO/StructuredData';
@@ -486,62 +487,57 @@ const Article = () => {
         <div className="container mx-auto max-w-4xl">
           {/* Breadcrumbs */}
           <div className="mb-6">
-            <Breadcrumbs items={breadcrumbItems} />
+            {/* Breadcrumbs adds Home itself; passing it again showed "Home > Home". */}
+            <Breadcrumbs items={breadcrumbItems.slice(1)} />
           </div>
 
           {/* Semantic Article Structure */}
           <article className="space-y-8" itemScope itemType="https://schema.org/Article">
-            <header className="space-y-6">
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  className="bg-primary/10 text-primary border-primary/20"
-                  itemProp="articleSection"
-                >
+            <header className={ARTICLE_HEADER.header}>
+              <div className={ARTICLE_HEADER.badges}>
+                <Badge className={ARTICLE_HEADER.categoryBadge} itemProp="articleSection">
                   {article.category}
                 </Badge>
                 {article.featured && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-                  >
+                  <Badge variant="secondary" className={ARTICLE_HEADER.featuredBadge}>
                     Featured
                   </Badge>
                 )}
               </div>
 
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight" itemProp="headline">
+              <h1 className={ARTICLE_HEADER.title} itemProp="headline">
                 {article.title}
               </h1>
 
-              <p className="text-xl text-muted-foreground leading-relaxed" itemProp="description">
+              <p className={ARTICLE_HEADER.lead} itemProp="description">
                 {article.excerpt}
               </p>
 
-              <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" aria-hidden="true" />
+              <div className={ARTICLE_HEADER.meta}>
+                <div className={ARTICLE_HEADER.metaItem}>
+                  <Calendar className={ARTICLE_HEADER.metaIcon} aria-hidden="true" />
                   <time itemProp="datePublished" dateTime={article.created_at!}>
                     <span className="sr-only">Published on </span>
                     {formatDate(article.created_at!)}
                   </time>
                 </div>
                 {article.updated_at && article.updated_at !== article.created_at && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs">Updated:</span>
+                  <div className={ARTICLE_HEADER.metaItem}>
+                    <span className={ARTICLE_HEADER.metaLabel}>Updated:</span>
                     <time itemProp="dateModified" dateTime={article.updated_at}>
                       {formatDate(article.updated_at)}
                     </time>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" aria-hidden="true" />
+                <div className={ARTICLE_HEADER.metaItem}>
+                  <Clock className={ARTICLE_HEADER.metaIcon} aria-hidden="true" />
                   <span>
                     <span className="sr-only">Reading time: </span>
                     {article.read_time}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4" aria-hidden="true" />
+                <div className={ARTICLE_HEADER.metaItem}>
+                  <Eye className={ARTICLE_HEADER.metaIcon} aria-hidden="true" />
                   <span>
                     <span className="sr-only">Article has </span>
                     {article.view_count || 0} views
@@ -555,13 +551,9 @@ const Article = () => {
               </div>
 
               {article.tags && article.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className={ARTICLE_HEADER.badges}>
                   {article.tags.map((tag, index) => (
-                    <Badge
-                      key={index}
-                      variant="outline"
-                      className="border-border/50 text-muted-foreground hover:border-primary/50"
-                    >
+                    <Badge key={index} variant="outline" className={ARTICLE_HEADER.tagBadge}>
                       {tag}
                     </Badge>
                   ))}
