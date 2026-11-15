@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { RealtimePayload } from '@/types/supabase-realtime';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,6 +85,10 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
   const [selectedMailbox, setSelectedMailbox] = useState<string>('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiGeneratedResponse, setAiGeneratedResponse] = useState<string | null>(null);
+  // One idempotency key per outgoing email. A retry of the same draft reuses
+  // it, so send-ticket-email returns the first result instead of mailing the
+  // customer twice; editing the draft or a successful send starts a new key.
+  const sendKeyRef = useRef<{ key: string; draft: string } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -235,25 +239,36 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
 
       if (sendAsEmail && !isInternal) {
         // Send via email using Edge Function
-        const { error } = await invokeEdgeFunction('send-ticket-email', {
-          body: {
-            ticket_id: ticket.id,
-            from_mailbox_id: selectedMailbox,
-            to_email: ticket.user_email,
-            subject: emailSubject,
-            message: replyMessage,
-            is_internal: false,
-          },
-        });
+        const draft = `${selectedMailbox}\n${emailSubject}\n${replyMessage}`;
+        if (sendKeyRef.current?.draft !== draft) {
+          sendKeyRef.current = { key: crypto.randomUUID(), draft };
+        }
+        const { data, error } = await invokeEdgeFunction<{ partial?: boolean }>(
+          'send-ticket-email',
+          {
+            body: {
+              ticket_id: ticket.id,
+              from_mailbox_id: selectedMailbox,
+              to_email: ticket.user_email,
+              subject: emailSubject,
+              message: replyMessage,
+              is_internal: false,
+              idempotency_key: sendKeyRef.current.key,
+            },
+          }
+        );
 
         if (error) {
           logger.error('Email send error:', error);
           throw new Error(error.message || 'Failed to send email');
         }
+        sendKeyRef.current = null;
 
         toast({
           title: 'Email Sent',
-          description: `Email sent successfully to ${ticket.user_email}`,
+          description: data?.partial
+            ? `Email sent to ${ticket.user_email}, but the ticket history did not fully update. Refresh before replying again.`
+            : `Email sent successfully to ${ticket.user_email}`,
         });
       } else {
         // Save as internal note or response without email
