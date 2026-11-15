@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { RealtimePayload } from '@/types/supabase-realtime';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,8 @@ import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+
+import { clearReplyDraft, loadReplyDraft, saveReplyDraft } from './ticketReplyDraft';
 
 interface Ticket {
   id: string;
@@ -74,7 +76,18 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
 }) => {
   const fieldId = useId();
   const [responses, setResponses] = useState<Response[]>([]);
-  const [replyMessage, setReplyMessage] = useState('');
+  const [replyMessage, setReplyMessage] = useState(() => loadReplyDraft(ticket.id));
+  // The same instance is reused when another ticket is selected, so the
+  // draft is swapped per ticket and a slow send can tell if it still owns it.
+  const ticketIdRef = useRef(ticket.id);
+  useEffect(() => {
+    ticketIdRef.current = ticket.id;
+    setReplyMessage(loadReplyDraft(ticket.id));
+  }, [ticket.id]);
+  const updateReply = (message: string) => {
+    setReplyMessage(message);
+    saveReplyDraft(ticket.id, message);
+  };
   const [emailSubject, setEmailSubject] = useState(`Re: ${ticket.subject}`);
   const [sendAsEmail, setSendAsEmail] = useState(true);
   const [isInternal, setIsInternal] = useState(false);
@@ -283,7 +296,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
         });
       }
 
-      setReplyMessage('');
+      clearReplyDraft(ticket.id);
+      if (ticketIdRef.current === ticket.id) setReplyMessage('');
       onUpdate();
     } catch (error: any) {
       logger.error('Failed to send reply:', error);
@@ -310,7 +324,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
 
       if (data?.response) {
         setAiGeneratedResponse(data.response);
-        setReplyMessage(data.response);
+        updateReply(data.response);
         toast({
           title: 'AI Response Generated',
           description: `Using ${data.model_used}. Review and edit before sending.`,
@@ -350,7 +364,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
   };
 
   const handleSuggestedResponse = (response: string) => {
-    setReplyMessage(response);
+    updateReply(response);
   };
 
   return (
@@ -669,7 +683,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                           : 'Type your response...'
                     }
                     value={replyMessage}
-                    onChange={(e) => setReplyMessage(e.target.value)}
+                    onChange={(e) => updateReply(e.target.value)}
                     rows={6}
                   />
                 </div>
