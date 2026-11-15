@@ -12,6 +12,7 @@ import {
   AUDIT_CHECKS,
   CRM_FAQS,
   FAILURE_MODES,
+  METHOD_ARTICLES,
   PIPELINE_AUTOMATION_LADDER,
   SERVICE_TIERS,
   THESIS,
@@ -212,6 +213,21 @@ const AICrmAutomation = () => {
                 </li>
               ))}
             </ol>
+
+            <div className="mt-12 max-w-[68ch]">
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-3">
+                Read the method
+              </h3>
+              <ul className="space-y-2 text-base">
+                {METHOD_ARTICLES.map((article) => (
+                  <li key={article.slug}>
+                    <Link to={`/news/${article.slug}`} className="text-primary hover:underline">
+                      {article.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </section>
 
           {/* Failure modes ----------------------------------------------------- */}
