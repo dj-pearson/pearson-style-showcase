@@ -4,6 +4,10 @@ import { isTaskDue } from '../_shared/cron.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
 import { invokeFunction } from '../_shared/invoke-function.ts';
 import { safeFetch, UrlGuardError } from '../_shared/url-guard.ts';
+import { createEdgeFunctionLogger, type EdgeFunctionLogger } from '../_shared/production-logger.ts';
+import { extractUrls, runPool, selectUrlsToCheck } from './link-check.ts';
+
+const baseLogger = createEdgeFunctionLogger('maintenance-runner');
 
 const SITE = 'https://danpearson.net';
 // IndexNow keys are public by design: the search engine proves ownership by
@@ -14,29 +18,106 @@ const INDEXNOW_KEY = Deno.env.get('INDEXNOW_KEY') || 'd90917c1bdd64177234048c4f1
 const CONTENT_FUNCTIONS = new Set(['generate-ai-article', 'amazon-article-pipeline']);
 
 /**
- * Run a single maintenance task by name and return its result payload.
+ * Tasks that are seeded in maintenance_tasks but have no real implementation.
+ * They used to "succeed" while doing nothing (or while writing zeros into
+ * performance_history), which made the dashboard lie. They now record a
+ * 'skipped' run with the reason, and migration 20261117000301 disables them.
+ */
+const NOT_IMPLEMENTED: Record<string, string> = {
+  'Weekly Performance Audit':
+    'Not implemented: no source of real Core Web Vitals is wired in, so there is nothing to record.',
+  'Monthly Database Optimization':
+    'Not implemented: VACUUM/ANALYZE cannot run through PostgREST; Postgres autovacuum covers it.',
+  'Daily Sitemap Generation':
+    'Not needed: sitemap.xml is generated at build time by scripts/prerender.mjs.',
+};
+
+type TaskOutcome = { status: 'success' | 'skipped'; result: any };
+
+/**
+ * Run a single maintenance task by name and return its outcome.
  * Shared by the manual dispatch path and the scheduled `run_due` path.
  */
-async function runTask(taskName: string, supabase: any, config: any = {}): Promise<any> {
+async function runTask(
+  taskName: string,
+  supabase: any,
+  config: any = {},
+  log: EdgeFunctionLogger
+): Promise<TaskOutcome> {
+  if (NOT_IMPLEMENTED[taskName]) {
+    return {
+      status: 'skipped',
+      result: { issuesFound: 0, issuesFixed: 0, reason: NOT_IMPLEMENTED[taskName] },
+    };
+  }
   switch (taskName) {
     case 'Daily AI News Brief':
     case 'Daily Amazon Product Guide':
-      return await runContentPipeline(config);
+      return { status: 'success', result: await runContentPipeline(config) };
     case 'IndexNow Submission':
-      return await submitToIndexNow(supabase, config);
+      return { status: 'success', result: await submitToIndexNow(supabase, config) };
     case 'Daily Link Health Check':
-      return await checkBrokenLinks(supabase);
+      return { status: 'success', result: await checkBrokenLinks(supabase, config, log) };
     case 'Cleanup Old Sessions':
-      return await cleanupOldSessions(supabase);
-    case 'Weekly Performance Audit':
-      return await performanceAudit(supabase);
-    case 'Monthly Database Optimization':
-      return await databaseOptimization(supabase);
-    case 'Daily Sitemap Generation':
-      return await generateSitemap(supabase);
+      return { status: 'success', result: await cleanupOldSessions(supabase) };
     default:
       throw new Error(`Unknown task: ${taskName}`);
   }
+}
+
+/**
+ * Record a run via record_maintenance_run. Returns false (and logs) when the
+ * RPC fails, instead of silently dropping the error as before.
+ */
+async function recordRun(
+  supabase: any,
+  log: EdgeFunctionLogger,
+  params: {
+    p_task_id: string;
+    p_status: string;
+    p_duration: number;
+    p_issues_found?: number;
+    p_issues_fixed?: number;
+    p_details?: unknown;
+    p_error_message?: string;
+  }
+): Promise<boolean> {
+  const { error } = await supabase.rpc('record_maintenance_run', {
+    p_issues_found: 0,
+    p_issues_fixed: 0,
+    p_details: {},
+    ...params,
+  });
+  if (error) {
+    log.error('record_maintenance_run failed', error, {
+      task_id: params.p_task_id,
+      status: params.p_status,
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Claim a due task so overlapping scheduler ticks can't run it twice.
+ *
+ * pg_cron fires every five minutes but a task's last_run_at used to move only
+ * when record_maintenance_run ran at the end, so a link check that took longer
+ * than five minutes was started again by every tick. This moves last_run_at
+ * up front with a compare-and-set on the value we read; only one caller's
+ * update matches, and everyone else sees no row back and skips.
+ */
+async function claimTask(supabase: any, task: { id: string; last_run_at: string | null }) {
+  let query = supabase
+    .from('maintenance_tasks')
+    .update({ last_run_at: new Date().toISOString(), last_run_status: 'running' })
+    .eq('id', task.id);
+  query = task.last_run_at
+    ? query.eq('last_run_at', task.last_run_at)
+    : query.is('last_run_at', null);
+  const { data, error } = await query.select('id');
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
 }
 
 /**
@@ -48,7 +129,7 @@ async function runTask(taskName: string, supabase: any, config: any = {}): Promi
  * This is what a real scheduler (pg_cron, Cloudflare Cron Trigger, or external
  * cron) should invoke on an interval: POST { "action": "run_due" }.
  */
-async function runDueTasks(supabase: any) {
+async function runDueTasks(supabase: any, log: EdgeFunctionLogger) {
   const now = new Date();
 
   const { data: tasks, error } = await supabase
@@ -62,35 +143,38 @@ async function runDueTasks(supabase: any) {
     isTaskDue(t.schedule_cron, t.last_run_at ? new Date(t.last_run_at) : null, now)
   );
 
-  const results: Array<{ task: string; status: string; error?: string }> = [];
+  const results: Array<{ task: string; status: string; error?: string; recorded?: boolean }> = [];
 
   for (const task of due) {
+    if (!(await claimTask(supabase, task))) {
+      // Another tick claimed it between our read and our update.
+      results.push({ task: task.task_name, status: 'already_claimed' });
+      continue;
+    }
+
     const startTime = Date.now();
     try {
-      const result = await runTask(task.task_name, supabase, task.config || {});
-      await supabase.rpc('record_maintenance_run', {
+      const { status, result } = await runTask(task.task_name, supabase, task.config || {}, log);
+      const recorded = await recordRun(supabase, log, {
         p_task_id: task.id,
-        p_status: 'success',
+        p_status: status,
         p_duration: Date.now() - startTime,
         p_issues_found: result.issuesFound || 0,
         p_issues_fixed: result.issuesFixed || 0,
         p_details: result,
       });
-      results.push({ task: task.task_name, status: 'success' });
+      results.push({ task: task.task_name, status, recorded });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Monitoring: record the failure so it is visible in maintenance_results.
-      await supabase.rpc('record_maintenance_run', {
+      const recorded = await recordRun(supabase, log, {
         p_task_id: task.id,
         p_status: 'failed',
         p_duration: Date.now() - startTime,
-        p_issues_found: 0,
-        p_issues_fixed: 0,
-        p_details: {},
         p_error_message: message,
       });
-      console.error(`Scheduled maintenance task failed: ${task.task_name}`, message);
-      results.push({ task: task.task_name, status: 'failed', error: message });
+      log.error('Scheduled maintenance task failed', err, { task: task.task_name });
+      results.push({ task: task.task_name, status: 'failed', error: message, recorded });
     }
   }
 
@@ -111,6 +195,7 @@ export default async (req: Request): Promise<Response> => {
   // (supabase/migrations/20260716000000_maintenance_scheduler.sql).
   const auth = await requireAdmin(req, corsHeaders, { allowServiceRole: true });
   if (!auth.ok) return auth.response!;
+  const log = baseLogger.forRequest(req);
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -123,27 +208,29 @@ export default async (req: Request): Promise<Response> => {
 
     // Scheduler path: run every task that is due right now.
     if (action === 'run_due') {
-      const summary = await runDueTasks(supabase);
+      const summary = await runDueTasks(supabase, log);
       return new Response(JSON.stringify({ success: true, ...summary }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Manual path: run a single named task, with its stored config.
-    const { data: taskRow } = await supabase
+    const { data: taskRow, error: taskRowError } = await supabase
       .from('maintenance_tasks')
       .select('config')
       .eq('task_name', taskName)
       .maybeSingle();
+    if (taskRowError) throw taskRowError;
     const startTime = Date.now();
-    const result: any = await runTask(taskName, supabase, taskRow?.config || {});
+    const { status, result } = await runTask(taskName, supabase, taskRow?.config || {}, log);
     const duration = Date.now() - startTime;
 
     // Record the task execution
+    let recorded: boolean | undefined;
     if (taskId) {
-      await supabase.rpc('record_maintenance_run', {
+      recorded = await recordRun(supabase, log, {
         p_task_id: taskId,
-        p_status: 'success',
+        p_status: status,
         p_duration: duration,
         p_issues_found: result.issuesFound || 0,
         p_issues_fixed: result.issuesFixed || 0,
@@ -151,11 +238,11 @@ export default async (req: Request): Promise<Response> => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, duration, ...result }), {
+    return new Response(JSON.stringify({ success: true, status, duration, recorded, ...result }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Maintenance task error:', error);
+    log.error('Maintenance task error', error);
 
     const message = error instanceof Error ? error.message : 'Internal server error';
     return new Response(JSON.stringify({ error: message }), {
@@ -167,83 +254,120 @@ export default async (req: Request): Promise<Response> => {
 
 // Task Handlers
 
-async function checkBrokenLinks(supabase: any) {
-  let issuesFound = 0;
-  let issuesFixed = 0;
-  const checkedUrls: string[] = [];
+const ARTICLE_PAGE_SIZE = 50;
+const LINK_HEALTH_PAGE_SIZE = 1000;
 
-  // Get all published articles
-  const { data: articles, error } = await supabase
-    .from('articles')
-    .select('id, content, title')
-    .eq('published', true);
+/**
+ * Check outbound links in published articles.
+ *
+ * Bounded so one run can't outlive the scheduler tick or the server deadline:
+ * articles are read a page at a time, at most `max_urls_per_run` URLs are
+ * checked (never-checked first, then the stalest; the rest wait for the next
+ * run), five run in parallel, each has its own timeout, and no new check
+ * starts once the run's time budget is spent. Config keys (all optional) live
+ * in maintenance_tasks.config: max_urls_per_run, concurrency, timeout,
+ * time_budget_ms.
+ */
+async function checkBrokenLinks(supabase: any, config: any, log: EdgeFunctionLogger) {
+  const maxUrls = Math.min(Number(config?.max_urls_per_run) || 200, 1000);
+  const concurrency = Math.min(Number(config?.concurrency) || 5, 10);
+  const perUrlTimeout = Math.min(Number(config?.timeout) || 10_000, 30_000);
+  const budgetMs = Math.min(Number(config?.time_budget_ms) || 120_000, 240_000);
+  const deadline = Date.now() + budgetMs;
 
-  if (error) throw error;
-
-  for (const article of articles) {
-    // Extract URLs from content (simple regex)
-    const urlRegex = /https?:\/\/[^\s"')]+/g;
-    const urls = article.content.match(urlRegex) || [];
-
-    for (const url of urls) {
-      if (checkedUrls.includes(url)) continue;
-      checkedUrls.push(url);
-
-      try {
-        // Check URL with timeout. Article content is editable, so a link could
-        // point at an internal host; safeFetch refuses private addresses,
-        // including ones reached through a redirect.
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        let response: Response;
-        try {
-          response = await safeFetch(url, {
-            method: 'HEAD',
-            signal: controller.signal,
-          });
-        } finally {
-          clearTimeout(timeoutId);
-        }
-        await response.body?.cancel();
-
-        const statusCode = response.status;
-        const isBroken = statusCode >= 400;
-        const responseTime = 0; // Could measure this with performance.now()
-
-        // Update link health
-        await supabase.rpc('update_link_health', {
-          p_url: url,
-          p_article_id: article.id,
-          p_status_code: statusCode,
-          p_response_time: responseTime,
-        });
-
-        if (isBroken) {
-          issuesFound++;
-        }
-      } catch (error) {
-        // Not a link the checker may fetch; don't record it as broken.
-        if (error instanceof UrlGuardError) continue;
-
-        // Network error or timeout
-        issuesFound++;
-
-        await supabase.rpc('update_link_health', {
-          p_url: url,
-          p_article_id: article.id,
-          p_status_code: 0,
-          p_response_time: 10000,
-        });
+  // url -> first article it was found in (link_health is keyed by url+article)
+  const urlArticle = new Map<string, string>();
+  let articlesScanned = 0;
+  for (let from = 0; ; from += ARTICLE_PAGE_SIZE) {
+    const { data: page, error } = await supabase
+      .from('articles')
+      .select('id, content')
+      .eq('published', true)
+      .order('id', { ascending: true })
+      .range(from, from + ARTICLE_PAGE_SIZE - 1);
+    if (error) throw error;
+    for (const article of page || []) {
+      articlesScanned++;
+      for (const url of extractUrls(article.content)) {
+        if (!urlArticle.has(url)) urlArticle.set(url, article.id);
       }
     }
+    if (!page || page.length < ARTICLE_PAGE_SIZE) break;
   }
+
+  const lastChecked = new Map<string, string>();
+  for (let from = 0; ; from += LINK_HEALTH_PAGE_SIZE) {
+    const { data: page, error } = await supabase
+      .from('link_health')
+      .select('url, last_checked_at')
+      .order('id', { ascending: true })
+      .range(from, from + LINK_HEALTH_PAGE_SIZE - 1);
+    if (error) throw error;
+    for (const row of page || []) {
+      const prev = lastChecked.get(row.url);
+      if (row.last_checked_at && (!prev || row.last_checked_at < prev)) {
+        lastChecked.set(row.url, row.last_checked_at);
+      }
+    }
+    if (!page || page.length < LINK_HEALTH_PAGE_SIZE) break;
+  }
+
+  const toCheck = selectUrlsToCheck(Array.from(urlArticle.keys()), lastChecked, maxUrls);
+
+  let issuesFound = 0;
+  let checked = 0;
+  let recordFailures = 0;
+
+  const record = async (url: string, statusCode: number, responseTime: number) => {
+    const { error } = await supabase.rpc('update_link_health', {
+      p_url: url,
+      p_article_id: urlArticle.get(url),
+      p_status_code: statusCode,
+      p_response_time: responseTime,
+    });
+    if (error) {
+      recordFailures++;
+      if (recordFailures <= 3) log.error('update_link_health failed', error);
+    }
+  };
+
+  const started = await runPool(
+    toCheck,
+    concurrency,
+    async (url) => {
+      const t0 = Date.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), perUrlTimeout);
+      try {
+        // Article content is editable, so a link could point at an internal
+        // host; safeFetch refuses private addresses, including via redirect.
+        const response = await safeFetch(url, { method: 'HEAD', signal: controller.signal });
+        await response.body?.cancel();
+        checked++;
+        if (response.status >= 400) issuesFound++;
+        await record(url, response.status, Date.now() - t0);
+      } catch (error) {
+        // Not a link the checker may fetch; don't record it as broken.
+        if (error instanceof UrlGuardError) return;
+        checked++;
+        issuesFound++;
+        await record(url, 0, Date.now() - t0);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    },
+    () => Date.now() < deadline
+  );
 
   return {
     issuesFound,
-    issuesFixed,
-    checkedUrls: checkedUrls.length,
-    articlesScanned: articles.length,
+    issuesFixed: 0,
+    checkedUrls: checked,
+    totalUrls: urlArticle.size,
+    deferredUrls: urlArticle.size - started,
+    budgetExhausted: started < toCheck.length,
+    recordFailures,
+    articlesScanned,
   };
 }
 
@@ -262,65 +386,6 @@ async function cleanupOldSessions(supabase: any) {
     issuesFound: 0,
     issuesFixed: 0,
     sessionsDeleted: data?.length || 0,
-  };
-}
-
-async function performanceAudit(supabase: any) {
-  // Record current performance metrics
-  const metrics = [
-    { name: 'lcp', value: 0, unit: 'ms' },
-    { name: 'fid', value: 0, unit: 'ms' },
-    { name: 'cls', value: 0, unit: 'score' },
-  ];
-
-  for (const metric of metrics) {
-    await supabase.from('performance_history').insert({
-      metric_name: metric.name,
-      metric_value: metric.value,
-      metric_unit: metric.unit,
-    });
-  }
-
-  return {
-    issuesFound: 0,
-    issuesFixed: 0,
-    metricsRecorded: metrics.length,
-  };
-}
-
-async function databaseOptimization(supabase: any) {
-  // In a real implementation, this would run VACUUM, ANALYZE, etc.
-  // For now, just log the operation
-  await supabase.from('db_optimization_log').insert({
-    operation_type: 'analyze',
-    table_name: 'all',
-    rows_affected: 0,
-    duration: 0,
-  });
-
-  return {
-    issuesFound: 0,
-    issuesFixed: 0,
-    tablesOptimized: 0,
-  };
-}
-
-async function generateSitemap(supabase: any) {
-  // Get all published content
-  const { data: articles } = await supabase
-    .from('articles')
-    .select('slug, updated_at')
-    .eq('published', true);
-
-  const { data: kbArticles } = await supabase
-    .from('kb_articles')
-    .select('slug, updated_at')
-    .eq('published', true);
-
-  return {
-    issuesFound: 0,
-    issuesFixed: 0,
-    articlesIncluded: (articles?.length || 0) + (kbArticles?.length || 0),
   };
 }
 

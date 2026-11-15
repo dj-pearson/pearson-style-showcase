@@ -12,6 +12,7 @@
 # ...then re-include only what the image actually needs.
 !supabase/functions
 !danpearson-edge-functions/server.ts
+!danpearson-edge-functions/deno.lock
 
 # Tests are part of the source tree but have no business in a runtime image.
 supabase/functions/**/__tests__

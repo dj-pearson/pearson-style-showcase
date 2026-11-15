@@ -120,8 +120,8 @@ The runtime and the function source sit side by side under the repository root:
 └── supabase/functions/           # Edge Functions (single source of truth)
     ├── _shared/                  # Shared utilities
     │   ├── cors.ts              # CORS helpers
-    │   ├── csrf-protection.ts   # CSRF protection
-    │   ├── production-logger.ts # Logging
+    │   ├── csrf.ts              # CSRF token checks
+    │   ├── production-logger.ts # Per-request JSON logging with PII masking
     │   ├── rate-limiter.ts      # Rate limiting
     │   ├── require-admin.ts     # Admin caller checks
     │   ├── validation.ts        # Input validation

@@ -35,24 +35,46 @@ echo -e "${BLUE}Environment: ${ENVIRONMENT}${NC}"
 echo -e "${BLUE}======================================${NC}"
 echo ""
 
+# Read KEY=VALUE lines into the environment. The old `export $(cat | xargs)`
+# split values on spaces, so CONTACT_FROM="Dan Pearson <...>" broke the
+# script. Comments and blank lines are skipped; one layer of matching quotes
+# around a value is removed. Nothing is evaluated by the shell.
+load_env_file() {
+    local line key value
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        case "$line" in ''|'#'*) continue ;; esac
+        [[ "$line" == *=* ]] || continue
+        key="${line%%=*}"
+        key="${key#export }"
+        key="$(echo "$key" | tr -d '[:space:]')"
+        value="${line#*=}"
+        if [[ "$value" =~ ^\"(.*)\"$ ]] || [[ "$value" =~ ^\'(.*)\'$ ]]; then
+            value="${BASH_REMATCH[1]}"
+        fi
+        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && export "$key=$value"
+    done < "$1"
+}
+
 # Load environment-specific configuration
 ENV_FILE="$RUNTIME_DIR/.env.$ENVIRONMENT"
 if [ -f "$ENV_FILE" ]; then
     echo -e "${GREEN}✓ Loading environment from: $ENV_FILE${NC}"
-    export $(cat "$ENV_FILE" | grep -v '^#' | xargs)
+    load_env_file "$ENV_FILE"
 else
     echo -e "${YELLOW}⚠ No environment file found at: $ENV_FILE${NC}"
     echo -e "${YELLOW}⚠ Using .env file${NC}"
     ENV_FILE="$RUNTIME_DIR/.env"
     if [ -f "$ENV_FILE" ]; then
-        export $(cat "$ENV_FILE" | grep -v '^#' | xargs)
+        load_env_file "$ENV_FILE"
     else
         echo -e "${RED}✗ No .env file found!${NC}"
         exit 1
     fi
 fi
 
-# Validate required environment variables
+# Validate environment variables. Keep these lists in step with REQUIRED_ENV
+# and FEATURE_ENV in server.ts, which reports the same names on /_health.
 echo -e "${BLUE}Validating environment variables...${NC}"
 REQUIRED_VARS=(
     "SUPABASE_URL"
@@ -60,12 +82,53 @@ REQUIRED_VARS=(
     "SUPABASE_SERVICE_ROLE_KEY"
 )
 
+MISSING=0
 for var in "${REQUIRED_VARS[@]}"; do
     if [ -z "${!var}" ]; then
         echo -e "${RED}✗ Required environment variable $var is not set${NC}"
-        exit 1
+        MISSING=1
+    else
+        echo -e "${GREEN}✓ $var is set${NC}"
     fi
-    echo -e "${GREEN}✓ $var is set${NC}"
+done
+
+# server.ts refuses every authenticated function call (503) without it.
+if [ -z "$SUPABASE_JWT_SECRET" ] && [ -z "$JWT_SECRET" ]; then
+    echo -e "${RED}✗ SUPABASE_JWT_SECRET (or JWT_SECRET) is not set${NC}"
+    MISSING=1
+else
+    echo -e "${GREEN}✓ JWT secret is set${NC}"
+fi
+
+if [ "$MISSING" -ne 0 ]; then
+    echo -e "${RED}✗ Fix the variables above in $ENV_FILE and run again${NC}"
+    exit 1
+fi
+
+# Feature variables: a missing one breaks only that feature, so warn.
+FEATURE_VARS=(
+    "RESEND_API"
+    "AMAZON_SMTP_ENDPOINT"
+    "AMAZON_SMTP_USER_NAME"
+    "AMAZON_SMTP_PASSWORD"
+    "MAKE_WEBHOOK_SECRET"
+    "NEWSLETTER_TOKEN_SECRET"
+    "VAULT_ENCRYPTION_KEY"
+    "OAUTH_STATE_SECRET"
+    "CLAUDE_API_KEY"
+    "SERPAPI_KEY"
+)
+for var in "${FEATURE_VARS[@]}"; do
+    if [ -z "${!var}" ]; then
+        echo -e "${YELLOW}⚠ $var is not set; the feature that needs it will fail${NC}"
+    fi
+done
+
+# Common misspellings from older docs: the code never reads these names.
+for var in RESEND_API_KEY ANTHROPIC_API_KEY OPENAI_API_KEY; do
+    if [ -n "${!var}" ]; then
+        echo -e "${YELLOW}⚠ $var is set but nothing reads it (see env.example for the real name)${NC}"
+    fi
 done
 
 # Check if Coolify webhook URL is configured
@@ -100,13 +163,12 @@ if [ "$2" == "--test-local" ]; then
     # Build first so the tag exists even when --build was not passed.
     docker build -f "$DOCKERFILE" -t danpearson-edge-functions:test .
 
-    # Start container
+    # Start container with the whole env file, as production gets it
     docker run -d \
         --name danpearson-functions-test \
         -p 8000:8000 \
-        -e SUPABASE_URL="$SUPABASE_URL" \
-        -e SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-        -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+        --memory 1g \
+        --env-file "$ENV_FILE" \
         danpearson-edge-functions:test
     
     # Wait for container to start
