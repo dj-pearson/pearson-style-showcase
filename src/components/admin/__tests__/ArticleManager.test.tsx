@@ -138,4 +138,39 @@ describe('ArticleManager', () => {
     // With the dialog cancelled, nothing was deleted.
     expect(screen.getByText('My First Post')).toBeInTheDocument();
   });
+
+  it('rolls back only the failed toggle, keeping a toggle that succeeded meanwhile', async () => {
+    mock.setTableResult('articles', {
+      data: [
+        article({ id: 'a', title: 'Alpha', slug: 'alpha' }),
+        article({ id: 'b', title: 'Beta', slug: 'beta' }),
+      ],
+      error: null,
+    });
+    renderManager();
+    await waitFor(() => expect(screen.getByText('Beta')).toBeInTheDocument());
+
+    // Hold Alpha's update open so Beta's toggle lands while it is in flight.
+    let failAlpha: () => void = () => {};
+    const pending = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+      failAlpha = () => resolve({ data: null, error: { message: 'rls' } });
+    });
+    const held: Record<string, unknown> = {};
+    held.update = () => held;
+    held.eq = () => held;
+    held.then = (ok: (v: unknown) => unknown, bad: (e: unknown) => unknown) =>
+      pending.then(ok, bad);
+    mock.from.mockImplementationOnce(() => held as never);
+
+    const switches = () => screen.getAllByRole('switch', { name: 'Toggle published status' });
+    fireEvent.click(switches()[0]);
+    await waitFor(() => expect(switches()[0]).not.toBeChecked());
+
+    fireEvent.click(switches()[1]);
+    await waitFor(() => expect(switches()[1]).not.toBeChecked());
+
+    failAlpha();
+    await waitFor(() => expect(switches()[0]).toBeChecked());
+    expect(switches()[1]).not.toBeChecked();
+  });
 });

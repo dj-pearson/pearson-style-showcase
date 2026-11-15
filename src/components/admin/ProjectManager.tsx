@@ -45,6 +45,8 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { useConfirm } from '@/hooks/useConfirm';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 
 interface Project {
   id: string;
@@ -63,6 +65,17 @@ interface Project {
 
 const PROJECT_STATUSES = ['Active', 'In Development', 'On Hold', 'Completed', 'Archived'];
 
+const EMPTY_FORM: Partial<Project> = {
+  title: '',
+  description: '',
+  image_url: '',
+  github_link: '',
+  live_link: '',
+  tags: [],
+  status: 'Active',
+  featured: false,
+};
+
 export const ProjectManager: React.FC = () => {
   const confirm = useConfirm();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -76,16 +89,18 @@ export const ProjectManager: React.FC = () => {
   const { toast } = useToast();
 
   // Form state
-  const [formData, setFormData] = useState<Partial<Project>>({
-    title: '',
-    description: '',
-    image_url: '',
-    github_link: '',
-    live_link: '',
-    tags: [],
-    status: 'Active',
-    featured: false,
-  });
+  const [formData, setFormData] = useState<Partial<Project>>(EMPTY_FORM);
+  // Snapshot taken when the dialog opens; once formData moves away from it,
+  // Esc / outside click / Close prompt before the input is thrown away.
+  const [baseline, setBaseline] = useState(() => JSON.stringify(EMPTY_FORM));
+  const isDirty = isDialogOpen && JSON.stringify(formData) !== baseline;
+  const {
+    isBlocking: isCloseBlocked,
+    requestNavigation: requestClose,
+    confirmDiscard: confirmClose,
+    cancelDiscard: cancelClose,
+  } = useUnsavedChanges(isDirty);
+  const guardedClose = () => requestClose(() => setIsDialogOpen(false));
 
   const loadProjects = useCallback(async () => {
     try {
@@ -295,16 +310,8 @@ export const ProjectManager: React.FC = () => {
 
       setIsDialogOpen(false);
       setSelectedProject(null);
-      setFormData({
-        title: '',
-        description: '',
-        image_url: '',
-        github_link: '',
-        live_link: '',
-        tags: [],
-        status: 'Active',
-        featured: false,
-      });
+      setFormData(EMPTY_FORM);
+      setBaseline(JSON.stringify(EMPTY_FORM));
       loadProjects();
     } catch (error) {
       logger.error('Error saving project:', error);
@@ -319,6 +326,7 @@ export const ProjectManager: React.FC = () => {
   const editProject = (project: Project) => {
     setSelectedProject(project);
     setFormData(project);
+    setBaseline(JSON.stringify(project));
     setIsDialogOpen(true);
   };
 
@@ -401,16 +409,8 @@ export const ProjectManager: React.FC = () => {
 
   const openNewProjectDialog = () => {
     setSelectedProject(null);
-    setFormData({
-      title: '',
-      description: '',
-      image_url: '',
-      github_link: '',
-      live_link: '',
-      tags: [],
-      status: 'Active',
-      featured: false,
-    });
+    setFormData(EMPTY_FORM);
+    setBaseline(JSON.stringify(EMPTY_FORM));
     setIsDialogOpen(true);
   };
 
@@ -421,7 +421,14 @@ export const ProjectManager: React.FC = () => {
           <h2 className="text-3xl font-bold">Project Management</h2>
           <p className="text-muted-foreground">Manage your portfolio projects</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            // Esc, outside click and the X go through the unsaved guard.
+            if (open) setIsDialogOpen(true);
+            else guardedClose();
+          }}
+        >
           <DialogTrigger asChild>
             <Button onClick={openNewProjectDialog}>
               <Plus className="h-4 w-4 mr-2" />
@@ -577,7 +584,7 @@ export const ProjectManager: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={guardedClose}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
@@ -588,6 +595,11 @@ export const ProjectManager: React.FC = () => {
             </div>
           </DialogContent>
         </Dialog>
+        <UnsavedChangesDialog
+          open={isCloseBlocked}
+          onDiscard={confirmClose}
+          onKeepEditing={cancelClose}
+        />
       </div>
 
       {/* Search */}
