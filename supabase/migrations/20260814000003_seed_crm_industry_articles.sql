@@ -17,7 +17,7 @@ SELECT * FROM (VALUES
   (
     'agentic-crm-what-actually-works',
     'Agentic CRM: What Actually Works Today',
-    'Agentic CRM works today for narrow, bounded, reviewable tasks and fails predictably at everything else. The failures are almost never model failures - they are prerequisite failures. Here is the capability map and how to tell which side of it a vendor demo sits on.',
+    'Agentic CRM works today for narrow, bounded, reviewable tasks and fails predictably at everything else. The failures are almost never model failures; they are prerequisite failures. The capability map below shows which side of it a vendor demo sits on.',
     '**Agentic CRM works today for narrow, bounded, reviewable tasks, and fails predictably outside them.** Inbound qualification, stalled-deal follow-up drafting, meeting scheduling and data hygiene are genuinely production-ready in 2026. An agent handed a messy pipeline and a general instruction to "manage the funnel" is not, and will not be next quarter either.
 
 The important part is why. Almost every agentic CRM failure I have looked at is a prerequisite failure rather than a model failure: the agent was deployed onto data too thin to reason over, or without a supervision surface, or against a process nobody had written down. Better models do not fix any of those three.
@@ -110,13 +110,13 @@ Where you are determines the correct next move, and it is usually not the one be
 
 **Rung 0 or 1** (capture is manual, or you have rules and nothing else): do not buy agents. Automate one capture path. Every dollar spent on agentic capability now buys you faster wrong answers. This is unwelcome advice and it is the highest-return thing on the page.
 
-**Rung 2** (capture is automated, records are dense): start with one read-only agent, most usefully pre-call briefing or pipeline anomaly detection. Zero blast radius, immediate value, and it teaches you what supervision you actually need.
+**Rung 2** (capture is automated, records are dense): start with one read-only agent, most usefully pre-call briefing or pipeline anomaly detection. Zero blast radius, immediate value, and it teaches you what supervision you need.
 
 **Rung 2 going on 3**: add one acting agent on a reversible task, typically inbound qualification and routing. Build the supervision surface before you turn it on, not after the first incident.
 
 **Rung 3**: expand by task, never by scope. One agent doing one bounded job well is worth more than a general-purpose agent doing several jobs at 80%, because 80% on a forecast input is not a passing grade.
 
-## What actually changed in 2026
+## What changed in 2026
 
 Worth separating the real shift from the marketing. Three things genuinely changed: agents can now execute multi-step work inside CRMs rather than only recommending, the major platforms shipped agent layers as first-class products, and pricing moved decisively toward consumption and credits, which changes how you budget more than how you build.
 
@@ -148,7 +148,7 @@ Ask what the agent does when uncertain, ask to see an action log from a real cus
 
 ---
 
-_Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) for the failure modes in full, and [the 12-point audit](/ai-crm-automation) for establishing which rung you are actually on before buying any of this._',
+_Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) for the failure modes in full, and [the 12-point audit](/ai-crm-automation) for establishing which rung you are on before buying any of this._',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'AI Agents', 'RevOps', 'Sales Automation', 'HubSpot', 'Salesforce']::text[],
     'Dan Pearson',
@@ -163,8 +163,8 @@ _Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) for the fai
   (
     'ai-crm-automation-complete-guide',
     'AI CRM Automation: The Complete 2026 Guide',
-    'AI CRM automation means using language models and agents to do the CRM work people currently do by hand. The catch is sequence: teams that automate reporting before capture end up with better-looking dashboards built on the same bad data. Here is what actually works, in the order it works.',
-    '**AI CRM automation is the use of language models and AI agents to do the work a CRM normally asks people to do by hand** — logging calls, writing notes, enriching records, routing leads, spotting stalled deals, keeping stages honest. Unlike traditional rule-based automation, it can work from unstructured input: a call transcript, an email thread, a meeting recording. That single capability is what makes it able to solve the problem rules never could.
+    'AI CRM automation means using language models and agents to do the CRM work people currently do by hand. The catch is sequence: teams that automate reporting before capture end up with better-looking dashboards built on the same bad data. This guide covers what works, in the order it works.',
+    '**AI CRM automation is the use of language models and AI agents to do the work a CRM normally asks people to do by hand**: logging calls, writing notes, enriching records, routing leads, spotting stalled deals, keeping stages honest. Unlike traditional rule-based automation, it can work from unstructured input: a call transcript, an email thread, a meeting recording. That single capability is what makes it able to solve the problem rules never could.
 
 The catch is sequence. Most teams automate in exactly the wrong order, and this guide is mostly about why that happens and what to do instead.
 
@@ -184,13 +184,13 @@ CX Today''s 2026 trends analysis put the same point more bluntly: _"If your data
 
 Teams sit on one of five rungs. Most know which one before they finish reading the descriptions.
 
-| Rung | Name                            | What''s true at this level                                                                                                           | Where it breaks                                                                                             |
-| ---- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 0    | Manual                          | The CRM is a reporting obligation. Reps update it Friday afternoon, from memory.                                                    | The data is fiction. Any AI built on it amplifies that fiction.                                             |
-| 1    | Rules                           | Workflows, assignment rules and sequences run. Deterministic and brittle.                                                           | Rules multiply until nobody can say why a record changed, and nobody dares delete one.                      |
-| 2    | Assisted capture                | AI writes the notes, logs the call, enriches the contact and proposes stage changes from the actual conversation. A human confirms. | Most teams skip this rung because it is unglamorous — which is exactly why rungs 3 and 4 collapse for them. |
-| 3    | Agentic execution               | Agents act inside the CRM: qualifying inbound, chasing stalled deals, booking meetings, escalating risk. A human supervises.        | Deployed on rung-0 data, agents do the wrong thing quickly and at scale.                                    |
-| 4    | Self-maintaining revenue system | The CRM is a byproduct of doing the work rather than a task on top of it. The forecast is trustworthy because capture is automatic. | Only reachable in sequence.                                                                                 |
+| Rung | Name                            | What''s true at this level                                                                                                           | Where it breaks                                                                                            |
+| ---- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 0    | Manual                          | The CRM is a reporting obligation. Reps update it Friday afternoon, from memory.                                                    | The data is fiction. Any AI built on it amplifies that fiction.                                            |
+| 1    | Rules                           | Workflows, assignment rules and sequences run. Deterministic and brittle.                                                           | Rules multiply until nobody can say why a record changed, and nobody dares delete one.                     |
+| 2    | Assisted capture                | AI writes the notes, logs the call, enriches the contact and proposes stage changes from the actual conversation. A human confirms. | Most teams skip this rung because it is unglamorous, which is exactly why rungs 3 and 4 collapse for them. |
+| 3    | Agentic execution               | Agents act inside the CRM: qualifying inbound, chasing stalled deals, booking meetings, escalating risk. A human supervises.        | Deployed on rung-0 data, agents do the wrong thing quickly and at scale.                                   |
+| 4    | Self-maintaining revenue system | The CRM is a byproduct of doing the work rather than a task on top of it. The forecast is trustworthy because capture is automatic. | Only reachable in sequence.                                                                                |
 
 **The rule that matters: you cannot skip rung 2.** Every failed AI CRM project I have been asked to look at jumped from 1 straight to 3. The pattern is consistent enough to be diagnostic.
 
@@ -200,16 +200,16 @@ Rung 2 is unglamorous because it produces no new screen. Nobody demos "the notes
 
 Sorted by rung, so you can locate your next move rather than your eventual destination.
 
-### Rung 2 — assisted capture (start here)
+### Rung 2: assisted capture (start here)
 
 - **Call and meeting logging.** Recording, transcription and structured summary written back to the right record. The technology here is mature and the accuracy is no longer the bottleneck.
-- **Note generation.** A usable account of what was discussed, what was agreed, and what happens next — drafted from the conversation, confirmed by the rep in seconds rather than reconstructed in minutes.
+- **Note generation.** A usable account of what was discussed, what was agreed, and what happens next, drafted from the conversation, confirmed by the rep in seconds rather than reconstructed in minutes.
 - **Contact and account enrichment.** Firmographics, role, company signals, filled automatically rather than left blank.
 - **Deduplication.** Continuous rather than as a quarterly cleanup project that undoes itself.
 - **Stage-change evidence.** When a deal moves, the system records what happened to justify it. This one is quietly the highest-leverage item on the list, because it is what makes a forecast auditable later.
 - **Routing.** Inbound reaching the right owner first time, based on real attributes rather than a round-robin.
 
-### Rung 3 — agentic execution (once rung 2 is solid)
+### Rung 3: agentic execution (once rung 2 is solid)
 
 - Inbound qualification and enrichment before a human sees the lead
 - Stalled-deal detection with a drafted, context-aware follow-up
@@ -217,9 +217,9 @@ Sorted by rung, so you can locate your next move rather than your eventual desti
 - Risk escalation into the channels the team actually reads
 - Data-quality agents that repair records continuously instead of flagging them
 
-Agentic CRM is genuinely ready for narrow, well-bounded, reviewable tasks. It is genuinely not ready to be handed a messy pipeline and left alone. HubSpot''s 2026 agentic release moved the category forward, and Futurum''s Q1 2026 survey found 39% of enterprises now expect generative AI to arrive as task-automating agents rather than chat interfaces. None of that changes the sequencing.
+Agentic CRM is genuinely ready for narrow, well-bounded, reviewable tasks. It is genuinely not ready to be handed a messy pipeline and left alone. HubSpot''s 2026 agentic release moved the category forward, and Futurum''s Q1 2026 survey found 39% of enterprises now expect generative AI to arrive as task-automating agents rather than chat interfaces. None of that changes the sequencing. [What agentic CRM handles today, and what it fails at](/news/agentic-crm-what-actually-works).
 
-### Rung 4 — where this is going
+### Rung 4: where this is going
 
 The end state is a CRM that is a byproduct of doing the work. Reps stop feeding a system and the system starts observing the work. Nobody is fully there yet. Teams solid on rung 2 with a few rung-3 agents running are further along than most enterprises spending ten times as much.
 
@@ -235,11 +235,13 @@ Vendor-neutral, because I do not resell any of these.
 | **GoHighLevel** | Agency-oriented, broad automation                                     | Strong for services businesses. Data model gets strained when the sales process is genuinely complex.                                                          |
 | **Zoho**        | Zia, broad and inexpensive                                            | Underrated on price. Integration depth is the constraint, not capability.                                                                                      |
 
-**You almost certainly do not need to switch.** Being told to migrate early is a warning sign — the cost of switching nearly always exceeds the cost of fixing what you have. A platform change is worth considering only when the current system genuinely cannot represent how you sell, which is a much rarer diagnosis than the people selling migrations suggest.
+**You almost certainly do not need to switch.** Being told to migrate early is a warning sign: the cost of switching nearly always exceeds the cost of fixing what you have. A platform change is worth considering only when the current system genuinely cannot represent how you sell, which is a much rarer diagnosis than the people selling migrations suggest.
+
+Comparing the two leaders? [HubSpot Breeze vs Salesforce Agentforce](/news/hubspot-breeze-vs-salesforce-agentforce). Choosing the glue layer? [Zapier vs Make vs n8n](/news/zapier-vs-make-vs-n8n-for-crm-automation).
 
 ## How to sequence a program
 
-1. **Measure capture before you buy anything.** Twelve checks across four groups: capture, data, flow, trust. [The full methodology is published here](/ai-crm-automation) — run it yourself if you would rather.
+1. **Measure capture before you buy anything.** Twelve checks across four groups: capture, data, flow, trust. [The full methodology is published here](/ai-crm-automation); run it yourself if you would rather.
 2. **Fix the single worst capture path first.** Usually call and meeting logging, because it is both the largest manual burden and the largest source of missing history.
 3. **Instrument before and after.** Seller hours per week on CRM admin, and the share of conversations reaching the CRM without human typing. Both are easy to measure and hard to argue with.
 4. **Only then turn on the downstream AI.** In most cases the AI you already pay for starts earning its licence without being replaced. That is the cheapest win in the category and almost nobody sequences their way to it.
@@ -252,26 +254,26 @@ Four numbers, none of them vanity:
 - **Seller hours per week on CRM admin.** Ask the team. The number they give you before automation is usually higher than management''s estimate.
 - **Capture coverage.** What share of customer conversations reach the CRM without a human typing them in.
 - **Forecast variance.** Committed forecast against closed number, quarter over quarter. This one moves last and matters most.
-- **Time-to-first-touch on inbound.** The clearest read on whether routing and qualification are actually working.
+- **Time-to-first-touch on inbound.** The clearest read on whether routing and qualification are working.
 
 Notice that three of the four measure capture, not reporting. That is the point.
 
 ## What it costs
 
-Platform AI add-ons are typically priced per seat per month and are worth very little on rung-0 data — which is why so many get switched off within a quarter.
+Platform AI add-ons are typically priced per seat per month and are worth very little on rung-0 data, which is why so many get switched off within a quarter.
 
-Implementation work varies enormously with how many capture paths need automating and what integration sits underneath. I open every engagement with a flat $2,500 two-week audit that produces findings and a roadmap you keep regardless of who builds it, and I scope build work out of that rather than quoting up front. [Details are here.](/ai-crm-automation) Anyone quoting an implementation number before looking at your data is guessing.
+Implementation work varies enormously with how many capture paths need automating and what integration sits underneath. I open every engagement with [a flat $2,500 two-week audit](/connect) that produces findings and a roadmap you keep regardless of who builds it, and I scope build work out of that rather than quoting up front. [Details are here.](/ai-crm-automation) Anyone quoting an implementation number before looking at your data is guessing.
 
 ## Frequently asked questions
 
 **Is AI CRM automation worth it for a team under 20 seats?**
-Often more than for a large one. Small teams have no operations staff absorbing the manual work, so it comes straight out of selling time. Multiply seats by hours per week on CRM admin by loaded hourly cost — teams in the five-to-twenty range routinely find several hours per rep per week.
+Often more than for a large one. Small teams have no operations staff absorbing the manual work, so it comes straight out of selling time. Multiply seats by hours per week on CRM admin by loaded hourly cost. Teams in the five-to-twenty range routinely find several hours per rep per week.
 
 **Do we need a data warehouse first?**
 No. That is a reporting-layer answer to a capture-layer problem. A warehouse makes bad data queryable faster.
 
 **What about our existing workflows and rules?**
-They mostly stay. Rung 2 sits underneath rung 1 rather than replacing it — better input makes existing rules fire more accurately. Retiring dead rules is a cleanup job worth doing, but it is not a prerequisite.
+They mostly stay. Rung 2 sits underneath rung 1 rather than replacing it; better input makes existing rules fire more accurately. Retiring dead rules is a cleanup job worth doing, but it is not a prerequisite.
 
 **How long before we see anything?**
 Seller hours move within the first month if you start with the worst capture path. Forecast accuracy takes a full quarter, because you need a complete cycle of clean data before the comparison means anything.
@@ -282,14 +284,14 @@ Automate the capture layer first. Fix what enters the CRM before you improve wha
 
 ---
 
-_Next: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five failure modes, and how to tell which one you are in._
+_Next: [why AI CRM projects fail](/news/why-ai-crm-projects-fail): the five failure modes, and how to tell which one you are in._
 
 ## Sources
 
-- [CRM Trends 2026: The Customer Data, AI, And Governance Shifts — CX Today](https://www.cxtoday.com/crm/crm-trends-2026-customer-data/)
-- [Can HubSpot''s Agentic AI Bet Disrupt Enterprise CRM''s Old Guard? — Futurum Group](https://futurumgroup.com/insights/can-hubspots-agentic-ai-bet-disrupt-enterprise-crms-old-guard/)
-- [CRM trends 2026-27: AI agents, new pricing, connected data — Zoho Bigin](https://www.bigin.com/articles/seven-crm-trends-that-will-define-2026-and-2027.html)
-- [AI CRM Software: Benefits, Use Cases & Top Platforms in 2026 — Creatio](https://www.creatio.com/glossary/ai-crm)',
+- [CRM Trends 2026: The Customer Data, AI, And Governance Shifts, CX Today](https://www.cxtoday.com/crm/crm-trends-2026-customer-data/)
+- [Can HubSpot''s Agentic AI Bet Disrupt Enterprise CRM''s Old Guard?, Futurum Group](https://futurumgroup.com/insights/can-hubspots-agentic-ai-bet-disrupt-enterprise-crms-old-guard/)
+- [CRM trends 2026-27: AI agents, new pricing, connected data, Zoho Bigin](https://www.bigin.com/articles/seven-crm-trends-that-will-define-2026-and-2027.html)
+- [AI CRM Software: Benefits, Use Cases & Top Platforms in 2026, Creatio](https://www.creatio.com/glossary/ai-crm)',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'Sales Automation', 'AI Agents', 'RevOps', 'Pipeline']::text[],
     'Dan Pearson',
@@ -297,23 +299,23 @@ _Next: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five f
     true,
     true,
     'AI CRM Automation: The Complete 2026 Guide',
-    'What AI CRM automation actually is in 2026, what is genuinely automatable today, and the order to do it in. Includes the Pipeline Automation Ladder and a vendor-neutral platform assessment.',
+    'What AI CRM automation is in 2026, what is genuinely automatable today, and the order to do it in. Includes the Pipeline Automation Ladder and a vendor-neutral platform assessment.',
     ARRAY['AI CRM automation', 'CRM automation guide', 'agentic CRM', 'CRM data quality', 'sales pipeline automation', 'HubSpot automation', 'Salesforce automation']::text[],
     'AI CRM automation'
   ),
   (
     'automating-call-logging-and-note-capture',
     'Automating Call Logging and Note Capture: A Build Teardown',
-    'Call and meeting capture is the first path worth automating, and roughly a fifth of the work is the AI. Here is the whole build: the extraction schema, the confidence thresholds, where the write-back actually lands, and the seven failure modes that decide whether it is still running next year.',
+    'Call and meeting capture is the first path worth automating, and roughly a fifth of the work is the AI. This teardown covers the whole build: the extraction schema, the confidence thresholds, where the write-back lands, and the seven failure modes that decide whether it is still running next year.',
     '**Automate call and meeting capture before anything else, and expect the language model to be about a fifth of the work.** The model turns a transcript into structured fields reliably enough to be useful on day one. The other four fifths, deciding what to extract, working out which record it belongs to, validating before writing, and building a confirmation surface reps will actually use, is what determines whether the thing survives contact with a real sales team.
 
-This is a teardown of that build. It is the rung-2 path from the [Pipeline Automation Ladder](/news/pipeline-automation-ladder), and it is the one I build first in almost every engagement, because it is where the seller hours actually go.
+This is a teardown of that build. It is the rung-2 path from the [Pipeline Automation Ladder](/news/pipeline-automation-ladder), and it is the one I build first in almost every engagement, because it is where the seller hours go.
 
 ## Why this path first
 
 Ask a rep where their CRM time goes and the answer is almost never "updating the deal stage." It is reconstructing what happened on calls: who said what, what the objection was, what they promised to send, when to follow up. That reconstruction happens hours or days later, from memory, and it is lossy in both directions. The record is thin, and the rep resents producing it.
 
-Automating it is unusually well-suited to what language models are actually good at: turning unstructured speech into structured fields against a known schema. That is a narrow, checkable task, not a judgement call.
+Automating it is unusually well-suited to what language models are good at: turning unstructured speech into structured fields against a known schema. That is a narrow, checkable task, not a judgement call.
 
 Two secondary effects matter as much as the time saved. Capture coverage jumps, which is what every downstream rung depends on. And reps get something before they are asked for anything, which is the only reliable way to change CRM behaviour. That dynamic is the whole subject of [getting reps to use the CRM](/news/get-sales-reps-to-use-the-crm).
 
@@ -387,7 +389,7 @@ That last rule matters more than the four above it. A note on the wrong deal is 
 Model output goes into a validator before it goes anywhere near a CRM field. The validator is ordinary code and it is not optional.
 
 - **Shape**: does it parse, are required keys present, are the types right? Reject and retry once on failure.
-- **Enum membership**: is `proposed_stage` actually one of your stages? Is `objection.category` in the allowed set?
+- **Enum membership**: is `proposed_stage` one of your stages? Is `objection.category` in the allowed set?
 - **Confidence thresholds**: below your floor, the field is dropped and added to a review queue rather than written.
 - **Groundedness**: does `stage_rationale` appear in the transcript? A quote that is not in the source is the clearest hallucination signal available, and it is cheap to check with a substring match.
 - **Sanity**: is `due` in the future? Is the summary within a sane length? Is it in the expected language?
@@ -403,7 +405,7 @@ What makes a confirmation surface get used:
 - **It arrives where the rep already is.** Slack, email or the CRM mobile app. Not a new tool with a new login.
 - **It arrives within minutes of the call**, while the conversation is still in memory. An hour later the rep is reconstructing again, which is the problem you were solving.
 - **Confirm is one tap. Correct is two.** If correcting is harder than retyping, reps will do neither and the queue will rot.
-- **Corrections are captured as signal**, not just applied. The fields reps correct most often tell you exactly where your schema or prompt is wrong.
+- **Corrections are kept as signal** after they are applied. The fields reps correct most often tell you exactly where your schema or prompt is wrong.
 - **Descriptive fields write immediately; stage changes wait for confirmation.** A summary landing on a record is low-risk and high-value. A stage change is a forecast input, and it should never move without a human.
 
 ## Stage 7: failure handling
@@ -477,10 +479,10 @@ _Related: [the complete AI CRM automation guide](/news/ai-crm-automation-complet
   (
     'crm-automation-for-construction-companies',
     'CRM Automation for Construction Companies',
-    'Construction breaks generic CRM automation for three specific reasons: the pipeline unit is a bid, not a deal; the real system of record is the estimating software; and the relationships that decide who gets invited to bid live in inboxes nobody logs. Here is what to automate instead.',
+    'Construction breaks generic CRM automation for three specific reasons: the pipeline unit is a bid, not a deal; the real system of record is the estimating software; and the relationships that decide who gets invited to bid live in inboxes nobody logs. The fix is automating capture around bids instead.',
     '**In construction the pipeline unit is a bid, not a deal, and almost every CRM automation failure in the sector traces back to ignoring that.** A contractor''s revenue comes from being invited to bid, choosing the right bids, and staying in front of the general contractors, architects and developers who control the invitations. A stage-based sales funnel copied from software does not describe any of that, so the CRM ends up as a contact list with a forecast bolted on that nobody uses.
 
-The fix is not a construction-specific CRM. It is automating capture around the three things that actually drive the number: bid invitations, bid outcomes, and relationship decay with the people who send invitations.
+The fix is not a construction-specific CRM. It is automating capture around the three things that drive the number: bid invitations, bid outcomes, and relationship decay with the people who send invitations.
 
 ## Why generic CRM automation fails here
 
@@ -509,11 +511,11 @@ Two metrics matter more than anything a stage report produces: **hit rate** (bid
 
 ## The four capture paths worth automating
 
-In order of return, based on where the hours and the losses actually sit.
+In order of return, based on where the hours and the losses sit.
 
 ### 1. Bid invitation intake
 
-Invitations arrive as email from GCs, notifications from plan rooms and ITB blasts, in wildly inconsistent formats. Someone reads them, decides what is worth pursuing, and re-keys the survivors. Plenty never get logged at all, which means your hit rate is calculated against a denominator you do not actually know.
+Invitations arrive as email from GCs, notifications from plan rooms and ITB blasts, in wildly inconsistent formats. Someone reads them, decides what is worth pursuing, and re-keys the survivors. Plenty never get logged at all, which means your hit rate is calculated against a denominator you do not know.
 
 Automate the intake: parse the invitation, extract project name, GC, bid date, location, scope and addenda deadline, resolve it against existing companies and contacts, and create the opportunity with the estimator unassigned. This is the highest-value path in construction and it is barely about AI beyond the extraction step, which is the same structured-output pattern as the [call logging teardown](/news/automating-call-logging-and-note-capture).
 
@@ -550,7 +552,7 @@ Check the API situation before scoping anything. Coverage across construction so
 - **Bid/no-bid decisions.** Fit, capacity, relationship history and gut are doing real work here, and the downside of automating it badly is losing money on a job you should have declined. Surface the inputs, let a human decide.
 - **Anything that adds required fields for estimators.** Estimating hours are the scarcest resource in a construction sales organisation. Automation that consumes them to feed a dashboard is a net loss even when the dashboard is good.
 - **Generic drip sequences to GCs.** This industry runs on named relationships, and a marketing-automation email to a project manager you know is worse than silence.
-- **Forecast weighting by stage probability.** Backlog and hit rate by GC tell you more, and they are numbers you can actually defend in a bank conversation.
+- **Forecast weighting by stage probability.** Backlog and hit rate by GC tell you more, and they are numbers you can defend in a bank conversation.
 
 ## Where to start
 
@@ -561,16 +563,16 @@ Before building anything, get the baseline: how many invitations did you receive
 ## Frequently asked questions
 
 **Do construction companies need a construction-specific CRM?**
-Usually not. Most contractors under 50 seats are better served by a mainstream CRM configured around bids rather than deals, connected properly to the estimating software, than by a specialist product with thinner integrations and a smaller ecosystem. The decision that actually matters is whether your CRM can model a bid pipeline honestly and reach your estimating system''s API, not whether the vendor''s marketing mentions construction.
+Usually not. Most contractors under 50 seats are better served by a mainstream CRM configured around bids rather than deals, connected properly to the estimating software, than by a specialist product with thinner integrations and a smaller ecosystem. The decision that matters is whether your CRM can model a bid pipeline honestly and reach your estimating system''s API, not whether the vendor''s marketing mentions construction.
 
-**What should a construction CRM actually track?**
+**What should a construction CRM track?**
 Bid invitations received and their source, bid/no-bid decisions with reasons, submitted bids with values, outcomes with the winning number where known, hit rate segmented by general contractor and work type, backlog, and last meaningful contact with the people who control invitations. Stage velocity and weighted forecast, the two things generic CRM automation optimises, are close to useless in this sector.
 
 **How do you get project managers and estimators to use a CRM?**
 Do not ask them to. Capture what they already do: transcribe field calls, parse invitation emails, sync from the estimating system. Every required field you add to an estimator''s day is a direct trade against estimating hours, which is the constraint on how much work you can bid. Give first, ask second, and only ask for what changes a decision.
 
 **Can CRM automation handle bid invitations from plan rooms?**
-Yes, though how depends on the plan room. Where an API exists, integrate. Where it does not, parse the notification emails, which is reliable enough once the format is known and worth building because those emails are how most invitations actually arrive. The important part in either case is deduplication, since the same project reaching you through three general contractors will otherwise inflate your pipeline threefold.
+Yes, though how depends on the plan room. Where an API exists, integrate. Where it does not, parse the notification emails, which is reliable enough once the format is known and worth building because those emails are how most invitations arrive. The important part in either case is deduplication, since the same project reaching you through three general contractors will otherwise inflate your pipeline threefold.
 
 **What is a realistic first project for a contractor?**
 Automating bid invitation intake, typically four to twelve weeks depending on how many sources you take invitations from and whether your estimating software has a usable API. Measure invitations logged before and after; firms routinely find they were capturing well under half, which means every hit rate they have ever reported was calculated against the wrong denominator.
@@ -612,7 +614,7 @@ They share a name and almost nothing else, and advice that ignores the split is 
 
 Both are capture problems. This piece is mostly about the residential side, where the volume makes automation urgent, with the commercial differences called out where they matter.
 
-## Where the money actually leaks
+## Where the money leaks
 
 Four leaks, in rough order of size. Only the first is widely automated.
 
@@ -633,7 +635,7 @@ The highest-value and least-built path. Agents talk to people all day, in cars, 
 
 Build the voice path: calls and voice notes transcribed, extracted into structured fields against a schema that fits real estate rather than a generic sales funnel, resolved to the right contact, and written back for one-tap confirmation from a phone. The extraction schema is where the domain knowledge goes, and it is worth being specific:
 
-- **Timeline**: when are they actually transacting, and what did they say gates it?
+- **Timeline**: when are they transacting, and what did they say gates it?
 - **Motivation**: job, school, space, divorce, investment. This is what makes a follow-up land eighteen months later.
 - **Financing state**: pre-approved, rate-locked, cash, needs to sell first.
 - **Must-haves and dealbreakers**, in their words.
@@ -710,7 +712,7 @@ Stop asking them to type. Capture calls automatically, transcribe them, extract 
 **Is automated texting of real estate leads legal?**
 It is heavily regulated. The TCPA, state analogues and Do Not Call rules govern automated calling and texting, real estate is actively litigated, and requirements differ by state and change over time. Build consent capture, cross-channel opt-out handling and an audit trail into the system from the start, and get your specific setup reviewed by counsel for your brokerage rather than relying on a vendor''s assurance that their tool is compliant.
 
-**What should real estate CRM automation actually track?**
+**What should real estate CRM automation track?**
 Stated timeline and what gates it, motivation in the contact''s own words, financing state, must-haves and dealbreakers, last meaningful contact, consent status with source and timestamp, and past client status. Lead source and drip campaign membership are what most teams track instead, and neither tells an agent anything useful eighteen months later when the contact is finally ready.
 
 ## Sources
@@ -735,8 +737,8 @@ _Related: [what CRM automation costs](/news/what-crm-automation-costs), and [the
   (
     'get-sales-reps-to-use-the-crm',
     'How to Get Sales Reps to Actually Use the CRM',
-    'You do not get reps to use the CRM by asking harder. Every lever most teams reach for — mandatory fields, adoption dashboards, tying it to comp — reliably makes the data worse, because none of them address the actual reason. Here is what does.',
-    '**You do not get sales reps to use the CRM by asking harder.** Every lever most teams reach for — mandatory fields, adoption dashboards, naming and shaming in the pipeline meeting, tying CRM hygiene to commission — reliably makes the data worse rather than better. Not because reps are lazy, but because none of those levers touch the actual reason the CRM is empty.
+    'You do not get reps to use the CRM by asking harder. Every lever most teams reach for (mandatory fields, adoption dashboards, tying it to comp) makes the data worse, because none of them address the actual reason. The fix starts with why the CRM is empty.',
+    '**You do not get sales reps to use the CRM by asking harder.** Every lever most teams reach for (mandatory fields, adoption dashboards, naming and shaming in the pipeline meeting, tying CRM hygiene to commission) reliably makes the data worse rather than better. Not because reps are lazy, but because none of those levers touch the actual reason the CRM is empty.
 
 I spent fifteen years on the other side of this. I have been the rep filling in the fields on Friday afternoon, and I know exactly what I typed when I could not remember what happened on a call from Tuesday. It was not a lie. It was a reconstruction, which is worse, because it looks like data.
 
@@ -744,7 +746,7 @@ I spent fifteen years on the other side of this. I have been the rep filling in 
 
 Updating the CRM is unpaid work that happens after the paid work is done.
 
-That is the whole problem in one sentence. A rep''s day is calls, demos, follow-ups, negotiations — the things they are measured and compensated on. CRM entry is a tax levied on top of it, payable in the tired part of the day, in a system that gives them nothing back.
+That is the whole problem in one sentence. A rep''s day is calls, demos, follow-ups, negotiations: the things they are measured and compensated on. CRM entry is a tax levied on top of it, payable in the tired part of the day, in a system that gives them nothing back.
 
 Every rep does this arithmetic, consciously or not: _what do I get for the next twenty minutes of typing?_ And the honest answer, in most organisations, is "my manager gets a report." That is not a motivation problem. That is a correctly-solved arithmetic problem.
 
@@ -752,7 +754,7 @@ So the question is not how to make reps comply. It is how to change the arithmet
 
 ## Why the usual fixes backfire
 
-**Mandatory fields.** The intuition is that if the field must be filled, it will be filled with something true. What actually happens is that it gets filled with "N/A", "TBD", a single space, or whatever value clears validation fastest. This is worse than blank, because a blank field is honest about being empty while "TBD" looks like data to every system reading it downstream. If you have ever sorted a required field by most common value and found junk in the top three, you have seen this.
+**Mandatory fields.** The intuition is that if the field must be filled, it will be filled with something true. What happens instead is that it gets filled with "N/A", "TBD", a single space, or whatever value clears validation fastest. This is worse than blank, because a blank field is honest about being empty while "TBD" looks like data to every system reading it downstream. If you have ever sorted a required field by most common value and found junk in the top three, you have seen this.
 
 **Adoption dashboards.** Measuring logins and record-touches produces logins and record-touches. Reps will open records and close them. You have created a metric, not information.
 
@@ -762,23 +764,23 @@ So the question is not how to make reps comply. It is how to change the arithmet
 
 Notice what all four have in common: they attack the symptom while leaving the arithmetic untouched. The rep still pays the tax; you have just raised the penalty for non-payment.
 
-## What actually works
+## What works
 
 ### 1. Make capture automatic rather than obligatory
 
 The single highest-leverage change: stop asking a human to record what happened, and let the system observe it. Call recording with transcription and structured summary. Meeting notes drafted from the actual conversation. Email threads attached to the right deal without anyone dragging anything.
 
-The rep''s job shifts from _writing_ to _confirming_ — twenty minutes becomes twenty seconds. That is not a productivity improvement, it is a change of category. This is rung 2 on [the Pipeline Automation Ladder](/ai-crm-automation), and it is the rung that fixes adoption as a side effect of fixing something else.
+The rep''s job shifts from _writing_ to _confirming_. Twenty minutes becomes twenty seconds. That is not a productivity improvement, it is a change of category. This is rung 2 on [the Pipeline Automation Ladder](/ai-crm-automation), and it is the rung that fixes adoption as a side effect of fixing something else.
 
 ### 2. Remove fields, do not add them
 
-Go through every required field and ask what decision it actually informs. Most fail the test. Fields survive in CRMs for years past the death of the report that justified them, and each one adds friction to every single record.
+Go through every required field and ask what decision it informs. Most fail the test. Fields survive in CRMs for years past the death of the report that justified them, and each one adds friction to every single record.
 
 Cutting required fields feels like giving up on data quality. It reliably improves it, because the remaining fields get real answers.
 
 ### 3. Give the rep something back
 
-The CRM should return value to the person feeding it, not just to their manager. Concretely: the pre-call brief that assembles itself from the last three interactions. The follow-up that drafts itself after the call. The alert that tells the rep a deal has gone quiet before the forecast meeting does.
+The CRM should return value to the person feeding it as well as to their manager. Concretely: the pre-call brief that assembles itself from the last three interactions. The follow-up that drafts itself after the call. The alert that tells the rep a deal has gone quiet before the forecast meeting does.
 
 The moment a rep opens the CRM because it helps them close, adoption stops being a project.
 
@@ -788,7 +790,7 @@ Instead of asking a rep to assert that a deal is at Proposal, let the system pro
 
 ### 5. Fix the worst path first, publicly
 
-Do not run a "CRM improvement initiative." Pick the single most-hated piece of manual entry — usually call logging — automate it, and let the team feel it. Credibility for everything else comes from that first thing working.
+Do not run a "CRM improvement initiative." Pick the single most-hated piece of manual entry (usually call logging), automate it, and let the team feel it. Credibility for everything else comes from that first thing working.
 
 ## What to measure instead of adoption
 
@@ -804,15 +806,15 @@ Adoption rate measures whether people complied. These measure whether the system
 
 ## A 30-day sequence
 
-**Week 1 — measure.** Ask reps how many hours a week they spend on CRM admin, then pull a sample of 20 recent stage changes and see how many you can explain from the record alone. Both answers will be worse than you expect. Write them down; they are your baseline.
+**Week 1: measure.** Ask reps how many hours a week they spend on CRM admin, then pull a sample of 20 recent stage changes and see how many you can explain from the record alone. Both answers will be worse than you expect. Write them down; they are your baseline.
 
-**Week 2 — subtract.** Remove every required field that does not inform a decision someone actually makes. Announce it. This buys goodwill you will spend later.
+**Week 2: subtract.** Remove every required field that does not inform a decision someone makes. Announce it. This buys goodwill you will spend later.
 
-**Week 3 — automate the worst path.** Usually call and meeting capture. Recording, transcription, structured summary written back to the right record, rep confirms in seconds.
+**Week 3: automate the worst path.** Usually call and meeting capture. Recording, transcription, structured summary written back to the right record, rep confirms in seconds.
 
-**Week 4 — give something back.** Turn on one thing that helps the rep directly: a pre-call brief, a drafted follow-up, a stalled-deal nudge that arrives before the pipeline review rather than during it.
+**Week 4: give something back.** Turn on one thing that helps the rep directly: a pre-call brief, a drafted follow-up, a stalled-deal nudge that arrives before the pipeline review rather than during it.
 
-Then re-measure. If seller hours have not moved, you automated the wrong path — which is useful information, and cheaper to discover in a month than in a year.
+Then re-measure. If seller hours have not moved, you automated the wrong path. That is useful information, and cheaper to discover in a month than in a year.
 
 ## Frequently asked questions
 
@@ -820,17 +822,17 @@ Then re-measure. If seller hours have not moved, you automated the wrong path �
 Usually, yes. "I forget" is what people say about work that has no immediate payoff. Nobody forgets to submit an expense claim.
 
 **We are on HubSpot and it has AI features. Do we need more?**
-Possibly not. Most teams have native capture features they have never configured properly. Turn on what you already own before buying anything — [the audit checklist](/ai-crm-automation) covers what to look for.
+Possibly not. Most teams have native capture features they have never configured properly. Turn on what you already own before buying anything; [the audit checklist](/ai-crm-automation) covers what to look for.
 
 **What if leadership insists on the adoption dashboard?**
-Keep it, and add capture coverage next to it. When automated capture lands, the two diverge visibly — adoption stays flat while coverage jumps — and that gap is the most persuasive argument available to you.
+Keep it, and add capture coverage next to it. When automated capture lands, the two diverge visibly (adoption stays flat while coverage jumps), and that gap is the most persuasive argument available to you.
 
 **Does this work with a team that has already given up on the CRM?**
 It works better, because expectations are on the floor. The first automation that removes real work is disproportionately convincing to a team that has been asked to try harder several times.
 
 ---
 
-_Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the five failure modes, including the compliance spiral this article describes._',
+_Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail): the five failure modes, including the compliance spiral this article describes._',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'Sales Automation', 'Pipeline', 'RevOps']::text[],
     'Dan Pearson',
@@ -838,14 +840,14 @@ _Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) — the fiv
     false,
     true,
     'How to Get Sales Reps to Actually Use the CRM (Without Nagging)',
-    'You do not get reps to use the CRM by asking harder. Every lever most teams reach for — mandatory fields, adoption dashboards, tying it to comp — makes the data worse. Here is what actually works.',
+    'You do not get reps to use the CRM by asking harder. Every lever most teams reach for (mandatory fields, adoption dashboards, tying it to comp) makes the data worse. What works is changing the arithmetic.',
     ARRAY['how to get sales reps to use the CRM', 'CRM adoption', 'sales reps not updating CRM', 'CRM data quality', 'CRM compliance']::text[],
     'how to get sales reps to use the CRM'
   ),
   (
     'how-to-choose-a-crm-automation-consultant',
     'How to Choose a CRM Automation Consultant (2026 Buyer Guide)',
-    'Most teams hire the wrong type of provider for the problem they actually have. Here are the three kinds of CRM automation consultant, the nine questions that tell you which one is in front of you, and the answers worth walking away from.',
+    'Most teams hire the wrong type of provider for the problem they actually have. There are three kinds of CRM automation consultant, nine questions that tell you which one is in front of you, and a handful of answers worth walking away from.',
     '**Hire for the layer you are broken at, not the logo on the slide.** If sellers are not putting information into the CRM, you need someone who builds capture automation, and a reporting specialist will not fix it. If the data is already clean and the forecast is still wrong, you need the opposite. Almost every bad CRM automation engagement starts with this mismatch, and one diagnostic question surfaces it before you sign anything.
 
 That question is: **what share of your customer conversations reach the CRM without a human typing them in?** If the honest answer is under half, your problem is capture, and everything below is written for you.
@@ -909,7 +911,7 @@ Ignore the headline numbers for a moment and look at the shape of the engagement
 
 A sound structure is **paid diagnostic first, implementation scoped from the diagnostic**. The diagnostic is small, fixed-price and produces something you keep. It is deliberately cheap enough that walking away afterwards is a real option, and if it is not, the incentive is wrong.
 
-For reference, my own audit is $2,500 flat over two weeks, and the roadmap is yours whoever builds it. I publish that number because unpublished pricing in this market usually means the price is set by what the buyer looks like they can pay. The specific figure matters less than the structure: a small fixed diagnostic, then scoped build.
+For reference, my own audit is [$2,500 flat over two weeks](/connect), and the roadmap is yours whoever builds it. I publish that number because unpublished pricing in this market usually means the price is set by what the buyer looks like they can pay. The specific figure matters less than the structure: a small fixed diagnostic, then scoped build.
 
 Be suspicious of two shapes in particular. **Free audits** are sales calls with a document attached, and they reliably conclude that you need the thing the auditor sells. **Open-ended monthly retainers with no defined first deliverable** work well once trust exists and badly as a starting point.
 
@@ -932,7 +934,7 @@ Independent builders typically run $3,000-$40,000 per project; RevOps consultanc
 If you have an ops person with API fluency and time, in-house is often better because they stay. Consultants earn their fee on speed, on having seen the failure modes before, and on the parts that need production engineering: error handling, retries, permissions, and not leaking customer data into a model. Teams under 50 seats rarely have that capacity spare.
 
 **Should I hire a HubSpot or Salesforce certified partner?**
-Yes if the work is genuinely platform-deep: complex migrations, large estates, heavy native configuration. For capture-layer automation on a small team, certification tells you someone knows one vendor''s product, not that they can build reliable automation across the tools where your conversations actually happen.
+Yes if the work is genuinely platform-deep: complex migrations, large estates, heavy native configuration. For capture-layer automation on a small team, certification tells you someone knows one vendor''s product, not that they can build reliable automation across the tools where your conversations happen.
 
 **What is the difference between a CRM automation consultant and a RevOps consultant?**
 RevOps covers process, structure, comp, territory and reporting across the whole revenue organisation, and the deliverable is usually a specification. CRM automation is narrower and technical: the automation layer inside the system, built and shipped. If you have no defined sales process yet, RevOps comes first, because automation makes an existing process cheaper to run rather than inventing one.
@@ -948,7 +950,7 @@ Seller hours should move within the first month if the right capture path was au
 
 ---
 
-_Related: [the AI CRM automation guide](/news/ai-crm-automation-complete-guide) for the full picture, or [the 12-point audit and published pricing](/ai-crm-automation) if you want to see what I actually do._',
+_Related: [the AI CRM automation guide](/news/ai-crm-automation-complete-guide) for the full picture, or [the 12-point audit and published pricing](/ai-crm-automation) if you want to see what I do._',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'RevOps', 'Sales Automation', 'Consulting', 'HubSpot', 'Salesforce']::text[],
     'Dan Pearson',
@@ -963,12 +965,12 @@ _Related: [the AI CRM automation guide](/news/ai-crm-automation-complete-guide) 
   (
     'hubspot-breeze-vs-salesforce-agentforce',
     'HubSpot Breeze vs Salesforce Agentforce for Teams Under 50 Seats',
-    'For most teams under 50 seats, HubSpot Breeze is the better buy — but the more useful answer is that a third of the teams asking this question should not buy either one yet. Here is the real pricing arithmetic and the honest verdict on each.',
-    '**For most revenue teams under 50 seats, HubSpot Breeze is the better buy** — lower floor, simpler pricing, and agent capability that reaches useful depth without a specialist administrator. Salesforce Agentforce is the more powerful system and the more expensive one, and below about 50 seats the licence plus admin overhead rarely pays back.
+    'For most teams under 50 seats, HubSpot Breeze is the better buy. The more useful answer is that a third of the teams asking should not buy either yet. The real pricing arithmetic and an honest verdict on each follow.',
+    '**For most revenue teams under 50 seats, HubSpot Breeze is the better buy**: lower floor, simpler pricing, and agent capability that reaches useful depth without a specialist administrator. Salesforce Agentforce is the more powerful system and the more expensive one, and below about 50 seats the licence plus admin overhead rarely pays back.
 
 The more useful answer is that a good share of the teams asking this question should not buy either one yet. I will come back to that, because it is the part neither vendor''s comparison page will tell you.
 
-_Pricing below is as published in August 2026 and changes often — verify current numbers before budgeting._
+_Pricing below is as published in August 2026 and changes often, so verify current numbers before budgeting._
 
 ## The short verdict
 
@@ -977,7 +979,7 @@ _Pricing below is as published in August 2026 and changes often — verify curre
 | **Best for**            | Sales-led teams of 5–50 seats without a dedicated admin       | Complex sales processes, 50+ seats, existing Salesforce estate    |
 | **Pricing model**       | Per-seat licence plus credits; outcome pricing on some agents | Per-conversation or Flex Credits, on top of licence               |
 | **Time to first value** | Days                                                          | Weeks to months                                                   |
-| **Admin burden**        | Low — configurable by an ops-minded seller                    | High — realistically needs an admin or partner                    |
+| **Admin burden**        | Low; configurable by an ops-minded seller                     | High; realistically needs an admin or partner                     |
 | **Ceiling**             | Reaches a wall on genuinely complex processes                 | Very high; you will not outgrow it                                |
 | **Verdict**             | **The default choice under 50 seats**                         | **Right when the process is complex or you are already invested** |
 
@@ -987,13 +989,13 @@ Vendors publish per-unit prices. What matters is what a real team pays in a year
 
 ### HubSpot
 
-Sales Hub runs $15/seat (Starter), $90/seat (Professional) and $150/seat (Enterprise). The Prospecting Agent — the one most sales teams actually want — requires Professional.
+Sales Hub runs $15/seat (Starter), $90/seat (Professional) and $150/seat (Enterprise). The Prospecting Agent, the one most sales teams want, requires Professional.
 
 At 20 seats on Professional: **$1,800/month**, or $21,600/year.
 
 On top of that, agent usage is outcome-priced, which is genuinely unusual and worth understanding: the Customer Agent bills $0.50 per resolution, the Prospecting Agent $1.00 per qualified lead, and the Data Agent $0.10 per answer. Credits run $10 per 1,000 per month, with the Professional Customer Platform including 5,000 and Enterprise 10,000. Unused credits expire monthly rather than rolling over.
 
-Then the part that surprises people: **onboarding is mandatory and separately billed** — roughly $1,500–$3,000 on Professional, $3,600–$7,000 on Enterprise.
+Then the part that surprises people: **onboarding is mandatory and separately billed**, at roughly $1,500–$3,000 on Professional, $3,600–$7,000 on Enterprise.
 
 **Year one, 20 seats, Professional, moderate agent usage: roughly $24,000–$28,000.**
 
@@ -1001,7 +1003,7 @@ Then the part that surprises people: **onboarding is mandatory and separately bi
 
 Agentforce sits on top of your Sales Cloud licence rather than replacing it, so the AI layer is an addition to whatever you already pay per seat.
 
-The AI layer itself offers three routes: **$2 per conversation** for customer-facing agents, **Flex Credits at $500 per 100,000 credits** (about $0.10 per standard action, $0.15 for voice), or add-ons **from $125/user/month**. Customers on Enterprise Edition and above can get 100,000 Flex Credits at no cost through Salesforce Foundations, which materially changes the maths — but Enterprise Edition is itself the expensive tier.
+The AI layer itself offers three routes: **$2 per conversation** for customer-facing agents, **Flex Credits at $500 per 100,000 credits** (about $0.10 per standard action, $0.15 for voice), or add-ons **from $125/user/month**. Customers on Enterprise Edition and above can get 100,000 Flex Credits at no cost through Salesforce Foundations, which materially changes the maths. But Enterprise Edition is itself the expensive tier.
 
 Salesforce''s own worked example is instructive: 100 users, 3 cases/day, 20 working days, 3 actions per case at 60 credits per case comes to 360,000 credits — **$1,800/month for the AI layer alone**, on top of licences.
 
@@ -1016,9 +1018,9 @@ Salesforce''s own worked example is instructive: 100 users, 3 cases/day, 20 work
 | Mandatory onboarding | $1,500–$3,000 one-off           | Partner implementation typically required              |
 | Realistic year one   | ~$24k–$28k                      | Meaningfully higher at this size                       |
 
-**Verdict on cost:** HubSpot is cheaper at this size and — more importantly — its costs are legible in advance. Salesforce''s Flex Credits are the more flexible model at scale and the harder one to forecast when you are small.
+**Verdict on cost:** HubSpot is cheaper at this size and, more importantly, its costs are legible in advance. Salesforce''s Flex Credits are the more flexible model at scale and the harder one to forecast when you are small.
 
-## Where each actually wins
+## Where each wins
 
 ### HubSpot Breeze wins on
 
@@ -1046,7 +1048,7 @@ A meaningful share of teams comparing these two should spend the money on captur
 
 The test is simple. Pick your three largest open deals, read what the CRM says about them, then ask the reps what actually happened. If the second account contains substance the first does not, you have a capture problem, and buying an agent layer to sit on top of it converts a data problem into an expensive data problem.
 
-Teams on **rung 0 or 1** of [the Pipeline Automation Ladder](/ai-crm-automation) get very little from either product. Teams solid on **rung 2** — automated call logging, AI-drafted notes, enrichment, evidence-backed stage changes — often find that the native AI they already pay for starts working without any additional purchase. That is the cheapest outcome available in this comparison, and it is the one neither vendor is incentivised to mention.
+Teams on **rung 0 or 1** of [the Pipeline Automation Ladder](/ai-crm-automation) get very little from either product. Teams solid on **rung 2** (automated call logging, AI-drafted notes, enrichment, evidence-backed stage changes) often find that the native AI they already pay for starts working without any additional purchase. That is the cheapest outcome available in this comparison, and it is the one neither vendor is incentivised to mention.
 
 The order that works: fix capture, then turn on the agents you already own, then buy more only where a specific gap remains.
 
@@ -1054,39 +1056,39 @@ The order that works: fix capture, then turn on the agents you already own, then
 
 Almost certainly not, and being told to migrate early is a warning sign.
 
-Migration costs — data, process, retraining, the productivity trough — nearly always exceed the cost of fixing what you have. A platform change is worth considering only when the current system genuinely cannot represent how you sell. That is a real diagnosis, and a much rarer one than the people selling migrations suggest.
+Migration costs (data, process, retraining, the productivity trough) nearly always exceed the cost of fixing what you have. A platform change is worth considering only when the current system genuinely cannot represent how you sell. That is a real diagnosis, and a much rarer one than the people selling migrations suggest.
 
 If you are on Pipedrive, Zoho or GoHighLevel and wondering whether to jump to one of these two: run the capture audit first. Most teams discover their problem was never the platform.
 
 ## Frequently asked questions
 
 **Is Breeze the same as the old HubSpot AI features?**
-Breeze is the umbrella for HubSpot''s agent layer — Prospecting, Customer and Data agents, alongside AI features embedded across the hubs. The outcome-based pricing on the agents is the genuinely new part.
+Breeze is the umbrella for HubSpot''s agent layer: Prospecting, Customer and Data agents, alongside AI features embedded across the hubs. The outcome-based pricing on the agents is the genuinely new part.
 
 **Do I need Enterprise for either?**
 For HubSpot, the Prospecting Agent requires Sales Hub Professional. For Salesforce, the free 100,000 Foundations Flex Credits require Enterprise Edition or above, which is a significant qualifier for smaller teams.
 
 **Which is better for AI lead scoring specifically?**
-Salesforce, on capability. Neither, on sparse data — lead scoring is the single most data-hungry feature in either product and the fastest to lose the team''s trust when it is wrong.
+Salesforce, on capability. Neither, on sparse data. Lead scoring is the single most data-hungry feature in either product and the fastest to lose the team''s trust when it is wrong.
 
 **We are 15 seats and growing fast. Should we buy for where we will be?**
-No. Buy for where you are, fix capture now, and revisit at the point the process actually becomes complex. Teams that buy two years ahead spend two years administering a system built for a company they are not yet.
+No. Buy for where you are, fix capture now, and revisit at the point the process becomes complex. Teams that buy two years ahead spend two years administering a system built for a company they are not yet.
 
 **How do I know if the AI is working?**
-Forecast variance quarter over quarter, and seller hours per week on CRM admin. Not seat adoption, and not agent invocation counts — both go up whether or not anything improved.
+Forecast variance quarter over quarter, and seller hours per week on CRM admin. Not seat adoption, and not agent invocation counts: both go up whether or not anything improved.
 
 ---
 
-_Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automation-complete-guide). Or read [why most AI CRM projects fail](/news/why-ai-crm-projects-fail)._
+_Start here: [AI CRM Automation: the complete 2026 guide](/news/ai-crm-automation-complete-guide). Or read [why most AI CRM projects fail](/news/why-ai-crm-projects-fail)._
 
 ## Sources
 
-- [A complete guide to HubSpot AI pricing in 2026 — eesel AI](https://www.eesel.ai/blog/hubspot-ai-pricing)
-- [HubSpot Breeze AI: Features, Pricing & Limitations (2026) — MyAskAI](https://myaskai.com/blog/hubspot-breeze-ai-agent-complete-guide-2026)
-- [Agentforce Pricing Explained: Flex Credits, Real Costs & Hidden Fees (2026) — Clientell](https://www.getclientell.com/guides/agentforce-pricing-explained)
-- [Salesforce revamps Agentforce pricing with Flex Credits — Constellation Research](https://www.constellationr.com/insights/news/salesforce-revamps-agentforce-pricing-flex-credits-what-you-need-know)
-- [Salesforce Agentforce Pricing — Salesforce](https://www.salesforce.com/agentforce/pricing/)
-- [Can HubSpot''s Agentic AI Bet Disrupt Enterprise CRM''s Old Guard? — Futurum Group](https://futurumgroup.com/insights/can-hubspots-agentic-ai-bet-disrupt-enterprise-crms-old-guard/)',
+- [A complete guide to HubSpot AI pricing in 2026, eesel AI](https://www.eesel.ai/blog/hubspot-ai-pricing)
+- [HubSpot Breeze AI: Features, Pricing & Limitations (2026), MyAskAI](https://myaskai.com/blog/hubspot-breeze-ai-agent-complete-guide-2026)
+- [Agentforce Pricing Explained: Flex Credits, Real Costs & Hidden Fees (2026), Clientell](https://www.getclientell.com/guides/agentforce-pricing-explained)
+- [Salesforce revamps Agentforce pricing with Flex Credits, Constellation Research](https://www.constellationr.com/insights/news/salesforce-revamps-agentforce-pricing-flex-credits-what-you-need-know)
+- [Salesforce Agentforce Pricing, Salesforce](https://www.salesforce.com/agentforce/pricing/)
+- [Can HubSpot''s Agentic AI Bet Disrupt Enterprise CRM''s Old Guard?, Futurum Group](https://futurumgroup.com/insights/can-hubspots-agentic-ai-bet-disrupt-enterprise-crms-old-guard/)',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'HubSpot', 'Salesforce', 'AI Agents', 'RevOps']::text[],
     'Dan Pearson',
@@ -1094,7 +1096,7 @@ _Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automa
     true,
     true,
     'HubSpot Breeze vs Salesforce Agentforce: Honest 2026 Comparison',
-    'A vendor-neutral comparison of HubSpot Breeze and Salesforce Agentforce for revenue teams under 50 seats, with real 2026 pricing arithmetic — and the third option neither vendor will mention.',
+    'A vendor-neutral comparison of HubSpot Breeze and Salesforce Agentforce for revenue teams under 50 seats, with real 2026 pricing arithmetic, and the third option neither vendor will mention.',
     ARRAY['HubSpot AI vs Salesforce Einstein', 'HubSpot Breeze vs Agentforce', 'Agentforce pricing', 'Breeze AI pricing', 'best AI CRM for small business', 'agentic CRM comparison']::text[],
     'HubSpot AI vs Salesforce Einstein'
   ),
@@ -1189,11 +1191,13 @@ Note that rung 1 does not improve capture coverage at all. That is the point of 
 
 Three uses, in order of practical value.
 
-**Sequencing.** It converts "we should do something about AI in the CRM" into a specific next move that depends on where you actually are. Rung-0 teams should be automating one capture path, not evaluating agent platforms.
+**Sequencing.** It converts "we should do something about AI in the CRM" into a specific next move that depends on where you are. Rung-0 teams should be automating one capture path, not evaluating agent platforms.
 
 **Diagnosis of failed projects.** Almost every failed AI CRM project I have seen resolves to a rung mismatch: capability bought two rungs above where the data sits. Naming it removes the blame from the tool and puts it on the sequence, which is the fixable part.
 
 **Vendor conversations.** Asking a vendor which rung their product assumes you are on is clarifying, and the hesitation is informative. Most AI CRM features are built for rung 2 and above, and sold to rung 0 and 1.
+
+The rungs read the same in every industry; what changes is which capture path costs the most. Two worked examples: [construction](/news/crm-automation-for-construction-companies), where the pipeline unit is a bid and the estimating software holds the numbers, and [real estate teams](/news/crm-automation-for-real-estate-teams), where speed to lead is solved and the eighteen-month nurture is not.
 
 ## Frequently asked questions
 
@@ -1235,7 +1239,7 @@ _Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) documents w
   (
     'what-crm-automation-costs',
     'What CRM Automation Actually Costs in 2026',
-    'A first capture-layer build for a 20-seat team lands somewhere between $15,000 and $60,000 all-in for year one. Here is the arithmetic behind that range, the four buckets it splits into, and the much larger number most teams are already paying without seeing it on an invoice.',
+    'A first capture-layer build for a 20-seat team lands somewhere between $15,000 and $60,000 all-in for year one. The arithmetic behind that range splits into four buckets, and it sits next to a much larger number most teams already pay without seeing it on an invoice.',
     '**For a 20-seat sales team, a first capture-layer automation build lands roughly between $15,000 and $60,000 in year one, all in.** The spread is wide because it is driven almost entirely by how many capture paths need automating and what integration work sits underneath, not by rates. Below that range you are usually buying brittle work; above it, on a team that size, you are usually buying scope you do not need yet.
 
 The more useful number is the one nobody invoices you for. A 20-seat team losing four hours per rep per week to CRM admin is spending roughly $250,000 a year on manual capture at a $60 loaded hourly cost. That is the figure the project is competing against, and it is why the arithmetic below usually works out.
@@ -1248,7 +1252,7 @@ Every CRM automation project splits into the same four costs. Confusing them is 
 
 | Bucket            | What it covers                                                              | Typical shape               | Recurring? |
 | ----------------- | --------------------------------------------------------------------------- | --------------------------- | ---------- |
-| **1. Diagnostic** | Finding out what is actually broken, and in what order to fix it            | Small, fixed price, one-off | No         |
+| **1. Diagnostic** | Finding out what is broken, and in what order to fix it                     | Small, fixed price, one-off | No         |
 | **2. Build**      | Engineering the automation: capture paths, integrations, error handling     | The largest one-off cost    | No         |
 | **3. Platform**   | CRM licences, AI add-ons, transcription, iPaaS or automation tooling        | Per seat, per month         | Yes        |
 | **4. Run**        | Model and API usage, monitoring, maintenance when an API changes underneath | Small but permanent         | Yes        |
@@ -1263,7 +1267,7 @@ Assume a sales-led team of 20, on HubSpot or an equivalent, with a functioning p
 
 A scoped audit of where capture breaks, what the data actually looks like, and what to automate first. **$2,500 to $10,000** depending on provider type, or free if it is a sales call wearing a document, which it usually is.
 
-Mine is $2,500 flat over two weeks and the roadmap is yours regardless of who builds it. Published, because unpublished pricing in this market tends to get set by what the buyer looks like they can afford.
+Mine is [$2,500 flat over two weeks](/connect) and the roadmap is yours regardless of who builds it. Published, because unpublished pricing in this market tends to get set by what the buyer looks like they can afford.
 
 ### Bucket 2 - build
 
@@ -1383,43 +1387,43 @@ _Related: [how to choose a CRM automation consultant](/news/how-to-choose-a-crm-
     'Most AI CRM projects fail for a single reason: they automate the reporting layer instead of the capture layer. That root cause shows up as five recognisable failure modes. Here is how to tell which one you are in.',
     '**Most AI CRM projects fail for one reason: they automate the reporting layer instead of the capture layer.** The team buys AI that summarises, scores and forecasts a pipeline nobody reliably updated. The output is confidently wrong, people check the first few, find them unreliable, and quietly stop looking. The software stays licensed and unused.
 
-That single root cause shows up as five distinct failure modes. They look different from the inside, which is why teams rarely recognise their own. Here they are, with the symptom you would actually notice and what is really happening underneath.
+That single root cause shows up as five distinct failure modes. They look different from the inside, which is why teams rarely recognise their own. Here they are, with the symptom you would notice and what is really happening underneath.
 
 ## 1. The dashboard that nobody trusts
 
-**What it looks like.** Leadership has a beautiful pipeline view — weighted forecast, stage velocity, win-rate trends — and still asks reps to confirm every number before the board call. The dashboard is decoration on top of a process that runs on side conversations.
+**What it looks like.** Leadership has a beautiful pipeline view (weighted forecast, stage velocity, win-rate trends) and still asks reps to confirm every number before the board call. The dashboard is decoration on top of a process that runs on side conversations.
 
-**What is actually happening.** Reporting was automated on top of manual capture. The visualisation improved; the underlying data did not. Every number in that view traces back to a field a human typed under time pressure, and everyone senior enough to make decisions knows it, which is exactly why they still ask.
+**What is happening.** Reporting was automated on top of manual capture. The visualisation improved; the underlying data did not. Every number in that view traces back to a field a human typed under time pressure, and everyone senior enough to make decisions knows it, which is exactly why they still ask.
 
 **How to tell.** Ask when the pipeline was last updated, then ask what actually happened on the three largest open deals. If the second answer contains information the first did not, the dashboard is decorative.
 
-**The fix.** Nothing in the reporting layer. Automate the capture of what happened on those deals — calls, notes, stage evidence — and the same dashboard becomes trustworthy without being rebuilt.
+**The fix.** Nothing in the reporting layer. Automate the capture of what happened on those deals (calls, notes, stage evidence) and the same dashboard becomes trustworthy without being rebuilt.
 
 ## 2. The AI add-on that got switched off
 
 **What it looks like.** You paid for the platform''s AI tier. The team used it enthusiastically for about six weeks. Now nobody mentions it, and somebody is quietly wondering whether to renew.
 
-**What is actually happening.** Summarisation, scoring and next-best-action all need dense, recent, structured history to work. On sparse records they produce plausible nonsense — a deal summary assembled from three log lines and an optimistic stage, a lead score derived from fields nobody filled in. Reps are excellent at detecting output they cannot rely on. Once trust breaks, it does not come back, even after the underlying data improves.
+**What is happening.** Summarisation, scoring and next-best-action all need dense, recent, structured history to work. On sparse records they produce plausible nonsense: a deal summary assembled from three log lines and an optimistic stage, a lead score derived from fields nobody filled in. Reps are excellent at detecting output they cannot rely on. Once trust breaks, it does not come back, even after the underlying data improves.
 
 **How to tell.** Look at usage over time rather than at launch. A sharp adoption curve that decays inside two months is this failure mode almost every time.
 
-**The fix.** Turn it off, fix capture, turn it back on. The feature was not wrong; it was starved. In most cases the AI you have already paid for becomes useful without being replaced — the cheapest available win in this category, and almost nobody sequences their way to it.
+**The fix.** Turn it off, fix capture, turn it back on. The feature was not wrong; it was starved. In most cases the AI you have already paid for becomes useful without being replaced. It is the cheapest available win in this category, and almost nobody sequences their way to it.
 
 ## 3. The workflow thicket
 
 **What it looks like.** Nobody will delete an automation, because nobody can prove what depends on it. New requirements get met by adding another rule on top. Somewhere in there, two workflows are fighting over the same field.
 
-**What is actually happening.** Years of rung-1 rules accumulated without ownership or documentation. Rules are deterministic and brittle, and brittleness compounds. The team ends up with a system whose behaviour nobody can predict — which is a strange place to bolt AI onto, since you now cannot tell whether a bad outcome came from the model or from a rule written in 2022 by somebody who left.
+**What is happening.** Years of rung-1 rules accumulated without ownership or documentation. Rules are deterministic and brittle, and brittleness compounds. The team ends up with a system whose behaviour nobody can predict, which is a strange place to bolt AI onto, since you now cannot tell whether a bad outcome came from the model or from a rule written in 2022 by somebody who left.
 
 **How to tell.** Ask who can explain why a specific record changed last Tuesday. If the answer is a search through audit logs, you are here.
 
-**The fix.** Not a rewrite. Instrument first — make record changes traceable — then retire rules that provably fire on nothing. Assisted capture reduces the pressure that creates new rules in the first place, because most rules exist to compensate for data that was never entered.
+**The fix.** Not a rewrite. Instrument first (make record changes traceable), then retire rules that provably fire on nothing. Assisted capture reduces the pressure that creates new rules in the first place, because most rules exist to compensate for data that was never entered.
 
 ## 4. The compliance spiral
 
 **What it looks like.** Data quality was poor, so more fields were made mandatory. Data quality got worse. The fields are now full of "N/A", "TBD", a single space, and a date somebody picked to get past the validation.
 
-**What is actually happening.** Mandatory fields do not create information. They create placeholder text, and placeholder text is worse than a blank, because a blank is honest about being empty while "TBD" looks like data to every system downstream. This is the failure mode that most damages AI projects specifically — models cannot tell the difference between a filled field and a filled-in field.
+**What is happening.** Mandatory fields do not create information. They create placeholder text, and placeholder text is worse than a blank, because a blank is honest about being empty while "TBD" looks like data to every system downstream. This is the failure mode that most damages AI projects specifically: models cannot tell the difference between a filled field and a filled-in field.
 
 **How to tell.** Sort any required field by frequency of value. If the top three values are junk, you are in the spiral.
 
@@ -1429,7 +1433,7 @@ That single root cause shows up as five distinct failure modes. They look differ
 
 **What it looks like.** An agent is sending emails, updating records and booking meetings. Somebody asks what it did last week and there is no straightforward answer.
 
-**What is actually happening.** Rung 3 was deployed without the rung-2 evidence trail that makes agent behaviour reviewable. Agentic CRM is genuinely ready for narrow, bounded, reviewable tasks in 2026 — and genuinely not ready to be handed a messy pipeline and left alone. The difference between those two situations is entirely whether you can see what the agent did and why.
+**What is happening.** Rung 3 was deployed without the rung-2 evidence trail that makes agent behaviour reviewable. Agentic CRM is genuinely ready for narrow, bounded, reviewable tasks in 2026, and genuinely not ready to be handed a messy pipeline and left alone. The difference between those two situations is entirely whether you can see what the agent did and why.
 
 **How to tell.** Try to answer, for one specific customer, what the agent did and what information it acted on. If that takes more than a minute, the supervision surface does not exist.
 
@@ -1437,7 +1441,7 @@ That single root cause shows up as five distinct failure modes. They look differ
 
 ## The pattern underneath all five
 
-| Failure mode              | Rung attempted | Rung actually needed    |
+| Failure mode              | Rung attempted | Rung needed             |
 | ------------------------- | -------------- | ----------------------- |
 | Dashboard nobody trusts   | 3 – 4          | 2                       |
 | AI add-on switched off    | 3              | 2                       |
@@ -1445,7 +1449,7 @@ That single root cause shows up as five distinct failure modes. They look differ
 | Compliance spiral         | 0, harder      | 2                       |
 | Agent without supervision | 3              | 2                       |
 
-Every row says the same thing. This is why [the Pipeline Automation Ladder](/ai-crm-automation) has one load-bearing rule: **you cannot skip rung 2.** Assisted capture — AI writing the notes, logging the call, enriching the contact, proposing the stage change from the actual conversation, with a human confirming — is the rung that changes the input to every system downstream. It is also the rung with no demo, no dashboard and no screenshot, which is precisely why it gets skipped.
+Every row says the same thing. This is why [the Pipeline Automation Ladder](/ai-crm-automation) has one load-bearing rule: **you cannot skip rung 2.** Assisted capture (AI writing the notes, logging the call, enriching the contact, proposing the stage change from the actual conversation, with a human confirming) is the rung that changes the input to every system downstream. It is also the rung with no demo, no dashboard and no screenshot, which is precisely why it gets skipped.
 
 ## Why this keeps happening
 
@@ -1463,7 +1467,7 @@ You do not need to hire anyone to start.
 2. Ask the team how many hours a week they spend feeding the system. Compare it with what management assumes.
 3. Sort your required fields by most common value.
 
-Three questions, an afternoon, no budget. If the answers are uncomfortable, [the full 12-point audit](/ai-crm-automation) is published in the same place — checklist, the question each check asks, and what a good answer looks like.
+Three questions, an afternoon, no budget. If the answers are uncomfortable, [the full 12-point audit](/ai-crm-automation) is published in the same place: checklist, the question each check asks, and what a good answer looks like.
 
 ## Frequently asked questions
 
@@ -1477,20 +1481,20 @@ Capture coverage before the project starts. If under half of your customer conve
 Almost always failure mode two. The feature does what it claims, on the data it has, and the data is too thin for the output to be worth trusting. Adoption is the symptom; capture density is the cause. Adding training or mandates to that situation reliably makes it worse.
 
 **Should we fix data quality before adopting AI at all?**
-Not as a separate project, which tends to become a permanent cleanup effort. Fix it by automating capture, so clean data is a byproduct of the work rather than a task competing with it. Historical cleanup only pays off for the records you actually still sell into.
+Not as a separate project, which tends to become a permanent cleanup effort. Fix it by automating capture, so clean data is a byproduct of the work rather than a task competing with it. Historical cleanup only pays off for the records you still sell into.
 
 **How do we know if we are about to make this mistake?**
 Ask what the first deliverable of the project is. If it is a dashboard, a score or a forecast, and capture is still manual, you are two rungs ahead of your data. That is a rung mismatch on the [Pipeline Automation Ladder](/news/pipeline-automation-ladder), and it is the most expensive common error in this category.
 
 ---
 
-_Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automation-complete-guide)._
+_Start here: [AI CRM Automation: the complete 2026 guide](/news/ai-crm-automation-complete-guide)._
 
 ## Sources
 
-- [CRM Trends 2026: The Customer Data, AI, And Governance Shifts — CX Today](https://www.cxtoday.com/crm/crm-trends-2026-customer-data/)
-- [From Assistant to Agent: How AI Is Reshaping RevOps — MAN Digital](https://www.man.digital/blog/ai-in-revops)
-- [Agentic AI in HubSpot CRM: The Complete Guide — Fast Slow Motion](https://www.fastslowmotion.com/agentic-ai-hubspot-crm-guide/)',
+- [CRM Trends 2026: The Customer Data, AI, And Governance Shifts, CX Today](https://www.cxtoday.com/crm/crm-trends-2026-customer-data/)
+- [From Assistant to Agent: How AI Is Reshaping RevOps, MAN Digital](https://www.man.digital/blog/ai-in-revops)
+- [Agentic AI in HubSpot CRM: The Complete Guide, Fast Slow Motion](https://www.fastslowmotion.com/agentic-ai-hubspot-crm-guide/)',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'Sales Automation', 'AI Agents', 'RevOps', 'Pipeline']::text[],
     'Dan Pearson',
@@ -1505,7 +1509,7 @@ _Start here: [AI CRM Automation — the complete 2026 guide](/news/ai-crm-automa
   (
     'zapier-vs-make-vs-n8n-for-crm-automation',
     'Zapier vs Make vs n8n for CRM Automation',
-    'Start on Zapier, move to Make when the logic branches, run n8n when you need control over data and cost. The tool matters far less than most comparisons suggest, and here is the part that actually decides whether your automation survives a year.',
+    'Start on Zapier, move to Make when the logic branches, run n8n when you need control over data and cost. The tool matters far less than most comparisons suggest. Error handling decides whether your automation survives a year.',
     '**Start on Zapier, switch to Make when the logic starts branching, run n8n when you need control over your data or your costs.** That ordering holds for most revenue teams under 50 seats, and the switching points are specific enough to plan for.
 
 The uncomfortable part: for CRM work, the platform choice is not what determines whether your automation is still running in a year. Error handling is. All three tools will happily build you a workflow that silently stops firing, and none of them will tell you it happened.
@@ -1550,7 +1554,7 @@ Rather than picking once, plan the moves. Most teams should expect to make at le
 
 ## The self-hosting question
 
-n8n self-hosted is free in licence terms and not free in reality. You are running a server, applying updates, holding credentials, monitoring uptime and owning it at 2am. On a small VPS the infrastructure cost is trivial next to a Zapier bill at volume; the operational cost is what you should actually be weighing.
+n8n self-hosted is free in licence terms and not free in reality. You are running a server, applying updates, holding credentials, monitoring uptime and owning it at 2am. On a small VPS the infrastructure cost is trivial next to a Zapier bill at volume; the operational cost is what you should be weighing.
 
 Take it on if you have someone technical who will still be there in a year, or if data residency makes it non-negotiable. Do not take it on to save $60 a month. That trade reverses the moment the server needs attention during a quarter close.
 
@@ -1599,15 +1603,15 @@ Call transcripts contain some of the most sensitive data a business holds. On th
 
 ---
 
-_Related: [what CRM automation costs](/news/what-crm-automation-costs) for the full budget picture, and [the complete guide](/news/ai-crm-automation-complete-guide) for where this sits in the wider programme._',
+_Related: [what CRM automation costs](/news/what-crm-automation-costs) for the full budget picture, and [the complete guide](/news/ai-crm-automation-complete-guide) for where this sits in the wider programme, and [the capture-first method and published audit pricing](/ai-crm-automation)._',
     'CRM',
     ARRAY['CRM', 'CRM Automation', 'Zapier', 'Make', 'n8n', 'Sales Automation', 'RevOps']::text[],
     'Dan Pearson',
     '12 min read',
     false,
     true,
-    'Zapier vs Make vs n8n for CRM Automation: Honest 2026 Comparison',
-    'Which automation platform to use for CRM work, judged on the things that actually matter at the capture layer: error handling, cost at volume, AI steps and what happens when a run fails at 2am.',
+    'Zapier vs Make vs n8n for CRM Automation: Error Handling, Cost and AI Steps',
+    'Which automation platform to use for CRM work, judged on the things that matter at the capture layer: error handling, cost at volume, AI steps and what happens when a run fails at 2am.',
     ARRAY['Zapier vs Make vs n8n', 'best automation tool for CRM', 'n8n CRM automation', 'Make vs Zapier CRM', 'CRM integration platform', 'automate CRM data entry']::text[],
     'Zapier vs Make vs n8n'
   )

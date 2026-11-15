@@ -15,7 +15,7 @@ seo_keywords:
     'automate CRM data entry',
     'HubSpot call logging automation',
   ]
-excerpt: 'Call and meeting capture is the first path worth automating, and roughly a fifth of the work is the AI. Here is the whole build: the extraction schema, the confidence thresholds, where the write-back actually lands, and the seven failure modes that decide whether it is still running next year.'
+excerpt: 'Call and meeting capture is the first path worth automating, and roughly a fifth of the work is the AI. This teardown covers the whole build: the extraction schema, the confidence thresholds, where the write-back lands, and the seven failure modes that decide whether it is still running next year.'
 read_time: '14 min read'
 featured: true
 published: true
@@ -25,13 +25,13 @@ author: Dan Pearson
 
 **Automate call and meeting capture before anything else, and expect the language model to be about a fifth of the work.** The model turns a transcript into structured fields reliably enough to be useful on day one. The other four fifths, deciding what to extract, working out which record it belongs to, validating before writing, and building a confirmation surface reps will actually use, is what determines whether the thing survives contact with a real sales team.
 
-This is a teardown of that build. It is the rung-2 path from the [Pipeline Automation Ladder](/news/pipeline-automation-ladder), and it is the one I build first in almost every engagement, because it is where the seller hours actually go.
+This is a teardown of that build. It is the rung-2 path from the [Pipeline Automation Ladder](/news/pipeline-automation-ladder), and it is the one I build first in almost every engagement, because it is where the seller hours go.
 
 ## Why this path first
 
 Ask a rep where their CRM time goes and the answer is almost never "updating the deal stage." It is reconstructing what happened on calls: who said what, what the objection was, what they promised to send, when to follow up. That reconstruction happens hours or days later, from memory, and it is lossy in both directions. The record is thin, and the rep resents producing it.
 
-Automating it is unusually well-suited to what language models are actually good at: turning unstructured speech into structured fields against a known schema. That is a narrow, checkable task, not a judgement call.
+Automating it is unusually well-suited to what language models are good at: turning unstructured speech into structured fields against a known schema. That is a narrow, checkable task, not a judgement call.
 
 Two secondary effects matter as much as the time saved. Capture coverage jumps, which is what every downstream rung depends on. And reps get something before they are asked for anything, which is the only reliable way to change CRM behaviour. That dynamic is the whole subject of [getting reps to use the CRM](/news/get-sales-reps-to-use-the-crm).
 
@@ -105,7 +105,7 @@ That last rule matters more than the four above it. A note on the wrong deal is 
 Model output goes into a validator before it goes anywhere near a CRM field. The validator is ordinary code and it is not optional.
 
 - **Shape**: does it parse, are required keys present, are the types right? Reject and retry once on failure.
-- **Enum membership**: is `proposed_stage` actually one of your stages? Is `objection.category` in the allowed set?
+- **Enum membership**: is `proposed_stage` one of your stages? Is `objection.category` in the allowed set?
 - **Confidence thresholds**: below your floor, the field is dropped and added to a review queue rather than written.
 - **Groundedness**: does `stage_rationale` appear in the transcript? A quote that is not in the source is the clearest hallucination signal available, and it is cheap to check with a substring match.
 - **Sanity**: is `due` in the future? Is the summary within a sane length? Is it in the expected language?
@@ -121,7 +121,7 @@ What makes a confirmation surface get used:
 - **It arrives where the rep already is.** Slack, email or the CRM mobile app. Not a new tool with a new login.
 - **It arrives within minutes of the call**, while the conversation is still in memory. An hour later the rep is reconstructing again, which is the problem you were solving.
 - **Confirm is one tap. Correct is two.** If correcting is harder than retyping, reps will do neither and the queue will rot.
-- **Corrections are captured as signal**, not just applied. The fields reps correct most often tell you exactly where your schema or prompt is wrong.
+- **Corrections are kept as signal** after they are applied. The fields reps correct most often tell you exactly where your schema or prompt is wrong.
 - **Descriptive fields write immediately; stage changes wait for confirmation.** A summary landing on a record is low-risk and high-value. A stage change is a forecast input, and it should never move without a human.
 
 ## Stage 7: failure handling

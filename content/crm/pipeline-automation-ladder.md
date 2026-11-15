@@ -110,11 +110,13 @@ Note that rung 1 does not improve capture coverage at all. That is the point of 
 
 Three uses, in order of practical value.
 
-**Sequencing.** It converts "we should do something about AI in the CRM" into a specific next move that depends on where you actually are. Rung-0 teams should be automating one capture path, not evaluating agent platforms.
+**Sequencing.** It converts "we should do something about AI in the CRM" into a specific next move that depends on where you are. Rung-0 teams should be automating one capture path, not evaluating agent platforms.
 
 **Diagnosis of failed projects.** Almost every failed AI CRM project I have seen resolves to a rung mismatch: capability bought two rungs above where the data sits. Naming it removes the blame from the tool and puts it on the sequence, which is the fixable part.
 
 **Vendor conversations.** Asking a vendor which rung their product assumes you are on is clarifying, and the hesitation is informative. Most AI CRM features are built for rung 2 and above, and sold to rung 0 and 1.
+
+The rungs read the same in every industry; what changes is which capture path costs the most. Two worked examples: [construction](/news/crm-automation-for-construction-companies), where the pipeline unit is a bid and the estimating software holds the numbers, and [real estate teams](/news/crm-automation-for-real-estate-teams), where speed to lead is solved and the eighteen-month nurture is not.
 
 ## Frequently asked questions
 

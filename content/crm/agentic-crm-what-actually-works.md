@@ -15,7 +15,7 @@ seo_keywords:
     'Agentforce vs Breeze',
     'AI agent supervision',
   ]
-excerpt: 'Agentic CRM works today for narrow, bounded, reviewable tasks and fails predictably at everything else. The failures are almost never model failures - they are prerequisite failures. Here is the capability map and how to tell which side of it a vendor demo sits on.'
+excerpt: 'Agentic CRM works today for narrow, bounded, reviewable tasks and fails predictably at everything else. The failures are almost never model failures; they are prerequisite failures. The capability map below shows which side of it a vendor demo sits on.'
 read_time: '14 min read'
 featured: true
 published: true
@@ -115,13 +115,13 @@ Where you are determines the correct next move, and it is usually not the one be
 
 **Rung 0 or 1** (capture is manual, or you have rules and nothing else): do not buy agents. Automate one capture path. Every dollar spent on agentic capability now buys you faster wrong answers. This is unwelcome advice and it is the highest-return thing on the page.
 
-**Rung 2** (capture is automated, records are dense): start with one read-only agent, most usefully pre-call briefing or pipeline anomaly detection. Zero blast radius, immediate value, and it teaches you what supervision you actually need.
+**Rung 2** (capture is automated, records are dense): start with one read-only agent, most usefully pre-call briefing or pipeline anomaly detection. Zero blast radius, immediate value, and it teaches you what supervision you need.
 
 **Rung 2 going on 3**: add one acting agent on a reversible task, typically inbound qualification and routing. Build the supervision surface before you turn it on, not after the first incident.
 
 **Rung 3**: expand by task, never by scope. One agent doing one bounded job well is worth more than a general-purpose agent doing several jobs at 80%, because 80% on a forecast input is not a passing grade.
 
-## What actually changed in 2026
+## What changed in 2026
 
 Worth separating the real shift from the marketing. Three things genuinely changed: agents can now execute multi-step work inside CRMs rather than only recommending, the major platforms shipped agent layers as first-class products, and pricing moved decisively toward consumption and credits, which changes how you budget more than how you build.
 
@@ -153,4 +153,4 @@ Ask what the agent does when uncertain, ask to see an action log from a real cus
 
 ---
 
-_Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) for the failure modes in full, and [the 12-point audit](/ai-crm-automation) for establishing which rung you are actually on before buying any of this._
+_Related: [why AI CRM projects fail](/news/why-ai-crm-projects-fail) for the failure modes in full, and [the 12-point audit](/ai-crm-automation) for establishing which rung you are on before buying any of this._

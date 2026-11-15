@@ -15,7 +15,7 @@ seo_keywords:
     'CRM automation ROI',
     'sales automation cost',
   ]
-excerpt: 'A first capture-layer build for a 20-seat team lands somewhere between $15,000 and $60,000 all-in for year one. Here is the arithmetic behind that range, the four buckets it splits into, and the much larger number most teams are already paying without seeing it on an invoice.'
+excerpt: 'A first capture-layer build for a 20-seat team lands somewhere between $15,000 and $60,000 all-in for year one. The arithmetic behind that range splits into four buckets, and it sits next to a much larger number most teams already pay without seeing it on an invoice.'
 read_time: '12 min read'
 featured: false
 published: true
@@ -35,7 +35,7 @@ Every CRM automation project splits into the same four costs. Confusing them is 
 
 | Bucket            | What it covers                                                              | Typical shape               | Recurring? |
 | ----------------- | --------------------------------------------------------------------------- | --------------------------- | ---------- |
-| **1. Diagnostic** | Finding out what is actually broken, and in what order to fix it            | Small, fixed price, one-off | No         |
+| **1. Diagnostic** | Finding out what is broken, and in what order to fix it                     | Small, fixed price, one-off | No         |
 | **2. Build**      | Engineering the automation: capture paths, integrations, error handling     | The largest one-off cost    | No         |
 | **3. Platform**   | CRM licences, AI add-ons, transcription, iPaaS or automation tooling        | Per seat, per month         | Yes        |
 | **4. Run**        | Model and API usage, monitoring, maintenance when an API changes underneath | Small but permanent         | Yes        |
@@ -50,7 +50,7 @@ Assume a sales-led team of 20, on HubSpot or an equivalent, with a functioning p
 
 A scoped audit of where capture breaks, what the data actually looks like, and what to automate first. **$2,500 to $10,000** depending on provider type, or free if it is a sales call wearing a document, which it usually is.
 
-Mine is $2,500 flat over two weeks and the roadmap is yours regardless of who builds it. Published, because unpublished pricing in this market tends to get set by what the buyer looks like they can afford.
+Mine is [$2,500 flat over two weeks](/connect) and the roadmap is yours regardless of who builds it. Published, because unpublished pricing in this market tends to get set by what the buyer looks like they can afford.
 
 ### Bucket 2 - build
 

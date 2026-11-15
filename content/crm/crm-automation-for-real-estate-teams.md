@@ -46,7 +46,7 @@ They share a name and almost nothing else, and advice that ignores the split is 
 
 Both are capture problems. This piece is mostly about the residential side, where the volume makes automation urgent, with the commercial differences called out where they matter.
 
-## Where the money actually leaks
+## Where the money leaks
 
 Four leaks, in rough order of size. Only the first is widely automated.
 
@@ -67,7 +67,7 @@ The highest-value and least-built path. Agents talk to people all day, in cars, 
 
 Build the voice path: calls and voice notes transcribed, extracted into structured fields against a schema that fits real estate rather than a generic sales funnel, resolved to the right contact, and written back for one-tap confirmation from a phone. The extraction schema is where the domain knowledge goes, and it is worth being specific:
 
-- **Timeline**: when are they actually transacting, and what did they say gates it?
+- **Timeline**: when are they transacting, and what did they say gates it?
 - **Motivation**: job, school, space, divorce, investment. This is what makes a follow-up land eighteen months later.
 - **Financing state**: pre-approved, rate-locked, cash, needs to sell first.
 - **Must-haves and dealbreakers**, in their words.
@@ -144,7 +144,7 @@ Stop asking them to type. Capture calls automatically, transcribe them, extract 
 **Is automated texting of real estate leads legal?**
 It is heavily regulated. The TCPA, state analogues and Do Not Call rules govern automated calling and texting, real estate is actively litigated, and requirements differ by state and change over time. Build consent capture, cross-channel opt-out handling and an audit trail into the system from the start, and get your specific setup reviewed by counsel for your brokerage rather than relying on a vendor's assurance that their tool is compliant.
 
-**What should real estate CRM automation actually track?**
+**What should real estate CRM automation track?**
 Stated timeline and what gates it, motivation in the contact's own words, financing state, must-haves and dealbreakers, last meaningful contact, consent status with source and timestamp, and past client status. Lead source and drip campaign membership are what most teams track instead, and neither tells an agent anything useful eighteen months later when the contact is finally ready.
 
 ## Sources
