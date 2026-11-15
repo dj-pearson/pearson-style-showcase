@@ -55,9 +55,13 @@ describe('prerenderedRouteFor', () => {
     expect(prerenderedRouteFor('/news/some-article')).toBe('Article');
     expect(prerenderedRouteFor('/ai-crm-automation')).toBe('AICrmAutomation');
     expect(prerenderedRouteFor('/topics/ai-crm-automation')).toBe('TopicHub');
+    expect(prerenderedRouteFor('/topics/machine-learning')).toBe('TopicHub');
+    expect(prerenderedRouteFor('/news')).toBe('News');
+    expect(prerenderedRouteFor('/about')).toBe('About');
+    expect(prerenderedRouteFor('/privacy')).toBe('PrivacyPolicy');
     expect(prerenderedRouteFor('/')).toBeUndefined();
-    expect(prerenderedRouteFor('/news')).toBeUndefined();
     expect(prerenderedRouteFor('/news/category/ai')).toBeUndefined();
+    expect(prerenderedRouteFor('/search')).toBeUndefined();
     expect(prerenderedRouteFor('/topics/other')).toBeUndefined();
   });
 });

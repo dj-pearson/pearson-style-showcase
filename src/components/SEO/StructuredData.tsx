@@ -1,26 +1,53 @@
 import { useEffect } from 'react';
+import { prerenderedSchemaTypes } from '@/lib/seo';
+
+type SchemaKind =
+  | 'website'
+  | 'article'
+  | 'person'
+  | 'organization'
+  | 'project'
+  | 'faq'
+  | 'howto'
+  | 'product'
+  | 'breadcrumb'
+  | 'review'
+  | 'localbusiness'
+  | 'sitenavigation'
+  | 'service'
+  | 'itemlist';
 
 interface StructuredDataProps {
-  type:
-    | 'website'
-    | 'article'
-    | 'person'
-    | 'organization'
-    | 'project'
-    | 'faq'
-    | 'howto'
-    | 'product'
-    | 'breadcrumb'
-    | 'review'
-    | 'localbusiness'
-    | 'sitenavigation'
-    | 'service'
-    | 'itemlist';
+  type: SchemaKind;
   data?: Record<string, unknown>;
 }
 
+/**
+ * The @types in the prerendered graph that already describe what each kind
+ * would add. When the build's graph for this URL holds one, the block is not
+ * rendered: the graph carries the @id links between the page, the article
+ * and the Person, and a second @id-less copy only gives parsers two entities
+ * to reconcile. 'website' on inner pages describes the page itself, which the
+ * graph does as WebPage, CollectionPage, ProfilePage or ContactPage.
+ */
+const PRERENDERED_EQUIVALENTS: Partial<Record<SchemaKind, string[]>> = {
+  website: ['WebSite', 'WebPage', 'CollectionPage', 'ProfilePage', 'ContactPage'],
+  person: ['Person'],
+  article: ['Article', 'NewsArticle'],
+  faq: ['FAQPage'],
+  breadcrumb: ['BreadcrumbList'],
+  howto: ['HowTo'],
+  itemlist: ['ItemList'],
+  service: ['Service', 'ProfessionalService'],
+};
+
 const StructuredData = ({ type, data }: StructuredDataProps) => {
   useEffect(() => {
+    const prerendered = prerenderedSchemaTypes();
+    if (PRERENDERED_EQUIVALENTS[type]?.some((schemaType) => prerendered.has(schemaType))) {
+      return;
+    }
+
     let schema = {};
 
     switch (type) {
