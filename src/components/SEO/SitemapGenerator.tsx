@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,9 +35,7 @@ const SitemapGenerator = () => {
         .select('id, updated_at')
         .or('status.is.null,status.neq.archived');
 
-      const { data: aiTools } = await supabase
-        .from('ai_tools')
-        .select('id, updated_at');
+      const { data: aiTools } = await supabase.from('ai_tools').select('id, updated_at');
 
       const baseUrl = 'https://danpearson.net';
       const currentDate = new Date().toISOString();
@@ -48,50 +46,50 @@ const SitemapGenerator = () => {
           loc: baseUrl,
           lastmod: currentDate,
           changefreq: 'weekly',
-          priority: '1.0'
+          priority: '1.0',
         },
         {
           loc: `${baseUrl}/about`,
           lastmod: currentDate,
           changefreq: 'monthly',
-          priority: '0.8'
+          priority: '0.8',
         },
         {
           loc: `${baseUrl}/projects`,
           lastmod: projects?.[0]?.updated_at || currentDate,
           changefreq: 'weekly',
-          priority: '0.9'
+          priority: '0.9',
         },
         {
           loc: `${baseUrl}/news`,
           lastmod: articles?.[0]?.updated_at || currentDate,
           changefreq: 'weekly',
-          priority: '0.9'
+          priority: '0.9',
         },
         {
           loc: `${baseUrl}/ai-tools`,
           lastmod: aiTools?.[0]?.updated_at || currentDate,
           changefreq: 'weekly',
-          priority: '0.8'
+          priority: '0.8',
         },
         {
           loc: `${baseUrl}/connect`,
           lastmod: currentDate,
           changefreq: 'monthly',
-          priority: '0.7'
-        }
+          priority: '0.7',
+        },
       ];
 
       // Dynamic pages
       const dynamicUrls: SitemapUrl[] = [];
 
       // Add article pages
-      articles?.forEach(article => {
+      articles?.forEach((article) => {
         dynamicUrls.push({
-          loc: `${baseUrl}/article/${article.slug}`,
+          loc: `${baseUrl}/news/${article.slug}`,
           lastmod: article.updated_at || article.created_at || new Date().toISOString(),
           changefreq: 'monthly',
-          priority: '0.8'
+          priority: '0.8',
         });
       });
 
@@ -100,12 +98,16 @@ const SitemapGenerator = () => {
       // Generate XML
       const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${allUrls.map(url => `  <url>
+${allUrls
+  .map(
+    (url) => `  <url>
     <loc>${url.loc}</loc>
     <lastmod>${url.lastmod}</lastmod>
     <changefreq>${url.changefreq}</changefreq>
     <priority>${url.priority}</priority>
-  </url>`).join('\n')}
+  </url>`
+  )
+  .join('\n')}
 </urlset>`;
 
       // Download the sitemap
@@ -121,16 +123,15 @@ ${allUrls.map(url => `  <url>
 
       setLastGenerated(new Date().toISOString());
       toast({
-        title: "Sitemap Generated",
+        title: 'Sitemap Generated',
         description: `Generated sitemap with ${allUrls.length} URLs and downloaded to your computer.`,
       });
-
     } catch (error) {
       logger.error('Error generating sitemap:', error);
       toast({
-        title: "Generation Failed",
-        description: "Failed to generate sitemap. Please try again.",
-        variant: "destructive",
+        title: 'Generation Failed',
+        description: 'Failed to generate sitemap. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsGenerating(false);
@@ -145,7 +146,8 @@ ${allUrls.map(url => `  <url>
           XML Sitemap Generator
         </CardTitle>
         <CardDescription>
-          Generate an XML sitemap for search engines including all your pages, articles, and projects.
+          Generate an XML sitemap for search engines including all your pages, articles, and
+          projects.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -155,8 +157,8 @@ ${allUrls.map(url => `  <url>
               Last generated: {lastGenerated ? new Date(lastGenerated).toLocaleString() : 'Never'}
             </p>
           </div>
-          <Button 
-            onClick={generateSitemap} 
+          <Button
+            onClick={generateSitemap}
             disabled={isGenerating}
             className="flex items-center gap-2"
           >
@@ -164,11 +166,22 @@ ${allUrls.map(url => `  <url>
             {isGenerating ? 'Generating...' : 'Generate Sitemap'}
           </Button>
         </div>
-        
+
         <div className="text-sm text-muted-foreground space-y-2">
-          <p><strong>Live Sitemap:</strong> Your sitemap is automatically available at <a href="/sitemap.xml" target="_blank" className="text-primary underline">/sitemap.xml</a></p>
-          <p><strong>Download:</strong> Use the button above to download a local copy for manual upload to other hosting services.</p>
-          <p><strong>Includes:</strong> Homepage, About, Projects, News, AI Tools, Connect, and all published articles.</p>
+          <p>
+            <strong>Live Sitemap:</strong> Your sitemap is automatically available at{' '}
+            <a href="/sitemap.xml" target="_blank" className="text-primary underline">
+              /sitemap.xml
+            </a>
+          </p>
+          <p>
+            <strong>Download:</strong> Use the button above to download a local copy for manual
+            upload to other hosting services.
+          </p>
+          <p>
+            <strong>Includes:</strong> Homepage, About, Projects, News, AI Tools, Connect, and all
+            published articles.
+          </p>
         </div>
       </CardContent>
     </Card>

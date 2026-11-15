@@ -42,7 +42,9 @@ import { useAnalytics } from '@/components/Analytics';
 
 // Fallback for og:image, the Article image and the publisher logo. The 512px
 // icon is what index.html already serves as the site-wide og:image.
-const DEFAULT_SOCIAL_IMAGE = 'https://danpearson.net/android-chrome-512x512.png';
+// 1200x630 card for og:image and the Article image; the square icon stays the publisher logo.
+const DEFAULT_SOCIAL_IMAGE = 'https://danpearson.net/og-default.png';
+const PUBLISHER_LOGO = 'https://danpearson.net/android-chrome-512x512.png';
 
 type SharePlatform = 'linkedin' | 'x' | 'copy' | 'native';
 
@@ -432,7 +434,7 @@ const Article = () => {
             url: 'https://danpearson.net',
             logo: {
               '@type': 'ImageObject',
-              url: DEFAULT_SOCIAL_IMAGE,
+              url: PUBLISHER_LOGO,
             },
           },
           datePublished: article.created_at,
