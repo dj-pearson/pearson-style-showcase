@@ -20,6 +20,8 @@ const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuToggleRef = useRef<HTMLButtonElement>(null);
   const mobilePanelRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const isMobile = useIsMobile();
   const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen } = useGlobalSearch();
@@ -63,6 +65,40 @@ const Navigation = () => {
     mobilePanelRef.current?.querySelector<HTMLElement>('a[href], button')?.focus();
   }, [isMenuOpen]);
 
+  // While the panel is open everything outside the nav is inert: Tab can no
+  // longer walk out of the menu into the page dimmed behind the backdrop, and
+  // screen readers stop reading it. Walking up from the nav and marking each
+  // ancestor's other children covers #main-content, the footer and anything
+  // mounted beside them (the accessibility button, banners) without knowing
+  // the page's layout. The backdrop stays live so a tap on it still closes
+  // the menu. Set as an attribute because React 18's DOM typings do not know
+  // the inert prop.
+  useEffect(() => {
+    if (!isMenuOpen || !navRef.current) return;
+    const madeInert: Element[] = [];
+    let node: Element = navRef.current;
+    while (node.parentElement && node !== document.body) {
+      const parent: HTMLElement = node.parentElement;
+      for (const sibling of Array.from(parent.children)) {
+        if (
+          sibling === node ||
+          sibling === backdropRef.current ||
+          sibling.hasAttribute('inert') ||
+          // Global live regions (route announcer, toasts) must keep talking.
+          sibling.matches('[aria-live], [role="status"], [role="alert"]') ||
+          sibling.tagName === 'SCRIPT' ||
+          sibling.tagName === 'STYLE'
+        ) {
+          continue;
+        }
+        sibling.setAttribute('inert', '');
+        madeInert.push(sibling);
+      }
+      node = parent;
+    }
+    return () => madeInert.forEach((element) => element.removeAttribute('inert'));
+  }, [isMenuOpen]);
+
   // Escape closes the menu and puts focus back on the toggle that opened it.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -101,12 +137,13 @@ const Navigation = () => {
       </a>
 
       {/* Mobile Menu Backdrop */}
-      {isMenuOpen && isMobile && (
+      {isMenuOpen && (
         // Dismiss-on-tap backdrop. aria-hidden keeps it out of the tree entirely,
         // which is correct: the keyboard path is Escape, handled above, and the
         // toggle button carries aria-expanded. A focusable backdrop would sit
         // between the user and the menu it is meant to close.
         <div
+          ref={backdropRef}
           aria-hidden="true"
           className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           onClick={() => setIsMenuOpen(false)}
@@ -115,6 +152,7 @@ const Navigation = () => {
       )}
 
       <nav
+        ref={navRef}
         className="fixed top-0 left-0 right-0 z-50 navbar-blur"
         role="navigation"
         aria-label="Main navigation"
@@ -267,15 +305,20 @@ const Navigation = () => {
                     aria-current={isActive(item.path) ? 'page' : undefined}
                     onClick={() => setIsMenuOpen(false)}
                     style={{ animationDelay: `${20 + index * 15}ms` }}
-                    className={`mobile-nav-item ${itemAnimation} px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
+                    className={`mobile-nav-item ${itemAnimation} relative px-6 py-4 text-lg font-medium transition-all duration-200 touch-target-lg flex items-center rounded-xl mx-2 ${
                       isActive(item.path)
                         ? 'text-primary bg-primary/10 shadow-lg shadow-primary/5'
                         : 'text-muted-foreground hover:bg-muted/20 active:bg-muted/30'
                     }`}
                   >
                     {item.name}
+                    {/* Positioned out of the flow so the label stays centred
+                        like the other items instead of being pushed left. */}
                     {isActive(item.path) && (
-                      <div className="ml-auto w-2 h-2 rounded-full bg-primary"></div>
+                      <span
+                        aria-hidden="true"
+                        className="absolute right-6 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-primary"
+                      />
                     )}
                   </Link>
                 ))}
