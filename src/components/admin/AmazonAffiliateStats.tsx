@@ -1,13 +1,21 @@
-import { useState, useEffect, useCallback } from "react";
-import { logger } from "@/lib/logger";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { DollarSign, MousePointerClick, ShoppingCart, TrendingUp } from "lucide-react";
-import { format, subDays } from "date-fns";
-import { AmazonReportImporter } from "./AmazonReportImporter";
+import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { DollarSign, MousePointerClick, ShoppingCart, TrendingUp } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import { AmazonReportImporter } from './AmazonReportImporter';
 
 interface AffiliateStats {
   totalClicks: number;
@@ -46,7 +54,7 @@ export const AmazonAffiliateStats = () => {
     setLoading(true);
     try {
       const startDate = format(subDays(new Date(), dateRange), 'yyyy-MM-dd');
-      
+
       // Get aggregate stats
       const { data: aggregateData } = await supabase
         .from('amazon_affiliate_stats')
@@ -56,7 +64,8 @@ export const AmazonAffiliateStats = () => {
       const totalClicks = aggregateData?.reduce((sum, row) => sum + row.clicks, 0) || 0;
       const totalOrders = aggregateData?.reduce((sum, row) => sum + row.orders, 0) || 0;
       const totalRevenue = aggregateData?.reduce((sum, row) => sum + Number(row.revenue), 0) || 0;
-      const totalCommission = aggregateData?.reduce((sum, row) => sum + Number(row.commission), 0) || 0;
+      const totalCommission =
+        aggregateData?.reduce((sum, row) => sum + Number(row.commission), 0) || 0;
       const conversionRate = totalClicks > 0 ? (totalOrders / totalClicks) * 100 : 0;
 
       // Get top articles
@@ -68,7 +77,7 @@ export const AmazonAffiliateStats = () => {
         .limit(10);
 
       const articleMap = new Map();
-      articlesData?.forEach(row => {
+      articlesData?.forEach((row) => {
         const id = row.article_id;
         if (!articleMap.has(id)) {
           articleMap.set(id, {
@@ -97,7 +106,7 @@ export const AmazonAffiliateStats = () => {
         .limit(10);
 
       const productMap = new Map();
-      productsData?.forEach(row => {
+      productsData?.forEach((row) => {
         const asin = row.asin;
         if (!productMap.has(asin)) {
           productMap.set(asin, {
@@ -125,7 +134,7 @@ export const AmazonAffiliateStats = () => {
         .order('date', { ascending: true });
 
       const dailyMap = new Map();
-      dailyData?.forEach(row => {
+      dailyData?.forEach((row) => {
         const date = row.date;
         if (!dailyMap.has(date)) {
           dailyMap.set(date, { date, clicks: 0, orders: 0, revenue: 0 });
@@ -171,7 +180,7 @@ export const AmazonAffiliateStats = () => {
   return (
     <div className="space-y-6">
       {/* Report Importer */}
-      <AmazonReportImporter />
+      <AmazonReportImporter onImported={loadStats} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -233,14 +242,9 @@ export const AmazonAffiliateStats = () => {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.dailyStats}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(date) => format(new Date(date), 'MMM d')}
-                />
+                <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'MMM d')} />
                 <YAxis />
-                <Tooltip 
-                  labelFormatter={(date) => format(new Date(date), 'MMM d, yyyy')}
-                />
+                <Tooltip labelFormatter={(date) => format(new Date(date), 'MMM d, yyyy')} />
                 <Line type="monotone" dataKey="clicks" stroke="#8884d8" name="Clicks" />
                 <Line type="monotone" dataKey="orders" stroke="#82ca9d" name="Orders" />
               </LineChart>
@@ -266,17 +270,22 @@ export const AmazonAffiliateStats = () => {
               <div className="space-y-3">
                 {stats.topArticles.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    No article data yet. Click tracking will appear here once users interact with your affiliate links.
+                    No article data yet. Click tracking will appear here once users interact with
+                    your affiliate links.
                   </p>
                 ) : (
                   stats.topArticles.map((article, index) => (
-                    <div key={article.article_id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div
+                      key={article.article_id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
                         <Badge variant="outline">{index + 1}</Badge>
                         <div>
                           <p className="font-medium">{article.article_title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {article.clicks} clicks • {article.orders} orders • ${article.revenue.toFixed(2)} revenue
+                            {article.clicks} clicks • {article.orders} orders • $
+                            {article.revenue.toFixed(2)} revenue
                           </p>
                         </div>
                       </div>
@@ -304,17 +313,22 @@ export const AmazonAffiliateStats = () => {
               <div className="space-y-3">
                 {stats.topProducts.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    No product data yet. Click tracking will appear here once users interact with your affiliate links.
+                    No product data yet. Click tracking will appear here once users interact with
+                    your affiliate links.
                   </p>
                 ) : (
                   stats.topProducts.map((product, index) => (
-                    <div key={product.asin} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div
+                      key={product.asin}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
                         <Badge variant="outline">{index + 1}</Badge>
                         <div>
                           <p className="font-medium">{product.product_title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {product.clicks} clicks • {product.orders} orders • ${product.revenue.toFixed(2)} revenue
+                            {product.clicks} clicks • {product.orders} orders • $
+                            {product.revenue.toFixed(2)} revenue
                           </p>
                         </div>
                       </div>
