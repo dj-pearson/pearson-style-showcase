@@ -87,6 +87,10 @@ const PUBLIC_FUNCTIONS = new Set([
   'health-dashboard',
   'track-affiliate-click',
   'newsletter-signup',
+  // Opened from links in newsletter email; the one-click unsubscribe POST
+  // comes straight from mail providers. Both check their own token.
+  'newsletter-confirm',
+  'newsletter-unsubscribe',
   'send-contact-email',
   'receive-email',
   'email-webhook-receiver',
