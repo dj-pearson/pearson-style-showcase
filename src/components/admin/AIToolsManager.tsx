@@ -49,6 +49,7 @@ import {
   CheckCircle,
   Clock,
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
 
 type AITool = Tables<'ai_tools'>;
 
@@ -71,6 +72,7 @@ const PRICING_OPTIONS = ['Free', 'Freemium', 'Paid', 'Open Source', 'Enterprise'
 const STATUS_OPTIONS = ['Active', 'Beta', 'Coming Soon', 'Deprecated', 'Draft'];
 
 export const AIToolsManager: React.FC = () => {
+  const confirm = useConfirm();
   const [tools, setTools] = useState<AITool[]>([]);
   const [draftTools, setDraftTools] = useState<AITool[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -403,7 +405,14 @@ export const AIToolsManager: React.FC = () => {
   };
 
   const deleteTool = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this AI tool?')) return;
+    const title = tools.find((t) => t.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete AI tool "${title}"?` : 'Delete this AI tool?',
+      description: 'It comes off the AI tools page. This cannot be undone.',
+      confirmLabel: 'Delete tool',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('ai_tools').delete().eq('id', id);
@@ -514,10 +523,13 @@ export const AIToolsManager: React.FC = () => {
   };
 
   const rejectTool = async (tool: AITool) => {
-    if (
-      !confirm(`Are you sure you want to reject "${tool.title}"? This will permanently delete it.`)
-    )
-      return;
+    const ok = await confirm({
+      title: `Reject "${tool.title}"?`,
+      description: 'Rejecting a draft deletes it permanently.',
+      confirmLabel: 'Reject and delete',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('ai_tools').delete().eq('id', tool.id);

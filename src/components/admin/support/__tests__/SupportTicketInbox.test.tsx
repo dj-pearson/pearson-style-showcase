@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@/test/test-utils';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 import type { SupabaseMock } from '@/test/mocks/supabase';
 
 vi.mock('@/integrations/supabase/client', async () => {
@@ -17,6 +18,15 @@ beforeEach(() => {
   mock.setTableResult('support_tickets', { data: [], error: null });
 });
 
+// The admin dashboard mounts ConfirmProvider; the inbox needs it for bulk delete.
+function renderInbox() {
+  return render(
+    <ConfirmProvider>
+      <SupportTicketInbox onSelectTicket={() => {}} />
+    </ConfirmProvider>
+  );
+}
+
 describe('SupportTicketInbox stat filters', () => {
   // These five tiles were clickable divs: no role, no tab stop, no key handler,
   // so the filters could not be reached without a mouse at all.
@@ -27,12 +37,12 @@ describe('SupportTicketInbox stat filters', () => {
     ['Show all active tickets'],
     ['Toggle archived tickets'],
   ])('exposes "%s" as a button', async (name) => {
-    render(<SupportTicketInbox onSelectTicket={() => {}} />);
+    renderInbox();
     await waitFor(() => expect(screen.getByRole('button', { name })).toBeInTheDocument());
   });
 
   it('renders each stat filter as a real button element, not a div with a role', async () => {
-    render(<SupportTicketInbox onSelectTicket={() => {}} />);
+    renderInbox();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Show open tickets' })).toBeInTheDocument()
     );

@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+import { useConfirm, type ConfirmOptions } from '@/hooks/useConfirm';
 
 interface QuickAction {
   id: string;
@@ -15,22 +16,22 @@ interface QuickAction {
   icon: React.ReactNode;
   action: () => Promise<void>;
   variant?: 'default' | 'destructive' | 'outline' | 'secondary';
-  requiresConfirmation?: boolean;
+  /** Ask before running; the copy should name what the action does. */
+  confirmation?: ConfirmOptions;
 }
 
 export const QuickActionsPanel: React.FC = () => {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const handleAction = async (
     actionId: string,
     actionFn: () => Promise<void>,
-    requiresConfirmation: boolean = false
+    confirmation?: ConfirmOptions
   ) => {
-    if (requiresConfirmation) {
-      if (!confirm('Are you sure you want to perform this action?')) {
-        return;
-      }
+    if (confirmation && !(await confirm(confirmation))) {
+      return;
     }
 
     setLoadingAction(actionId);
@@ -226,7 +227,13 @@ export const QuickActionsPanel: React.FC = () => {
         }
       },
       variant: 'outline',
-      requiresConfirmation: true,
+      confirmation: {
+        title: 'Remove admin sessions older than 30 days?',
+        description:
+          'Session records created more than 30 days ago are deleted. Anyone still signed in on one of them is signed out.',
+        confirmLabel: 'Remove sessions',
+        destructive: true,
+      },
     },
     {
       id: 'refresh-stats',
@@ -282,7 +289,7 @@ export const QuickActionsPanel: React.FC = () => {
               key={action.id}
               variant={action.variant || 'default'}
               className="h-auto p-4 flex flex-col items-start gap-2 text-left"
-              onClick={() => handleAction(action.id, action.action, action.requiresConfirmation)}
+              onClick={() => handleAction(action.id, action.action, action.confirmation)}
               disabled={loadingAction === action.id}
             >
               <div className="flex items-center gap-2 w-full">

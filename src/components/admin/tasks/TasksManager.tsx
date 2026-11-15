@@ -30,6 +30,7 @@ import { TasksTable } from './TasksTable';
 import { BulkImportDialog } from './BulkImportDialog';
 import { TextExportDialog } from './TextExportDialog';
 import { AITaskGeneratorDialog } from './AITaskGeneratorDialog';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface TasksManagerProps {
   selectedProject: string | null;
@@ -55,6 +56,7 @@ export const TasksManager = ({
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const { data: projects } = useQuery({
     queryKey: ['task_projects'],
@@ -164,7 +166,14 @@ export const TasksManager = ({
   };
 
   const handleDelete = async (taskId: string) => {
-    if (!confirm('Delete this task and all its subtasks?')) return;
+    const title = tasks?.find((t) => t.id === taskId)?.title;
+    const ok = await confirm({
+      title: title ? `Delete task "${title}"?` : 'Delete this task?',
+      description: 'Its subtasks are deleted with it. This cannot be undone.',
+      confirmLabel: 'Delete task',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
     if (error) {
       toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });

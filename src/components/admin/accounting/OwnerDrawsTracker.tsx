@@ -32,6 +32,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
 
 export const OwnerDrawsTracker = () => {
   const [taxYear, setTaxYear] = useState(new Date().getFullYear().toString());
@@ -43,6 +44,7 @@ export const OwnerDrawsTracker = () => {
     description: '',
   });
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   // Fetch owner draw payments
   const { data: draws } = useQuery({
@@ -334,10 +336,14 @@ export const OwnerDrawsTracker = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => {
-                          if (confirm('Delete this draw record?')) {
-                            deleteDrawMutation.mutate(draw.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Delete the ${formatCurrency(Number(draw.amount))} owner draw from ${format(new Date(draw.payment_date), 'MMM d, yyyy')}?`,
+                            description: 'Year-to-date draws are recalculated without it.',
+                            confirmLabel: 'Delete draw',
+                            destructive: true,
+                          });
+                          if (ok) deleteDrawMutation.mutate(draw.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-muted-foreground" />

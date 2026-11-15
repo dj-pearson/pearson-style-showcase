@@ -30,6 +30,7 @@ import {
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Project {
   id: string;
@@ -58,6 +59,7 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
   });
 
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['task_projects'],
@@ -281,9 +283,16 @@ export const ProjectsManager = ({ onSelectProject }: ProjectsManagerProps) => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (confirm('Delete this project?')) deleteMutation.mutate(project.id);
+                        const ok = await confirm({
+                          title: `Delete project "${project.name}"?`,
+                          description:
+                            'The project is removed from task management. This cannot be undone.',
+                          confirmLabel: 'Delete project',
+                          destructive: true,
+                        });
+                        if (ok) deleteMutation.mutate(project.id);
                       }}
                     >
                       <Trash2 className="h-4 w-4" />

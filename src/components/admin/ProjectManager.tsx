@@ -44,6 +44,7 @@ import {
   ChevronDown,
   GripVertical,
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Project {
   id: string;
@@ -63,6 +64,7 @@ interface Project {
 const PROJECT_STATUSES = ['Active', 'In Development', 'On Hold', 'Completed', 'Archived'];
 
 export const ProjectManager: React.FC = () => {
+  const confirm = useConfirm();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -321,7 +323,14 @@ export const ProjectManager: React.FC = () => {
   };
 
   const deleteProject = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
+    const title = projects.find((p) => p.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete project "${title}"?` : 'Delete this project?',
+      description: 'It comes off the projects page. This cannot be undone.',
+      confirmLabel: 'Delete project',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('projects').delete().eq('id', id);

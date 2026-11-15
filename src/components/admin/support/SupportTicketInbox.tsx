@@ -42,6 +42,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface SupportTicket {
   id: string;
@@ -70,6 +71,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   selectedTicketId,
 }) => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const confirm = useConfirm();
   const [filteredTickets, setFilteredTickets] = useState<SupportTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -301,13 +303,14 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const bulkDelete = async () => {
     if (selectedTickets.size === 0) return;
 
-    if (
-      !confirm(
-        `Are you sure you want to delete ${selectedTickets.size} ticket(s)? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+    const count = selectedTickets.size;
+    const ok = await confirm({
+      title: count === 1 ? 'Delete 1 ticket?' : `Delete ${count} tickets?`,
+      description: 'The selected tickets are deleted permanently. This cannot be undone.',
+      confirmLabel: count === 1 ? 'Delete ticket' : `Delete ${count} tickets`,
+      destructive: true,
+    });
+    if (!ok) return;
 
     setIsProcessing(true);
     try {

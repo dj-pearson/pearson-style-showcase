@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Platform {
   id: string;
@@ -61,6 +62,7 @@ interface Account {
 
 const PlatformsManager: React.FC = () => {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'revenue' | 'expense' | 'both'>('all');
@@ -571,10 +573,15 @@ const PlatformsManager: React.FC = () => {
                         aria-label={`Delete platform ${platform.name}`}
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this platform?')) {
-                            deleteMutation.mutate(platform.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Delete platform "${platform.name}"?`,
+                            description:
+                              'It can no longer be picked for new transactions. This cannot be undone.',
+                            confirmLabel: 'Delete platform',
+                            destructive: true,
+                          });
+                          if (ok) deleteMutation.mutate(platform.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

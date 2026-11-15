@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Tag, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface ExpenseCategory {
   id: string;
@@ -55,6 +56,7 @@ interface Account {
 
 const ExpenseCategoriesManager: React.FC = () => {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
 
@@ -466,10 +468,15 @@ const ExpenseCategoriesManager: React.FC = () => {
                         aria-label={`Delete category ${category.name}`}
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this category?')) {
-                            deleteMutation.mutate(category.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Delete expense category "${category.name}"?`,
+                            description:
+                              'It can no longer be picked for new expenses. This cannot be undone.',
+                            confirmLabel: 'Delete category',
+                            destructive: true,
+                          });
+                          if (ok) deleteMutation.mutate(category.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
