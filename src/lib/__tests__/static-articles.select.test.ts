@@ -4,6 +4,7 @@ import { CRM_ARTICLE_INDEX } from '@/content/crm-article-index.generated';
 
 const supabase = createSupabaseMock({ data: [] });
 vi.mock('@/integrations/supabase/client', () => ({ supabase }));
+vi.mock('@/integrations/supabase/public-client', () => import('@/test/mocks/public-client'));
 
 const { selectStaticArticles, fetchSeededStaticSlugs } = await import('../static-articles');
 

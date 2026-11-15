@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 
 /**
  * Public profile fields shared by Navigation, Footer, AuthorByline and the
@@ -30,7 +30,7 @@ export interface PublicProfileSettings {
 }
 
 export const fetchPublicProfileSettings = async (): Promise<PublicProfileSettings | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await publicDb
     .from('profile_settings')
     .select(PROFILE_SETTINGS_PUBLIC_COLUMNS)
     .maybeSingle();

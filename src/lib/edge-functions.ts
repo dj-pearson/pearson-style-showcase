@@ -5,7 +5,7 @@
  * This helper provides a drop-in replacement for supabase.functions.invoke()
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { getAccessToken } from '@/integrations/supabase/public-client';
 import { getCSRFHeaders, requiresCSRFProtection } from '@/lib/csrf';
 
 const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL || 'https://functions.danpearson.net';
@@ -45,9 +45,10 @@ export async function invokeEdgeFunction<T = any>(
   try {
     const { body, headers = {}, method = 'POST' } = options;
 
-    // Get auth token from current Supabase session
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    // The signed-in user's token, if any. getAccessToken() only loads the full
+    // supabase client when a session is stored, so public callers (contact
+    // form, newsletter, affiliate tracking) stay off auth-js.
+    const token = await getAccessToken();
 
     // CSRF: attach (and provision) the token for state-changing invocations so
     // sensitive edge functions (admin-auth, secure-vault, ...) receive it.
