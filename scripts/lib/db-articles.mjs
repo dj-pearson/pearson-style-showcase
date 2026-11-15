@@ -9,9 +9,15 @@
  * do not run JavaScript, so to them those posts did not exist.
  *
  * The fetch uses the public anon key and the same RLS-filtered read the site
- * itself makes, so it can see nothing a visitor cannot. A failed fetch warns
- * and returns [] rather than failing the build: a deploy with yesterday's
- * static pages is better than no deploy.
+ * itself makes, so it can see nothing a visitor cannot.
+ *
+ * With no credentials the build skips the database and still succeeds (local
+ * builds, forks). With credentials, a failed fetch throws DbArticlesError and
+ * the prerender exits non-zero. It used to warn and carry on, which shipped a
+ * deploy where every database article was missing: no page, no sitemap entry,
+ * and a 404 for any crawler that had already indexed the URL. A failed build
+ * on Cloudflare Pages leaves the previous deploy live, so failing is what
+ * actually keeps yesterday's pages up.
  */
 
 import DOMPurify from 'dompurify';
@@ -35,6 +41,14 @@ const COLUMNS = [
   'created_at',
   'updated_at',
 ].join(',');
+
+/** Credentials were set but the articles could not be read. */
+export class DbArticlesError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'DbArticlesError';
+  }
+}
 
 const toDate = (value) => (value ? String(value).slice(0, 10) : undefined);
 
@@ -86,31 +100,41 @@ export async function fetchDbArticles({
     `${url.replace(/\/+$/, '')}/rest/v1/articles` +
     `?select=${COLUMNS}&published=eq.true&order=created_at.desc&limit=${limit}`;
 
+  let response;
   try {
-    const response = await fetchImpl(endpoint, {
+    response = await fetchImpl(endpoint, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
       signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!response.ok) {
-      console.warn(
-        `prerender: articles fetch returned ${response.status}; database articles skipped`
-      );
-      return [];
-    }
-    const rows = await response.json();
-    return Array.isArray(rows)
-      ? rows
-          // The slug becomes a file path under dist/, so nothing but the
-          // characters slugify produces gets through.
-          .filter(
-            (row) => /^[a-z0-9][a-z0-9-]*$/i.test(row?.slug || '') && row?.title && row?.content
-          )
-          .map(toContentArticle)
-      : [];
   } catch (error) {
-    console.warn(`prerender: articles fetch failed (${error.message}); database articles skipped`);
-    return [];
+    // Node's fetch reports every network failure as "fetch failed"; the cause
+    // carries the useful part (ECONNREFUSED, ENOTFOUND, a timeout).
+    const cause = error?.cause?.code || error?.cause?.message;
+    throw new DbArticlesError(
+      `articles fetch failed: ${error?.message || error}${cause ? ` (${cause})` : ''}`
+    );
   }
+  if (!response.ok) {
+    throw new DbArticlesError(`articles fetch returned HTTP ${response.status}`);
+  }
+
+  let rows;
+  try {
+    rows = await response.json();
+  } catch (error) {
+    throw new DbArticlesError(`articles response was not JSON: ${error?.message || error}`);
+  }
+  if (!Array.isArray(rows)) {
+    throw new DbArticlesError('articles response was not an array');
+  }
+
+  return (
+    rows
+      // The slug becomes a file path under dist/, so nothing but the
+      // characters slugify produces gets through.
+      .filter((row) => /^[a-z0-9][a-z0-9-]*$/i.test(row?.slug || '') && row?.title && row?.content)
+      .map(toContentArticle)
+  );
 }
 
 let purifier;

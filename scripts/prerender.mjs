@@ -24,7 +24,12 @@ import { join, dirname, resolve } from 'node:path';
 import { marked } from 'marked';
 import { transformSync, build } from 'esbuild';
 import { readArticles, extractFaqs } from './lib/content.mjs';
-import { fetchDbArticles, sanitizeArticleHtml, markAffiliateLinks } from './lib/db-articles.mjs';
+import {
+  fetchDbArticles,
+  sanitizeArticleHtml,
+  markAffiliateLinks,
+  DbArticlesError,
+} from './lib/db-articles.mjs';
 import { STATIC_ROUTES, NAV_LINKS, FOOTER_LINKS } from './lib/static-routes.mjs';
 
 const DIST = 'dist';
@@ -1178,7 +1183,7 @@ const articles = readArticles().filter(({ meta }) => meta.published);
 // carry every column, not the subset fetchDbArticles asks for. Widening the
 // select on its request keeps this to one network call; the raw rows are
 // captured before fetchDbArticles filters and reshapes them. `null` means the
-// database was not read (no credentials, or the fetch failed).
+// database was not read (no credentials).
 let dbRows = null;
 const fetchAllColumns = async (endpoint, init) => {
   const response = await fetch(String(endpoint).replace(/([?&])select=[^&]*/, '$1select=*'), init);
@@ -1195,9 +1200,21 @@ const fetchAllColumns = async (endpoint, init) => {
 // The markdown copy wins when a slug exists in both: it is the reviewed source
 // the database row was seeded from.
 const markdownSlugs = new Set(articles.map(({ meta }) => meta.slug));
-const dbArticles = (await fetchDbArticles({ fetchImpl: fetchAllColumns })).filter(
-  ({ meta }) => !markdownSlugs.has(meta.slug)
-);
+// With credentials set, a failed read stops the build (see db-articles.mjs):
+// shipping without the database articles would 404 every one of their URLs.
+const dbArticles = (
+  await fetchDbArticles({ fetchImpl: fetchAllColumns }).catch((error) => {
+    if (!(error instanceof DbArticlesError)) throw error;
+    console.error(
+      `prerender: ${error.message}.\n` +
+        'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set, so the build needs the database ' +
+        'articles; without them their pages, sitemap entries and feed items would be missing ' +
+        'and the live URLs would 404. Fix the credentials or the API, or unset both variables ' +
+        'to build from the markdown articles only.'
+    );
+    process.exit(1);
+  })
+).filter(({ meta }) => !markdownSlugs.has(meta.slug));
 
 // Data read from the database is stamped with the build time, so react-query
 // treats it as fresh for its staleTime and refetches after. Without the
