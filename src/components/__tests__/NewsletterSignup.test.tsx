@@ -18,7 +18,10 @@ import NewsletterSignup from '../NewsletterSignup';
 beforeEach(() => {
   invokeEdgeFunction.mockReset();
   trackNewsletterSignup.mockReset();
-  invokeEdgeFunction.mockResolvedValue({ data: { message: 'Subscribed.' }, error: null });
+  invokeEdgeFunction.mockResolvedValue({
+    data: { status: 'confirmation_sent', message: 'Check your inbox for a link to confirm.' },
+    error: null,
+  });
 });
 
 describe('NewsletterSignup', () => {
@@ -45,7 +48,7 @@ describe('NewsletterSignup', () => {
 
   it('does not tell a returning subscriber they just subscribed, or count them as a lead', async () => {
     invokeEdgeFunction.mockResolvedValue({
-      data: { message: "You're already subscribed!" },
+      data: { status: 'already_subscribed', message: "You're already subscribed!" },
       error: null,
     });
 
@@ -59,13 +62,16 @@ describe('NewsletterSignup', () => {
     expect(trackNewsletterSignup).not.toHaveBeenCalledWith('success');
   });
 
-  it('confirms a genuine new subscription in place', async () => {
+  it('asks a new subscriber to confirm by email', async () => {
     const user = userEvent.setup();
     render(<NewsletterSignup />);
     await user.type(screen.getByLabelText('Email address'), 'new@example.com');
     await user.click(screen.getByRole('button', { name: /subscribe/i }));
 
-    expect(await screen.findByText("You're in.")).toBeInTheDocument();
+    const heading = await screen.findByText('One more step.');
+    expect(heading.closest('[role="status"]')).toHaveTextContent(
+      'Check new@example.com for a link to confirm.'
+    );
     expect(screen.getByText('new@example.com')).toBeInTheDocument();
     expect(screen.queryByLabelText('Email address')).not.toBeInTheDocument();
     expect(trackNewsletterSignup).toHaveBeenCalledWith('success');
