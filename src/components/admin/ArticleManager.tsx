@@ -49,6 +49,7 @@ import {
   Calendar,
   Send,
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Article {
   id: string;
@@ -105,6 +106,7 @@ const LIST_COLUMNS = [
 ].join(', ');
 
 export const ArticleManager: React.FC = () => {
+  const confirm = useConfirm();
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -757,7 +759,15 @@ export const ArticleManager: React.FC = () => {
   };
 
   const deleteArticle = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) return;
+    const title = articles.find((a) => a.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete article "${title}"?` : 'Delete this article?',
+      description:
+        'The article comes off the site and out of the admin list. This cannot be undone.',
+      confirmLabel: 'Delete article',
+      destructive: true,
+    });
+    if (!ok) return;
     deleteArticleMutation.mutate(id);
   };
 

@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+import { useConfirm } from '@/hooks/useConfirm';
 
 export type DocumentType =
   | 'invoice'
@@ -91,6 +92,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
   onDeny,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const confirm = useConfirm();
   const [documentType, setDocumentType] = useState<DocumentType>(defaultDocumentType || 'invoice');
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -361,7 +363,13 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
   const handleDeny = async (doc: UploadedDocument) => {
     if (!onDeny) return;
-    if (!confirm(`Deny and remove "${doc.file_name}" from the queue?`)) return;
+    const okDeny = await confirm({
+      title: `Deny "${doc.file_name}"?`,
+      description: 'The document is removed from the review queue.',
+      confirmLabel: 'Deny document',
+      destructive: true,
+    });
+    if (!okDeny) return;
     setDenyingId(doc.id);
     try {
       await onDeny(doc.id);
@@ -379,9 +387,13 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
   };
 
   const handleDelete = async (doc: UploadedDocument) => {
-    if (!confirm(`Are you sure you want to delete "${doc.file_name}"?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete "${doc.file_name}"?`,
+      description: 'The file is deleted from storage along with its record. This cannot be undone.',
+      confirmLabel: 'Delete document',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       // Delete from storage

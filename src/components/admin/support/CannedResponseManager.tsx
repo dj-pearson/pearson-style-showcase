@@ -27,6 +27,7 @@ import { MessageSquare, Plus, Trash2, Edit, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface CannedResponse {
   id: string;
@@ -51,6 +52,7 @@ export const CannedResponseManager: React.FC = () => {
     category: 'general',
   });
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     loadResponses();
@@ -145,9 +147,14 @@ export const CannedResponseManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this canned response?')) {
-      return;
-    }
+    const title = responses.find((r) => r.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete canned response "${title}"?` : 'Delete this canned response?',
+      description: 'It stops showing up when replying to tickets. This cannot be undone.',
+      confirmLabel: 'Delete response',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('canned_responses').delete().eq('id', id);

@@ -46,6 +46,7 @@ import { logger } from '@/lib/logger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { DocumentUpload } from './DocumentUpload';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Payment {
   id: string;
@@ -102,6 +103,7 @@ const getDefaultFormData = () => ({
 });
 
 export const PaymentsManager = () => {
+  const confirm = useConfirm();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAllocateDialogOpen, setIsAllocateDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -377,10 +379,14 @@ export const PaymentsManager = () => {
     }
   };
 
-  const handleDelete = (payment: Payment) => {
-    if (confirm(`Are you sure you want to delete payment "${payment.payment_number}"?`)) {
-      deleteMutation.mutate(payment.id);
-    }
+  const handleDelete = async (payment: Payment) => {
+    const ok = await confirm({
+      title: `Delete payment ${payment.payment_number}?`,
+      description: 'The payment is removed from your books. This cannot be undone.',
+      confirmLabel: 'Delete payment',
+      destructive: true,
+    });
+    if (ok) deleteMutation.mutate(payment.id);
   };
 
   const handleAllocate = (payment: Payment) => {

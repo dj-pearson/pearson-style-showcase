@@ -17,8 +17,18 @@ vi.mock('@/lib/edge-functions', () => ({
 
 import { supabase } from '@/integrations/supabase/client';
 import { ArticleManager } from '../ArticleManager';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
 const mock = supabase as unknown as SupabaseMock;
+
+// The admin dashboard mounts ConfirmProvider above every manager.
+function renderManager() {
+  return render(
+    <ConfirmProvider>
+      <ArticleManager />
+    </ConfirmProvider>
+  );
+}
 
 function article(overrides: Record<string, unknown> = {}) {
   return {
@@ -49,19 +59,19 @@ afterEach(() => {
 describe('ArticleManager', () => {
   it('renders the article list', async () => {
     mock.setTableResult('articles', { data: [article()], error: null });
-    render(<ArticleManager />);
+    renderManager();
     await waitFor(() => expect(screen.getByText('My First Post')).toBeInTheDocument());
   });
 
   it('shows an empty state when there are no articles', async () => {
     mock.setTableResult('articles', { data: [], error: null });
-    render(<ArticleManager />);
+    renderManager();
     await waitFor(() => expect(screen.getByText('No articles found')).toBeInTheDocument());
   });
 
   it('opens the create dialog with an empty title (create form)', async () => {
     mock.setTableResult('articles', { data: [], error: null });
-    render(<ArticleManager />);
+    renderManager();
     await waitFor(() => expect(screen.getByText('No articles found')).toBeInTheDocument());
 
     // There are two "New Article" affordances; click the first button.
@@ -73,7 +83,7 @@ describe('ArticleManager', () => {
 
   it('populates the edit dialog with the selected article fields', async () => {
     mock.setTableResult('articles', { data: [article()], error: null });
-    render(<ArticleManager />);
+    renderManager();
     await waitFor(() => expect(screen.getByText('My First Post')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit article' }));
@@ -85,7 +95,7 @@ describe('ArticleManager', () => {
 
   it('loads the body before opening the editor, since the list does not carry it', async () => {
     mock.setTableResult('articles', { data: [article()], error: null });
-    render(<ArticleManager />);
+    renderManager();
     await waitFor(() => expect(screen.getByText('My First Post')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit article' }));
@@ -99,7 +109,7 @@ describe('ArticleManager', () => {
 
   it('keeps the editor shut when the body cannot be loaded, rather than saving a blank over it', async () => {
     mock.setTableResult('articles', { data: [article()], error: null });
-    render(<ArticleManager />);
+    renderManager();
     await waitFor(() => expect(screen.getByText('My First Post')).toBeInTheDocument());
 
     mock.setTableResult('articles', { data: null, error: { message: 'unreachable' } });
@@ -110,17 +120,22 @@ describe('ArticleManager', () => {
     );
   });
 
-  it('asks for confirmation before deleting an article', async () => {
+  it('asks for confirmation, naming the article, and keeps it when cancelled', async () => {
     mock.setTableResult('articles', { data: [article()], error: null });
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const nativeConfirm = vi.spyOn(window, 'confirm');
 
-    render(<ArticleManager />);
+    renderManager();
     await waitFor(() => expect(screen.getByText('My First Post')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete article' }));
 
-    expect(confirmSpy).toHaveBeenCalled();
-    // With confirm declined, the article remains in the list.
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('Delete article "My First Post"?');
+    expect(nativeConfirm).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    // With the dialog cancelled, nothing was deleted.
     expect(screen.getByText('My First Post')).toBeInTheDocument();
   });
 });

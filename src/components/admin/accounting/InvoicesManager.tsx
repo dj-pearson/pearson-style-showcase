@@ -50,6 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { toCsvRow } from '@/lib/csv';
 import { DocumentUpload } from './DocumentUpload';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Invoice {
   id: string;
@@ -92,6 +93,7 @@ interface ParsedInvoiceData {
 }
 
 export const InvoicesManager = () => {
+  const confirm = useConfirm();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
@@ -589,10 +591,15 @@ export const InvoicesManager = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (confirm(`Delete invoice ${invoice.invoice_number}?`)) {
-                                deleteMutation.mutate(invoice.id);
-                              }
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: `Delete invoice ${invoice.invoice_number}?`,
+                                description:
+                                  'The invoice and its line items are removed from your books. This cannot be undone.',
+                                confirmLabel: 'Delete invoice',
+                                destructive: true,
+                              });
+                              if (ok) deleteMutation.mutate(invoice.id);
                             }}
                             title="Delete"
                           >

@@ -56,6 +56,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { hasUnsavedChanges } from '@/lib/unsaved-changes';
 import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
 // Lazy load all admin modules for better performance
 // This reduces initial bundle size by ~60-80%
@@ -734,7 +735,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <>
+    <ConfirmProvider>
       <SEO title="Admin Dashboard | Dan Pearson" description="Admin dashboard" noIndex={true} />
       <SidebarProvider defaultOpen={false}>
         <div className="min-h-screen flex w-full bg-background">
@@ -975,7 +976,7 @@ const AdminDashboard = () => {
           onKeepEditing={cancelViewChange}
         />
       </SidebarProvider>
-    </>
+    </ConfirmProvider>
   );
 };
 

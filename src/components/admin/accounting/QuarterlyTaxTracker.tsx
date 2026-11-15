@@ -33,6 +33,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isPast } from 'date-fns';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
 
 const QUARTERLY_DEADLINES: Record<string, { label: string; deadline: string }> = {
   Q1: { label: 'Q1 (Jan–Mar)', deadline: '-04-15' },
@@ -60,6 +61,7 @@ export const QuarterlyTaxTracker = ({
     confirmationNumber: '',
   });
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   // Fetch estimated tax payments for the selected year
   const { data: payments } = useQuery({
@@ -400,10 +402,15 @@ export const QuarterlyTaxTracker = ({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => {
-                            if (confirm('Delete this payment record?')) {
-                              deletePaymentMutation.mutate(payment.id);
-                            }
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `Delete the ${formatCurrency(Number(payment.amount))} tax payment from ${format(new Date(payment.payment_date), 'MMM d, yyyy')}?`,
+                              description:
+                                'Paid-to-date and remaining liability for the year are recalculated without it.',
+                              confirmLabel: 'Delete payment',
+                              destructive: true,
+                            });
+                            if (ok) deletePaymentMutation.mutate(payment.id);
                           }}
                         >
                           <Trash2 className="h-4 w-4 text-muted-foreground" />

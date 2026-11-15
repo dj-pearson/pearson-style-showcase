@@ -44,6 +44,7 @@ import {
   ChevronDown,
   GripVertical,
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Project {
   id: string;
@@ -63,6 +64,7 @@ interface Project {
 const PROJECT_STATUSES = ['Active', 'In Development', 'On Hold', 'Completed', 'Archived'];
 
 export const ProjectManager: React.FC = () => {
+  const confirm = useConfirm();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -321,7 +323,14 @@ export const ProjectManager: React.FC = () => {
   };
 
   const deleteProject = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
+    const title = projects.find((p) => p.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete project "${title}"?` : 'Delete this project?',
+      description: 'It comes off the projects page. This cannot be undone.',
+      confirmLabel: 'Delete project',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('projects').delete().eq('id', id);
@@ -632,6 +641,7 @@ export const ProjectManager: React.FC = () => {
                       <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
                       <div className="flex flex-col space-y-1">
                         <Button
+                          aria-label={`Move ${project.title} up`}
                           variant="ghost"
                           size="sm"
                           onClick={() => moveProject(project.id, 'up')}
@@ -641,6 +651,7 @@ export const ProjectManager: React.FC = () => {
                           <ChevronUp className="h-3 w-3" />
                         </Button>
                         <Button
+                          aria-label={`Move ${project.title} down`}
                           variant="ghost"
                           size="sm"
                           onClick={() => moveProject(project.id, 'down')}
@@ -710,6 +721,7 @@ export const ProjectManager: React.FC = () => {
                   <div className="flex items-center space-x-2 ml-4">
                     {project.live_link && (
                       <Button
+                        aria-label={`Open ${project.title} live site in a new tab`}
                         variant="outline"
                         size="sm"
                         onClick={() => window.open(project.live_link!, '_blank')}
@@ -717,10 +729,20 @@ export const ProjectManager: React.FC = () => {
                         <Eye className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => editProject(project)}>
+                    <Button
+                      aria-label={`Edit ${project.title}`}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => editProject(project)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => deleteProject(project.id)}>
+                    <Button
+                      aria-label={`Delete ${project.title}`}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteProject(project.id)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

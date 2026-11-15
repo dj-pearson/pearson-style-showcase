@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Inbox, Plus, Edit, Trash2, Mail, RefreshCw } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Mailbox {
   id: string;
@@ -42,6 +43,7 @@ interface Mailbox {
 }
 
 export const EmailMailboxManager = () => {
+  const confirm = useConfirm();
   const { toast } = useToast();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -146,7 +148,15 @@ export const EmailMailboxManager = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this mailbox?')) return;
+    const mailbox = mailboxes.find((m) => m.id === id);
+    const ok = await confirm({
+      title: mailbox ? `Delete mailbox ${mailbox.email_address}?` : 'Delete this mailbox?',
+      description:
+        'Its SMTP settings are removed and replies can no longer be sent from this address.',
+      confirmLabel: 'Delete mailbox',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('email_mailboxes').delete().eq('id', id);

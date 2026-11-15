@@ -35,6 +35,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Account {
   id: string;
@@ -76,6 +77,7 @@ export const ChartOfAccountsManager = () => {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [formData, setFormData] = useState({
     account_number: '',
@@ -268,14 +270,14 @@ export const ChartOfAccountsManager = () => {
     }
   };
 
-  const handleDelete = (account: Account) => {
-    if (
-      confirm(
-        `Are you sure you want to delete account "${account.account_name}"? This cannot be undone.`
-      )
-    ) {
-      deleteMutation.mutate(account.id);
-    }
+  const handleDelete = async (account: Account) => {
+    const ok = await confirm({
+      title: `Delete account "${account.account_name}"?`,
+      description: 'It comes out of the chart of accounts. This cannot be undone.',
+      confirmLabel: 'Delete account',
+      destructive: true,
+    });
+    if (ok) deleteMutation.mutate(account.id);
   };
 
   const formatCurrency = (amount: number) => {

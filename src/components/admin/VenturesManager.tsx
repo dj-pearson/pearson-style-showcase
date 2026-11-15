@@ -23,6 +23,7 @@ import {
 import { toast } from 'sonner';
 import { Loader2, Plus, Edit, Trash2, Rocket, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Venture {
   id: string;
@@ -43,6 +44,7 @@ interface Venture {
 }
 
 const VenturesManager = () => {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVenture, setEditingVenture] = useState<Venture | null>(null);
@@ -71,7 +73,7 @@ const VenturesManager = () => {
       const { data, error } = await supabase
         .from('ventures')
         .select('*')
-        .order('display_order', { ascending: true});
+        .order('display_order', { ascending: true });
       if (error) throw error;
       return data as Venture[];
     },
@@ -91,7 +93,10 @@ const VenturesManager = () => {
 
       const payload = {
         ...data,
-        tech_stack: data.tech_stack.split(',').map((s: string) => s.trim()).filter(Boolean),
+        tech_stack: data.tech_stack
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean),
         metrics: parsedMetrics,
         launch_date: data.launch_date || null,
       };
@@ -124,14 +129,14 @@ const VenturesManager = () => {
 
       const payload = {
         ...data,
-        tech_stack: data.tech_stack.split(',').map((s: string) => s.trim()).filter(Boolean),
+        tech_stack: data.tech_stack
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean),
         metrics: parsedMetrics,
         launch_date: data.launch_date || null,
       };
-      const { error } = await supabase
-        .from('ventures')
-        .update(payload)
-        .eq('id', id);
+      const { error } = await supabase.from('ventures').update(payload).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -195,10 +200,15 @@ const VenturesManager = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this venture?')) {
-      deleteVenture.mutate(id);
-    }
+  const handleDelete = async (id: string) => {
+    const name = ventures?.find((v) => v.id === id)?.name;
+    const ok = await confirm({
+      title: name ? `Delete venture "${name}"?` : 'Delete this venture?',
+      description: 'It disappears from the ventures section of the site. This cannot be undone.',
+      confirmLabel: 'Delete venture',
+      destructive: true,
+    });
+    if (ok) deleteVenture.mutate(id);
   };
 
   const statusColors: Record<string, string> = {
@@ -228,19 +238,19 @@ const VenturesManager = () => {
           </CardTitle>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => {
-                setEditingVenture(null);
-                setFormData(emptyForm);
-              }}>
+              <Button
+                onClick={() => {
+                  setEditingVenture(null);
+                  setFormData(emptyForm);
+                }}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Venture
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
-                  {editingVenture ? 'Edit Venture' : 'Add New Venture'}
-                </DialogTitle>
+                <DialogTitle>{editingVenture ? 'Edit Venture' : 'Add New Venture'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -304,9 +314,7 @@ const VenturesManager = () => {
                     onChange={(e) => setFormData({ ...formData, tech_stack: e.target.value })}
                     placeholder="React, TypeScript, Supabase, AI"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Separate technologies with commas
-                  </p>
+                  <p className="text-xs text-muted-foreground">Separate technologies with commas</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -382,14 +390,18 @@ const VenturesManager = () => {
                       id="display_order"
                       type="number"
                       value={formData.display_order}
-                      onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, display_order: parseInt(e.target.value) })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="featured">Featured</Label>
                     <Select
                       value={formData.featured.toString()}
-                      onValueChange={(value) => setFormData({ ...formData, featured: value === 'true' })}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, featured: value === 'true' })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -403,8 +415,11 @@ const VenturesManager = () => {
                 </div>
 
                 <div className="flex gap-2 pt-4">
-                  <Button type="submit" disabled={createVenture.isPending || updateVenture.isPending}>
-                    {(createVenture.isPending || updateVenture.isPending) ? (
+                  <Button
+                    type="submit"
+                    disabled={createVenture.isPending || updateVenture.isPending}
+                  >
+                    {createVenture.isPending || updateVenture.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Saving...
@@ -489,6 +504,7 @@ const VenturesManager = () => {
                     </div>
                     <div className="flex gap-2">
                       <Button
+                        aria-label={`Edit ${venture.name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(venture)}
@@ -496,6 +512,7 @@ const VenturesManager = () => {
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete ${venture.name}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(venture.id)}

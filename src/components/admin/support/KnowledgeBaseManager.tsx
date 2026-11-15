@@ -28,6 +28,7 @@ import { BookOpen, Plus, Trash2, Edit, Eye, ThumbsUp, ExternalLink } from 'lucid
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface KBArticle {
   id: string;
@@ -60,6 +61,7 @@ export const KnowledgeBaseManager: React.FC = () => {
     published: false,
   });
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     loadArticles();
@@ -184,9 +186,14 @@ export const KnowledgeBaseManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) {
-      return;
-    }
+    const title = articles.find((a) => a.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete knowledge base article "${title}"?` : 'Delete this article?',
+      description: 'It is removed from the knowledge base. This cannot be undone.',
+      confirmLabel: 'Delete article',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('kb_articles').delete().eq('id', id);

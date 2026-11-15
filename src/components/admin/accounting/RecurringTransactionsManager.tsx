@@ -33,6 +33,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface RecurringTransaction {
   id: string;
@@ -64,6 +65,7 @@ interface RecurringTransaction {
 
 const RecurringTransactionsManager: React.FC = () => {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<RecurringTransaction | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
@@ -699,12 +701,15 @@ const RecurringTransactionsManager: React.FC = () => {
                         aria-label={`Delete ${transaction.name}`}
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          if (
-                            confirm('Are you sure you want to delete this recurring transaction?')
-                          ) {
-                            deleteMutation.mutate(transaction.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Delete recurring transaction "${transaction.name}"?`,
+                            description:
+                              'No further entries are generated from it. Entries already recorded stay.',
+                            confirmLabel: 'Delete transaction',
+                            destructive: true,
+                          });
+                          if (ok) deleteMutation.mutate(transaction.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

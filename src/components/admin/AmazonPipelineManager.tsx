@@ -13,8 +13,10 @@ import { AmazonAffiliateStats } from './AmazonAffiliateStats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+import { useConfirm } from '@/hooks/useConfirm';
 
 export const AmazonPipelineManager = () => {
+  const confirm = useConfirm();
   const [settings, setSettings] = useState<any>(null);
   const [runs, setRuns] = useState<any[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -177,7 +179,14 @@ export const AmazonPipelineManager = () => {
   };
 
   const resetSearchTerms = async () => {
-    if (!confirm('Are you sure? This will reset all search terms to unused.')) return;
+    const ok = await confirm({
+      title: 'Reset all search terms to unused?',
+      description:
+        'Every term loses its used date, linked article and product count, so the pipeline can pick it again.',
+      confirmLabel: 'Reset search terms',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase

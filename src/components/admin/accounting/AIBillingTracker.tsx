@@ -60,6 +60,7 @@ import {
   Bar,
 } from 'recharts';
 import { DocumentUpload } from './DocumentUpload';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface AIBillingEntry {
   id: string;
@@ -105,6 +106,7 @@ export const AIBillingTracker = () => {
   const [filterService, setFilterService] = useState<string>('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   // Fetch AI billing entries from platform_transactions with AI-related platforms
   const { data: billingEntries = [], isLoading } = useQuery({
@@ -743,10 +745,15 @@ export const AIBillingTracker = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                if (confirm('Delete this billing entry?')) {
-                                  deleteMutation.mutate(entry.id);
-                                }
+                              onClick={async () => {
+                                const ok = await confirm({
+                                  title: `Delete the ${formatCurrency(Number(entry.amount || 0))} ${entry.platforms?.name || 'AI'} billing entry?`,
+                                  description:
+                                    'AI spend totals are recalculated without it. This cannot be undone.',
+                                  confirmLabel: 'Delete entry',
+                                  destructive: true,
+                                });
+                                if (ok) deleteMutation.mutate(entry.id);
                               }}
                               title="Delete"
                             >
