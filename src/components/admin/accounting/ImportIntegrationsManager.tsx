@@ -38,6 +38,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { todayDateOnly } from '@/lib/accounting/dates';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
@@ -275,7 +276,7 @@ export const ImportIntegrationsManager = () => {
     const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.setAttribute('href', URL.createObjectURL(blob));
-    link.setAttribute('download', `import-logs-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `import-logs-${todayDateOnly()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

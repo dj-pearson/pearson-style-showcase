@@ -45,6 +45,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { parseDateOnly, toDateOnly, todayDateOnly } from '@/lib/accounting/dates';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
@@ -162,10 +163,10 @@ export const AIBillingTracker = () => {
   // Calculate AI spending metrics
   const metrics = useMemo(() => {
     const now = new Date();
-    const thisMonthStart = startOfMonth(now).toISOString().split('T')[0];
-    const thisMonthEnd = endOfMonth(now).toISOString().split('T')[0];
-    const lastMonthStart = startOfMonth(subMonths(now, 1)).toISOString().split('T')[0];
-    const lastMonthEnd = endOfMonth(subMonths(now, 1)).toISOString().split('T')[0];
+    const thisMonthStart = toDateOnly(startOfMonth(now));
+    const thisMonthEnd = toDateOnly(endOfMonth(now));
+    const lastMonthStart = toDateOnly(startOfMonth(subMonths(now, 1)));
+    const lastMonthEnd = toDateOnly(endOfMonth(subMonths(now, 1)));
 
     let thisMonthTotal = 0;
     let lastMonthTotal = 0;
@@ -228,7 +229,7 @@ export const AIBillingTracker = () => {
       const { _label, ...services } = data;
       const total = Object.values(services).reduce((sum, v) => sum + v, 0);
       return {
-        month: format(new Date(key + '-01'), 'MMM yyyy'),
+        month: format(parseDateOnly(`${key}-01`), 'MMM yyyy'),
         total,
         ...services,
       };
@@ -425,7 +426,7 @@ export const AIBillingTracker = () => {
                         parsedData.invoice_date ||
                         parsedData.date ||
                         parsedData.billing_period_start ||
-                        new Date().toISOString().split('T')[0],
+                        todayDateOnly(),
                       billing_period_end:
                         parsedData.billing_period_end || parsedData.due_date || '',
                       total_amount: parseFloat(parsedData.total_amount || parsedData.amount || '0'),
@@ -870,8 +871,7 @@ const AIBillingForm = ({
   const [formData, setFormData] = useState({
     service_name: initialData?.service_name || '',
     platform_id: initialData?.platform_id || '',
-    billing_period_start:
-      initialData?.billing_period_start || new Date().toISOString().split('T')[0],
+    billing_period_start: initialData?.billing_period_start || todayDateOnly(),
     billing_period_end: initialData?.billing_period_end || '',
     total_amount: initialData?.total_amount?.toString() || '',
     currency: initialData?.currency || 'USD',

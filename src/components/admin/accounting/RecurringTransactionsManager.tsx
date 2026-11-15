@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { todayDateOnly } from '@/lib/accounting/dates';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,7 +82,7 @@ const RecurringTransactionsManager: React.FC = () => {
     account_id: '',
     frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly',
     interval_count: '1',
-    start_date: new Date().toISOString().split('T')[0],
+    start_date: todayDateOnly(),
     end_date: '',
     auto_create: true,
     auto_post: false,
@@ -242,7 +243,7 @@ const RecurringTransactionsManager: React.FC = () => {
       account_id: '',
       frequency: 'monthly',
       interval_count: '1',
-      start_date: new Date().toISOString().split('T')[0],
+      start_date: todayDateOnly(),
       end_date: '',
       auto_create: true,
       auto_post: false,

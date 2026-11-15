@@ -44,6 +44,7 @@ import {
 import { Plus, Receipt, Trash2, Edit, Check, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { parseDateOnly } from '@/lib/accounting/dates';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { format } from 'date-fns';
@@ -563,7 +564,7 @@ export const JournalEntriesManager = () => {
   };
 
   const formatDate = (date: string) => {
-    return format(new Date(date), 'MMM d, yyyy');
+    return format(parseDateOnly(date), 'MMM d, yyyy');
   };
 
   const getStatusBadge = (status: string) => {
