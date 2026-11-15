@@ -130,15 +130,59 @@ const Index = () => {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [shouldLoadOrb]);
 
-  // Scroll-linked hero exit + section reveals. ScrollTrigger is imported on
-  // demand so it stays out of the homepage's critical path. Skipped entirely
-  // for reduced motion (OS setting or in-app toggle): content stays static.
+  // Scroll-linked hero exit + section reveals. Skipped entirely for reduced
+  // motion (OS setting or in-app toggle): content stays static.
+  //
+  // The reveals used to be scrubbed ScrollTriggers measured once on mount.
+  // Each LazySection below reserves a tall placeholder that later shrinks to
+  // its real content (or to nothing, when a query comes back empty), so those
+  // measured start positions ended up past the end of the document and the
+  // last sections sat at opacity 0 for good. Reveals now run off an
+  // IntersectionObserver, which reads live geometry, play once, and count a
+  // section that is already above the viewport as revealed. Only the hero
+  // exit still uses ScrollTrigger (imported on demand, out of the critical
+  // path), and it is re-measured whenever the page's height changes.
   const reduceMotion = preferences.reducedMotion || prefersReducedMotionOS();
   useEffect(() => {
-    if (reduceMotion || !mainRef.current) return;
+    const root = mainRef.current;
+    if (reduceMotion || !root) return;
 
     let cancelled = false;
     let ctx: gsap.Context | undefined;
+    let resizeObserver: ResizeObserver | undefined;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let revealObserver: IntersectionObserver | undefined;
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      // Anything already on screen, or above it, at mount stays as it is.
+      const pending = Array.from(root.querySelectorAll<HTMLElement>('.animate-section')).filter(
+        (section) => section.getBoundingClientRect().top > window.innerHeight * 0.85
+      );
+      // y only, no scale: scaling a full-width section above 1 widened the
+      // page past the viewport on phones.
+      gsap.set(pending, { opacity: 0, y: 40 });
+
+      revealObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            const passed = entry.boundingClientRect.top < 0;
+            if (!entry.isIntersecting && !passed) continue;
+            revealObserver?.unobserve(entry.target);
+            gsap.to(entry.target, {
+              opacity: 1,
+              y: 0,
+              duration: 0.7,
+              ease: 'power2.out',
+              overwrite: true,
+              clearProps: 'opacity,transform',
+            });
+          }
+        },
+        // Fires when a section's top crosses 85% of the viewport height.
+        { rootMargin: '0px 0px -15% 0px' }
+      );
+      pending.forEach((section) => revealObserver?.observe(section));
+    }
 
     import('gsap/ScrollTrigger')
       .then(({ ScrollTrigger }) => {
@@ -146,8 +190,7 @@ const Index = () => {
         gsap.registerPlugin(ScrollTrigger);
 
         ctx = gsap.context(() => {
-          // Hero Exit Animation
-          // As user scrolls down, Hero content fades out and scales down (zooms out)
+          // As the reader scrolls down, the hero fades out and zooms out.
           gsap.to(heroRef.current, {
             scrollTrigger: {
               trigger: heroRef.current,
@@ -159,48 +202,39 @@ const Index = () => {
             scale: 0.8,
             ease: 'power1.inOut',
           });
-
-          // Sections Entry Animation (Zoom Out / Settle effect)
-          const sections = gsap.utils.toArray<HTMLElement>('.animate-section');
-
-          sections.forEach((section) => {
-            gsap.fromTo(
-              section,
-              {
-                opacity: 0,
-                scale: 1.1,
-                y: 50,
-              },
-              {
-                scrollTrigger: {
-                  trigger: section,
-                  start: 'top 85%', // Start animation when top of section hits 85% of viewport
-                  end: 'top 50%',
-                  scrub: 1,
-                  toggleActions: 'play none none reverse',
-                },
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                duration: 1,
-                ease: 'power2.out',
-              }
-            );
-          });
         }, mainRef);
+
+        // Lazy sections mount and settle long after this runs, so re-measure
+        // the triggers once the page's height stops changing.
+        if (typeof ResizeObserver !== 'undefined') {
+          resizeObserver = new ResizeObserver(() => {
+            clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
+          });
+          resizeObserver.observe(mainRef.current);
+        }
       })
       .catch(() => {
-        // Chunk failed to load: sections simply render without the reveal.
+        // Chunk failed to load: the hero simply stays put.
       });
 
     return () => {
       cancelled = true;
+      clearTimeout(refreshTimer);
+      resizeObserver?.disconnect();
+      revealObserver?.disconnect();
       ctx?.revert();
+      // A section still waiting for its reveal must not stay hidden after
+      // the effect goes away (reduced motion switched on mid-page).
+      gsap.set(root.querySelectorAll('.animate-section'), { clearProps: 'opacity,transform' });
     };
   }, [reduceMotion]);
 
   return (
-    <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
+    <div
+      ref={mainRef}
+      className="min-h-screen flex flex-col relative bg-background overflow-x-clip"
+    >
       {/* Fixed 3D Background - Interactive (skipped for reduced motion/low performance) */}
       <div className="fixed inset-0 z-0" aria-hidden="true" role="presentation">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
