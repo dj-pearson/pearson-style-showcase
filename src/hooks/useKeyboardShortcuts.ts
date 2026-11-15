@@ -9,6 +9,31 @@ export interface KeyboardShortcut {
   description: string;
   action: () => void;
   preventDefault?: boolean;
+  /**
+   * Fire even while focus is in an input, textarea or contenteditable.
+   * Defaults to false so shortcuts never hijack text editing keys such as
+   * Ctrl+A (select all) inside a form field.
+   */
+  allowInInputs?: boolean;
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable
+  );
+}
+
+/**
+ * Printable symbols like '?' or '!' already need Shift on most layouts, so
+ * the Shift state carries no information for them. Letters, digits and named
+ * keys (Escape, ArrowUp...) still require an exact Shift match.
+ */
+function shiftIsImplicit(key: string): boolean {
+  return key.length === 1 && !/[a-z0-9]/i.test(key);
 }
 
 /**
@@ -31,27 +56,12 @@ export interface KeyboardShortcut {
  * ]);
  * ```
  */
-export function useKeyboardShortcuts(
-  shortcuts: KeyboardShortcut[],
-  enabled: boolean = true
-) {
+export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[], enabled: boolean = true) {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!enabled) return;
 
-      // Don't trigger shortcuts when typing in input fields
-      const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        // Allow certain shortcuts even in input fields (like Cmd+S for save)
-        const allowInInputs = shortcuts.some(
-          s => s.ctrlKey || s.metaKey
-        );
-        if (!allowInInputs) return;
-      }
+      const inEditable = isEditableTarget(event.target);
 
       for (const shortcut of shortcuts) {
         const {
@@ -62,7 +72,10 @@ export function useKeyboardShortcuts(
           altKey = false,
           action,
           preventDefault = true,
+          allowInInputs = false,
         } = shortcut;
+
+        if (inEditable && !allowInInputs) continue;
 
         // Check if key matches (case-insensitive)
         const keyMatches = event.key.toLowerCase() === key.toLowerCase();
@@ -70,11 +83,11 @@ export function useKeyboardShortcuts(
         // Check modifiers
         // On Mac, Cmd (metaKey) is more common; on Windows/Linux, Ctrl is used
         const modifierMatches =
-          event.shiftKey === shiftKey &&
+          (shiftIsImplicit(key) || event.shiftKey === shiftKey) &&
           event.altKey === altKey &&
           ((ctrlKey && (event.ctrlKey || event.metaKey)) ||
             (metaKey && (event.metaKey || event.ctrlKey)) ||
-            (!ctrlKey && !metaKey));
+            (!ctrlKey && !metaKey && !event.ctrlKey && !event.metaKey));
 
         if (keyMatches && modifierMatches) {
           if (preventDefault) {

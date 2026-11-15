@@ -5,12 +5,46 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit, Lock, Terminal, Database, Server, Cloud, GitBranch, Code2, Settings } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Edit,
+  Lock,
+  Terminal,
+  Database,
+  Server,
+  Cloud,
+  GitBranch,
+  Code2,
+  Settings,
+} from 'lucide-react';
 
 type CommandTemplate = {
   id: string;
@@ -43,7 +77,7 @@ export const CommandTemplateManager = () => {
     name: '',
     description: '',
     category: 'general',
-    template: ''
+    template: '',
   });
 
   const queryClient = useQueryClient();
@@ -60,34 +94,34 @@ export const CommandTemplateManager = () => {
         .order('name');
       if (error) throw error;
       return data as CommandTemplate[];
-    }
+    },
   });
 
   // Extract placeholders from template string
   const extractPlaceholders = (template: string): string[] => {
     const matches = template.match(/\[([A-Z0-9_]+)\]/g) || [];
-    return [...new Set(matches.map(m => m.slice(1, -1)))];
+    return [...new Set(matches.map((m) => m.slice(1, -1)))];
   };
 
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const placeholders = extractPlaceholders(formData.template);
 
-      const { error } = await supabase
-        .from('vault_command_templates')
-        .insert({
-          name: formData.name,
-          description: formData.description || null,
-          category: formData.category,
-          template: formData.template,
-          placeholders,
-          is_system: false,
-          user_id: user.id
-        });
+      const { error } = await supabase.from('vault_command_templates').insert({
+        name: formData.name,
+        description: formData.description || null,
+        category: formData.category,
+        template: formData.template,
+        placeholders,
+        is_system: false,
+        user_id: user.id,
+      });
 
       if (error) throw error;
     },
@@ -99,7 +133,7 @@ export const CommandTemplateManager = () => {
     },
     onError: (error) => {
       toast.error('Failed to create template: ' + error.message);
-    }
+    },
   });
 
   // Update mutation
@@ -117,7 +151,7 @@ export const CommandTemplateManager = () => {
           category: formData.category,
           template: formData.template,
           placeholders,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', editingTemplate.id);
 
@@ -131,16 +165,13 @@ export const CommandTemplateManager = () => {
     },
     onError: (error) => {
       toast.error('Failed to update template: ' + error.message);
-    }
+    },
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('vault_command_templates')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('vault_command_templates').delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -152,7 +183,7 @@ export const CommandTemplateManager = () => {
     },
     onError: (error) => {
       toast.error('Failed to delete template: ' + error.message);
-    }
+    },
   });
 
   const resetForm = () => {
@@ -167,7 +198,7 @@ export const CommandTemplateManager = () => {
       name: template.name,
       description: template.description || '',
       category: template.category,
-      template: template.template
+      template: template.template,
     });
     setIsAdding(true);
   };
@@ -192,7 +223,7 @@ export const CommandTemplateManager = () => {
   };
 
   const getCategoryIcon = (category: string) => {
-    const option = categoryOptions.find(c => c.value === category);
+    const option = categoryOptions.find((c) => c.value === category);
     if (option) {
       const Icon = option.icon;
       return <Icon className="h-4 w-4" />;
@@ -201,7 +232,7 @@ export const CommandTemplateManager = () => {
   };
 
   const getCategoryLabel = (category: string) => {
-    const option = categoryOptions.find(c => c.value === category);
+    const option = categoryOptions.find((c) => c.value === category);
     return option?.label || category;
   };
 
@@ -210,9 +241,7 @@ export const CommandTemplateManager = () => {
       {/* Add/Edit Form */}
       {isAdding ? (
         <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-muted/30">
-          <h4 className="font-medium">
-            {editingTemplate ? 'Edit Template' : 'New Template'}
-          </h4>
+          <h4 className="font-medium">{editingTemplate ? 'Edit Template' : 'New Template'}</h4>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -220,7 +249,7 @@ export const CommandTemplateManager = () => {
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., My Custom SSH Command"
               />
             </div>
@@ -229,13 +258,13 @@ export const CommandTemplateManager = () => {
               <Label htmlFor="category">Category</Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map(option => {
+                  {categoryOptions.map((option) => {
                     const Icon = option.icon;
                     return (
                       <SelectItem key={option.value} value={option.value}>
@@ -256,7 +285,7 @@ export const CommandTemplateManager = () => {
             <Input
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               placeholder="Optional description of what this template does"
             />
           </div>
@@ -266,7 +295,7 @@ export const CommandTemplateManager = () => {
             <Textarea
               id="template"
               value={formData.template}
-              onChange={(e) => setFormData(prev => ({ ...prev, template: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, template: e.target.value }))}
               placeholder="e.g., ssh [SSH_USER]@[SSH_HOST] -p [SSH_PORT]"
               className="font-mono"
               rows={3}
@@ -284,7 +313,7 @@ export const CommandTemplateManager = () => {
                 {extractPlaceholders(formData.template).length === 0 ? (
                   <span className="text-sm text-muted-foreground">No placeholders detected</span>
                 ) : (
-                  extractPlaceholders(formData.template).map(p => (
+                  extractPlaceholders(formData.template).map((p) => (
                     <Badge key={p} variant="outline" className="font-mono">
                       [{p}]
                     </Badge>
@@ -298,16 +327,12 @@ export const CommandTemplateManager = () => {
             <Button type="button" variant="outline" onClick={resetForm}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending
                 ? 'Saving...'
                 : editingTemplate
                   ? 'Update'
-                  : 'Create'
-              }
+                  : 'Create'}
             </Button>
           </div>
         </form>
@@ -337,7 +362,7 @@ export const CommandTemplateManager = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {templates.map(template => (
+            {templates.map((template) => (
               <TableRow key={template.id}>
                 <TableCell>
                   <Badge variant="outline" className="flex items-center gap-1 w-fit">
@@ -357,7 +382,7 @@ export const CommandTemplateManager = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {(template.placeholders || []).slice(0, 2).map(p => (
+                    {(template.placeholders || []).slice(0, 2).map((p) => (
                       <Badge key={p} variant="secondary" className="text-xs font-mono">
                         {p}
                       </Badge>
@@ -385,6 +410,7 @@ export const CommandTemplateManager = () => {
                   ) : (
                     <div className="flex items-center justify-end gap-1">
                       <Button
+                        aria-label={`Edit template ${template.name}`}
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEdit(template)}
@@ -392,6 +418,7 @@ export const CommandTemplateManager = () => {
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete template ${template.name}`}
                         variant="ghost"
                         size="icon"
                         onClick={() => setDeleteTemplate(template)}
@@ -413,7 +440,8 @@ export const CommandTemplateManager = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Template</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteTemplate?.name}"? This action cannot be undone.
+              Are you sure you want to delete "{deleteTemplate?.name}"? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

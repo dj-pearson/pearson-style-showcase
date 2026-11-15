@@ -18,9 +18,9 @@ test.describe('Mobile navigation', () => {
 
     const menu = page.locator('#mobile-navigation-menu');
     await expect(menu).toBeVisible();
-    // Names mirror navItems in src/components/Navigation.tsx.
+    // Names mirror navItems and ctaItem in src/components/Navigation.tsx.
     await expect(menu.getByRole('link', { name: 'About' })).toBeVisible();
     await expect(menu.getByRole('link', { name: 'Projects' })).toBeVisible();
-    await expect(menu.getByRole('link', { name: 'Connect' })).toBeVisible();
+    await expect(menu.getByRole('link', { name: 'Book an audit' })).toBeVisible();
   });
 });

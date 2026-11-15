@@ -21,40 +21,28 @@ const KeyTakeaways = ({ takeaways, articleTitle }: KeyTakeawaysProps) => {
 
   return (
     <aside
-      className="my-8 p-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg"
+      className="my-8 p-6 bg-primary/5 border border-border rounded-xl"
       aria-labelledby="key-takeaways-heading"
       // data-speakable attribute helps identify content suitable for text-to-speech
       data-speakable="true"
     >
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-cyan-500/20 rounded-lg">
-          <Lightbulb className="w-5 h-5 text-cyan-400" aria-hidden="true" />
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <Lightbulb className="w-5 h-5 text-primary" aria-hidden="true" />
         </div>
-        <h2
-          id="key-takeaways-heading"
-          className="text-lg font-semibold text-cyan-400"
-        >
+        <h2 id="key-takeaways-heading" className="text-lg font-semibold text-foreground">
           Key Takeaways
         </h2>
       </div>
 
       {/* Summary statement for AI engines */}
-      <p className="sr-only">
-        Summary of key points from the article "{articleTitle}":
-      </p>
+      <p className="sr-only">Summary of key points from the article "{articleTitle}":</p>
 
-      <ul
-        className="space-y-3"
-        role="list"
-        aria-label={`Key takeaways from ${articleTitle}`}
-      >
+      <ul className="space-y-3" role="list" aria-label={`Key takeaways from ${articleTitle}`}>
         {takeaways.map((takeaway, index) => (
-          <li
-            key={index}
-            className="flex items-start gap-3 text-gray-300"
-          >
+          <li key={index} className="flex items-start gap-3 text-foreground">
             <span
-              className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-cyan-500/20 text-cyan-400 text-sm font-medium rounded-full mt-0.5"
+              className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary text-sm font-medium rounded-full mt-0.5"
               aria-hidden="true"
             >
               {index + 1}
@@ -89,7 +77,7 @@ export const extractKeyTakeaways = (content: string, maxTakeaways: number = 5): 
     // Extract bullet points from the section
     const bullets = section.match(/^[\s]*[-*•]\s*(.+)$/gm);
     if (bullets) {
-      bullets.slice(0, maxTakeaways).forEach(bullet => {
+      bullets.slice(0, maxTakeaways).forEach((bullet) => {
         const cleanBullet = bullet.replace(/^[\s]*[-*•]\s*/, '').trim();
         if (cleanBullet.length > 10 && cleanBullet.length < 300) {
           takeaways.push(cleanBullet);
@@ -102,8 +90,11 @@ export const extractKeyTakeaways = (content: string, maxTakeaways: number = 5): 
   if (takeaways.length === 0) {
     const numberedList = content.match(/^\s*\d+[.)]\s*\*\*(.+?)\*\*/gm);
     if (numberedList && numberedList.length >= 3) {
-      numberedList.slice(0, maxTakeaways).forEach(item => {
-        const cleanItem = item.replace(/^\s*\d+[.)]\s*\*\*/, '').replace(/\*\*$/, '').trim();
+      numberedList.slice(0, maxTakeaways).forEach((item) => {
+        const cleanItem = item
+          .replace(/^\s*\d+[.)]\s*\*\*/, '')
+          .replace(/\*\*$/, '')
+          .trim();
         if (cleanItem.length > 10 && cleanItem.length < 300) {
           takeaways.push(cleanItem);
         }
@@ -115,7 +106,7 @@ export const extractKeyTakeaways = (content: string, maxTakeaways: number = 5): 
   if (takeaways.length === 0) {
     const headings = content.match(/^##\s+(.+)$/gm);
     if (headings && headings.length >= 3) {
-      headings.slice(0, maxTakeaways).forEach(heading => {
+      headings.slice(0, maxTakeaways).forEach((heading) => {
         const cleanHeading = heading.replace(/^##\s+/, '').trim();
         // Convert heading to statement if it's short enough
         if (cleanHeading.length > 5 && cleanHeading.length < 100) {

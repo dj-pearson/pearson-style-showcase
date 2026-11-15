@@ -49,6 +49,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
@@ -156,6 +157,32 @@ const ModuleLoader = () => {
         <span className="text-sm text-muted-foreground">Loading module...</span>
       </div>
     </div>
+  );
+};
+
+// Sidebar item that also closes the mobile sheet after a pick. It has to be a
+// child of SidebarProvider to read useSidebar(), hence a separate component.
+interface SidebarNavButtonProps {
+  label: string;
+  icon: typeof Settings;
+  isActive: boolean;
+  onSelect: () => void;
+}
+
+const SidebarNavButton = ({ label, icon: Icon, isActive, onSelect }: SidebarNavButtonProps) => {
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenuButton
+      onClick={() => {
+        onSelect();
+        if (isMobile) setOpenMobile(false);
+      }}
+      isActive={isActive}
+      tooltip={label}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      <span>{label}</span>
+    </SidebarMenuButton>
   );
 };
 
@@ -384,7 +411,8 @@ const AdminDashboard = () => {
   // system-status card.
   const hasError = Object.values(statErrors).some(Boolean);
 
-  // Keyboard shortcuts configuration
+  // Keyboard shortcuts configuration. Escape is left to Radix, which closes
+  // the open dialog or popover itself; it never changes the view.
   const shortcuts: KeyboardShortcut[] = [
     {
       key: '?',
@@ -395,37 +423,29 @@ const AdminDashboard = () => {
       key: 'o',
       ctrlKey: true,
       description: 'Go to Overview',
-      action: () => setActiveView('overview'),
+      action: () => requestView('overview'),
       preventDefault: true,
     },
     {
       key: 'p',
       ctrlKey: true,
       description: 'Go to Projects',
-      action: () => setActiveView('projects'),
+      action: () => requestView('projects'),
       preventDefault: true,
     },
     {
       key: 'a',
       ctrlKey: true,
       description: 'Go to Articles',
-      action: () => setActiveView('articles'),
+      action: () => requestView('articles'),
       preventDefault: true,
     },
     {
       key: 's',
       ctrlKey: true,
       description: 'Go to Settings',
-      action: () => setActiveView('settings'),
+      action: () => requestView('settings'),
       preventDefault: true,
-    },
-    {
-      key: 'Escape',
-      description: 'Close dialogs / Return to Overview',
-      action: () => {
-        setShowShortcuts(false);
-        setActiveView('overview');
-      },
     },
   ];
 
@@ -726,14 +746,12 @@ const AdminDashboard = () => {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <SidebarMenuButton
-                        onClick={() => requestView(overviewItem.id)}
+                      <SidebarNavButton
+                        label={overviewItem.label}
+                        icon={overviewItem.icon}
                         isActive={activeView === overviewItem.id}
-                        tooltip={overviewItem.label}
-                      >
-                        <overviewItem.icon className="h-4 w-4" />
-                        <span>{overviewItem.label}</span>
-                      </SidebarMenuButton>
+                        onSelect={() => requestView(overviewItem.id)}
+                      />
                     </SidebarMenuItem>
                   </SidebarMenu>
                 </SidebarGroupContent>
@@ -766,14 +784,12 @@ const AdminDashboard = () => {
                           <SidebarMenu>
                             {group.items.map((item) => (
                               <SidebarMenuItem key={item.id}>
-                                <SidebarMenuButton
-                                  onClick={() => requestView(item.id)}
+                                <SidebarNavButton
+                                  label={item.label}
+                                  icon={item.icon}
                                   isActive={activeView === item.id}
-                                  tooltip={item.label}
-                                >
-                                  <item.icon className="h-4 w-4" />
-                                  <span>{item.label}</span>
-                                </SidebarMenuButton>
+                                  onSelect={() => requestView(item.id)}
+                                />
                               </SidebarMenuItem>
                             ))}
                           </SidebarMenu>
@@ -834,6 +850,7 @@ const AdminDashboard = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleLogout}
+                      aria-label="Log out"
                       className="min-h-[44px] px-3 sm:px-4"
                     >
                       <LogOut className="h-4 w-4 sm:mr-2" />

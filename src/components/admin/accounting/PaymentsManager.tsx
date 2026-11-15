@@ -770,10 +770,20 @@ export const PaymentsManager = () => {
                           >
                             <Link className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(payment)}>
+                          <Button
+                            aria-label={`Edit payment ${payment.payment_number}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(payment)}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(payment)}>
+                          <Button
+                            aria-label={`Delete payment ${payment.payment_number}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(payment)}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -840,6 +850,7 @@ export const PaymentsManager = () => {
                   }}
                 />
                 <Button
+                  aria-label="Remove allocation"
                   type="button"
                   variant="ghost"
                   size="icon"

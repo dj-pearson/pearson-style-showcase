@@ -366,7 +366,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
               </CardTitle>
               <CardDescription className="mt-1">{ticket.subject}</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button aria-label="Close ticket view" variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>

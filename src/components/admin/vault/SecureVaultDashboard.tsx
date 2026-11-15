@@ -11,16 +11,56 @@ import { CommandTemplateManager } from './CommandTemplateManager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
-  Shield, Plus, Search, Eye, EyeOff, Copy, Trash2, Edit,
-  Lock, FileText, Link, Terminal, Key, Settings, RefreshCw,
-  FolderKanban, Globe, Building2, Wand2, FileCode, Upload
+  Shield,
+  Plus,
+  Search,
+  Eye,
+  EyeOff,
+  Copy,
+  Trash2,
+  Edit,
+  Lock,
+  FileText,
+  Link,
+  Terminal,
+  Key,
+  Settings,
+  ArrowUpDown,
+  FolderKanban,
+  Globe,
+  Building2,
+  Wand2,
+  FileCode,
+  Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
@@ -99,7 +139,7 @@ export const SecureVaultDashboard = () => {
       if (error) throw error;
       return data as VaultType[];
     },
-    enabled: isVerified
+    enabled: isVerified,
   });
 
   // Fetch task projects for filtering
@@ -113,21 +153,18 @@ export const SecureVaultDashboard = () => {
       if (error) throw error;
       return data as TaskProject[];
     },
-    enabled: isVerified
+    enabled: isVerified,
   });
 
   // Fetch vault platforms
   const { data: platforms = [] } = useQuery({
     queryKey: ['vault-platforms'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vault_platforms')
-        .select('*')
-        .order('name');
+      const { data, error } = await supabase.from('vault_platforms').select('*').order('name');
       if (error) throw error;
       return data as VaultPlatform[];
     },
-    enabled: isVerified
+    enabled: isVerified,
   });
 
   // Fetch vault items (metadata only, not decrypted values)
@@ -136,41 +173,45 @@ export const SecureVaultDashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('secure_vault_items')
-        .select('id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at, last_accessed_at')
+        .select(
+          'id, name, type_id, project_id, platform_id, placeholder_key, notes, created_at, updated_at, last_accessed_at'
+        )
         .order(sortBy, { ascending: sortOrder === 'asc' });
       if (error) throw error;
       return data as VaultItem[];
     },
-    enabled: isVerified
+    enabled: isVerified,
   });
 
   // Decrypt mutation
   const decryptMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
       const response = await invokeEdgeFunction('secure-vault', {
-        body: { action: 'decrypt', itemId }
+        body: { action: 'decrypt', itemId },
       });
 
       if (response.error) throw new Error(response.error.message);
       return { itemId, value: response.data.value };
     },
     onSuccess: ({ itemId, value }) => {
-      setRevealedItems(prev => ({ ...prev, [itemId]: value }));
-      setLoadingItems(prev => ({ ...prev, [itemId]: false }));
+      setRevealedItems((prev) => ({ ...prev, [itemId]: value }));
+      setLoadingItems((prev) => ({ ...prev, [itemId]: false }));
     },
     onError: (error) => {
       toast.error('Failed to decrypt: ' + error.message);
-    }
+    },
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (itemId: string) => {
       const response = await invokeEdgeFunction('secure-vault', {
-        body: { action: 'delete', itemId }
+        body: { action: 'delete', itemId },
       });
       if (response.error) throw new Error(response.error.message);
       return itemId;
@@ -182,13 +223,13 @@ export const SecureVaultDashboard = () => {
     },
     onError: (error) => {
       toast.error('Failed to delete: ' + error.message);
-    }
+    },
   });
 
   const handleReveal = async (itemId: string) => {
     if (revealedItems[itemId]) {
       // Hide if already revealed
-      setRevealedItems(prev => {
+      setRevealedItems((prev) => {
         const copy = { ...prev };
         delete copy[itemId];
         return copy;
@@ -196,23 +237,25 @@ export const SecureVaultDashboard = () => {
       return;
     }
 
-    setLoadingItems(prev => ({ ...prev, [itemId]: true }));
+    setLoadingItems((prev) => ({ ...prev, [itemId]: true }));
     decryptMutation.mutate(itemId);
   };
 
   const handleCopy = async (itemId: string) => {
     let value = revealedItems[itemId];
-    
+
     if (!value) {
       // Need to decrypt first
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         toast.error('Not authenticated');
         return;
       }
 
       const response = await invokeEdgeFunction('secure-vault', {
-        body: { action: 'decrypt', itemId }
+        body: { action: 'decrypt', itemId },
       });
 
       if (response.error) {
@@ -228,14 +271,17 @@ export const SecureVaultDashboard = () => {
 
   // Filter and sort items
   const filteredItems = items
-    .filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    .filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.notes?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = typeFilter === 'all' || item.type_id === typeFilter;
-      const matchesProject = projectFilter === 'all' || 
+      const matchesProject =
+        projectFilter === 'all' ||
         (projectFilter === 'global' && !item.project_id) ||
         item.project_id === projectFilter;
-      const matchesPlatform = platformFilter === 'all' ||
+      const matchesPlatform =
+        platformFilter === 'all' ||
         (platformFilter === 'none' && !item.platform_id) ||
         item.platform_id === platformFilter;
       return matchesSearch && matchesType && matchesProject && matchesPlatform;
@@ -243,38 +289,36 @@ export const SecureVaultDashboard = () => {
     .sort((a, b) => {
       const aVal = a[sortBy] || '';
       const bVal = b[sortBy] || '';
-      return sortOrder === 'asc' 
-        ? aVal.localeCompare(bVal)
-        : bVal.localeCompare(aVal);
+      return sortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
 
   const getTypeName = (typeId: string | null) => {
     if (!typeId) return 'Unknown';
-    const type = types.find(t => t.id === typeId);
+    const type = types.find((t) => t.id === typeId);
     return type?.name || 'Unknown';
   };
 
   const getTypeIcon = (typeId: string | null) => {
     if (!typeId) return <Key className="h-4 w-4" />;
-    const type = types.find(t => t.id === typeId);
+    const type = types.find((t) => t.id === typeId);
     return iconMap[type?.icon || 'key'] || <Key className="h-4 w-4" />;
   };
 
   const getProjectName = (projectId: string | null) => {
     if (!projectId) return 'Global';
-    const project = projects.find(p => p.id === projectId);
+    const project = projects.find((p) => p.id === projectId);
     return project?.name || 'Unknown';
   };
 
   const getProjectColor = (projectId: string | null) => {
     if (!projectId) return undefined;
-    const project = projects.find(p => p.id === projectId);
+    const project = projects.find((p) => p.id === projectId);
     return project?.color || undefined;
   };
 
   const getPlatformName = (platformId: string | null) => {
     if (!platformId) return null;
-    const platform = platforms.find(p => p.id === platformId);
+    const platform = platforms.find((p) => p.id === platformId);
     return platform?.name || null;
   };
 
@@ -327,7 +371,12 @@ export const SecureVaultDashboard = () => {
             <Upload className="h-4 w-4 mr-2" />
             Import
           </Button>
-          <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
+          <Button
+            onClick={() => {
+              setEditingItem(null);
+              setIsFormOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
@@ -355,7 +404,7 @@ export const SecureVaultDashboard = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {types.map(type => (
+                {types.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
                     <span className="flex items-center gap-2">
                       {iconMap[type.icon] || <Key className="h-4 w-4" />}
@@ -377,10 +426,13 @@ export const SecureVaultDashboard = () => {
                     Global
                   </span>
                 </SelectItem>
-                {projects.map(project => (
+                {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     <span className="flex items-center gap-2">
-                      <FolderKanban className="h-4 w-4" style={{ color: project.color || undefined }} />
+                      <FolderKanban
+                        className="h-4 w-4"
+                        style={{ color: project.color || undefined }}
+                      />
                       {project.name}
                     </span>
                   </SelectItem>
@@ -394,7 +446,7 @@ export const SecureVaultDashboard = () => {
               <SelectContent>
                 <SelectItem value="all">All Platforms</SelectItem>
                 <SelectItem value="none">No Platform</SelectItem>
-                {platforms.map(platform => (
+                {platforms.map((platform) => (
                   <SelectItem key={platform.id} value={platform.id}>
                     <span className="flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
@@ -414,12 +466,13 @@ export const SecureVaultDashboard = () => {
                 <SelectItem value="updated_at">Updated</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              variant="outline" 
+            <Button
+              aria-label={sortOrder === 'asc' ? 'Sort descending' : 'Sort ascending'}
+              variant="outline"
               size="icon"
-              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
             >
-              <RefreshCw className={`h-4 w-4 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+              <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </CardContent>
@@ -438,7 +491,9 @@ export const SecureVaultDashboard = () => {
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : filteredItems.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {searchQuery || typeFilter !== 'all' ? 'No items match your filters' : 'No items in vault. Add your first item!'}
+              {searchQuery || typeFilter !== 'all'
+                ? 'No items match your filters'
+                : 'No items in vault. Add your first item!'}
             </div>
           ) : (
             <Table>
@@ -455,7 +510,7 @@ export const SecureVaultDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map(item => (
+                {filteredItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
                       <Badge variant="outline" className="flex items-center gap-1 w-fit">
@@ -474,13 +529,16 @@ export const SecureVaultDashboard = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className="flex items-center gap-1 w-fit"
                         style={{ borderColor: getProjectColor(item.project_id) || undefined }}
                       >
                         {item.project_id ? (
-                          <FolderKanban className="h-3 w-3" style={{ color: getProjectColor(item.project_id) || undefined }} />
+                          <FolderKanban
+                            className="h-3 w-3"
+                            style={{ color: getProjectColor(item.project_id) || undefined }}
+                          />
                         ) : (
                           <Globe className="h-3 w-3" />
                         )}
@@ -512,6 +570,9 @@ export const SecureVaultDashboard = () => {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
+                          aria-label={
+                            revealedItems[item.id] ? `Hide ${item.name}` : `Reveal ${item.name}`
+                          }
                           variant="ghost"
                           size="icon"
                           onClick={() => handleReveal(item.id)}
@@ -524,6 +585,7 @@ export const SecureVaultDashboard = () => {
                           )}
                         </Button>
                         <Button
+                          aria-label={`Copy ${item.name}`}
                           variant="ghost"
                           size="icon"
                           onClick={() => handleCopy(item.id)}
@@ -531,13 +593,18 @@ export const SecureVaultDashboard = () => {
                           <Copy className="h-4 w-4" />
                         </Button>
                         <Button
+                          aria-label={`Edit ${item.name}`}
                           variant="ghost"
                           size="icon"
-                          onClick={() => { setEditingItem(item); setIsFormOpen(true); }}
+                          onClick={() => {
+                            setEditingItem(item);
+                            setIsFormOpen(true);
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
+                          aria-label={`Delete ${item.name}`}
                           variant="ghost"
                           size="icon"
                           onClick={() => setDeleteItem(item)}
@@ -560,7 +627,7 @@ export const SecureVaultDashboard = () => {
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
           </DialogHeader>
-          <VaultItemForm 
+          <VaultItemForm
             types={types}
             projects={projects}
             platforms={platforms}
@@ -584,7 +651,7 @@ export const SecureVaultDashboard = () => {
           <DialogHeader>
             <DialogTitle>Manage Vault Types</DialogTitle>
           </DialogHeader>
-          <VaultTypeManager 
+          <VaultTypeManager
             types={types}
             onUpdate={() => queryClient.invalidateQueries({ queryKey: ['vault-types'] })}
           />
@@ -603,7 +670,12 @@ export const SecureVaultDashboard = () => {
 
       {/* Command Builder Dialog */}
       <Dialog open={isCommandBuilderOpen} onOpenChange={setIsCommandBuilderOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-5xl max-h-[90vh] overflow-y-auto"
+          aria-describedby={undefined}
+        >
+          {/* CommandBuilder renders its own visible heading; this names the dialog. */}
+          <DialogTitle className="sr-only">Command Builder</DialogTitle>
           <CommandBuilder onClose={() => setIsCommandBuilderOpen(false)} />
         </DialogContent>
       </Dialog>
@@ -645,7 +717,7 @@ export const SecureVaultDashboard = () => {
           <DialogHeader>
             <DialogTitle>Import Secrets</DialogTitle>
           </DialogHeader>
-          <VaultImporter 
+          <VaultImporter
             onSuccess={() => {
               setIsImporterOpen(false);
               queryClient.invalidateQueries({ queryKey: ['vault-items'] });

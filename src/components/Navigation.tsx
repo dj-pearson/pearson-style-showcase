@@ -1,10 +1,11 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, CheckCircle2, Search } from 'lucide-react';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
-import { Button } from './ui/button';
+import { Button, buttonVariants } from './ui/button';
+import { cn } from '@/lib/utils';
 
 // The search dialog (Dialog, ScrollArea, the static article index) is closed on
 // every page load, so it is a lazy chunk mounted on first open. Hovering or
@@ -17,6 +18,8 @@ const prefetchGlobalSearch = () => {
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const isMobile = useIsMobile();
   const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen } = useGlobalSearch();
@@ -53,11 +56,19 @@ const Navigation = () => {
     };
   }, [isMenuOpen, isMobile]);
 
-  // Keyboard navigation: ESC to close menu
+  // Opening the panel moves focus to its first link so keyboard and screen
+  // reader users land inside it instead of having to hunt for it.
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    mobilePanelRef.current?.querySelector<HTMLElement>('a[href], button')?.focus();
+  }, [isMenuOpen]);
+
+  // Escape closes the menu and puts focus back on the toggle that opened it.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isMenuOpen) {
         setIsMenuOpen(false);
+        menuToggleRef.current?.focus();
       }
     };
 
@@ -68,16 +79,17 @@ const Navigation = () => {
   }, [isMenuOpen]);
 
   // Six is the practical ceiling on mobile, so the category entry replaces
-  // "AI Tools" rather than joining it — the affiliate catalogue stays reachable
-  // from the footer's quick links.
+  // "AI Tools" rather than joining it; the affiliate catalogue stays reachable
+  // from the footer's quick links. /connect is not a plain item: it is the
+  // primary call to action ("Book an audit") rendered as a button after them.
   const navItems = [
     { name: 'Home', path: '/' },
     { name: 'AI CRM Automation', path: '/ai-crm-automation' },
     { name: 'Projects', path: '/projects' },
     { name: 'News', path: '/news' },
     { name: 'About', path: '/about' },
-    { name: 'Connect', path: '/connect' },
   ];
+  const ctaItem = { name: 'Book an audit', path: '/connect' };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -167,6 +179,14 @@ const Navigation = () => {
                   )}
                 </Link>
               ))}
+
+              <Link
+                to={ctaItem.path}
+                aria-current={isActive(ctaItem.path) ? 'page' : undefined}
+                className={buttonVariants({ size: 'sm' })}
+              >
+                {ctaItem.name}
+              </Link>
             </div>
 
             {/* Mobile header controls. Search lived only in the desktop bar and
@@ -188,6 +208,7 @@ const Navigation = () => {
 
               {/* Mobile Menu Button - Touch Optimized */}
               <button
+                ref={menuToggleRef}
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="text-foreground hover:text-primary transition-all duration-200 touch-target rounded-lg hover:bg-primary/10 active:scale-95"
                 aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -203,12 +224,13 @@ const Navigation = () => {
             </div>
           </div>
 
-          {/* Mobile Navigation - Optimized for Touch & Swipe */}
+          {/* Mobile navigation panel. Plain links inside the main <nav>, so no
+              menu role: role="menu" promises arrow-key menu behaviour that
+              links do not have. */}
           {isMenuOpen && (
             <div
+              ref={mobilePanelRef}
               id="mobile-navigation-menu"
-              role="menu"
-              aria-label="Navigation menu"
               className="lg:hidden mt-4 pb-4 border-t border-border animate-in fade-in-0 slide-in-from-top-2 duration-200 ease-out motion-reduce:animate-none"
               style={{
                 maxHeight: 'calc(100vh - 80px)',
@@ -257,11 +279,17 @@ const Navigation = () => {
                     )}
                   </Link>
                 ))}
-              </div>
 
-              {/* Swipe indicator */}
-              <div className="flex justify-center mt-6 mb-2">
-                <div className="w-12 h-1 bg-muted rounded-full"></div>
+                <div className={`px-2 pt-3 ${itemAnimation}`}>
+                  <Link
+                    to={ctaItem.path}
+                    aria-current={isActive(ctaItem.path) ? 'page' : undefined}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={cn(buttonVariants({ size: 'lg' }), 'w-full text-base')}
+                  >
+                    {ctaItem.name}
+                  </Link>
+                </div>
               </div>
             </div>
           )}

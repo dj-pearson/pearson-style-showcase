@@ -570,10 +570,20 @@ export const ContactsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(contact)}>
+                          <Button
+                            aria-label={`Edit contact ${contact.contact_name}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(contact)}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(contact)}>
+                          <Button
+                            aria-label={`Delete contact ${contact.contact_name}`}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(contact)}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
