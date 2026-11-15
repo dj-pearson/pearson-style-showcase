@@ -1,6 +1,6 @@
 import { lazy, Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import gsap from 'gsap';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import HeroErrorBoundary from '../components/HeroErrorBoundary';
@@ -55,7 +55,6 @@ function shouldDisableHeavyAnimations(): boolean {
 
 const Index = () => {
   const { trackCTA } = useAnalytics();
-  const navigate = useNavigate();
   const mainRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -507,24 +506,25 @@ const Index = () => {
                   <Button
                     size="lg"
                     className="mobile-button btn-futuristic text-base sm:text-lg font-bold"
-                    onClick={() => {
-                      trackCTA('Book an audit', 'Homepage CTA');
-                      navigate('/connect');
-                    }}
+                    asChild
                   >
-                    Book a CRM automation audit
-                    <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
+                    <Link to="/connect" onClick={() => trackCTA('Book an audit', 'Homepage CTA')}>
+                      Book a CRM automation audit
+                      <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
+                    </Link>
                   </Button>
                   <Button
                     variant="outline"
                     size="lg"
                     className="mobile-button text-base sm:text-lg font-semibold border-primary/50 hover:bg-primary/10 active:bg-primary/20 hover:border-primary"
-                    onClick={() => {
-                      trackCTA('See how it works', 'Homepage CTA');
-                      navigate('/ai-crm-automation');
-                    }}
+                    asChild
                   >
-                    See how it works
+                    <Link
+                      to="/ai-crm-automation"
+                      onClick={() => trackCTA('See how it works', 'Homepage CTA')}
+                    >
+                      See how it works
+                    </Link>
                   </Button>
                 </div>
               </CardContent>

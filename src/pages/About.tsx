@@ -11,14 +11,16 @@ import {
   TrendingUp,
   Users,
   Award,
-  ExternalLink,
+  ArrowRight,
   Linkedin,
   Github,
   LucideIcon,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAnalytics } from '@/components/Analytics';
 
 // Map icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -69,6 +71,7 @@ const SectionError = ({ what, onRetry, isRetrying }: SectionErrorProps) => (
 );
 
 const About = () => {
+  const { trackCTA } = useAnalytics();
   const { data: profile, isLoading: isProfileLoading } = useProfileSettings();
 
   // Fetch achievements from database
@@ -569,27 +572,25 @@ const About = () => {
             {/* CTA Section */}
             <Card className="bg-card border-primary/30">
               <CardContent className="mobile-card text-center">
-                <h3 className="mobile-heading-sm mb-4">Let's Work Together</h3>
+                <h3 className="mobile-heading-sm mb-4">Start with the audit</h3>
                 <p className="text-base text-muted-foreground mb-6 max-w-2xl mx-auto">
-                  Whether you need AI integration, full-stack development, or sales strategy
-                  consulting—I bring a unique perspective that combines technical expertise with
-                  proven business results.
+                  Two weeks, $2,500 flat, and you keep the findings whether or not you build with
+                  me. Tell me which CRM you&apos;re on and what your pipeline gets wrong.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button
-                    size="lg"
-                    className="btn-futuristic"
-                    onClick={() => (window.location.href = '/connect')}
-                  >
-                    Get In Touch
-                    <ExternalLink className="w-5 h-5 ml-2" />
+                  <Button size="lg" className="btn-futuristic" asChild>
+                    <Link
+                      to="/connect"
+                      onClick={() => trackCTA('Book a CRM automation audit', 'About')}
+                    >
+                      Book a CRM automation audit
+                      <ArrowRight className="w-5 h-5 ml-2" aria-hidden="true" />
+                    </Link>
                   </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => (window.location.href = '/projects')}
-                  >
-                    View My Work
+                  <Button size="lg" variant="outline" asChild>
+                    <Link to="/projects" onClick={() => trackCTA('View My Work', 'About')}>
+                      View My Work
+                    </Link>
                   </Button>
                 </div>
               </CardContent>
