@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Navigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
@@ -13,6 +14,9 @@ import {
   Eye,
   ArrowLeft,
   Share2,
+  Linkedin,
+  Twitter,
+  Link as LinkIcon,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -33,6 +37,22 @@ import RelatedArticles from '../components/article/RelatedArticles';
 import KeyTakeaways, { extractKeyTakeaways } from '../components/article/KeyTakeaways';
 import TableOfContents from '../components/article/TableOfContents';
 import OptimizedImage from '../components/OptimizedImage';
+import NewsletterSignup from '../components/NewsletterSignup';
+import { useAnalytics } from '@/components/Analytics';
+
+// Fallback for og:image, the Article image and the publisher logo. The 512px
+// icon is what index.html already serves as the site-wide og:image.
+const DEFAULT_SOCIAL_IMAGE = 'https://danpearson.net/android-chrome-512x512.png';
+
+type SharePlatform = 'linkedin' | 'x' | 'copy' | 'native';
+
+/** The article URL with share attribution, so visits from a share show up as such. */
+function buildShareUrl(platform: SharePlatform): string {
+  const url = new URL(window.location.pathname, window.location.origin);
+  url.searchParams.set('utm_source', platform);
+  url.searchParams.set('utm_medium', 'share');
+  return url.toString();
+}
 
 type Article = Tables<'articles'>;
 
@@ -54,6 +74,12 @@ async function loadStaticArticle(slug: string): Promise<Article | null> {
 const Article = () => {
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const { toast } = useToast();
+  const { trackEvent, trackCTA } = useAnalytics();
+  // Set after mount so the prerendered markup and the first client render match.
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+  }, []);
   const slug = rawSlug ? validateUrlParam(rawSlug) : null;
   // The prerendered page embeds this query's result, so the first commit is
   // the article rather than a skeleton over the HTML already on screen.
@@ -123,35 +149,43 @@ const Article = () => {
   // there is no row behind it, so there is nothing to count yet.
   useArticleView(slug, Boolean(article) && !article?.id?.startsWith('static-'));
 
-  const handleShare = async (platform: string) => {
-    const url = window.location.href;
+  const handleShare = async (platform: SharePlatform) => {
+    const url = buildShareUrl(platform);
     const title = article?.title || '';
+    trackEvent('share', 'Article', `${platform} - ${slug}`);
 
     switch (platform) {
-      case 'twitter':
-        window.open(
-          `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`,
-          '_blank'
-        );
-        break;
-      case 'facebook':
-        window.open(
-          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
-          '_blank'
-        );
-        break;
       case 'linkedin':
         window.open(
           `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
-          '_blank'
+          '_blank',
+          'noopener,noreferrer'
         );
         break;
+      case 'x':
+        window.open(
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
+        break;
+      case 'native':
+        try {
+          await navigator.share({ title, url });
+        } catch {
+          // Dismissing the share sheet rejects too; nothing to report.
+        }
+        break;
       case 'copy':
-        await navigator.clipboard.writeText(url);
-        toast({
-          title: 'Link copied!',
-          description: 'Article link copied to clipboard',
-        });
+        try {
+          await navigator.clipboard.writeText(url);
+          toast({ title: 'Link copied', description: 'The article link is on your clipboard.' });
+        } catch {
+          toast({
+            title: "Couldn't copy the link",
+            description: url,
+          });
+        }
         break;
     }
   };
@@ -351,7 +385,7 @@ const Article = () => {
                 ? article.image_url
                 : article.image_url
                   ? `https://danpearson.net${article.image_url}`
-                  : 'https://danpearson.net/placeholder.svg'
+                  : DEFAULT_SOCIAL_IMAGE
         }
         publishedTime={article.created_at || undefined}
         modifiedTime={article.updated_at || undefined}
@@ -380,7 +414,7 @@ const Article = () => {
                   ? article.image_url
                   : article.image_url
                     ? `https://danpearson.net${article.image_url}`
-                    : 'https://danpearson.net/placeholder.svg',
+                    : DEFAULT_SOCIAL_IMAGE,
           author: {
             '@type': 'Person',
             name: article.author || 'Dan Pearson',
@@ -398,7 +432,7 @@ const Article = () => {
             url: 'https://danpearson.net',
             logo: {
               '@type': 'ImageObject',
-              url: 'https://danpearson.net/placeholder.svg',
+              url: DEFAULT_SOCIAL_IMAGE,
             },
           },
           datePublished: article.created_at,
@@ -592,6 +626,24 @@ const Article = () => {
               )}
             </div>
 
+            {/* End of article: the audit for CRM readers, the newsletter for everyone else */}
+            <aside className="mt-12" aria-label="What next">
+              {/\bcrm\b/i.test(article.category || '') ? (
+                <div className="rounded-xl border border-primary/30 bg-card p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                  <p className="text-base sm:text-lg text-foreground max-w-[60ch]">
+                    Want this applied to your CRM? The audit is $2,500 flat and takes two weeks.
+                  </p>
+                  <Button size="lg" className="mobile-button shrink-0" asChild>
+                    <Link to="/connect" onClick={() => trackCTA('Book an audit', 'Article end')}>
+                      Book an audit
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <NewsletterSignup compact />
+              )}
+            </aside>
+
             {/* Author Byline - E-E-A-T Signal */}
             <div className="mt-12 pt-8 border-t border-border">
               <AuthorByline authorName={article.author || 'Dan Pearson'} />
@@ -611,32 +663,21 @@ const Article = () => {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => handleShare('twitter')}
-                    className="mobile-button border-border hover:border-cyan-500"
-                    aria-label={`Share "${article.title}" on Twitter`}
-                  >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                    Twitter
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
                     onClick={() => handleShare('linkedin')}
                     className="mobile-button border-border hover:border-cyan-500"
                     aria-label={`Share "${article.title}" on LinkedIn`}
                   >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                    <Linkedin className="w-4 h-4 mr-2" aria-hidden="true" />
                     LinkedIn
                   </Button>
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => handleShare('facebook')}
+                    onClick={() => handleShare('x')}
                     className="mobile-button border-border hover:border-cyan-500"
-                    aria-label={`Share "${article.title}" on Facebook`}
+                    aria-label={`Share "${article.title}" on X`}
                   >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                    Facebook
+                    <Twitter className="w-4 h-4 mr-2" aria-hidden="true" />X
                   </Button>
                   <Button
                     variant="outline"
@@ -645,9 +686,21 @@ const Article = () => {
                     className="mobile-button border-border hover:border-cyan-500"
                     aria-label="Copy article link to clipboard"
                   >
-                    <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                    <LinkIcon className="w-4 h-4 mr-2" aria-hidden="true" />
                     Copy Link
                   </Button>
+                  {canNativeShare && (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => handleShare('native')}
+                      className="mobile-button border-border hover:border-cyan-500"
+                      aria-label="Share with another app"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                      More
+                    </Button>
+                  )}
                 </div>
               </div>
             </aside>

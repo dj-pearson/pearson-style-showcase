@@ -197,4 +197,39 @@ describe('Article page', () => {
     );
     expect(document.querySelector('script[type="application/ld+json"]')).not.toBeNull();
   });
+
+  it('ends a CRM article with the audit offer', async () => {
+    mock.setTableResult('articles', { data: articleFixture({ category: 'CRM' }), error: null });
+    renderArticleAt('automating-with-ai');
+    const link = await screen.findByRole('link', { name: 'Book an audit' });
+    expect(link).toHaveAttribute('href', '/connect');
+    expect(screen.queryByText('The pipeline notes')).not.toBeInTheDocument();
+  });
+
+  it('ends any other article with the newsletter', async () => {
+    mock.setTableResult('articles', { data: articleFixture(), error: null });
+    renderArticleAt('automating-with-ai');
+    expect(await screen.findByText('The pipeline notes')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Book an audit' })).not.toBeInTheDocument();
+  });
+
+  it('shares LinkedIn, X and copy link in that order, with no Facebook', async () => {
+    mock.setTableResult('articles', { data: articleFixture(), error: null });
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const user = userEvent.setup();
+    renderArticleAt('automating-with-ai');
+
+    const group = await screen.findByRole('group', { name: 'Share this article' });
+    const labels = Array.from(group.querySelectorAll('button')).map((b) => b.textContent?.trim());
+    expect(labels.slice(0, 3)).toEqual(['LinkedIn', 'X', 'Copy Link']);
+    expect(screen.queryByText('Facebook')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /on LinkedIn/ }));
+    const [shareUrl, target, features] = open.mock.calls[0];
+    expect(decodeURIComponent(String(shareUrl))).toContain('utm_medium=share');
+    expect(decodeURIComponent(String(shareUrl))).toContain('utm_source=linkedin');
+    expect(target).toBe('_blank');
+    expect(features).toBe('noopener,noreferrer');
+    open.mockRestore();
+  });
 });
