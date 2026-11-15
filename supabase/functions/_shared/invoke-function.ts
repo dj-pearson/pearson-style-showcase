@@ -44,7 +44,9 @@ export async function invokeFunction<T = unknown>(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[invoke] ${functionName} returned ${response.status}: ${errorText}`);
+      console.error(
+        `[invoke] ${functionName} returned ${response.status}: ${errorText.slice(0, 300)}`
+      );
       return { data: null, error: new Error(`${functionName} returned ${response.status}`) };
     }
 
@@ -57,14 +59,30 @@ export async function invokeFunction<T = unknown>(
   }
 }
 
+interface WaitUntilRuntime {
+  waitUntil(promise: Promise<unknown>): void;
+}
+
 /**
- * Fire-and-forget variant for side effects that must not fail the caller.
- * A notification email that bounces should not roll back the ticket that
- * triggered it. Logs and swallows.
+ * Fire-and-forget variant for side effects that must not fail or delay the
+ * caller. A notification email that bounces should not roll back the ticket
+ * that triggered it, and a slow SMTP hop must not hold the webhook response
+ * open: Make.com retries a webhook that takes too long, which used to create
+ * duplicate tickets.
+ *
+ * Returns immediately. On Supabase's hosted runtime the work is handed to
+ * EdgeRuntime.waitUntil so the isolate stays alive for it; the self-hosted
+ * server (danpearson-edge-functions/server.ts) is one long-lived Deno process,
+ * where a pending promise simply keeps running after the response is sent.
+ * Failures are logged by invokeFunction and never thrown.
  */
-export async function invokeFunctionAndForget(
-  functionName: string,
-  body: Record<string, unknown>
-): Promise<void> {
-  await invokeFunction(functionName, body);
+export function invokeFunctionAndForget(functionName: string, body: Record<string, unknown>): void {
+  const work = invokeFunction(functionName, body).catch((error) => {
+    console.error(`[invoke] ${functionName} background call failed:`, error);
+  });
+
+  const runtime = (globalThis as { EdgeRuntime?: WaitUntilRuntime }).EdgeRuntime;
+  if (runtime && typeof runtime.waitUntil === 'function') {
+    runtime.waitUntil(work);
+  }
 }
