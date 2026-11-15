@@ -23,7 +23,7 @@ export const ArticleCard = React.memo(
     };
 
     return (
-      <Card className="group h-full bg-gray-800/50 border-gray-700 hover:border-cyan-500/50 transition-all duration-300 overflow-hidden">
+      <Card className="group h-full bg-card/50 border-border hover:border-primary/50 transition-all duration-300 overflow-hidden">
         {/* Featured Image - Responsive with lazy loading */}
         {article.image_url && (
           <div className="relative aspect-video overflow-hidden" aria-hidden="true">
@@ -50,7 +50,7 @@ export const ArticleCard = React.memo(
           <div className="flex flex-wrap gap-2 items-center mb-2">
             <Badge
               variant="secondary"
-              className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs"
+              className="bg-primary/15 text-primary border-primary/30 text-xs"
             >
               {article.category}
             </Badge>
@@ -64,11 +64,11 @@ export const ArticleCard = React.memo(
             )}
           </div>
           <Link to={`/news/${article.slug}`}>
-            <CardTitle className="text-base sm:text-lg md:text-xl mb-1 sm:mb-2 group-hover:text-cyan-400 transition-colors line-clamp-2 leading-tight">
+            <CardTitle className="text-base sm:text-lg md:text-xl mb-1 sm:mb-2 group-hover:text-primary transition-colors line-clamp-2 leading-tight">
               {article.title}
             </CardTitle>
           </Link>
-          <CardDescription className="text-gray-400 line-clamp-2 sm:line-clamp-3 text-sm leading-relaxed">
+          <CardDescription className="text-muted-foreground line-clamp-2 sm:line-clamp-3 text-sm leading-relaxed">
             {article.excerpt}
           </CardDescription>
         </CardHeader>
@@ -76,18 +76,21 @@ export const ArticleCard = React.memo(
         <CardContent className="p-3 sm:p-4 pt-0">
           <div className="space-y-3 sm:space-y-4">
             {/* Meta info - Mobile optimized with wrapping */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-400">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
-                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">{formatDate(article.created_at!)}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
                 <span>{article.read_time}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Eye className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                <span>{article.view_count || 0}</span>
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {article.view_count || 0}
+                  <span className="sr-only"> views</span>
+                </span>
               </div>
             </div>
 
@@ -97,7 +100,7 @@ export const ArticleCard = React.memo(
                 <Badge
                   key={index}
                   variant="outline"
-                  className="border-gray-600 text-gray-300 hover:border-cyan-500/50 text-xs px-2 py-0.5"
+                  className="border-border text-foreground/80 hover:border-primary/50 text-xs px-2 py-0.5"
                 >
                   {tag}
                 </Badge>
@@ -107,7 +110,7 @@ export const ArticleCard = React.memo(
             {/* Read More Button - Touch-optimized */}
             <Link
               to={`/news/${article.slug}`}
-              className="inline-flex items-center justify-center w-full min-h-[44px] h-10 sm:h-9 px-3 text-sm font-medium rounded-md border border-gray-600 bg-transparent hover:border-cyan-500/50 hover:bg-cyan-500/10 active:bg-cyan-500/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="inline-flex items-center justify-center w-full min-h-[44px] h-10 sm:h-9 px-3 text-sm font-medium rounded-md border border-border bg-transparent hover:border-primary/50 hover:bg-primary/10 active:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               Read More
             </Link>
