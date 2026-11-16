@@ -1609,6 +1609,335 @@
       "notes": "Done. src/components/ContactForm.tsx set submitProgress to 25 on submit and 100 on response: two invented numbers either side of a request with no progress to report. The spinner and the message stay, in a role=status region; the state is gone. 2 new tests, the first component tests this form has had."
     },
     {
+      "id": "VOICE-001",
+      "title": "Voice engine schema: tracks, story bank, sources, topics, posts, webhook targets and log",
+      "description": "As the voice engine, I need tables in the DanPearson Supabase to hold settings, the Story Bank, cached source material, topic history, posts and webhook deliveries, so that every later story has somewhere to read and write. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "Migration number reserved with `node \"C:/Users/dpearson/Documents/Server/hub/coord/cli.mjs\" reserve migration`, never by reading the highest file; migration under supabase/migrations with a matching rollback under supabase/migrations/rollbacks",
+        "voice_tracks: key (text PK, one of gradethread, eatpal, platform), enabled bool default true, post_time time, timezone text default America/Chicago, products text[] (gradethread -> {gradethread}, eatpal -> {eatpal}, platform -> {brikly,printyx,agentbio}), rotation_index int default 0; the three rows are seeded with times 08:30, 12:15, 16:30",
+        "voice_stories (the Story Bank): id uuid, body text not null, tracks text[], products text[], confirmed bool default true, source text (manual | vault-import), source_ref text, times_used int default 0, last_used_at timestamptz, created_at",
+        "voice_source_items: id uuid, product text, url text, title text, body_text text, content_hash text, fetched_at, unique (product, url)",
+        "voice_assets: id uuid, kind (headshot | photo | screenshot | music), product text null, storage_path text, caption text, created_at",
+        "voice_topics: id uuid, track, product, topic text, angle text, source_item_ids uuid[], story_ids uuid[], created_at",
+        "voice_posts: id uuid, track, product, run_date date, topic_id, format (text_carousel | single_image | product_carousel), status (claimed | writing | rendering | dispatching | posted | partial | skipped | failed), copy jsonb (per platform), slides jsonb, image_urls text[], video_url text, skip_reason text, attempts int, created_at, updated_at; UNIQUE (track, run_date) so a track can never run twice in a day",
+        "voice_webhook_targets: platform text PK (x, linkedin, instagram, facebook, threads, youtube), url text, enabled bool default false; seeded with all six rows, url empty",
+        "voice_webhook_log: id, post_id, platform, attempt int, http_status int, ok bool, response_excerpt text (max 500 chars), created_at; partial UNIQUE index on (post_id, platform) WHERE ok so a platform can only ever record one successful send per post",
+        "Public-read storage bucket voice-media; writes only by service role or admin (same admin predicate as 20261101000004_private_data_bucket.sql: auth.jwt() role admin OR is_email_whitelisted OR has_role(auth.uid(),'admin'))",
+        "RLS on every voice_ table: admins can select/insert/update/delete using that same predicate; anon has no access; service role bypasses",
+        "src/integrations/supabase types regenerated or hand-extended for the new tables so the admin UI typechecks",
+        "Typecheck passes"
+      ],
+      "notes": "Self-hosted Supabase at api.danpearson.net; applying the migration to prod is an operator step (VOICE-018). Lists any migration it adds in the final message per coord rules.",
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "VOICE-002",
+      "title": "Scaffold services/voice-engine: TypeScript service, config, health endpoint, Dockerfile with Chromium and ffmpeg",
+      "description": "As the operator, I want a standalone Node service that Coolify can build and run on its own, so that posting never depends on the hub, GradeThread's runner or my PC. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "services/voice-engine has its own package.json (Node 20, ESM, TypeScript strict), tsconfig.json, vitest config, and scripts: build, start, typecheck, test, once",
+        "src/config.ts validates env with zod: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, VOICE_MODEL (default claude-opus-5-5), VOICE_WEBHOOK_SECRET, VOICE_RUN_SECRET, VOICE_DRY_RUN (default true), TZ; missing required vars fail startup with the var names (never values) listed; unit test covers this",
+        "config also reads VOICE_HANDLE (shown on slides, default @danpearson) and VOICE_DENY_TERMS (comma-separated names that must never appear in a post, such as the employer; set only in Infisical, never committed, default empty)",
+        "src/server.ts serves GET /health returning {ok, version, dryRun} and nothing secret",
+        "Dockerfile based on the official Playwright image (pinned exact tag) adds ffmpeg and a font set (Inter or similar, bundled under services/voice-engine/assets/fonts) and runs as non-root; .dockerignore present",
+        "services/voice-engine/README.md says how to run locally with Infisical (`infisical run -- npm --prefix services/voice-engine start`) and lists every env var",
+        "Root eslint, tsconfig.app.json and vitest.config.ts do not pick up services/voice-engine (they already scope to src/scripts; add services/** to eslint ignores if eslint would lint it); root npm run lint, typecheck and test still pass",
+        "CI (.github/workflows/ci.yml) gains a step that runs the service typecheck and tests, and its push trigger covers develop as well as main (the loop lands on develop)",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-003",
+      "title": "Dan's voice guide as data, with per-track speakers and the banned-pattern list",
+      "description": "As Dan, I want the rules for how I sound written down as a file the engine enforces, rather than an instruction to imitate Codie Sanchez or Jeremy Miner, because the imitation approach produced bad posts. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "services/voice-engine/voice/danpearson.voice.json holds: speaker, person (first person singular, I not we), audience per track, says/neverSays, notes, and a tracks object with gradethread, eatpal and platform speakers exactly as described in DESIGN.md (parent of a picky eater with a personal-training background for eatpal; owner-builder for gradethread; the salesman who builds the software, owner-and-money register, for platform)",
+        "neverSays and anonymity rules are copied (not read at runtime) from the Server repo's hub/voices/danpearson.json, minus entries that only applied to the old plumbing-owner audience, with a comment field naming the source commit",
+        "bannedPatterns is a list of {pattern, flags, why} regexes covering at least: Agree\\?, Thoughts\\?, comment .* below, follow for more, like if, let that sink in, unpopular opinion, nobody (is )?talk(s|ing) about, here's the thing, \ud83e\uddf5, \ud83d\udc47, \ud83d\udd25 used as bait, \"a thread\", \"save this post\", \"tag someone\", \"drop a\", and a final line that is only a question",
+        "rules lists: no personal fact without a Story Bank id; no product fact without a source item id; employer never named; no prices; not every post ends in a question",
+        "src/voice.ts loads and validates the file with zod and exports scanBanned(text) returning the matched rule ids; unit tests: each bannedPattern has one positive and one negative example",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "notes": "Dan reviews and edits this file in VOICE-018 before the engine goes live.",
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "VOICE-004",
+      "title": "Story Bank admin tab: add, tag, confirm and retire stories",
+      "description": "As Dan, I want to drop a one-line real story (\"tried tacos tonight, ate the shell only\") from my phone and tag it to a track, so that the engine has true personal material and never has to make any up. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "AdminDashboard gains a lazily loaded \"Voice\" tab (src/components/admin/voice/VoiceDashboard.tsx) with sub-tabs; this story adds the \"Story Bank\" sub-tab",
+        "A quick-add form at the top: body (required, textarea), tracks multiselect (gradethread, eatpal, platform), products multiselect; saving inserts into voice_stories with source=manual and clears the form",
+        "The list shows each story with its tags, times_used and last_used_at, newest first, with a filter by track; each row can be edited, unconfirmed (excluded from use) or deleted with a confirm step",
+        "Usable at 375px width (Dan will add stories from his phone)",
+        "Component test covers add and the track filter with the mocked Supabase client in src/test/mocks",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-005",
+      "title": "One-time import of confirmed Story Bank notes from the Hermes vault",
+      "description": "As Dan, I want the stories I already confirmed for the hub's story-first pipeline brought over, so that the Story Bank does not start empty. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "scripts/voice/import-story-bank.mjs takes a folder path argument, reads markdown notes whose frontmatter marks them as a confirmed story (read the hub code in the Server repo that reads the Story Bank for the exact field names; do not guess), and prints what it would insert",
+        "--apply inserts into voice_stories with source=vault-import and source_ref = the note path; re-running does not duplicate (matched on source_ref)",
+        "Notes that are not confirmed are skipped and counted in the summary",
+        "Unit test over a fixture folder with one confirmed, one unconfirmed and one already-imported note",
+        "Typecheck passes"
+      ],
+      "notes": "The vault may only be on Dan's home computer; the script runs wherever the vault is, with SUPABASE_URL and service key from Infisical.",
+      "priority": 5,
+      "passes": false
+    },
+    {
+      "id": "VOICE-006",
+      "title": "Assets admin tab: headshots, photos, product screenshots and music",
+      "description": "As Dan, I want to upload my headshot, a few photos, real app screenshots per product and a couple of music tracks once, so that carousels carry my face and real screens and videos have sound. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "Voice tab gains an \"Assets\" sub-tab: upload to voice-media under {kind}/{product?}/{uuid}.{ext} and insert a voice_assets row; kinds headshot, photo, screenshot (product required: gradethread, eatpal, brikly, printyx, agentbio), music (mp3 only)",
+        "Grid grouped by kind and product with thumbnail, caption edit and delete (deletes the storage object and the row)",
+        "Images over 5 MB or not png/jpg/webp are rejected client-side with a message",
+        "Component test covers the product-required rule for screenshots",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-007",
+      "title": "Source adapters: fetch and cache each product's public pages",
+      "description": "As the engine, I need fresh, quotable material about GradeThread, EatPal, Brikly, Printyx and AgentBio, so that every product claim in a post points at a real page. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/sources/products.ts maps product -> base URL: gradethread https://gradethread.com, eatpal https://tryeatpal.com, brikly https://brikly.net, printyx https://printyx.net, agentbio https://agentbio.net",
+        "For each product: read /llms.txt if present and /sitemap.xml, take up to 40 URLs (blog, feature, pricing-free pages first; skip legal, login, auth, cart), fetch each with a 10s timeout and a generic User-Agent (no personal details), extract readable text (main/article content, scripts and nav stripped), and upsert into voice_source_items with a content_hash; unchanged pages are not rewritten",
+        "refreshSources() runs at most once per 24h per product (checked against fetched_at) and a failure on one product does not stop the others",
+        "Unit tests run against saved HTML and sitemap fixtures, no network",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-008",
+      "title": "Topic picker: choose an unused topic and angle for a track",
+      "description": "As the engine, I need to pick what today's post is about without repeating recent posts, so that the feed stays varied and useful. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/topics.ts pickTopic(track, product) gathers candidates: source items for the product not referenced by a voice_topics row in the last 30 days, and confirmed Story Bank entries tagged to the track or product not used in the last 60 days",
+        "Claude (VOICE_MODEL, prompt in src/prompts/topic.md) receives the candidates plus the last 20 topics for that track and returns JSON {topic, angle, is_feature (true when the post is about one specific product feature or screen), source_item_ids, story_ids} validated with zod; ids not in the candidate set are rejected and the call retried once",
+        "The eatpal track must include at least one story_id at least twice a week when eligible stories exist (checked against the last 7 days); platform and gradethread may use zero",
+        "Writes a voice_topics row (add an is_feature bool column in this story's migration, reserved via coord) and bumps times_used/last_used_at on the stories used",
+        "Unit tests with a mocked Anthropic client cover: recency exclusion, invalid-id rejection, eatpal story quota",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-009",
+      "title": "Writer: per-platform copy and slide content from one topic",
+      "description": "As the engine, I need one Claude call to turn a topic into captions for each platform plus the slide text for the chosen format, written to Dan's voice guide, so that each platform gets copy that fits it. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/format.ts chooseFormat(track, product, hasScreenshots, isFeature) returns product_carousel when the product has screenshots and the topic's is_feature (VOICE-008) is true, else alternates text_carousel and single_image by the track's last format; unit tested",
+        "src/writer.ts sends the voice guide, the track speaker, the topic, the full text of the referenced source items and stories, and the format, using a prompt in src/prompts/write.md that states the hard rules from DESIGN.md verbatim",
+        "Output validated with zod: copy.{x (<=280 chars), threads (<=500), linkedin (<=3000), instagram (caption <=2200 + up to 8 hashtags), facebook, youtube {title <=100, description}}, slides[] ({role: hook|point|close|screen, headline, body?, asset_id?}) sized to the format (text_carousel 5-8 slides, single_image 1, product_carousel 4-7 with screen slides referencing screenshot asset ids for that product), and claims[] ({text, source_item_id | story_id})",
+        "An over-length field triggers one corrective re-ask; still over length fails the stage",
+        "Unit tests with a mocked client cover schema rejection and the corrective re-ask",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-010",
+      "title": "Checker: banned patterns and unsourced claims block a post",
+      "description": "As Dan, I want every draft checked for engagement bait and for claims nothing backs up before it can post, because posting with no review step only works if made-up stories cannot get through. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/checker.ts check(draft) runs scanBanned over every copy field and slide and returns each hit with its rule id",
+        "A second Claude pass (prompt src/prompts/audit.md) lists every factual or personal claim in the copy and slides and maps each to a provided source_item_id or story_id, or marks it unsourced; first-person statements about Dan, his child, clients or numbers are always treated as claims",
+        "Any banned hit or unsourced claim sends the draft back to the writer once with the findings; a second failure returns {ok:false, reasons}",
+        "Employer-name and price checks: any $ amount, or any term from VOICE_DENY_TERMS (case-insensitive, whole word), fails the check; deny terms are never written to logs or the database",
+        "Unit tests: a draft with \"Agree?\" fails, a draft claiming \"my daughter now eats 14 foods\" with no story fails, a clean draft passes",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-011",
+      "title": "Image renderer: slides to PNGs with Playwright",
+      "description": "As the engine, I need the slide content rendered to images in the three formats, so that picture platforms get a real visual. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/render/templates/ holds HTML+CSS templates for hook, point, close, screen and single slides; bundled fonts only, no network fonts; brand tokens (colors, type scale) in one file",
+        "Hook and close slides show the headshot asset (if one exists) and VOICE_HANDLE; screen slides place the screenshot inside a device frame with the headline above",
+        "renderSlides(post) renders each slide at 1080x1350 (4:5) for carousels and single images, plus 1080x1920 (9:16) frames for video, using one Chromium instance per run; text that overflows its box is shrunk to a minimum size, then fails the stage",
+        "PNGs upload to voice-media/posts/{post_id}/ and the public URLs are written to voice_posts.image_urls in slide order",
+        "npm --prefix services/voice-engine run preview -- --fixture <name> writes sample PNGs locally for each template (used for visual review)",
+        "Unit test renders each template from a fixture and asserts the PNG dimensions",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-012",
+      "title": "Video renderer: 9:16 slides to MP4 for YouTube Shorts and Reels",
+      "description": "As the engine, I need carousels turned into a short video, because YouTube takes only video and Reels reach more people than carousels. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/render/video.ts builds an MP4 (H.264, AAC, 1080x1920, 30fps) from the 9:16 frames with ffmpeg: about 2.5s per slide (hook 3s), 0.4s crossfades, total 8-45s",
+        "If music assets exist one is picked at random, trimmed to length with a 1s fade out at -18 LUFS-ish volume; with none, a silent audio track is added so platforms accept it",
+        "Uploads to voice-media/posts/{post_id}/video.mp4 and sets voice_posts.video_url; single_image posts produce no video",
+        "Unit test builds a video from three fixture frames and asserts duration and dimensions with ffprobe",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-013",
+      "title": "Dispatcher: signed webhook per platform, retry once, never double-post",
+      "description": "As the engine, I need to hand each finished post to one Make scenario per platform in GradeThread's payload shape, so that the Make side mirrors what already works for GradeThread. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/dispatch.ts builds the payload exactly as in DESIGN.md \"Webhook contract\" per enabled voice_webhook_targets row with a non-empty url; data.test is false on every real send (only Test fire sets it true)",
+        "Per-platform media rules: instagram/facebook/linkedin get carousel (or image for single_image); x gets image or the first 4 slides as carousel; threads gets image (slide 1); youtube gets video only and is skipped when there is no video; instagram additionally gets a second video payload when a video exists and the instagram target has reels enabled (add a reels bool column to voice_webhook_targets in this story's migration, reserved via coord)",
+        "X-Content-Signature is hex HMAC-SHA256 of the raw body with VOICE_WEBHOOK_SECRET; X-Idempotency-Key is {post_id}:{platform}[:reel]",
+        "Before sending, a platform with an ok row in voice_webhook_log for this post is skipped; a non-2xx or timeout (15s) retries once after 30s; every attempt is logged",
+        "Post status becomes posted when all targeted platforms succeeded, partial when some did, failed when none did",
+        "VOICE_DRY_RUN=true logs the payloads to voice_webhook_log with http_status null and ok false and sends nothing",
+        "Unit tests with a local HTTP stub: signature verifies, retry once, no resend after success, dry run sends nothing",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-014",
+      "title": "Pipeline and scheduler: three posts a day, claimed once, retried once, skipped with a reason",
+      "description": "As Dan, I want each track to post once a day at its time with nobody watching, and to skip cleanly rather than post something broken, so that I can forget about it. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "src/pipeline.ts runTrack(track, date) inserts the voice_posts row (the UNIQUE(track, run_date) insert is the claim; a conflict means another run owns it and exits), then refreshSources -> pickTopic -> write -> check -> render images -> render video -> dispatch, updating status at each stage",
+        "For the platform track the product is products[rotation_index % 3]; rotation_index advances only when the post reaches posted or partial",
+        "Each stage retries once on error; a second failure sets status skipped with skip_reason and calls notifier.skipped(post); this story defines the Notifier interface in src/notify.ts with a console-only default, and VOICE-015 swaps in the email implementation",
+        "src/scheduler.ts ticks every 5 minutes with node-cron and runs a track when enabled, its post_time in its timezone has passed today, and no voice_posts row exists for today; a track whose time passed more than 3 hours ago (service was down) is skipped with reason \"missed window\" rather than posted late",
+        "POST /run {track, dryRun?} with header x-run-secret = VOICE_RUN_SECRET runs a track immediately (for \"Post now\"); wrong or missing secret returns 401",
+        "npm --prefix services/voice-engine run once -- --track eatpal --dry-run runs one track end to end from the command line and prints the post id, copy and image URLs; dry runs set a dry_run bool on voice_posts, and the UNIQUE (track, run_date) constraint becomes a partial unique index WHERE NOT dry_run so a dry run never blocks the real post (migration reserved via coord)",
+        "Unit tests: due-time logic across DST, missed window, claim conflict, rotation advance only on success",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-015",
+      "title": "Notify Dan when a track skips",
+      "description": "As Dan, I want an email when a day's post did not go out and why, so that a silent failure does not run for a week. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "A new edge function supabase/functions/voice-notify (service-role only: rejects any caller whose bearer is not the service role key) emails Dan through the same SMTP settings send-notification-email already uses (read that function for the env names; do not change it, it only handles support tickets) with track, product, date, skip_reason and stage; src/notify.ts calls it",
+        "No more than one email per track per day; dry-run skips never email",
+        "A notifier failure is logged and never throws into the pipeline",
+        "Unit test with a mocked fetch",
+        "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "send-notification-email only accepts ticket types and looks the ticket up, so it cannot carry this alert. voice-notify is deployed in VOICE-019."
+    },
+    {
+      "id": "VOICE-016",
+      "title": "Voice settings in the admin: times, rotation, webhook URLs and Test fire",
+      "description": "As Dan, I want to change post times, switch tracks and platforms on or off and paste Make webhook URLs without touching code. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "Voice tab \"Settings\" sub-tab: per track enabled toggle and post time; platform track rotation order (drag or up/down) over brikly, printyx, agentbio; per platform webhook url, enabled toggle and (instagram) reels toggle; saved straight to voice_tracks and voice_webhook_targets",
+        "A \"Test fire\" button per platform calls a new admin-only edge function voice-test-webhook that sends a sample payload (media_type image, data.test true) signed the same way as real sends, and shows the HTTP status; the function reads VOICE_WEBHOOK_SECRET from its env",
+        "Component test covers saving a post time and toggling a platform",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-017",
+      "title": "Voice activity in the admin: history, previews and Post now",
+      "description": "As Dan, I want to see what went out, what was skipped and why, and to post a track now. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "Voice tab \"Activity\" sub-tab: last 30 days of voice_posts newest first with track, product, format, status, skip_reason; expanding a row shows the slide images, the video, each platform's caption and the webhook log rows",
+        "A \"Post now\" button per track calls a new admin-only edge function voice-run-now, which POSTs to VOICE_SERVICE_URL/run with the x-run-secret header (VOICE_SERVICE_URL and VOICE_RUN_SECRET are edge env vars, so the secret never reaches the browser); the new row appears in Activity",
+        "Service side: /run compares the secret in constant time and allows at most 6 calls per hour",
+        "Component test renders a skipped row with its reason and a posted row with its platform log",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "VOICE-018",
+      "title": "[OPERATOR] Voice sign-off: three dry-run samples per track, marked up by Dan",
+      "description": "As Dan, I want to read real samples before anything posts under my name, and fix the voice guide until they sound like me, because the last attempt went live sounding wrong. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "With VOICE_DRY_RUN=true, `npm --prefix services/voice-engine run once -- --track <t> --dry-run` run three times per track (nine samples, at least one of each format) against the real Supabase",
+        "A docs/voice-engine/samples-YYYY-MM-DD.md lists each sample: copy per platform and links to the images and video",
+        "Dan marks up the samples; every change he asks for lands in voice/danpearson.voice.json (or a prompt file), and the samples are regenerated until he says they are right",
+        "Dan has added at least five Story Bank entries tagged eatpal and has uploaded a headshot",
+        "notes record Dan's sign-off date"
+      ],
+      "notes": "Needs Dan. The loop should stop here and ask rather than mark it passed itself.",
+      "priority": 18,
+      "passes": false
+    },
+    {
+      "id": "VOICE-019",
+      "title": "[OPERATOR] Deploy: apply migrations, Infisical secrets, Coolify app, edge functions",
+      "description": "As Dan, I want the engine running in Coolify on its own, set up through a change plan I approve, because server changes need my explicit yes. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "A change plan in the shape required by the operator rules (What, Where with host plus service name and uuid, Why, Destructive?, Blast radius, Backup first, Rollback, Verify) is shown to Dan and approved before any server change",
+        "The VOICE migrations are applied to the DanPearson Supabase (dry run first as a single transaction: psql -1 -v ON_ERROR_STOP=1)",
+        "Infisical project for danpearson.net holds every env var in services/voice-engine/README.md, including VOICE_HANDLE and VOICE_DENY_TERMS (Dan supplies the values); VOICE_DRY_RUN=true at first",
+        "A new Coolify application builds services/voice-engine/Dockerfile from the develop branch with TZ=America/Chicago and a public domain (voice.danpearson.net, the shared secret on /run is its only write surface); /health returns ok",
+        "voice-test-webhook, voice-run-now and voice-notify are deployed to the self-hosted edge functions app, with VOICE_WEBHOOK_SECRET, VOICE_RUN_SECRET and VOICE_SERVICE_URL in its env",
+        "One dry-run \"Post now\" per track succeeds from the admin"
+      ],
+      "notes": "Needs Dan. Do not mark passed without his approval recorded here.",
+      "priority": 19,
+      "passes": false
+    },
+    {
+      "id": "VOICE-020",
+      "title": "[OPERATOR] Switch the Make scenarios to Dan's accounts, then go live",
+      "description": "As Dan, I want the six DanPearson Make scenarios (X, LinkedIn, Instagram, Facebook, Threads, YouTube), copied from GradeThread's per-platform scenarios and left inactive, pointed at my personal accounts and switched on. Design: docs/voice-engine/DESIGN.md (read it first).",
+      "acceptanceCriteria": [
+        "Dan swaps each scenario's social connection from the GradeThread account to his personal one",
+        "Each scenario filters out payloads with data.test true before the posting module",
+        "Each scenario's webhook URL is pasted into Voice > Settings and a Test fire returns 200 and posts nothing",
+        "Dan flips VOICE_DRY_RUN to false in Infisical, redeploys and activates the scenarios; the next day all three tracks show posted or partial in Activity, and each live post is checked once on the platform",
+        "notes record the go-live date"
+      ],
+      "notes": "The scenarios were created on 2026-11-16 as inactive copies of GradeThread's (see notes on this story once filled in). Activating them is outward-facing and is Dan's call.",
+      "priority": 20,
+      "passes": false
+    },
+    {
       "id": "LEAP-001",
       "title": "Replace the mailto with a qualified audit intake and booking flow",
       "description": "As a sales leader who just read /ai-crm-automation, I need to book the CRM Automation Audit in one sitting, answering a few qualifying questions and picking a time, so that the click that says 'Book a CRM automation audit' ends in a booked call instead of a prefilled email I may never send. Today both CTAs on src/pages/AICrmAutomation.tsx (lines 125 and 478) go to /connect, where 'Schedule a Call' opens mailto:dan@danpearson.net (src/pages/Connect.tsx:138). AI_CRM_AUTOMATION_STRATEGY.md section 7.8 already calls for splitting /connect into a qualified audit path with 3-4 qualifying fields and a calendar; no PRD story carries it and nothing is built. Agencies selling the same audit let a buyer book a call straight from the page.",
@@ -1620,7 +1949,7 @@
         "The third-party scheduler script loads only after the visitor clicks to open it, and with the script blocked the intake still submits and the page says Dan will email times",
         "Component tests cover the in-band and out-of-band branches; typecheck and tests pass"
       ],
-      "priority": 1,
+      "priority": 21,
       "passes": false,
       "notes": "Critic: kept, sources corrected. INSIDEA's Pipedrive audit page books a 30-minute strategy call with a proposal in 48 hours and no published price (https://insidea.com/pipedrive/audit, checked 2026-11-07), which supports 'agencies let you book without writing an email'. The draft's fillthelobby.pages.dev source does not resolve (DNS ENOTFOUND) and the RevPartners claim had no source; both removed. Owner decision needed: which scheduler (Cal.com, Calendly or similar). Size: M. Success metric: booked audit calls per month from /book-audit, and intake completion rate (submissions / views). Baseline is unmeasured today because nothing is recorded."
     },
@@ -1636,7 +1965,7 @@
         "A LeadsManager tab in AdminDashboard.tsx lists contact_submissions and audit_requests together with stage (new, qualified, booked, won, lost), source and CTA id; each stage change is stored with a timestamp",
         "A Deno test proves a submission writes a row; a component test proves LiveActivityFeed renders a new contact_submissions row; component tests cover each ctaKind; typecheck and tests pass"
       ],
-      "priority": 2,
+      "priority": 22,
       "passes": false,
       "notes": "Critic: the draft's LEAP-006 (article CTA block, size S) was wiring that only matters with attribution behind it, so it is merged here and its slot replaced. Competitive rationale is the site's own thesis more than any competitor: AI_CRM_AUTOMATION_STRATEGY.md section 13 names 'audit inquiries' as 'the only number that pays', and today it cannot be counted. The ColdIQ and superdupr links in the draft were not checked by the critic and are dropped as support. Size: M. Success metric: share of inbound leads with a known source (target 90%+), and leads per month by originating article slug."
     },
@@ -1653,7 +1982,7 @@
         "The result page links to /book-audit carrying the result id, and the audit_requests row stores it",
         "The landing page is prerendered by scripts/prerender.mjs, listed in llms.txt and sitemap.xml, and added to e2e/public/accessibility.spec.ts with zero serious or critical violations; typecheck passes"
       ],
-      "priority": 3,
+      "priority": 23,
       "passes": false,
       "notes": "Critic: route changed from the draft's /crm-audit to the path the strategy doc already fixed. Strategy section 11.1 says gated-first tools do not get cited or linked, so the answer stays ungated. INSIDEA source checked 2026-11-07 (https://insidea.com/pipedrive/audit: call first, no price). The brixongroup conversion benchmark is vendor content and is not relied on. Size: L. Success metric: completions per month, email capture rate on completion, and share of audit_requests carrying a result id."
     },
@@ -1669,7 +1998,7 @@
         "README.md describes the CRM automation practice and the offer ladder; Navigation and footer no longer link to noindexed or removed surfaces",
         "E2E and typecheck pass"
       ],
-      "priority": 4,
+      "priority": 24,
       "passes": false,
       "notes": "Critic: kept and widened. The draft treated this as a navigation cleanup (size S); the voice-profile conflict makes it the gate for every copy check in LEAP-005, LEAP-007, LEAP-011 and LEAP-014. AI_CRM_AUTOMATION_STRATEGY.md section 15 says to keep /projects and /ai-tools as secondary surfaces, so /ai-tools goes to LEAP-015 (refocus) rather than removal by default. The Nick Saraev 'commoditized' link was not checked and is dropped as support. Size: M (mostly owner decisions). Success metric: share of indexed pages on CRM topics, and Search Console impressions for 'AI CRM automation consultant' queries."
     },
@@ -1685,7 +2014,7 @@
         "A 'send me this' option stores inputs and email under consent with source='calculator'; the basic result needs no email",
         "what-crm-automation-costs.md sets ctaKind: calculator; the page is prerendered, in llms.txt and swept by the accessibility guard; typecheck passes"
       ],
-      "priority": 5,
+      "priority": 25,
       "passes": false,
       "notes": "Critic: the draft's AC 'reproduce the article's $138,000 example' would have encoded an arithmetic error into a test; the article is fixed first instead. Route aligned with the strategy doc. Pricing sources in the draft (superdupr.com, coldiq.com) were not verified by the critic; each figure must carry its own vendor pricing URL. Size: M. Success metric: calculator completions, email capture rate, and leads with source=calculator."
     },
@@ -1701,7 +2030,7 @@
         "Clients render anonymised ('a 30-person HVAC company') unless client_named is true",
         "Pages emit Article JSON-LD and are prerendered; a component test covers the unmeasured and no-provenance cases; typecheck passes"
       ],
-      "priority": 6,
+      "priority": 26,
       "passes": false,
       "notes": "Critic: competitive claim corrected (see description), and the dogfooding page folded in from the strategy doc. Blocked on content: the 83% retention case study needs client type, period, baseline and method from the owner before it can render (strategy section 16, action 3). The anonymity rule mirrors hub/voices/danpearson.json ('Clients are anonymous unless the story is marked clientNamed'). The Clutch and dev.to links were not checked. Size: M. Success metric: case-study and automation-stack page to /book-audit click-through, and share of booked audits that viewed one first."
     },
@@ -1718,7 +2047,7 @@
         "The sender is a lifecycle identity separate from any cold-outreach sender, named in the notes",
         "Deno tests cover opt-in, unsubscribe and the unknown-basis refusal; typecheck passes"
       ],
-      "priority": 7,
+      "priority": 27,
       "passes": false,
       "notes": "Critic: the '5,000-subscriber' figure for Jeff Ignacio is not on the cited page (https://revengine.substack.com/about, checked 2026-11-07; it states paid membership, the course and coaching, no count) and is removed. Hub rule 29 (a subscriber is a consent record) and rule 30 (lifecycle mail never shares the outreach sender) apply. Copy depends on LEAP-004's voice decision. Size: L. Success metric: confirmed subscribers, issue open rate, and audit bookings with source=newsletter."
     },
@@ -1734,7 +2063,7 @@
         "Each teardown ends in the LEAP-002 ArticleCta block and emits HowTo or Article JSON-LD",
         "Unit tests cover the credential scrub with a planted-secret fixture that must fail the build; typecheck passes"
       ],
-      "priority": 8,
+      "priority": 28,
       "passes": false,
       "notes": "Critic: new story, replacing the draft's LEAP-014 (newsletter referral program). A referral loop on a list that cannot yet send and has no confirmed subscribers is growth polish (criterion b), and 'none of the named competitors runs a referral loop' was unsourced. Rationale for this one is the owner's own strategy doc; the claim that consultants rarely publish their configs is the owner's assessment, not a measured fact. Size: M (code) plus one teardown a month of writing. Success metric: teardown sessions, export downloads, referring domains to /teardowns, and leads with source=teardown."
     },
@@ -1750,7 +2079,7 @@
         "The notes name the hub follow-up explicitly: either add posthog-js with ANALYTICS_TOKEN_DANPEARSON and declare activationEvent for danpearson in hub/projects.json, or build a hub reader for this table; until one ships the hub's danpearson funnel stays a named gap",
         "Deno and Vitest tests pass; typecheck passes"
       ],
-      "priority": 9,
+      "priority": 29,
       "passes": false,
       "notes": "Critic: the 'read-only funnel endpoint the hub can consume' AC was invented and is replaced with an honest statement of the seam (hub rule 8: a seam with no executor). Size: M. Success metric: every funnel step reports a count for the last 30 days, and the hub follow-up is filed."
     },
@@ -1766,7 +2095,7 @@
         "The notes record that each tested vendor's terms of service were checked for restrictions on publishing benchmarks before publication",
         "The page emits Dataset JSON-LD, is prerendered, listed in llms.txt and ends in the LEAP-002 ArticleCta block; typecheck passes"
       ],
-      "priority": 10,
+      "priority": 30,
       "passes": false,
       "notes": "Critic: kept, scope cut from XL to an L first edition, and a terms-of-service check added because some SaaS terms restrict published benchmarks. Sources were not verified by the critic: the Day.ai funding (pulse2.com) and Breeze Data Agent review (eesel.ai) are plausible; the 'Momentum claims 98% field coverage' figure came via a third-party site (devtoollab.com) and must be checked against Momentum's own page before it is quoted. 'No independent party publishes a head-to-head' is unverified. Success metric: referring domains and AI-assistant citations of the benchmark URL, plus leads with source=benchmark."
     },
@@ -1782,7 +2111,7 @@
         "A banned-term filter reads one file in this repo (src/lib/voice-bans.json) whose header names hub/voices/danpearson.json as its source; a draft that trips it is shown to the reviewer with the term highlighted",
         "Deno tests cover the citation filter and the no-send-while-draft rule; typecheck passes"
       ],
-      "priority": 11,
+      "priority": 31,
       "passes": false,
       "notes": "Critic: the draft had an edge function reading hub/voices/danpearson.json, a file in another repo the function cannot reach; replaced with a local copy that names its source, which is a known drift risk to re-sync after LEAP-004. The Saraev and superdupr links were not checked and are dropped as support. Depends on LEAP-003. Size: L. Success metric: share of completions receiving a triage within 48 hours, and booking rate among recipients vs non-recipients."
     },
@@ -1798,7 +2127,7 @@
         "The model comes from ai_model_configs; a per-IP rate limit is enforced in the function and tested",
         "Deno tests cover the no-invention rule with a transcript missing a close date, and the rate limit; the page is swept by the accessibility guard; typecheck passes"
       ],
-      "priority": 12,
+      "priority": 32,
       "passes": false,
       "notes": "Critic: new story, replacing the draft's LEAP-016 (Workflow Cleanup SKU plus seat-band retainer prices). That story was pricing copy (criterion b) and contradicted a recorded decision: AI_CRM_AUTOMATION_STRATEGY.md section 4, 'Publish one number, not three' (2026-08-11), keeps build and retainer unpriced because a published band anchors the page on its ceiling. Its RevPartners $9,850 source (capstanworks.pages.dev) does not resolve. Size: M. Success metric: demo runs per week, demo-to-/book-audit click rate, and leads with source=demo."
     },
@@ -1814,7 +2143,7 @@
         "An admin view shows citation share over time per query and per assistant",
         "Provider and model come from ai_model_configs; no key value appears in code or logs; Deno tests cover failure vs not-cited; typecheck passes"
       ],
-      "priority": 13,
+      "priority": 33,
       "passes": false,
       "notes": "Critic: kept and tied to the existing manual panel. The G2 figures (about half of B2B software buyers start in a chatbot, 69% switched vendors) could not be checked: demandgenreport.com returned 403. Treat as direction only. A portfolio-wide version would fit the hub's sitecheck better; this story keeps it on danpearson because GEO is this site's main channel. Size: M. Success metric: citation share across the query set, monthly."
     },
@@ -1829,7 +2158,7 @@
         "New pages appear in /topics, sitemap.xml, RSS and llms.txt through the existing built-in article path",
         "Typecheck and tests pass"
       ],
-      "priority": 14,
+      "priority": 34,
       "passes": false,
       "notes": "Critic: kept; added a near-duplicate check to the gate. The INSIDEA 'best HubSpot RevOps agencies' link and the Jordan Crawford lessons post were not checked by the critic. Size: L (mostly writing). Success metric: organic sessions and leads from grid pages, and count of grid pages ranking top 10 for their target query."
     },
@@ -1844,7 +2173,7 @@
         "A unit test fails if a capture_checks entry is not an AUDIT_CHECKS id",
         "ItemList JSON-LD covers the filtered list; the page is in llms.txt; typecheck and tests pass"
       ],
-      "priority": 15,
+      "priority": 35,
       "passes": false,
       "notes": "Critic: new story, replacing the draft's LEAP-006 slot (merged into LEAP-002). Rationale is the owner's strategy doc; the citation claim there is the owner's assessment. Size: M. Success metric: /ai-tools sessions on CRM-relevant tools, clicks from tool pages to the scorecard or /book-audit."
     },
@@ -1860,7 +2189,7 @@
         "The credit rule (fee credited toward a Build) is stated once in crm-automation.ts and rendered from there",
         "Deno tests cover signature rejection and the paid transition; typecheck and tests pass"
       ],
-      "priority": 16,
+      "priority": 36,
       "passes": false,
       "notes": "Critic: kept, moved down because it is blocked on an owner decision. Sources corrected: INSIDEA's audit page books a call and quotes after it (https://insidea.com/pipedrive/audit), so it does not show a one-step purchase; fillthelobby.pages.dev does not resolve. The betonai.net $1,500-5,000 range and the consultingsuccess.com piece were not verified. Size: M. Success metric: paid audits per month and audit-to-Build conversion; hub revenue for danpearson moves from unmonetized to a Stripe floor."
     },
@@ -1876,7 +2205,7 @@
         "Notes are in RSS, sitemap and llms.txt, carry Article JSON-LD with Dan as author, and end in the LEAP-002 ArticleCta block",
         "Typecheck and tests pass"
       ],
-      "priority": 17,
+      "priority": 37,
       "passes": false,
       "notes": "Critic: kept; added the voice profile's employer and client-naming rules. Check supabase/functions/generate-social-content and the hub's social/storydraft.js before building a third story path. The Crawford, ColdIQ and leadhaste links were not checked. Size: M. Success metric: field-note sessions, newsletter sign-ups from field notes, and repeat visitors."
     },
@@ -1892,7 +2221,7 @@
         "The page ends in /book-audit with intent='supervision' stored on audit_requests",
         "Typecheck and tests pass"
       ],
-      "priority": 18,
+      "priority": 38,
       "passes": false,
       "notes": "Critic: the draft added a fourth tier with seat-band pricing, contradicting the recorded 'publish one number' decision; changed to a scope of the existing retainer. 'No named personal brand owns a recurring offer for it' is unverified. A recurring weekly service also has to fit beside Dan's day job; the owner should confirm capacity before it is offered. Sources (tldv.io on Attio, TechTarget on Agentforce SMB) were not checked. Size: S-M. Success metric: supervision-intent audit requests and retainers signed."
     },
@@ -1908,7 +2237,7 @@
         "The UI on /ai-crm-automation and Article.tsx shows citations as links and a /book-audit link under each answer",
         "Deno tests cover the no-source refusal and the rate limit; typecheck passes"
       ],
-      "priority": 19,
+      "priority": 39,
       "passes": false,
       "notes": "Critic: kept low. The strategy doc says no to generic AI content; this survives only because every answer must cite a published article. The G2 link and the Pavilion profile of Jordan Crawford do not support a site Q&A feature and are dropped as support. Size: L. Success metric: questions per week, answer-to-CTA click rate, and 'not covered' questions turned into articles."
     },
@@ -1924,7 +2253,7 @@
         "The page links to the free scorecard and the paid audit and states the difference plainly",
         "Deno tests cover paid-only delivery; typecheck passes"
       ],
-      "priority": 20,
+      "priority": 40,
       "passes": false,
       "notes": "Critic: kept last. Depends on LEAP-016 and therefore on the owner's monetization decision, and adds a second published price, which the owner should weigh against the 2026-08-11 'one number' decision. The Fiverr and superdupr price points were not verified. Size: M. Success metric: kit sales per month and kit-buyer to audit-booking conversion."
     }
