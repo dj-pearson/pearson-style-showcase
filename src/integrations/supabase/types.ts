@@ -3730,6 +3730,325 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_assets: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          kind: string
+          product: string | null
+          storage_path: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          product?: string | null
+          storage_path: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          product?: string | null
+          storage_path?: string
+        }
+        Relationships: []
+      }
+      voice_posts: {
+        Row: {
+          attempts: number
+          copy: Json | null
+          created_at: string
+          dry_run: boolean
+          format: string | null
+          id: string
+          image_urls: string[]
+          notified_at: string | null
+          product: string
+          run_date: string
+          skip_reason: string | null
+          skip_stage: string | null
+          slides: Json | null
+          status: string
+          topic_id: string | null
+          track: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          attempts?: number
+          copy?: Json | null
+          created_at?: string
+          dry_run?: boolean
+          format?: string | null
+          id?: string
+          image_urls?: string[]
+          notified_at?: string | null
+          product: string
+          run_date: string
+          skip_reason?: string | null
+          skip_stage?: string | null
+          slides?: Json | null
+          status?: string
+          topic_id?: string | null
+          track: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          attempts?: number
+          copy?: Json | null
+          created_at?: string
+          dry_run?: boolean
+          format?: string | null
+          id?: string
+          image_urls?: string[]
+          notified_at?: string | null
+          product?: string
+          run_date?: string
+          skip_reason?: string | null
+          skip_stage?: string | null
+          slides?: Json | null
+          status?: string
+          topic_id?: string | null
+          track?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_posts_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "voice_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_posts_track_fkey"
+            columns: ["track"]
+            isOneToOne: false
+            referencedRelation: "voice_tracks"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      voice_source_items: {
+        Row: {
+          body_text: string
+          content_hash: string
+          fetched_at: string
+          id: string
+          product: string
+          title: string | null
+          url: string
+        }
+        Insert: {
+          body_text?: string
+          content_hash: string
+          fetched_at?: string
+          id?: string
+          product: string
+          title?: string | null
+          url: string
+        }
+        Update: {
+          body_text?: string
+          content_hash?: string
+          fetched_at?: string
+          id?: string
+          product?: string
+          title?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
+      voice_stories: {
+        Row: {
+          body: string
+          confirmed: boolean
+          created_at: string
+          id: string
+          last_used_at: string | null
+          products: string[]
+          source: string
+          source_ref: string | null
+          times_used: number
+          tracks: string[]
+        }
+        Insert: {
+          body: string
+          confirmed?: boolean
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          products?: string[]
+          source?: string
+          source_ref?: string | null
+          times_used?: number
+          tracks?: string[]
+        }
+        Update: {
+          body?: string
+          confirmed?: boolean
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          products?: string[]
+          source?: string
+          source_ref?: string | null
+          times_used?: number
+          tracks?: string[]
+        }
+        Relationships: []
+      }
+      voice_topics: {
+        Row: {
+          angle: string
+          created_at: string
+          id: string
+          is_feature: boolean
+          product: string
+          source_item_ids: string[]
+          story_ids: string[]
+          topic: string
+          track: string
+        }
+        Insert: {
+          angle: string
+          created_at?: string
+          id?: string
+          is_feature?: boolean
+          product: string
+          source_item_ids?: string[]
+          story_ids?: string[]
+          topic: string
+          track: string
+        }
+        Update: {
+          angle?: string
+          created_at?: string
+          id?: string
+          is_feature?: boolean
+          product?: string
+          source_item_ids?: string[]
+          story_ids?: string[]
+          topic?: string
+          track?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_topics_track_fkey"
+            columns: ["track"]
+            isOneToOne: false
+            referencedRelation: "voice_tracks"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      voice_tracks: {
+        Row: {
+          enabled: boolean
+          key: string
+          post_time: string
+          products: string[]
+          rotation_index: number
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          key: string
+          post_time: string
+          products?: string[]
+          rotation_index?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          key?: string
+          post_time?: string
+          products?: string[]
+          rotation_index?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      voice_webhook_log: {
+        Row: {
+          attempt: number
+          created_at: string
+          http_status: number | null
+          id: string
+          ok: boolean
+          payload: Json | null
+          platform: string
+          post_id: string
+          response_excerpt: string | null
+          variant: string
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          http_status?: number | null
+          id?: string
+          ok?: boolean
+          payload?: Json | null
+          platform: string
+          post_id: string
+          response_excerpt?: string | null
+          variant?: string
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          http_status?: number | null
+          id?: string
+          ok?: boolean
+          payload?: Json | null
+          platform?: string
+          post_id?: string
+          response_excerpt?: string | null
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_webhook_log_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "voice_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_webhook_targets: {
+        Row: {
+          enabled: boolean
+          platform: string
+          reels: boolean
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          enabled?: boolean
+          platform: string
+          reels?: boolean
+          updated_at?: string
+          url?: string
+        }
+        Update: {
+          enabled?: boolean
+          platform?: string
+          reels?: boolean
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       webhook_settings: {
         Row: {
           created_at: string
