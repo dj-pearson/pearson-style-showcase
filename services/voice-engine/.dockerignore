@@ -1,7 +1,8 @@
 node_modules
 dist
-test
 out
-*.test.ts
+test
+**/*.test.ts
+src/testing
 .env
 .env.*

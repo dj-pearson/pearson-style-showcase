@@ -5,7 +5,7 @@
   "description": "Posts as Dan Pearson three times a day through one Make scenario per platform. See docs/voice-engine/DESIGN.md.",
   "type": "module",
   "engines": {
-    "node": ">=20 <23"
+    "node": ">=20 <25"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",

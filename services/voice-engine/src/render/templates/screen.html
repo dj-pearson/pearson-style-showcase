@@ -1,0 +1,28 @@
+<div class="slide screen">
+  <div class="fit head" data-min="44"><h2 class="headline" style="font-size: var(--size-headline)">{{headline}}</h2></div>
+  <div class="stage">
+    <div class="device"><img src="{{screenshot}}" alt="" /></div>
+  </div>
+  <div class="counter">{{counter}}</div>
+</div>
+<style>
+  .screen { background: var(--screen-bg); gap: 48px; }
+  .screen .head { flex-shrink: 0; max-height: 30%; }
+  .screen .stage { flex: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: center; }
+  .screen .device {
+    height: 100%;
+    max-width: 100%;
+    padding: 18px;
+    background: var(--ink);
+    border-radius: var(--radius-device);
+    display: flex;
+  }
+  .screen .device img {
+    height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: top center;
+    border-radius: calc(var(--radius-device) - 18px);
+    background: #fff;
+  }
+</style>

@@ -288,6 +288,9 @@ verify_jwt = true
 [functions.voice-run-now]
 verify_jwt = true
 
+[functions.voice-notify]
+verify_jwt = true
+
 [functions.coolify-health]
 verify_jwt = true
 

@@ -1,0 +1,88 @@
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-weight: 700;
+  src: url('{{font_display_700}}') format('woff2');
+}
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-weight: 800;
+  src: url('{{font_display_800}}') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 400;
+  src: url('{{font_body_400}}') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 600;
+  src: url('{{font_body_600}}') format('woff2');
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  width: var(--frame-w);
+  height: var(--frame-h);
+}
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+.slide {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: var(--pad);
+  display: flex;
+  flex-direction: column;
+}
+/* Padding absorbs glyph overhang so a tight line-height does not read as overflow. */
+.fit {
+  overflow: hidden;
+  padding: 6px 0 14px;
+}
+.headline {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.body {
+  font-size: var(--size-body);
+  line-height: 1.35;
+  color: var(--ink-soft);
+  max-width: 30ch;
+  text-wrap: pretty;
+}
+.byline {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: var(--size-meta);
+  font-weight: 600;
+}
+.byline img {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.byline .handle {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+.counter {
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}

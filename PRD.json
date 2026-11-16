@@ -1627,9 +1627,9 @@
         "src/integrations/supabase types regenerated or hand-extended for the new tables so the admin UI typechecks",
         "Typecheck passes"
       ],
-      "notes": "Self-hosted Supabase at api.danpearson.net; applying the migration to prod is an operator step (VOICE-018). Lists any migration it adds in the final message per coord rules.",
+      "notes": "Done 2026-11-16, branch develop. Migration supabase/migrations/20261116000001_voice_engine.sql + rollback. Also holds the columns VOICE-008/013/014 asked for (voice_topics.is_feature, voice_webhook_targets.reels, voice_posts.dry_run with the claim as a partial unique index WHERE NOT dry_run), plus skip_stage, notified_at, a 'dry_run' terminal status, and voice_webhook_log.variant/payload. Applied twice and rolled back on a local Postgres 16 with stubbed auth/storage; claim conflict, one-success-per-platform, screenshot-needs-product and RLS (anon denied, non-admin sees 0 rows, admin sees all) all checked. DEVIATION: the number was NOT reserved with the coord CLI: the Server repo and Dan's PC are not reachable from the cloud session. Reserve or renumber before VOICE-019 applies it. Types in src/integrations/supabase/types.ts hand-extended.",
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "VOICE-002",
@@ -1647,8 +1647,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. services/voice-engine: Node ESM + strict TypeScript, zod config (names only in errors), GET /health, Dockerfile on mcr.microsoft.com/playwright:v1.57.0-noble + ffmpeg + bundled Inter and Bricolage Grotesque (OFL), non-root pwuser. The Playwright base ships Node 24, so engines is >=20 <25. Image built and run locally: /health ok, /run 401 without secret, slide render and ffmpeg inside the image. Image is 3.4 GB (the base carries every browser). Root eslint ignores services/. CI gains a voice-engine job (installs Chromium + ffmpeg) and push now covers develop. 139 service tests."
     },
     {
       "id": "VOICE-003",
@@ -1662,9 +1662,9 @@
         "src/voice.ts loads and validates the file with zod and exports scanBanned(text) returning the matched rule ids; unit tests: each bannedPattern has one positive and one negative example",
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
-      "notes": "Dan reviews and edits this file in VOICE-018 before the engine goes live.",
+      "notes": "Done 2026-11-16, branch develop. voice/danpearson.voice.json + src/voice.ts. Each banned pattern carries its own hit/miss examples and the tests run both. DEVIATION: neverSays/anonymity were not copied from the Server repo's hub/voices/danpearson.json (not reachable from the session); they come from DESIGN.md and this repo's CLAUDE.md, and sourceCommit is null. Merge the hub entries during VOICE-018.",
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "VOICE-004",
@@ -1680,8 +1680,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/components/admin/voice/StoryBank.tsx. Track filter is client-side over the fetched list. Verified with Playwright against mocked REST at 375px and 1280px (the dev-browser skill is not installed in the cloud session); no real Supabase write tested."
     },
     {
       "id": "VOICE-005",
@@ -1694,7 +1694,7 @@
         "Unit test over a fixture folder with one confirmed, one unconfirmed and one already-imported note",
         "Typecheck passes"
       ],
-      "notes": "The vault may only be on Dan's home computer; the script runs wherever the vault is, with SUPABASE_URL and service key from Infisical.",
+      "notes": "Built 2026-11-16, branch develop. scripts/voice/import-story-bank.mjs with a fixture test (confirmed, unconfirmed, already imported). NOT passed: the PRD says to read the frontmatter field names from the hub code in the Server repo and not guess. That repo was not reachable, so the script takes --confirmed-key/--confirmed-value/--tracks-key/--products-key as required flags with no defaults. To finish: read the hub's Story Bank reader, run a dry run against the vault on Dan's PC with those names, then --apply.",
       "priority": 5,
       "passes": false
     },
@@ -1711,8 +1711,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. VoiceAssets.tsx. Verified with Playwright against mocked REST; no real upload tested."
     },
     {
       "id": "VOICE-007",
@@ -1726,8 +1726,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/sources/. Reads llms.txt (and stores it as a source item when it is real text, not an HTML shell) and sitemap.xml with one level of sitemap index, drops legal/auth/cart/pricing/assets and other hosts, skips pages under 200 characters of text. Not run against the live sites: the sandbox proxy refused all five hosts."
     },
     {
       "id": "VOICE-008",
@@ -1742,8 +1742,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/topics.ts + src/prompts/topic.md. The eatpal quota looks at today plus the previous six days and requires a story until two story posts are in that window."
     },
     {
       "id": "VOICE-009",
@@ -1758,8 +1758,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/writer.ts + src/prompts/write.md. Hard rules are a verbatim copy in src/design.ts with a test that fails if it drifts from DESIGN.md. Uses the SDK's structured outputs (beta parse + server-side refusal fallback 'default'); length and count limits are validated after, with one corrective re-ask."
     },
     {
       "id": "VOICE-010",
@@ -1774,8 +1774,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/checker.ts + src/prompts/audit.md. Personal claims need a story id on the post and product claims a source id; the model's 'supported' is not trusted on its own. Also scans neverSays. Deny terms never appear in findings."
     },
     {
       "id": "VOICE-011",
@@ -1791,8 +1791,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/render/. Fonts inlined as data URIs, asset images inlined so Chromium never fetches mid-render. preview CLI writes to out/preview/<fixture>. Locally needs CHROMIUM_PATH when the machine's Chromium build differs from the pinned Playwright."
     },
     {
       "id": "VOICE-012",
@@ -1806,8 +1806,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/render/video.ts: xfade chain, loudnorm I=-18 with a 1s fade, anullsrc when there is no music. Durations scale evenly to stay in 8-45s. ffprobe test: 1080x1920, h264/aac, 30 fps, ~8s from three frames."
     },
     {
       "id": "VOICE-013",
@@ -1824,8 +1824,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/dispatch.ts. Real sends never carry a test field. Tests use a local HTTP stub: signature, retry once, no resend after success, 15s timeout (tested at 200ms), dry run sends nothing. The reel uses variant 'reel' in the log so it does not collide with the carousel's success row."
     },
     {
       "id": "VOICE-014",
@@ -1842,8 +1842,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. src/pipeline.ts + src/scheduler.ts + POST /run + npm run once. A dry-run service makes one dry post per track per day and never records missed days; a service in dry-run mode never makes a real post whatever the caller asks. A dispatch that reaches no platform ends 'failed' (and notifies); earlier stages end 'skipped'."
     },
     {
       "id": "VOICE-015",
@@ -1857,8 +1857,8 @@
         "npm --prefix services/voice-engine run typecheck and npm --prefix services/voice-engine test both pass"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": "send-notification-email only accepts ticket types and looks the ticket up, so it cannot carry this alert. voice-notify is deployed in VOICE-019."
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. supabase/functions/voice-notify (service role only; admin JWTs get 403) + src/notify.ts. One email per track per day is enforced in the function with notified_at. Recipient: VOICE_NOTIFY_EMAIL, else the first notification_settings address. Not executed: deno is not installed in the session."
     },
     {
       "id": "VOICE-016",
@@ -1872,8 +1872,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. VoiceSettings.tsx + supabase/functions/voice-test-webhook (reads the URL from voice_webhook_targets, safeFetch, same HMAC as real sends). Deno function not executed in the session."
     },
     {
       "id": "VOICE-017",
@@ -1888,8 +1888,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done 2026-11-16, branch develop. VoiceActivity.tsx + supabase/functions/voice-run-now; service /run uses a constant-time secret check and 6 calls/hour. Post now defaults to dry run in the UI and asks to confirm a real post."
     },
     {
       "id": "VOICE-018",

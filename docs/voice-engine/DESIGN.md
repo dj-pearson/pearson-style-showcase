@@ -12,11 +12,11 @@ The hub's earlier attempt (voice "in the style of" Codie Sanchez and Jeremy Mine
 
 ## The three daily tracks
 
-| Track | Default time (America/Chicago) | Speaks as | Sources |
-|---|---|---|---|
-| `gradethread` | 08:30 | The owner who built GradeThread and FlipDesk: why a feature exists, what resellers get wrong, what shipping it taught him | gradethread.com public pages (sitemap.xml, llms.txt, blog) |
-| `eatpal` | 12:15 | A parent of a picky eater with a personal-training background who wants every kid, not only his, to have a shot at a healthy life. Covers ARFID tracking, meal plans, grocery lists, recipes | tryeatpal.com public pages + Story Bank |
-| `platform` | 16:30 | The salesman who builds the software: platform development and AI CRM integration, in an owner-and-money register like Codie Sanchez's entrepreneurship content (the register, never imitation) | Rotates daily: Brikly (brikly.net) → Printyx (printyx.net) → AgentBio (agentbio.net); each product's public pages + Story Bank |
+| Track         | Default time (America/Chicago) | Speaks as                                                                                                                                                                                       | Sources                                                                                                                        |
+| ------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `gradethread` | 08:30                          | The owner who built GradeThread and FlipDesk: why a feature exists, what resellers get wrong, what shipping it taught him                                                                       | gradethread.com public pages (sitemap.xml, llms.txt, blog)                                                                     |
+| `eatpal`      | 12:15                          | A parent of a picky eater with a personal-training background who wants every kid, not only his, to have a shot at a healthy life. Covers ARFID tracking, meal plans, grocery lists, recipes    | tryeatpal.com public pages + Story Bank                                                                                        |
+| `platform`    | 16:30                          | The salesman who builds the software: platform development and AI CRM integration, in an owner-and-money register like Codie Sanchez's entrepreneurship content (the register, never imitation) | Rotates daily: Brikly (brikly.net) → Printyx (printyx.net) → AgentBio (agentbio.net); each product's public pages + Story Bank |
 
 Times, enablement and the rotation order are settings, not code.
 
@@ -54,6 +54,7 @@ services/voice-engine/  (Node 20 + TypeScript, own package.json)
   src/render/          HTML slide templates -> PNG (Playwright), slides -> MP4 (ffmpeg)
   src/dispatch.ts      signed webhook per platform, retry once, log
   src/server.ts        /health, POST /run (secret-protected "post now")
+  src/notify.ts        skip emails through the voice-notify edge function
   voice/danpearson.voice.json   the voice guide as data
 ```
 
@@ -97,6 +98,12 @@ Header `X-Content-Signature: <hex HMAC-SHA256 of the raw body with VOICE_WEBHOOK
 ## Failure behaviour
 
 Each stage is retried once. If the post still cannot be produced, the track is marked `skipped` for that day with the reason, and an email goes to Dan through the existing notification path. Dispatch failures are per platform: a failed platform retries once and is logged; platforms that succeeded are not re-sent. The platform rotation only advances when a post went out.
+
+## Build status (2026-11-16)
+
+VOICE-001..017 are built on `develop`, except VOICE-005 (the import script needs the hub's frontmatter key names). Two things the PRD asked for could not be done from the cloud session that built it, because the Server repo and Dan's PC were not reachable: the migration number was not reserved through coord, and the voice guide's neverSays list was not merged from the hub's voice file. Both are noted on their stories.
+
+Post statuses: `posted`, `partial` (some platforms), `failed` (dispatch reached none), `skipped` (an earlier stage gave up, with `skip_stage` and `skip_reason`), and `dry_run` (rendered and logged, nothing sent).
 
 ## Not in v1
 
