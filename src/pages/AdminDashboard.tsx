@@ -35,6 +35,7 @@ import {
   Server,
   Globe,
   ChevronDown,
+  Megaphone,
 } from 'lucide-react';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from '@/components/admin/KeyboardShortcutsHelp';
@@ -123,6 +124,7 @@ const ServerHealthDashboard = lazy(() =>
   }))
 );
 const OddTrafficMonitor = lazy(() => import('@/components/admin/OddTrafficMonitor'));
+const VoiceDashboard = lazy(() => import('@/components/admin/voice/VoiceDashboard'));
 
 // Loading fallback for lazy-loaded modules. After 10s of loading it surfaces a
 // "taking longer than expected" message with a retry button, since a stuck
@@ -305,6 +307,7 @@ const AdminDashboard = () => {
         { id: 'amazon', label: 'Amazon Pipeline', icon: ShoppingCart },
         { id: 'traffic-watch', label: 'Traffic Watch', icon: Globe },
         { id: 'newsletter', label: 'Newsletter', icon: Mail },
+        { id: 'voice', label: 'Voice', icon: Megaphone },
         { id: 'tasks', label: 'Task Management', icon: Database },
       ],
     },
@@ -561,6 +564,12 @@ const AdminDashboard = () => {
           return (
             <SectionErrorBoundary sectionName="Traffic Watch">
               <OddTrafficMonitor />
+            </SectionErrorBoundary>
+          );
+        case 'voice':
+          return (
+            <SectionErrorBoundary sectionName="Voice">
+              <VoiceDashboard />
             </SectionErrorBoundary>
           );
         case 'support':

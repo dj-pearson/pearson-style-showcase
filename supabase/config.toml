@@ -280,6 +280,14 @@ verify_jwt = true
 [functions.test-api-setup]
 verify_jwt = true
 
+# Voice engine admin actions (Test fire, Post now). Admin JWT at aal2 required;
+# both make outbound requests.
+[functions.voice-test-webhook]
+verify_jwt = true
+
+[functions.voice-run-now]
+verify_jwt = true
+
 [functions.coolify-health]
 verify_jwt = true
 

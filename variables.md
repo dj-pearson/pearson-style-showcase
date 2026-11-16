@@ -238,32 +238,34 @@ supabase secrets set ALLOWED_ORIGIN=https://danpearson.net
 
 ## Variable Usage by Edge Function
 
-| Edge Function                 | Required Variables                                                  | Optional Variables                                                   |
-| ----------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `admin-auth`                  | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | `AMAZON_SMTP_*`                                                      |
-| `amazon-article-pipeline`     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`      | `SERPAPI_KEY`, `GOOGLE_SEARCH_*`, `CLOUDFLARE_PAGES_DEPLOY_HOOK_URL` |
-| `ai-content-generator`        | `OPENAI_API`                                                        |                                                                      |
-| `email-webhook-receiver`      | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         |                                                                      |
-| `extract-from-url`            | `LOVABLE_API_KEY`                                                   |                                                                      |
-| `generate-ai-article`         | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`      | `CLOUDFLARE_PAGES_DEPLOY_HOOK_URL`                                   |
-| `generate-ai-tasks`           | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | Dynamic from `ai_model_configs`                                      |
-| `generate-social-content`     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`      |                                                                      |
-| `generate-ticket-response`    | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | Dynamic from `ai_model_configs`                                      |
-| `health-check`                | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | `RESEND_API`, `OPENAI_API_KEY`, `FUNCTION_VERSION`                   |
-| `maintenance-runner`          | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         |                                                                      |
-| `newsletter-signup`           | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`           | `ALLOWED_ORIGIN`                                                     |
-| `optimize-image`              | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | `ALLOWED_ORIGIN`                                                     |
-| `process-accounting-document` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`      |                                                                      |
-| `receive-email`               | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | `MAKE_WEBHOOK_SECRET`                                                |
-| `secure-vault`                | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VAULT_ENCRYPTION_KEY` |                                                                      |
-| `send-article-webhook`        | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         |                                                                      |
-| `send-contact-email`          | `RESEND_API`                                                        |                                                                      |
-| `send-notification-email`     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | `AMAZON_SMTP_*`                                                      |
-| `send-ticket-email`           | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | `AMAZON_SMTP_*` (or from mailbox config)                             |
-| `slack-test`                  | (none - webhook URL passed in request)                              |                                                                      |
-| `test-ai-model`               | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                         | Dynamic from `ai_model_configs`                                      |
-| `test-api-setup`              |                                                                     | `SERPAPI_KEY`, `GOOGLE_SEARCH_*`, `LOVABLE_API_KEY`, `DATAFORSEO_*`  |
-| `track-affiliate-click`       | `SUPABASE_URL`, `SUPABASE_ANON_KEY`                                 |                                                                      |
+| Edge Function                 | Required Variables                                                                   | Optional Variables                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `admin-auth`                  | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | `AMAZON_SMTP_*`                                                      |
+| `amazon-article-pipeline`     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`                       | `SERPAPI_KEY`, `GOOGLE_SEARCH_*`, `CLOUDFLARE_PAGES_DEPLOY_HOOK_URL` |
+| `ai-content-generator`        | `OPENAI_API`                                                                         |                                                                      |
+| `email-webhook-receiver`      | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          |                                                                      |
+| `extract-from-url`            | `LOVABLE_API_KEY`                                                                    |                                                                      |
+| `generate-ai-article`         | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`                       | `CLOUDFLARE_PAGES_DEPLOY_HOOK_URL`                                   |
+| `generate-ai-tasks`           | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | Dynamic from `ai_model_configs`                                      |
+| `generate-social-content`     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`                       |                                                                      |
+| `generate-ticket-response`    | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | Dynamic from `ai_model_configs`                                      |
+| `health-check`                | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | `RESEND_API`, `OPENAI_API_KEY`, `FUNCTION_VERSION`                   |
+| `maintenance-runner`          | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          |                                                                      |
+| `newsletter-signup`           | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API`                            | `ALLOWED_ORIGIN`                                                     |
+| `optimize-image`              | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | `ALLOWED_ORIGIN`                                                     |
+| `process-accounting-document` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`                       |                                                                      |
+| `receive-email`               | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | `MAKE_WEBHOOK_SECRET`                                                |
+| `secure-vault`                | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VAULT_ENCRYPTION_KEY`                  |                                                                      |
+| `send-article-webhook`        | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          |                                                                      |
+| `send-contact-email`          | `RESEND_API`                                                                         |                                                                      |
+| `send-notification-email`     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | `AMAZON_SMTP_*`                                                      |
+| `send-ticket-email`           | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | `AMAZON_SMTP_*` (or from mailbox config)                             |
+| `slack-test`                  | (none - webhook URL passed in request)                                               |                                                                      |
+| `test-ai-model`               | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                                          | Dynamic from `ai_model_configs`                                      |
+| `test-api-setup`              |                                                                                      | `SERPAPI_KEY`, `GOOGLE_SEARCH_*`, `LOVABLE_API_KEY`, `DATAFORSEO_*`  |
+| `track-affiliate-click`       | `SUPABASE_URL`, `SUPABASE_ANON_KEY`                                                  |                                                                      |
+| `voice-run-now`               | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VOICE_SERVICE_URL`, `VOICE_RUN_SECRET` |                                                                      |
+| `voice-test-webhook`          | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VOICE_WEBHOOK_SECRET`                  |                                                                      |
 
 ---
 
