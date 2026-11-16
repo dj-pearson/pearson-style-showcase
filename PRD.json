@@ -1814,7 +1814,7 @@
       "title": "Dispatcher: signed webhook per platform, retry once, never double-post",
       "description": "As the engine, I need to hand each finished post to one Make scenario per platform in GradeThread's payload shape, so that the Make side mirrors what already works for GradeThread. Design: docs/voice-engine/DESIGN.md (read it first).",
       "acceptanceCriteria": [
-        "src/dispatch.ts builds the payload exactly as in DESIGN.md \"Webhook contract\" per enabled voice_webhook_targets row with a non-empty url; data.test is false on every real send (only Test fire sets it true)",
+        "src/dispatch.ts builds the payload exactly as in DESIGN.md \"Webhook contract\" per enabled voice_webhook_targets row with a non-empty url; real sends omit the top-level test field entirely (the Make scenarios pass a run only when test does not exist, so even test:false would be dropped); only Test fire sends test: true",
         "Per-platform media rules: instagram/facebook/linkedin get carousel (or image for single_image); x gets image or the first 4 slides as carousel; threads gets image (slide 1); youtube gets video only and is skipped when there is no video; instagram additionally gets a second video payload when a video exists and the instagram target has reels enabled (add a reels bool column to voice_webhook_targets in this story's migration, reserved via coord)",
         "X-Content-Signature is hex HMAC-SHA256 of the raw body with VOICE_WEBHOOK_SECRET; X-Idempotency-Key is {post_id}:{platform}[:reel]",
         "Before sending, a platform with an ok row in voice_webhook_log for this post is skipped; a non-2xx or timeout (15s) retries once after 30s; every attempt is logged",
@@ -1866,7 +1866,7 @@
       "description": "As Dan, I want to change post times, switch tracks and platforms on or off and paste Make webhook URLs without touching code. Design: docs/voice-engine/DESIGN.md (read it first).",
       "acceptanceCriteria": [
         "Voice tab \"Settings\" sub-tab: per track enabled toggle and post time; platform track rotation order (drag or up/down) over brikly, printyx, agentbio; per platform webhook url, enabled toggle and (instagram) reels toggle; saved straight to voice_tracks and voice_webhook_targets",
-        "A \"Test fire\" button per platform calls a new admin-only edge function voice-test-webhook that sends a sample payload (media_type image, data.test true) signed the same way as real sends, and shows the HTTP status; the function reads VOICE_WEBHOOK_SECRET from its env",
+        "A \"Test fire\" button per platform calls a new admin-only edge function voice-test-webhook that sends a sample payload (media_type image, top-level test: true) signed the same way as real sends, and shows the HTTP status; the function reads VOICE_WEBHOOK_SECRET from its env",
         "Component test covers saving a post time and toggling a platform",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
@@ -1928,12 +1928,13 @@
       "description": "As Dan, I want the six DanPearson Make scenarios (X, LinkedIn, Instagram, Facebook, Threads, YouTube), copied from GradeThread's per-platform scenarios and left inactive, pointed at my personal accounts and switched on. Design: docs/voice-engine/DESIGN.md (read it first).",
       "acceptanceCriteria": [
         "Dan swaps each scenario's social connection from the GradeThread account to his personal one",
-        "Each scenario filters out payloads with data.test true before the posting module",
+        "In each scenario Dan swaps the target too, not only the connection: the Facebook page, Instagram account, LinkedIn organization (a personal profile needs the person-post modules instead of the organization ones), the Buffer profile for X and the Buffer Threads channel for the Threads copy, and the YouTube playlist",
         "Each scenario's webhook URL is pasted into Voice > Settings and a Test fire returns 200 and posts nothing",
+        "Optional upgrade: the copied Instagram, Facebook and LinkedIn image branches post one image (image_url); switch them to carousel modules over image_urls if Dan wants real carousels on those platforms",
         "Dan flips VOICE_DRY_RUN to false in Infisical, redeploys and activates the scenarios; the next day all three tracks show posted or partial in Activity, and each live post is checked once on the platform",
         "notes record the go-live date"
       ],
-      "notes": "The scenarios were created on 2026-11-16 as inactive copies of GradeThread's (see notes on this story once filled in). Activating them is outward-facing and is Dan's call.",
+      "notes": "Created 2026-11-16 in Make folder \"Dan Pearson\" (306376), all INACTIVE, copied from the GT Webhook scenarios with connections and targets still pointing at GradeThread: Facebook 5048227 (hook 2875885), Instagram 5048228 (hook 2875887), LinkedIn 5048234 (hook 2875888), X 5048230 (hook 2875889), Threads via Buffer 5048231 (hook 2875890, copied from the X scenario; Buffer profile must be changed to the Threads channel), YouTube 5048235 (hook 2875891, title uses data.title when present). Webhook URLs are in Make, deliberately not committed. Pinterest was not copied (not one of Dan's platforms).",
       "priority": 20,
       "passes": false
     },

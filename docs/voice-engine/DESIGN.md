@@ -63,7 +63,7 @@ services/voice-engine/  (Node 20 + TypeScript, own package.json)
 - **Secrets:** Infisical, same as the other apps. Env names: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `VOICE_MODEL`, `VOICE_WEBHOOK_SECRET` (HMAC for outbound webhooks), `VOICE_RUN_SECRET` (protects POST /run), `VOICE_DRY_RUN` (true = render and log, fire nothing), `VOICE_HANDLE` (shown on slides), `VOICE_DENY_TERMS` (names that must never appear, such as the employer; Infisical only, never committed), `TZ=America/Chicago`. The edge functions app additionally gets `VOICE_SERVICE_URL`.
 - **Deploy:** its own Coolify application built from `services/voice-engine/Dockerfile`, public at voice.danpearson.net (only `/health` and the secret-protected `/run`). Creating it is a server change and needs Dan's approval of a change plan (see VOICE-019).
 - **Edge functions (admin-only or service-only):** `voice-test-webhook` (Test fire), `voice-run-now` (Post now, holds the run secret), `voice-notify` (skip emails over the SMTP settings `send-notification-email` already uses; that function only handles support tickets and is not changed).
-- **Make:** six scenarios, one per platform, copied from GradeThread's per-platform scenarios and left inactive until Dan swaps the connections to his personal accounts (VOICE-020).
+- **Make:** six scenarios in the Make folder "Dan Pearson", one per platform, copied on 2026-11-16 from GradeThread's "GT Webhook - *" scenarios and left inactive until Dan swaps the connections and targets to his personal accounts (VOICE-020; scenario and hook ids are in that story's notes). Threads goes through Buffer (a copy of the X scenario). The copied Instagram, Facebook and LinkedIn image branches post a single image (`image_url`), not a carousel.
 
 ## Webhook contract
 
@@ -81,7 +81,6 @@ Same shape as GradeThread's `WebhookPayloadSocial` so the Make scenarios look fa
     "cta_url": null,
     "product_focus": "eatpal",
     "track": "eatpal",
-    "test": false,
     "title": "<YouTube title, youtube only>",
     "image_url": "<slide 1 or the single image>",
     "media_type": "image | carousel | video",
@@ -91,7 +90,7 @@ Same shape as GradeThread's `WebhookPayloadSocial` so the Make scenarios look fa
 }
 ```
 
-`data.test` is true only on a Test fire from the admin; every Make scenario filters those out before its posting module.
+A Test fire from the admin adds a top-level `"test": true`. Real sends **omit `test` entirely**: the Make scenarios (copied from GradeThread's) pass a run only when `test` does not exist, so even `"test": false` would be dropped.
 
 Header `X-Content-Signature: <hex HMAC-SHA256 of the raw body with VOICE_WEBHOOK_SECRET>` and `X-Idempotency-Key: <post id>:<platform>`.
 
