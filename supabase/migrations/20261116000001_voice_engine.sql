@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS public.voice_posts (
   topic_id uuid REFERENCES public.voice_topics(id) ON DELETE SET NULL,
   format text CHECK (format IN ('text_carousel', 'single_image', 'product_carousel')),
   status text NOT NULL DEFAULT 'claimed'
-    CHECK (status IN ('claimed', 'writing', 'rendering', 'dispatching', 'posted', 'partial', 'skipped', 'failed')),
+    CHECK (status IN ('claimed', 'writing', 'rendering', 'dispatching', 'posted', 'partial', 'skipped', 'failed', 'dry_run')),
   copy jsonb,
   slides jsonb,
   image_urls text[] NOT NULL DEFAULT '{}',
@@ -112,6 +112,8 @@ CREATE TABLE IF NOT EXISTS public.voice_posts (
   skip_reason text,
   skip_stage text,
   attempts integer NOT NULL DEFAULT 0,
+  -- A dry run renders and logs but sends nothing. It ends in status 'dry_run',
+  -- never 'posted', so the history cannot claim a post that did not go out.
   dry_run boolean NOT NULL DEFAULT false,
   notified_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),

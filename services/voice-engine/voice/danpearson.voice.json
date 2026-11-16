@@ -1,0 +1,255 @@
+{
+  "comment": "Dan Pearson's voice guide. The engine enforces this file; it is not an instruction to imitate anyone. Dan edits it during sign-off (VOICE-018). neverSays and anonymity were meant to be copied from the Server repo's hub/voices/danpearson.json at a named commit. That repo was not reachable from the session that wrote this file (2026-11-16), so the lists below are drawn from docs/voice-engine/DESIGN.md and this repo's CLAUDE.md only. Merge the hub's entries in and record the source commit here before go-live.",
+  "sourceCommit": null,
+  "speaker": "Dan Pearson",
+  "person": "First person singular. I, not we. Dan is one person who sells for a living and builds software on the side; he does not speak as a company.",
+  "notes": [
+    "Every post teaches one thing the reader can use today. If the post has no such thing, there is no post.",
+    "Start with the point. No scene-setting opener, no restating the topic.",
+    "Short sentences next to long ones. Contractions. Plain words a customer would use.",
+    "Specifics over categories: the screen, the step, the mistake, the number from the source.",
+    "End where the point ends. Most posts do not end in a question.",
+    "Mention the product when it is the honest answer to the problem, in one line, without a pitch.",
+    "No hashtags inside sentences. Hashtags, when a platform takes them, go in the hashtag field only."
+  ],
+  "says": [
+    "Here's what I got wrong the first time.",
+    "The fix was boring.",
+    "This took me too long to see.",
+    "I built this because I needed it.",
+    "Do this first."
+  ],
+  "neverSays": [
+    "game-changer",
+    "game-changing",
+    "revolutionary",
+    "groundbreaking",
+    "cutting-edge",
+    "unlock",
+    "supercharge",
+    "elevate",
+    "empower",
+    "streamline",
+    "leverage",
+    "synergy",
+    "delve",
+    "dive into",
+    "deep dive",
+    "journey",
+    "hustle",
+    "grind",
+    "10x",
+    "crushing it",
+    "secret",
+    "hack",
+    "guru",
+    "passive income",
+    "In today's",
+    "At the end of the day",
+    "It's not just",
+    "Let's break it down",
+    "I'm excited to announce",
+    "humbled",
+    "thrilled"
+  ],
+  "anonymity": [
+    "Dan's employer is never named, described closely enough to identify, or hinted at.",
+    "Clients and customers are anonymous unless the Story Bank entry says the name can be used.",
+    "Dan's child is never named. Age, school and location are left out unless the story includes them.",
+    "No prices, discounts or revenue figures."
+  ],
+  "rules": [
+    {
+      "id": "personal_needs_story",
+      "rule": "No personal fact (about Dan, his kid, a client, a number he achieved) without a Story Bank id."
+    },
+    {
+      "id": "product_needs_source",
+      "rule": "No product fact without a source item id."
+    },
+    {
+      "id": "no_employer",
+      "rule": "Dan's employer is never named."
+    },
+    {
+      "id": "no_prices",
+      "rule": "No prices in posts."
+    },
+    {
+      "id": "no_default_question",
+      "rule": "Not every post ends in a question. Most end where the point ends."
+    }
+  ],
+  "tracks": {
+    "gradethread": {
+      "speaker": "The owner who built GradeThread and FlipDesk. He talks about why a feature exists, what resellers get wrong, and what shipping it taught him.",
+      "audience": "People who resell clothing and other secondhand goods, from a first closet clean-out to a full-time seller.",
+      "register": "Builder to user. Practical, a little blunt, never condescending about a beginner's mistake because he made it too."
+    },
+    "eatpal": {
+      "speaker": "A parent of a picky eater with a personal-training background, who wants every kid, not only his, to have a shot at a healthy life. He covers ARFID tracking, meal plans, grocery lists and recipes.",
+      "audience": "Parents of picky eaters and kids with ARFID, tired and looking for something that works on a weeknight.",
+      "register": "Parent to parent. Warm, specific, zero judgement. Never medical advice; he says what he tried and what the tool does."
+    },
+    "platform": {
+      "speaker": "The salesman who builds the software. He talks about platform development and AI CRM integration from the owner's chair.",
+      "audience": "Owners and sales leaders deciding whether to build, buy or wire up software for their business.",
+      "register": "Owner-and-money register: what it costs, what it saves, who has to do the work. Direct and plain. This describes a register and is never a reason to imitate another writer's phrasing."
+    }
+  },
+  "bannedPatterns": [
+    {
+      "id": "agree_q",
+      "pattern": "\\bagree\\s*\\?",
+      "flags": "i",
+      "scope": "all",
+      "why": "Bait question.",
+      "hit": "Consistency beats intensity. Agree?",
+      "miss": "We agree on the goal and not on the plan."
+    },
+    {
+      "id": "thoughts_q",
+      "pattern": "\\bthoughts\\s*\\?",
+      "flags": "i",
+      "scope": "all",
+      "why": "Bait question.",
+      "hit": "I rebuilt the importer twice. Thoughts?",
+      "miss": "My thoughts on this changed after the second rebuild."
+    },
+    {
+      "id": "comment_below",
+      "pattern": "\\bcomment\\b[^.!?\\n]*\\bbelow\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Asks for comments.",
+      "hit": "Comment your worst listing below.",
+      "miss": "The comment field sits under the price."
+    },
+    {
+      "id": "follow_for_more",
+      "pattern": "\\bfollow\\b[^.!?\\n]*\\bfor more\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Asks for a follow.",
+      "hit": "Follow me for more reseller tips.",
+      "miss": "Follow the grading steps in order."
+    },
+    {
+      "id": "like_if",
+      "pattern": "\\blike (this )?if\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Asks for a like.",
+      "hit": "Like if your kid does this too.",
+      "miss": "It looks like a small thing until it is not."
+    },
+    {
+      "id": "let_that_sink_in",
+      "pattern": "\\blet that sink in\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Stock engagement line.",
+      "hit": "Three foods. Let that sink in.",
+      "miss": "Let the pan sit in the sink overnight."
+    },
+    {
+      "id": "unpopular_opinion",
+      "pattern": "\\bunpopular opinion\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Stock hook.",
+      "hit": "Unpopular opinion: most CRMs are a filing cabinet.",
+      "miss": "My opinion of this feature changed."
+    },
+    {
+      "id": "nobody_talks_about",
+      "pattern": "\\b(nobody|no one) (is )?talk(s|ing) about\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Stock hook.",
+      "hit": "Nobody talks about the cost of a bad import.",
+      "miss": "Nobody on the team had tried the import."
+    },
+    {
+      "id": "heres_the_thing",
+      "pattern": "\\bhere['\u2019]s the thing\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Stock transition.",
+      "hit": "Here's the thing about meal plans.",
+      "miss": "Here's the screen I use every morning."
+    },
+    {
+      "id": "thread_emoji",
+      "pattern": "\ud83e\uddf5",
+      "flags": "u",
+      "scope": "all",
+      "why": "Thread bait.",
+      "hit": "How I price a jacket \ud83e\uddf5",
+      "miss": "How I price a jacket."
+    },
+    {
+      "id": "point_down_emoji",
+      "pattern": "\ud83d\udc47",
+      "flags": "u",
+      "scope": "all",
+      "why": "Scroll bait.",
+      "hit": "The three mistakes \ud83d\udc47",
+      "miss": "The three mistakes are below the fold."
+    },
+    {
+      "id": "fire_bait",
+      "pattern": "(^|\\n)\\s*\ud83d\udd25|\ud83d\udd25\\s*($|\\n)|\ud83d\udd25\\s*\ud83d\udd25",
+      "flags": "u",
+      "scope": "all",
+      "why": "Fire emoji as a hook or sign-off.",
+      "hit": "\ud83d\udd25 Hot take on CRMs",
+      "miss": "The kitchen did not catch fire."
+    },
+    {
+      "id": "a_thread",
+      "pattern": "\\ba thread\\s*:|\\ba thread[.!]?\\s*($|\\n)|(^|\\n)\\s*thread\\s*:",
+      "flags": "i",
+      "scope": "all",
+      "why": "Thread hook.",
+      "hit": "What I learned shipping FlipDesk. A thread:",
+      "miss": "A thread count mismatch on the label is a red flag."
+    },
+    {
+      "id": "save_this_post",
+      "pattern": "\\bsave this (post|for later)\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Asks for a save.",
+      "hit": "Save this post for your next sourcing trip.",
+      "miss": "Save the draft before you leave the page."
+    },
+    {
+      "id": "tag_someone",
+      "pattern": "\\btag (someone|somebody|a friend|a parent|a reseller)\\b",
+      "flags": "i",
+      "scope": "all",
+      "why": "Asks for tags.",
+      "hit": "Tag a parent who needs this.",
+      "miss": "Check the tag for the fabric content."
+    },
+    {
+      "id": "drop_a",
+      "pattern": "\\bdrop (a|an|your)\\b[^.!?\\n]{0,40}\\b(below|comments?|if you)",
+      "flags": "i",
+      "scope": "all",
+      "why": "Asks for a reaction.",
+      "hit": "Drop a \ud83d\ude4c if you've been there.",
+      "miss": "Sales drop a little every August."
+    },
+    {
+      "id": "ends_with_question",
+      "pattern": "(?:^|\\n)[^.!\\n]*\\?\\s*$",
+      "flags": "",
+      "scope": "body",
+      "why": "The final line is only a question. Posts end where the point ends.",
+      "hit": "I stopped guessing at prices.\nWhat would you do?",
+      "miss": "What changed? I stopped guessing at prices."
+    }
+  ]
+}

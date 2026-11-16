@@ -1,0 +1,10 @@
+# EatPal
+
+> EatPal helps parents of picky eaters and kids with ARFID plan meals around the foods a child already accepts, then widen that list one small step at a time.
+
+## Docs
+
+- [Food chaining](https://tryeatpal.com/features/food-chaining): how the app suggests the next food to try
+- [Grocery lists](https://tryeatpal.com/features/grocery-lists): one list built from the week's plan
+
+Contact: https://tryeatpal.com/about
