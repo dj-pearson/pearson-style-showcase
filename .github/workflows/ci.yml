@@ -153,9 +153,11 @@ jobs:
   # navigation that had changed months earlier (US-076). A suite nobody runs is
   # not a safety net. Chromium only - Firefox doubles the wall clock and has
   # never caught a failure chromium missed on this codebase.
+  # Pinned to 24.04 for the same reason as voice-engine: Playwright cannot
+  # install Chromium on ubuntu-latest (26.04).
   e2e:
     name: E2E (Playwright, chromium)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:

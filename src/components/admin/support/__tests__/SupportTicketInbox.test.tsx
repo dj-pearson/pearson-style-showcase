@@ -103,7 +103,9 @@ describe('SupportTicketInbox server-side search and paging', () => {
     expect(await screen.findByText('Showing 100 of 120 tickets')).toBeInTheDocument();
     const builders = listBuilders();
     expect(builders[builders.length - 1].range.mock.calls[0]).toEqual([50, 99]);
-  });
+    // Renders 100 ticket rows twice; under CI coverage instrumentation that ran
+    // past the 5s default (PR #140), while it takes about 1s on its own.
+  }, 15_000);
 
   it('sends the search to the server as an escaped or filter', async () => {
     mock.from.mockClear();
