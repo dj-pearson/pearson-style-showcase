@@ -163,9 +163,11 @@ describe('VoiceActivity', () => {
           ...log[0],
           id: 'l9',
           post_id: 'post-3',
+          // As services/voice-engine/src/dispatch.ts writes a dry run: attempt 0.
+          attempt: 0,
           http_status: null,
           ok: false,
-          response_excerpt: null,
+          response_excerpt: 'dry run: not sent',
         },
       ],
       error: null,
@@ -207,5 +209,82 @@ describe('VoiceActivity', () => {
         body: { track: 'eatpal', dryRun: false },
       })
     );
+  });
+
+  it('pushes a finished dry-run post for real after asking, and offers nothing on a skipped or posted one', async () => {
+    const dry = post({ id: 'post-3', track: 'gradethread', product: 'gradethread', status: 'dry_run', dry_run: true });
+    mock.setTableResult('voice_posts', { data: [dry, post(), skipped], error: null });
+    invoke.mockImplementation(async (_name, opts) => {
+      const body = (opts as { body?: Record<string, unknown> }).body ?? {};
+      return body.status === true
+        ? { data: { ok: true, dryRun: false, version: '0.1.0' }, error: null }
+        : { data: { accepted: true }, error: null };
+    });
+    render(<VoiceActivity />);
+    await waitFor(() => expect(screen.getByText(/2026-11-17 GradeThread/)).toBeInTheDocument());
+
+    for (const label of [/2026-11-17 EatPal/, /2026-11-17 Platform/]) {
+      const row = rowFor(label);
+      fireEvent.click(within(row).getByRole('button', { expanded: false }));
+      expect(within(row).queryByRole('button', { name: 'Push to webhooks' })).not.toBeInTheDocument();
+    }
+
+    const row = rowFor(/2026-11-17 GradeThread/);
+    fireEvent.click(within(row).getByRole('button', { expanded: false }));
+    fireEvent.click(await within(row).findByRole('button', { name: 'Push to webhooks' }));
+    expect(await screen.findByText(/for real\?/)).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith('voice-run-now', { body: { push: 'post-3' } });
+
+    const dialog = screen.getByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Push to webhooks' }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('voice-run-now', { body: { push: 'post-3' } })
+    );
+  });
+
+  it('hides Push while the service runs in dry-run mode', async () => {
+    const dry = post({ id: 'post-3', track: 'gradethread', product: 'gradethread', status: 'dry_run', dry_run: true });
+    mock.setTableResult('voice_posts', { data: [dry], error: null });
+    invoke.mockImplementation(async () => ({ data: { ok: true, dryRun: true, version: '0.1.0' }, error: null }));
+    render(<VoiceActivity />);
+    expect(await screen.findByText('Real posts are off')).toBeInTheDocument();
+
+    const row = rowFor(/2026-11-17 GradeThread/);
+    fireEvent.click(within(row).getByRole('button', { expanded: false }));
+    expect(within(row).queryByRole('button', { name: 'Push to webhooks' })).not.toBeInTheDocument();
+  });
+
+  it('locks the switch to dry run and says why when the service runs in dry-run mode', async () => {
+    invoke.mockImplementation(async (_name, opts) => {
+      const body = (opts as { body?: Record<string, unknown> }).body ?? {};
+      return body.status === true
+        ? { data: { ok: true, dryRun: true, version: '0.1.0' }, error: null }
+        : { data: { accepted: true }, error: null };
+    });
+    render(<VoiceActivity />);
+
+    expect(await screen.findByText('Real posts are off')).toBeInTheDocument();
+    const toggle = screen.getByRole('switch', { name: 'Dry run' });
+    expect(toggle).toBeDisabled();
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Dry run: EatPal' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Post now: EatPal' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the switch usable and says so when the mode cannot be read', async () => {
+    invoke.mockImplementation(async (_name, opts) => {
+      const body = (opts as { body?: Record<string, unknown> }).body ?? {};
+      return body.status === true
+        ? { data: null, error: new Error('Could not reach the voice engine') }
+        : { data: { accepted: true }, error: null };
+    });
+    render(<VoiceActivity />);
+
+    expect(await screen.findByText(/Could not read the voice engine's mode/)).toBeInTheDocument();
+    expect(screen.queryByText('Real posts are off')).not.toBeInTheDocument();
+    const toggle = screen.getByRole('switch', { name: 'Dry run' });
+    expect(toggle).not.toBeDisabled();
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Post now: EatPal' })).toBeInTheDocument();
   });
 });

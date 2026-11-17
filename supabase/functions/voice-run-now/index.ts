@@ -9,6 +9,11 @@ import { requireAdmin } from '../_shared/require-admin.ts';
  * browser. The service answers quickly (202 accepted, 401 bad secret, 409 the
  * track already posted today, 429 over 6 calls an hour) and this returns its
  * status and JSON body unchanged.
+ *
+ * A body of { status: true } instead returns the service's /health
+ * ({ ok, dryRun, version }) so the card can show whether real posts are on,
+ * and { push: <post id> } relays to the service's POST /push, which sends an
+ * existing post to the webhooks for real.
  */
 
 const TRACKS = ['gradethread', 'eatpal', 'platform'];
@@ -31,17 +36,53 @@ export default async (req: Request): Promise<Response> => {
 
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  let body: { track?: unknown; dryRun?: unknown };
+  let body: { track?: unknown; dryRun?: unknown; status?: unknown; push?: unknown };
   try {
     body = await req.json();
   } catch {
     return json({ error: 'Request body must be JSON' }, 400);
   }
-  const { track } = body;
-  if (typeof track !== 'string' || !TRACKS.includes(track)) {
-    return json({ error: `track must be one of: ${TRACKS.join(', ')}` }, 400);
+
+  // { status: true } reads the service's mode instead of starting a run, so
+  // the Post now card can say when real posts are off (VOICE_DRY_RUN=true on
+  // the service overrides whatever the card asks for).
+  if (body.status === true) {
+    const url = (Deno.env.get('VOICE_SERVICE_URL') ?? '').replace(/\/+$/, '');
+    if (!url) return json({ error: 'Not set on the edge functions app: VOICE_SERVICE_URL' }, 500);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(`${url}/health`, { signal: controller.signal });
+      const health = (await response.json()) as { ok?: unknown; dryRun?: unknown; version?: unknown };
+      if (!response.ok || typeof health.dryRun !== 'boolean') {
+        return json({ error: `The voice engine health check answered ${response.status}` }, 502);
+      }
+      return json({ ok: health.ok === true, dryRun: health.dryRun, version: health.version ?? null });
+    } catch {
+      return json({ error: 'Could not reach the voice engine' }, 502);
+    } finally {
+      clearTimeout(timer);
+    }
   }
-  const dryRun = body.dryRun === true;
+
+  // { push: <post id> } sends an existing post to the webhooks for real
+  // (Activity > Push to webhooks); otherwise this is Post now for a track.
+  let relayPath: string;
+  let relayBody: unknown;
+  if (body.push !== undefined) {
+    if (typeof body.push !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.push)) {
+      return json({ error: 'push must be a post id' }, 400);
+    }
+    relayPath = '/push';
+    relayBody = { postId: body.push };
+  } else {
+    const { track } = body;
+    if (typeof track !== 'string' || !TRACKS.includes(track)) {
+      return json({ error: `track must be one of: ${TRACKS.join(', ')}` }, 400);
+    }
+    relayPath = '/run';
+    relayBody = { track, dryRun: body.dryRun === true };
+  }
 
   const serviceUrl = (Deno.env.get('VOICE_SERVICE_URL') ?? '').replace(/\/+$/, '');
   const runSecret = Deno.env.get('VOICE_RUN_SECRET');
@@ -56,10 +97,10 @@ export default async (req: Request): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch(`${serviceUrl}/run`, {
+    const response = await fetch(`${serviceUrl}${relayPath}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-run-secret': runSecret },
-      body: JSON.stringify({ track, dryRun }),
+      body: JSON.stringify(relayBody),
       signal: controller.signal,
     });
     const text = await response.text();

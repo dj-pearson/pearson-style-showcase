@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronRight, Loader2, Play, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Play, RefreshCw, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +47,7 @@ interface PostCopy {
 }
 
 const POSTS_KEY = ['voice-posts'];
+const MODE_KEY = ['voice-service-mode'];
 const LOG_KEY = ['voice-webhook-log'];
 const HISTORY_DAYS = 30;
 const POLL_MS = 5000;
@@ -114,9 +116,22 @@ const formatDateTime = (iso: string): string =>
 interface PostRowProps {
   post: Post;
   log: LogRow[];
+  /** Ask to send this post to the webhooks for real. Absent when it cannot be pushed. */
+  onPush?: () => void;
+  pushing?: boolean;
 }
 
-const PostRow = ({ post, log }: PostRowProps) => {
+/** A post with finished copy and slides that is not running and has not fully gone out. */
+export function canPush(post: Post): boolean {
+  return (
+    !!post.copy &&
+    post.image_urls.length > 0 &&
+    !VOICE_IN_FLIGHT_STATUSES.includes(post.status) &&
+    post.status !== 'posted'
+  );
+}
+
+const PostRow = ({ post, log, onPush, pushing = false }: PostRowProps) => {
   const [open, setOpen] = useState(false);
   const copy = (post.copy ?? {}) as PostCopy;
   const trackLabel = labelFor(VOICE_TRACK_LABELS, post.track);
@@ -230,11 +245,13 @@ const PostRow = ({ post, log }: PostRowProps) => {
                     </span>
                     {`, attempt ${row.attempt}: `}
                     <span className={row.ok ? '' : 'text-muted-foreground'}>
-                      {row.http_status === null
-                        ? 'not sent (dry run)'
-                        : `HTTP ${row.http_status} ${row.ok ? 'accepted' : 'failed'}`}
+                      {row.http_status !== null
+                        ? `HTTP ${row.http_status} ${row.ok ? 'accepted' : 'failed'}`
+                        : row.attempt === 0
+                          ? 'not sent (dry run)'
+                          : 'no answer'}
                     </span>
-                    {!row.ok && row.http_status !== null && row.response_excerpt && (
+                    {!row.ok && row.attempt > 0 && row.response_excerpt && (
                       <span className="block break-words text-xs text-muted-foreground">
                         {row.response_excerpt}
                       </span>
@@ -244,6 +261,19 @@ const PostRow = ({ post, log }: PostRowProps) => {
               </ul>
             )}
           </div>
+
+          {onPush && (
+            <div className="space-y-2">
+              <Button variant="outline" disabled={pushing} onClick={onPush}>
+                {pushing ? <Loader2 className="animate-spin" /> : <Send />}
+                Push to webhooks
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Sends this post for real to every enabled platform. A platform that already took it
+                is skipped.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </li>
@@ -259,6 +289,8 @@ export const VoiceActivity = () => {
   const [dryRun, setDryRun] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
   const [confirmTrack, setConfirmTrack] = useState<string | null>(null);
+  const [confirmPush, setConfirmPush] = useState<Post | null>(null);
+  const [pushingId, setPushingId] = useState<string | null>(null);
   const [pollUntil, setPollUntil] = useState(0);
 
   const postsQuery = useQuery({
@@ -279,6 +311,23 @@ export const VoiceActivity = () => {
       return inFlight || Date.now() < pollUntil ? POLL_MS : false;
     },
   });
+
+  // The service's own mode. VOICE_DRY_RUN=true on the service turns every run
+  // into a dry run whatever the switch below says, so the card has to show it.
+  const modeQuery = useQuery({
+    queryKey: MODE_KEY,
+    retry: false,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await invokeEdgeFunction('voice-run-now', { body: { status: true } });
+      if (error) throw error;
+      const mode = data as { dryRun?: unknown } | null;
+      if (typeof mode?.dryRun !== 'boolean') throw new Error('the voice engine did not report its mode');
+      return { dryRun: mode.dryRun };
+    },
+  });
+  const serviceDryRun = modeQuery.data?.dryRun === true;
+  const effectiveDryRun = dryRun || serviceDryRun;
 
   const posts = postsQuery.data ?? [];
   const postIds = posts.map((p) => p.id);
@@ -333,8 +382,27 @@ export const VoiceActivity = () => {
     refresh();
   };
 
+  const pushPost = async (post: Post) => {
+    setPushingId(post.id);
+    const { error } = await invokeEdgeFunction('voice-run-now', { body: { push: post.id } });
+    setPushingId(null);
+    const label = `${post.run_date} ${labelFor(VOICE_TRACK_LABELS, post.track)}`;
+    if (error) {
+      logger.error('Voice push failed:', error);
+      toast.error(
+        isMfaRequiredError(error)
+          ? 'Push needs a two-factor sign-in. Sign in again with your authenticator code.'
+          : `${label} was not pushed: ${error.message}`
+      );
+      return;
+    }
+    toast.success(`${label} is being sent. Watch its webhook log below.`);
+    setPollUntil(Date.now() + POLL_AFTER_TRIGGER_MS);
+    refresh();
+  };
+
   const handlePostNow = (track: string) => {
-    if (dryRun) {
+    if (effectiveDryRun) {
       void runTrack(track, true);
     } else {
       setConfirmTrack(track);
@@ -351,20 +419,41 @@ export const VoiceActivity = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {serviceDryRun && (
+            <Alert>
+              <AlertTitle>Real posts are off</AlertTitle>
+              <AlertDescription>
+                The voice engine is running with VOICE_DRY_RUN=true, so every run is a dry run
+                whatever this switch says. To post for real, set VOICE_DRY_RUN=false on
+                danpearson-voice-engine in Coolify and redeploy it.
+              </AlertDescription>
+            </Alert>
+          )}
+          {modeQuery.isError && (
+            <p className="text-sm text-muted-foreground">
+              Could not read the voice engine&apos;s mode ({(modeQuery.error as Error).message}). A
+              run may still be a dry run.
+            </p>
+          )}
           <div className="flex min-h-[44px] items-center gap-3">
-            <Switch id="voice-dry-run" checked={dryRun} onCheckedChange={setDryRun} />
+            <Switch
+              id="voice-dry-run"
+              checked={effectiveDryRun}
+              disabled={serviceDryRun}
+              onCheckedChange={setDryRun}
+            />
             <Label htmlFor="voice-dry-run">Dry run</Label>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {VOICE_TRACKS.map((track) => (
               <Button
                 key={track}
-                variant={dryRun ? 'outline' : 'default'}
+                variant={effectiveDryRun ? 'outline' : 'default'}
                 disabled={running !== null}
                 onClick={() => handlePostNow(track)}
               >
                 {running === track ? <Loader2 className="animate-spin" /> : <Play />}
-                {dryRun ? 'Dry run' : 'Post now'}: {VOICE_TRACK_LABELS[track]}
+                {effectiveDryRun ? 'Dry run' : 'Post now'}: {VOICE_TRACK_LABELS[track]}
               </Button>
             ))}
           </div>
@@ -412,7 +501,13 @@ export const VoiceActivity = () => {
           )}
           <ul className="divide-y divide-border">
             {posts.map((post) => (
-              <PostRow key={post.id} post={post} log={logByPost.get(post.id) ?? []} />
+              <PostRow
+                key={post.id}
+                post={post}
+                log={logByPost.get(post.id) ?? []}
+                onPush={canPush(post) && !serviceDryRun ? () => setConfirmPush(post) : undefined}
+                pushing={pushingId === post.id}
+              />
             ))}
           </ul>
         </CardContent>
@@ -439,6 +534,36 @@ export const VoiceActivity = () => {
               }}
             >
               Post now
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmPush} onOpenChange={(open) => !open && setConfirmPush(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Push{' '}
+              {confirmPush
+                ? `${confirmPush.run_date} ${labelFor(VOICE_TRACK_LABELS, confirmPush.track)}`
+                : ''}{' '}
+              for real?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This sends the post exactly as written to every enabled platform under your name.
+              Platforms that already took it are skipped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const post = confirmPush;
+                setConfirmPush(null);
+                if (post) void pushPost(post);
+              }}
+            >
+              Push to webhooks
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
