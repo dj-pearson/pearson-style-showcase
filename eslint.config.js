@@ -15,6 +15,9 @@ export default tseslint.config(
       "danpearson-edge-functions",
       "edge-functions-template",
       "supabase",
+      // A separate Node package with its own tsconfig, tests and CI step
+      // (services/voice-engine). The browser-app rules here do not fit it.
+      "services",
     ],
   },
   {

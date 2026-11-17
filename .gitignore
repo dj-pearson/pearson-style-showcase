@@ -24,6 +24,8 @@ supabase/.temp/
 
 # Lockfiles (keep only one)
 package-lock.json
+# The voice engine Dockerfile runs npm ci, which needs its lockfile.
+!services/voice-engine/package-lock.json
 yarn.lock
 pnpm-lock.yaml
 

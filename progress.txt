@@ -635,3 +635,16 @@ tracking; health-check probe bounded.
 - tsc clean; eslint 0 errors; vitest 102 files, 961 tests; coverage passes (functions 61.25%);
   npm run build passes.
 - Pending on the owner: 5 migrations (see US-114..US-118 notes), function env vars, deno.lock.
+
+### Iteration - Voice engine (VOICE-001..017)
+**Date**: 2026-11-16
+**Branch**: develop
+**Stories Completed**: 16 of 17 build stories; VOICE-005 built but not passed; VOICE-018..020 are operator stories
+
+- services/voice-engine: standalone Node service (schema, voice guide, sources, topic picker, writer, checker, Playwright slides, ffmpeg video, signed dispatch, pipeline, scheduler, /health and /run). 139 tests.
+- Admin > Voice: Story Bank, Assets, Settings, Activity. 19 component tests, e2e spec over mocked REST.
+- Edge functions: voice-test-webhook, voice-run-now, voice-notify (none executed: no deno in the session).
+- Migration 20261116000001_voice_engine.sql applied and rolled back on a local Postgres with stubbed Supabase schemas. NOT reserved through coord; reserve or renumber before applying.
+- Docker image built and run locally (proxy CA added only in a throwaway Dockerfile copy).
+- Root: lint 0 errors, typecheck clean, 735 tests passing.
+- Not reachable from the session: the Server repo (coord, hub voice file, hub Story Bank reader) and the five product sites (proxy refused them), so sources were tested on fixtures only.

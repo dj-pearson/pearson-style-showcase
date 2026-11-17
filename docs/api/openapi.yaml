@@ -923,3 +923,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessFlag'
+
+  /voice-test-webhook:
+    post:
+      tags: [Utility]
+      operationId: voiceTestWebhook
+      summary: Test fire a voice engine platform webhook
+      description: >-
+        Admin only. Sends one signed sample payload with a top-level test flag to
+        the Make webhook saved for the platform in voice_webhook_targets. The URL
+        is never taken from the request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platform:
+                  type: string
+                  enum: [x, linkedin, instagram, facebook, threads, youtube]
+              required: [platform]
+            example: { platform: instagram }
+      responses:
+        '200':
+          description: The webhook answered; status is its HTTP status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: integer }
+                required: [ok, status]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /voice-run-now:
+    post:
+      tags: [Utility]
+      operationId: voiceRunNow
+      summary: Run a voice engine track now
+      description: >-
+        Admin only. Relays to the voice engine service's /run endpoint with the
+        run secret held in the edge functions app, and returns the service's
+        status and body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                track:
+                  type: string
+                  enum: [gradethread, eatpal, platform]
+                dryRun: { type: boolean }
+              required: [track]
+            example: { track: eatpal, dryRun: true }
+      responses:
+        '202':
+          description: The run was accepted and continues in the background.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean }
+                  track: { type: string }
+                required: [accepted, track]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'

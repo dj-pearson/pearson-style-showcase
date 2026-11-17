@@ -1,0 +1,23 @@
+/* Brand tokens for every slide. Change the look here, not in the templates. */
+:root {
+  --paper: #f3efe6;
+  --ink: #17191e;
+  --ink-soft: #4a4d55;
+  --accent: #c2410c;
+  --accent-ink: #fff7ed;
+  --rule: #d9d2c3;
+  --screen-bg: #e7e1d3;
+
+  --font-display: 'Bricolage Grotesque', 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --pad: 96px;
+  --radius-device: 56px;
+
+  /* Starting sizes; fit() shrinks a box's text until it fits, down to its data-min. */
+  --size-hook: 104px;
+  --size-headline: 76px;
+  --size-body: 40px;
+  --size-single: 92px;
+  --size-meta: 30px;
+}

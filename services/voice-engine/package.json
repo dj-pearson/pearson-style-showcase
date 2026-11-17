@@ -1,0 +1,33 @@
+{
+  "name": "voice-engine",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Posts as Dan Pearson three times a day through one Make scenario per platform. See docs/voice-engine/DESIGN.md.",
+  "type": "module",
+  "engines": {
+    "node": ">=20 <25"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "start": "node dist/server.js",
+    "dev": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "once": "tsx src/cli/once.ts",
+    "preview": "tsx src/cli/preview.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.9.0",
+    "@supabase/supabase-js": "2.51.0",
+    "cheerio": "1.2.0",
+    "node-cron": "4.6.0",
+    "playwright": "1.57.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "4.23.15",
+    "typescript": "^5.5.3",
+    "vitest": "4.1.10"
+  }
+}
