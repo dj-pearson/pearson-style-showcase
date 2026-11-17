@@ -15,6 +15,7 @@ async function start(
     store?: MemoryStore;
     limiter?: RunLimiter;
     launch?: (t: TrackKey) => boolean;
+    push?: (id: string) => Promise<{ ok: true } | { ok: false; status: number; error: string }>;
   } = {}
 ) {
   const launched: { track: TrackKey; dryRun: boolean }[] = [];
@@ -29,6 +30,7 @@ async function start(
       launched.push({ track, dryRun: opts.dryRun });
       return over.launch ? over.launch(track) : true;
     },
+    push: over.push,
   });
   await new Promise<void>((r) => server!.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${(server!.address() as AddressInfo).port}`;
@@ -112,6 +114,43 @@ describe('server', () => {
     const { base } = await start();
     expect((await fetch(`${base}/`)).status).toBe(404);
     expect((await fetch(`${base}/run`)).status).toBe(405);
+  });
+});
+
+describe('POST /push', () => {
+  const ID = '22222222-2222-2222-2222-222222222222';
+  const push = (base: string, body: unknown, secret: string | null) =>
+    fetch(`${base}/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(secret !== null ? { 'x-run-secret': secret } : {}) },
+      body: JSON.stringify(body),
+    });
+
+  it('needs the run secret and a post id, and starts the push', async () => {
+    const asked: string[] = [];
+    const { base } = await start({
+      push: async (id) => {
+        asked.push(id);
+        return { ok: true };
+      },
+    });
+    expect((await push(base, { postId: ID }, null)).status).toBe(401);
+    expect((await push(base, { postId: 'nope' }, SECRET)).status).toBe(400);
+    expect(asked).toEqual([]);
+
+    const res = await push(base, { postId: ID }, SECRET);
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ accepted: true, postId: ID });
+    expect(asked).toEqual([ID]);
+  });
+
+  it('passes a refusal through with its status and reason', async () => {
+    const { base } = await start({
+      push: async () => ({ ok: false, status: 409, error: 'VOICE_DRY_RUN is on' }),
+    });
+    const res = await push(base, { postId: ID }, SECRET);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'VOICE_DRY_RUN is on' });
   });
 });
 

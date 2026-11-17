@@ -52,6 +52,11 @@ export interface ServerDeps {
   dryRun: boolean;
   /** Start a track in the background. False when it is already running here. */
   launch: (track: TrackKey, opts: { dryRun: boolean; force: boolean }) => boolean;
+  /**
+   * Push an existing post to the webhooks for real. Resolves once the post is
+   * checked; the sending itself carries on in the background.
+   */
+  push?: (postId: string) => Promise<{ ok: true } | { ok: false; status: number; error: string }>;
   limiter?: RunLimiter;
   now?: () => Date;
 }
@@ -74,9 +79,9 @@ async function readBody(req: IncomingMessage): Promise<string> {
 }
 
 /**
- * GET /health, and POST /run (the admin's "Post now"). Nothing else. /run
- * answers 202 as soon as the run starts; the run itself takes minutes and its
- * progress shows in the admin's Activity tab.
+ * GET /health, POST /run (the admin's "Post now") and POST /push (the admin's
+ * "Push to webhooks" on an existing post). Nothing else. Both POSTs answer 202
+ * as soon as the work starts; progress shows in the admin's Activity tab.
  */
 export function createApp(deps: ServerDeps): Server {
   const limiter = deps.limiter ?? new RunLimiter();
@@ -122,6 +127,29 @@ export function createApp(deps: ServerDeps): Server {
         }
         return send(res, 202, { accepted: true, track, dryRun });
       }
+      if (path === '/push') {
+        if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' });
+        const header = req.headers['x-run-secret'];
+        if (!secretMatches(Array.isArray(header) ? header[0] : header, deps.runSecret)) {
+          return send(res, 401, { error: 'unauthorized' });
+        }
+        if (!deps.push) return send(res, 404, { error: 'not found' });
+        let body: { postId?: unknown };
+        try {
+          body = JSON.parse((await readBody(req)) || '{}');
+        } catch {
+          return send(res, 400, { error: 'invalid JSON body' });
+        }
+        const postId = body.postId;
+        if (typeof postId !== 'string' || !/^[0-9a-f-]{36}$/i.test(postId)) {
+          return send(res, 400, { error: 'postId must be a post id' });
+        }
+        if (!limiter.take())
+          return send(res, 429, { error: `at most ${RUN_LIMIT_PER_HOUR} runs per hour` });
+        const checked = await deps.push(postId);
+        if (!checked.ok) return send(res, checked.status, { error: checked.error });
+        return send(res, 202, { accepted: true, postId });
+      }
       return send(res, 404, { error: 'not found' });
     } catch (err) {
       console.error('[voice] request failed', err instanceof Error ? err.message : String(err));
@@ -150,6 +178,16 @@ async function main(): Promise<void> {
     runSecret: config.runSecret,
     dryRun: config.dryRun,
     launch: (track, opts) => rt.scheduler.launch(track, opts),
+    push: async (postId) => {
+      const { checkPushable, pushPost } = await import('./push.js');
+      const pushDeps = { store: rt.deps.store, webhookSecret: config.webhookSecret, dryRun: config.dryRun };
+      const checked = await checkPushable(pushDeps, postId);
+      if (!checked.ok) return checked;
+      void pushPost(pushDeps, checked.post).catch((err) =>
+        console.error('[voice] push failed', err instanceof Error ? err.message : String(err))
+      );
+      return { ok: true };
+    },
   });
   app.listen(config.port, () =>
     console.log(
