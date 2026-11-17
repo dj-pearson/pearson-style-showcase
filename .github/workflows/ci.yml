@@ -84,6 +84,8 @@ jobs:
   # vault crypto) ran only when someone remembered to. They import nothing
   # remote, so the run needs no network beyond fetching Deno itself.
   # --allow-env: cors.ts and friends read their config from Deno.env.
+  # --allow-net=127.0.0.1: fetch-with-timeout.test.ts serves its fixtures from a
+  # local Deno.serve; without it all 12 of its tests fail with NotCapable.
   # DENO_NO_PACKAGE_JSON: without it Deno reads the root package.json, finds
   # no node_modules in this job, and type checking fails looking for
   # @types/node. The edge functions do not use package.json at all.
@@ -102,16 +104,18 @@ jobs:
           deno-version: v2.5.6
 
       - name: Run Deno tests (type-checked)
-        run: deno test --allow-env supabase/functions
+        run: deno test --allow-env --allow-net=127.0.0.1 supabase/functions
         env:
           DENO_NO_PACKAGE_JSON: '1'
 
   # services/voice-engine is its own Node package (Dan Pearson's posting
   # service), with its own lockfile, typecheck and tests. Its render tests
   # start a real Chromium and ffmpeg, so both are installed here.
+  # Pinned to 24.04: ubuntu-latest moved to 26.04, where Playwright 1.57 cannot
+  # install Chromium; 24.04 (noble) is also what the Docker image runs.
   voice-engine:
     name: Voice engine (typecheck, test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
