@@ -211,6 +211,7 @@ export const NotificationSettings = () => {
                 >
                   <span className="text-sm">{email}</span>
                   <Button
+                    aria-label={`Remove ${email}`}
                     variant="ghost"
                     size="icon"
                     onClick={() => removeEmail(email)}

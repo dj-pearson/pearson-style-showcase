@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Platform {
   id: string;
@@ -61,6 +62,7 @@ interface Account {
 
 const PlatformsManager: React.FC = () => {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'revenue' | 'expense' | 'both'>('all');
@@ -176,10 +178,7 @@ const PlatformsManager: React.FC = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('platforms')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('platforms').delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -251,7 +250,7 @@ const PlatformsManager: React.FC = () => {
     }
   };
 
-  const filteredPlatforms = platforms?.filter(platform => {
+  const filteredPlatforms = platforms?.filter((platform) => {
     if (filterType === 'all') return true;
     return platform.platform_type === filterType;
   });
@@ -276,11 +275,7 @@ const PlatformsManager: React.FC = () => {
       both: 'secondary',
     } as const;
 
-    return (
-      <Badge variant={variants[type as keyof typeof variants] || 'default'}>
-        {type}
-      </Badge>
-    );
+    return <Badge variant={variants[type as keyof typeof variants] || 'default'}>{type}</Badge>;
   };
 
   return (
@@ -288,14 +283,15 @@ const PlatformsManager: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Platforms</h2>
-          <p className="text-sm text-muted-foreground">
-            Manage your revenue and expense platforms
-          </p>
+          <p className="text-sm text-muted-foreground">Manage your revenue and expense platforms</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -304,9 +300,7 @@ const PlatformsManager: React.FC = () => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingPlatform ? 'Edit Platform' : 'Add New Platform'}
-              </DialogTitle>
+              <DialogTitle>{editingPlatform ? 'Edit Platform' : 'Add New Platform'}</DialogTitle>
               <DialogDescription>
                 {editingPlatform
                   ? 'Update platform information'
@@ -481,9 +475,7 @@ const PlatformsManager: React.FC = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingPlatform ? 'Update' : 'Create'} Platform
-                </Button>
+                <Button type="submit">{editingPlatform ? 'Update' : 'Create'} Platform</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -570,6 +562,7 @@ const PlatformsManager: React.FC = () => {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
+                        aria-label={`Edit platform ${platform.name}`}
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEdit(platform)}
@@ -577,12 +570,18 @@ const PlatformsManager: React.FC = () => {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete platform ${platform.name}`}
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this platform?')) {
-                            deleteMutation.mutate(platform.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Delete platform "${platform.name}"?`,
+                            description:
+                              'It can no longer be picked for new transactions. This cannot be undone.',
+                            confirmLabel: 'Delete platform',
+                            destructive: true,
+                          });
+                          if (ok) deleteMutation.mutate(platform.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

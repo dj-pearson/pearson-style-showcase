@@ -15,7 +15,7 @@ seo_keywords:
     'HubSpot automation consultant',
     'CRM automation agency',
   ]
-excerpt: 'Most teams hire the wrong type of provider for the problem they actually have. Here are the three kinds of CRM automation consultant, the nine questions that tell you which one is in front of you, and the answers worth walking away from.'
+excerpt: 'Most teams hire the wrong type of provider for the problem they actually have. There are three kinds of CRM automation consultant, nine questions that tell you which one is in front of you, and a handful of answers worth walking away from.'
 read_time: '11 min read'
 featured: true
 published: true
@@ -86,7 +86,7 @@ Ignore the headline numbers for a moment and look at the shape of the engagement
 
 A sound structure is **paid diagnostic first, implementation scoped from the diagnostic**. The diagnostic is small, fixed-price and produces something you keep. It is deliberately cheap enough that walking away afterwards is a real option, and if it is not, the incentive is wrong.
 
-For reference, my own audit is $2,500 flat over two weeks, and the roadmap is yours whoever builds it. I publish that number because unpublished pricing in this market usually means the price is set by what the buyer looks like they can pay. The specific figure matters less than the structure: a small fixed diagnostic, then scoped build.
+For reference, my own audit is [$2,500 flat over two weeks](/connect), and the roadmap is yours whoever builds it. I publish that number because unpublished pricing in this market usually means the price is set by what the buyer looks like they can pay. The specific figure matters less than the structure: a small fixed diagnostic, then scoped build.
 
 Be suspicious of two shapes in particular. **Free audits** are sales calls with a document attached, and they reliably conclude that you need the thing the auditor sells. **Open-ended monthly retainers with no defined first deliverable** work well once trust exists and badly as a starting point.
 
@@ -109,7 +109,7 @@ Independent builders typically run $3,000-$40,000 per project; RevOps consultanc
 If you have an ops person with API fluency and time, in-house is often better because they stay. Consultants earn their fee on speed, on having seen the failure modes before, and on the parts that need production engineering: error handling, retries, permissions, and not leaking customer data into a model. Teams under 50 seats rarely have that capacity spare.
 
 **Should I hire a HubSpot or Salesforce certified partner?**
-Yes if the work is genuinely platform-deep: complex migrations, large estates, heavy native configuration. For capture-layer automation on a small team, certification tells you someone knows one vendor's product, not that they can build reliable automation across the tools where your conversations actually happen.
+Yes if the work is genuinely platform-deep: complex migrations, large estates, heavy native configuration. For capture-layer automation on a small team, certification tells you someone knows one vendor's product, not that they can build reliable automation across the tools where your conversations happen.
 
 **What is the difference between a CRM automation consultant and a RevOps consultant?**
 RevOps covers process, structure, comp, territory and reporting across the whole revenue organisation, and the deliverable is usually a specification. CRM automation is narrower and technical: the automation layer inside the system, built and shipped. If you have no defined sales process yet, RevOps comes first, because automation makes an existing process cheaper to run rather than inventing one.
@@ -125,4 +125,4 @@ Seller hours should move within the first month if the right capture path was au
 
 ---
 
-_Related: [the AI CRM automation guide](/news/ai-crm-automation-complete-guide) for the full picture, or [the 12-point audit and published pricing](/ai-crm-automation) if you want to see what I actually do._
+_Related: [the AI CRM automation guide](/news/ai-crm-automation-complete-guide) for the full picture, or [the 12-point audit and published pricing](/ai-crm-automation) if you want to see what I do._

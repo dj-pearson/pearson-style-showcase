@@ -31,8 +31,13 @@ describe('AI CRM Automation page', () => {
 
   it('publishes the price band for every engagement tier', () => {
     renderPage();
+    // Twice each: the stacked list shown below sm and the table shown from sm
+    // up. jsdom applies no media queries, so both are in the document.
+    const table = screen.getByRole('table');
     SERVICE_TIERS.forEach((tier) => {
-      expect(screen.getByText(tier.priceLabel)).toBeInTheDocument();
+      const matches = screen.getAllByText(tier.priceLabel);
+      expect(matches).toHaveLength(2);
+      expect(matches.filter((el) => table.contains(el))).toHaveLength(1);
     });
   });
 

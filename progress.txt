@@ -573,6 +573,69 @@
 #### PRD STATUS
 - All 99 stories marked passes: true; no open items remain
 
+### Iteration - Platform deep dive (US-100 to US-113)
+**Date**: 2026-11-15
+**Branch**: claude/backlog-platform-improvements-5hmnuy
+**Stories Completed**: 7 (US-100 to US-106); 7 opened (US-107 to US-113)
+
+The backlog was empty (99/99), so five read-only audits ran in parallel (UI/a11y, performance,
+SEO, security, conversion), then five agents fixed the findings in separate worktrees and the
+branches were merged here.
+
+- Security: aal2 restrictive RLS on admin tables, service-role-only write RPCs, admin-auth lockout
+  email escaped and whitelisted, oauth-proxy checks email_verified/iss/aud and the whitelist,
+  timestamped HMAC on email-webhook-receiver, safeFetch in the link checker. Two migrations and six
+  function redeploys are pending on the owner.
+- SEO: every public route prerendered with its own head; real 404s; legacy URLs are 301s in
+  _redirects; sitemap built from resolvable routes; single JSON-LD graph; og-default.png 1200x630.
+- Performance: home initial JS 258.6 -> 177.3 KB gzip, article 336.5 -> ~219 KB gzip (radix/lucide
+  chunks, single gtag load, lazy Index, lean PostgrestClient for public reads).
+- Conversion: /connect sells the $2,500 audit; in-place form results with real lead events;
+  article endings carry the audit or the newsletter; tracked Link CTAs; share buttons fixed.
+- UI/a11y: admin shortcuts, overlapping fixed buttons, search contrast, mobile nav semantics,
+  section error states, 44 admin icon labels.
+
+#### Verification
+- tsc clean; eslint 0 errors; vitest 77 files, 761 tests passing; npm run build passes (no DB).
+- Not run: Playwright e2e, Lighthouse, deno check (deno not installed).
+
+### Iteration - Deep dive follow-ups (US-107 to US-113)
+**Date**: 2026-11-15
+**Branch**: claude/backlog-platform-improvements-5hmnuy
+**Stories Completed**: 7
+
+Six agents in parallel worktrees, merged here. Details in each story's notes in PRD.json.
+- US-107 newsletter double opt-in and signed one-click unsubscribe (migration + 2 new functions)
+- US-108 lean client on the remaining public pages (~50 KB gzip off each)
+- US-109 prerendered hero/article header match React's layout; article LCP 5.4s -> 3.4s
+- US-110 below-the-fold homepage sections mount near the viewport
+- US-111 prerender fails the build when the DB article fetch fails
+- US-112 shared confirm dialog in admin; icon-only buttons all labelled
+- US-113 orb on plain three; three-vendor 226 -> 123 KB gzip
+
+#### Verification
+- tsc clean; eslint 0 errors; vitest 80 files, 782 tests passing; npm run build passes.
+- Homepage screenshot at 390px with and without JS: h1 at the same box (y=210, h=85), no page errors.
+
+### Iteration - Second deep dive (US-114 to US-121)
+**Date**: 2026-11-15
+**Branch**: claude/backlog-platform-improvements-5hmnuy
+**Stories Completed**: 8
+
+Backlog empty again, so four new audits ran (real-browser UX walk, admin, edge reliability,
+content/analytics/tests), then ten fix agents. Details in each story's notes.
+
+Merge-time fixes by the orchestrator: ticket reply idempotency key scoped to the ticket (same text to
+two tickets would have dropped the second email); skipped maintenance runs badged and excluded from
+the success rate; marking an invoice paid in the edit form settles it in full; Amazon stats refresh
+after import; pre-consent Google connection hints removed; logout e2e selector; search and nav CTA
+tracking; health-check probe bounded.
+
+#### Verification
+- tsc clean; eslint 0 errors; vitest 102 files, 961 tests; coverage passes (functions 61.25%);
+  npm run build passes.
+- Pending on the owner: 5 migrations (see US-114..US-118 notes), function env vars, deno.lock.
+
 ### Iteration - Voice engine (VOICE-001..017)
 **Date**: 2026-11-16
 **Branch**: develop

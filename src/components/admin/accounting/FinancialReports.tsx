@@ -17,6 +17,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { toCsvRow } from '@/lib/csv';
+import { fetchAll } from '@/lib/supabase-paging';
+import { parseDateOnly } from '@/lib/accounting/dates';
+import { fromCents, toCents } from '@/lib/accounting/money';
+import { QueryErrorAlert } from './QueryErrorAlert';
 import {
   format,
   startOfMonth,
@@ -48,40 +52,42 @@ function computeProfitLoss(
   platformTransactions: any[] | undefined,
   journalEntries: any[] | undefined
 ): ProfitLoss {
+  // Accumulated in whole cents, converted to dollars on the way out.
   const revenue: Record<string, number> = {};
   const expenses: Record<string, number> = {};
+  const add = (bucket: Record<string, number>, name: string, cents: number) => {
+    bucket[name] = (bucket[name] || 0) + cents;
+  };
 
   // Revenue from sales invoices
   invoices?.forEach((invoice) => {
     if (invoice.invoice_type === 'sales') {
-      const amount = Number(invoice.amount_paid || 0);
-      revenue['Sales Revenue'] = (revenue['Sales Revenue'] || 0) + amount;
+      add(revenue, 'Sales Revenue', toCents(invoice.amount_paid));
     }
   });
 
   // Revenue from platform transactions
   platformTransactions?.forEach((transaction) => {
     if (transaction.transaction_type === 'revenue') {
-      const amount = Number(transaction.amount || 0);
-      const platformName = transaction.platforms?.name || 'Other Revenue';
-      revenue[platformName] = (revenue[platformName] || 0) + amount;
+      add(revenue, transaction.platforms?.name || 'Other Revenue', toCents(transaction.amount));
     }
   });
 
   // Expenses from purchase invoices
   invoices?.forEach((invoice) => {
     if (invoice.invoice_type === 'purchase') {
-      const amount = Number(invoice.amount_paid || 0);
-      expenses['Vendor Expenses'] = (expenses['Vendor Expenses'] || 0) + amount;
+      add(expenses, 'Vendor Expenses', toCents(invoice.amount_paid));
     }
   });
 
   // Expenses from platform transactions
   platformTransactions?.forEach((transaction) => {
     if (transaction.transaction_type === 'expense') {
-      const amount = Number(transaction.amount || 0);
-      const categoryName = transaction.expense_categories?.name || 'Operating Expenses';
-      expenses[categoryName] = (expenses[categoryName] || 0) + amount;
+      add(
+        expenses,
+        transaction.expense_categories?.name || 'Operating Expenses',
+        toCents(transaction.amount)
+      );
     }
   });
 
@@ -90,17 +96,15 @@ function computeProfitLoss(
     entry.journal_entry_lines?.forEach((line: any) => {
       const accountType = line.accounts?.account_type;
       const accountName = line.accounts?.account_name || 'Other';
-      const debit = Number(line.debit || 0);
-      const credit = Number(line.credit || 0);
+      const debit = toCents(line.debit);
+      const credit = toCents(line.credit);
 
       if (accountType === 'Income') {
         // Credits increase income
-        const amount = credit - debit;
-        revenue[accountName] = (revenue[accountName] || 0) + amount;
+        add(revenue, accountName, credit - debit);
       } else if (accountType === 'Expense') {
         // Debits increase expenses
-        const amount = debit - credit;
-        expenses[accountName] = (expenses[accountName] || 0) + amount;
+        add(expenses, accountName, debit - credit);
       }
     });
   });
@@ -109,13 +113,36 @@ function computeProfitLoss(
   const totalExpenses = Object.values(expenses).reduce((sum, val) => sum + val, 0);
 
   return {
-    revenue,
-    expenses,
-    totalRevenue,
-    totalExpenses,
-    netProfit: totalRevenue - totalExpenses,
+    revenue: centsRecordToDollars(revenue),
+    expenses: centsRecordToDollars(expenses),
+    totalRevenue: fromCents(totalRevenue),
+    totalExpenses: fromCents(totalExpenses),
+    netProfit: fromCents(totalRevenue - totalExpenses),
   };
 }
+
+function centsRecordToDollars(record: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(Object.entries(record).map(([k, v]) => [k, fromCents(v)]));
+}
+
+const JOURNAL_SELECT = `
+  *,
+  journal_entry_lines (
+    id,
+    account_id,
+    debit,
+    credit,
+    accounts (
+      id,
+      account_number,
+      account_name,
+      account_type,
+      account_subtype
+    )
+  )
+`;
+const PLATFORM_SELECT =
+  '*, platforms(name, platform_type), expense_categories(name, category_code)';
 
 export const FinancialReports = () => {
   const [dateRange, setDateRange] = useState('this-month');
@@ -159,8 +186,9 @@ export const FinancialReports = () => {
         break;
       }
       case 'custom':
-        from = startDate ? new Date(startDate) : startOfMonth(now);
-        to = endDate ? new Date(endDate) : endOfMonth(now);
+        // Date inputs give 'YYYY-MM-DD'; parse as local days, not UTC midnight.
+        from = startDate ? parseDateOnly(startDate) : startOfMonth(now);
+        to = endDate ? parseDateOnly(endDate) : endOfMonth(now);
         break;
       default:
         from = startOfMonth(now);
@@ -173,172 +201,118 @@ export const FinancialReports = () => {
     };
   }, [dateRange, startDate, endDate]);
 
-  // Fetch invoices
-  const { data: invoices } = useQuery({
+  // Every query reads all pages: max_rows (1000) would otherwise cut the
+  // all-time balance sheet queries short without an error.
+  const invoicesQuery = useQuery({
     queryKey: ['invoices', 'reports', dateFrom, dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .gte('invoice_date', dateFrom)
-        .lte('invoice_date', dateTo);
-
-      if (error) {
-        logger.error('Error fetching invoices:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('invoices')
+          .select('*')
+          .gte('invoice_date', dateFrom)
+          .lte('invoice_date', dateTo)
+          .order('id')
+      ),
   });
 
-  // Fetch platform transactions
-  const { data: platformTransactions } = useQuery({
+  const platformQuery = useQuery({
     queryKey: ['platform_transactions', 'reports', dateFrom, dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('platform_transactions')
-        .select('*, platforms(name, platform_type), expense_categories(name, category_code)')
-        .gte('transaction_date', dateFrom)
-        .lte('transaction_date', dateTo);
-
-      if (error) {
-        logger.error('Error fetching platform transactions:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('platform_transactions')
+          .select(PLATFORM_SELECT)
+          .gte('transaction_date', dateFrom)
+          .lte('transaction_date', dateTo)
+          .order('id')
+      ),
   });
 
-  // Fetch journal entries (posted only)
-  const { data: journalEntries } = useQuery({
+  // Journal entries (posted only)
+  const journalQuery = useQuery({
     queryKey: ['journal_entries', 'reports', dateFrom, dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select(
-          `
-          *,
-          journal_entry_lines (
-            id,
-            account_id,
-            debit,
-            credit,
-            accounts (
-              id,
-              account_number,
-              account_name,
-              account_type,
-              account_subtype
-            )
-          )
-        `
-        )
-        .eq('status', 'posted')
-        .gte('entry_date', dateFrom)
-        .lte('entry_date', dateTo);
-
-      if (error) {
-        logger.error('Error fetching journal entries:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('journal_entries')
+          .select(JOURNAL_SELECT)
+          .eq('status', 'posted')
+          .gte('entry_date', dateFrom)
+          .lte('entry_date', dateTo)
+          .order('id')
+      ),
   });
 
   // A balance sheet states position "as of" a date, so it needs every posted
   // entry up to dateTo rather than the reporting period alone. Scoping it to
   // the period dropped all prior activity: opening a "This Month" report hid
   // every unpaid invoice raised earlier and every journal entry before the 1st.
-  const { data: cumulativeInvoices } = useQuery({
+  const cumulativeInvoicesQuery = useQuery({
     queryKey: ['invoices', 'reports', 'cumulative', dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .lte('invoice_date', dateTo);
-
-      if (error) {
-        logger.error('Error fetching cumulative invoices:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() => supabase.from('invoices').select('*').lte('invoice_date', dateTo).order('id')),
   });
 
-  const { data: cumulativePlatformTransactions } = useQuery({
+  const cumulativePlatformQuery = useQuery({
     queryKey: ['platform_transactions', 'reports', 'cumulative', dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('platform_transactions')
-        .select('*, platforms(name, platform_type), expense_categories(name, category_code)')
-        .lte('transaction_date', dateTo);
-
-      if (error) {
-        logger.error('Error fetching cumulative platform transactions:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('platform_transactions')
+          .select(PLATFORM_SELECT)
+          .lte('transaction_date', dateTo)
+          .order('id')
+      ),
   });
 
-  const { data: cumulativeJournalEntries } = useQuery({
+  const cumulativeJournalQuery = useQuery({
     queryKey: ['journal_entries', 'reports', 'cumulative', dateTo],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select(
-          `
-          *,
-          journal_entry_lines (
-            id,
-            account_id,
-            debit,
-            credit,
-            accounts (
-              id,
-              account_number,
-              account_name,
-              account_type,
-              account_subtype
-            )
-          )
-        `
-        )
-        .eq('status', 'posted')
-        .lte('entry_date', dateTo);
-
-      if (error) {
-        logger.error('Error fetching cumulative journal entries:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('journal_entries')
+          .select(JOURNAL_SELECT)
+          .eq('status', 'posted')
+          .lte('entry_date', dateTo)
+          .order('id')
+      ),
   });
 
-  // Fetch accounts for balance sheet
-  const { data: accounts } = useQuery({
+  // Accounts for the balance sheet
+  const accountsQuery = useQuery({
     queryKey: ['accounts', 'reports'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('accounts')
-        .select('*')
-        .eq('is_active', true)
-        .order('account_number');
-
-      if (error) {
-        logger.error('Error fetching accounts:', error);
-        throw error;
-      }
-
-      return data;
-    },
+    queryFn: () =>
+      fetchAll(() =>
+        supabase
+          .from('accounts')
+          .select('*')
+          .eq('is_active', true)
+          .order('account_number')
+          .order('id')
+      ),
   });
+
+  const invoices = invoicesQuery.data;
+  const platformTransactions = platformQuery.data;
+  const journalEntries = journalQuery.data;
+  const cumulativeInvoices = cumulativeInvoicesQuery.data;
+  const cumulativePlatformTransactions = cumulativePlatformQuery.data;
+  const cumulativeJournalEntries = cumulativeJournalQuery.data;
+  const accounts = accountsQuery.data;
+  const reportQueries = [
+    invoicesQuery,
+    platformQuery,
+    journalQuery,
+    cumulativeInvoicesQuery,
+    cumulativePlatformQuery,
+    cumulativeJournalQuery,
+    accountsQuery,
+  ];
+  const loadFailed = reportQueries.some((q) => q.isError);
+  if (loadFailed) {
+    logger.error('Financial report query failed:', reportQueries.find((q) => q.isError)?.error);
+  }
 
   // Calculate P&L data
   const profitLossData = useMemo(
@@ -372,11 +346,12 @@ export const FinancialReports = () => {
       bucket[name] = (bucket[name] || 0) + amount;
     };
 
+    // Everything below is in whole cents until the return.
     // Calculate accounts receivable (unpaid sales invoices, as of dateTo)
     let accountsReceivable = 0;
     cumulativeInvoices?.forEach((invoice) => {
       if (invoice.invoice_type === 'sales') {
-        accountsReceivable += Number(invoice.amount_due || 0);
+        accountsReceivable += toCents(invoice.amount_due);
       }
     });
     if (accountsReceivable > 0) {
@@ -387,7 +362,7 @@ export const FinancialReports = () => {
     let accountsPayable = 0;
     cumulativeInvoices?.forEach((invoice) => {
       if (invoice.invoice_type === 'purchase') {
-        accountsPayable += Number(invoice.amount_due || 0);
+        accountsPayable += toCents(invoice.amount_due);
       }
     });
     if (accountsPayable > 0) {
@@ -400,8 +375,8 @@ export const FinancialReports = () => {
     cumulativeJournalEntries?.forEach((entry) => {
       entry.journal_entry_lines?.forEach((line: any) => {
         const accountId = line.account_id;
-        const debit = Number(line.debit || 0);
-        const credit = Number(line.credit || 0);
+        const debit = toCents(line.debit);
+        const credit = toCents(line.credit);
 
         if (!accountBalances[accountId]) {
           accountBalances[accountId] = 0;
@@ -423,11 +398,10 @@ export const FinancialReports = () => {
       const balance = accountBalances[account.id] || 0;
 
       // Also add opening balance
-      const totalBalance = balance + Number(account.opening_balance || 0);
+      const totalBalance = balance + toCents(account.opening_balance);
 
-      // Guard against float dust (1e-13 from summing debits and credits)
-      // rendering as a spurious zero-value line.
-      if (Math.abs(totalBalance) < 0.005) return;
+      // Skip accounts that net to zero.
+      if (totalBalance === 0) return;
 
       const accountName = account.account_name;
 
@@ -442,8 +416,8 @@ export const FinancialReports = () => {
 
     // Retained earnings is cumulative profit through dateTo, not the selected
     // period's profit.
-    const retainedEarnings = cumulativeProfitLoss.netProfit;
-    if (Math.abs(retainedEarnings) >= 0.005) {
+    const retainedEarnings = toCents(cumulativeProfitLoss.netProfit);
+    if (retainedEarnings !== 0) {
       add(equity, 'Retained Earnings', retainedEarnings);
     }
 
@@ -452,13 +426,13 @@ export const FinancialReports = () => {
     const totalEquity = Object.values(equity).reduce((sum, val) => sum + val, 0);
 
     return {
-      assets,
-      liabilities,
-      equity,
-      totalAssets,
-      totalLiabilities,
-      totalEquity,
-      isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
+      assets: centsRecordToDollars(assets),
+      liabilities: centsRecordToDollars(liabilities),
+      equity: centsRecordToDollars(equity),
+      totalAssets: fromCents(totalAssets),
+      totalLiabilities: fromCents(totalLiabilities),
+      totalEquity: fromCents(totalEquity),
+      isBalanced: totalAssets === totalLiabilities + totalEquity,
     };
   }, [cumulativeInvoices, cumulativeJournalEntries, accounts, cumulativeProfitLoss.netProfit]);
 
@@ -470,7 +444,7 @@ export const FinancialReports = () => {
   };
 
   const formatDateRange = () => {
-    return `${format(new Date(dateFrom), 'MMM d, yyyy')} - ${format(new Date(dateTo), 'MMM d, yyyy')}`;
+    return `${format(parseDateOnly(dateFrom), 'MMM d, yyyy')} - ${format(parseDateOnly(dateTo), 'MMM d, yyyy')}`;
   };
 
   // Export to CSV for tax reporting
@@ -506,7 +480,7 @@ export const FinancialReports = () => {
 
     // Balance Sheet Section
     csvLines.push('BALANCE SHEET');
-    csvLines.push(`As of: ${format(new Date(dateTo), 'MMM d, yyyy')}`);
+    csvLines.push(`As of: ${format(parseDateOnly(dateTo), 'MMM d, yyyy')}`);
     csvLines.push('');
     csvLines.push('Assets,Amount');
 
@@ -561,7 +535,7 @@ export const FinancialReports = () => {
                 View Profit & Loss, Balance Sheet, and other financial reports
               </CardDescription>
             </div>
-            <Button onClick={handleExport}>
+            <Button onClick={handleExport} disabled={loadFailed}>
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
@@ -604,255 +578,276 @@ export const FinancialReports = () => {
             )}
           </div>
 
-          <Tabs defaultValue="profit-loss" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="profit-loss">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Profit & Loss
-              </TabsTrigger>
-              <TabsTrigger value="balance-sheet">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Balance Sheet
-              </TabsTrigger>
-            </TabsList>
+          {loadFailed ? (
+            <QueryErrorAlert queries={reportQueries} subject="the financial reports" />
+          ) : (
+            <Tabs defaultValue="profit-loss" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="profit-loss">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Profit & Loss
+                </TabsTrigger>
+                <TabsTrigger value="balance-sheet">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Balance Sheet
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="profit-loss">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profit & Loss Statement</CardTitle>
-                  <CardDescription>{formatDateRange()}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Revenue Section */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2 text-green-700">Revenue</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(profitLossData.revenue).length > 0 ? (
-                            Object.entries(profitLossData.revenue).map(([name, amount]) => (
-                              <TableRow key={name}>
-                                <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {formatCurrency(amount)}
+              <TabsContent value="profit-loss">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Profit & Loss Statement</CardTitle>
+                    <CardDescription>{formatDateRange()}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Revenue Section */}
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2 text-green-700">Revenue</h3>
+                        <Table>
+                          <TableBody>
+                            {Object.entries(profitLossData.revenue).length > 0 ? (
+                              Object.entries(profitLossData.revenue).map(([name, amount]) => (
+                                <TableRow key={name}>
+                                  <TableCell>{name}</TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {formatCurrency(amount)}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={2}
+                                  className="text-center text-muted-foreground"
+                                >
+                                  No revenue for this period
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={2} className="text-center text-muted-foreground">
-                                No revenue for this period
+                            )}
+                            <TableRow className="font-medium bg-green-50 dark:bg-green-950/20">
+                              <TableCell className="text-green-700">Total Revenue</TableCell>
+                              <TableCell className="text-right font-mono text-green-700">
+                                {formatCurrency(profitLossData.totalRevenue)}
                               </TableCell>
                             </TableRow>
-                          )}
-                          <TableRow className="font-medium bg-green-50 dark:bg-green-950/20">
-                            <TableCell className="text-green-700">Total Revenue</TableCell>
-                            <TableCell className="text-right font-mono text-green-700">
-                              {formatCurrency(profitLossData.totalRevenue)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableBody>
+                        </Table>
+                      </div>
 
-                    {/* Expenses Section */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2 text-red-700">Expenses</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(profitLossData.expenses).length > 0 ? (
-                            Object.entries(profitLossData.expenses).map(([name, amount]) => (
-                              <TableRow key={name}>
-                                <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {formatCurrency(amount)}
+                      {/* Expenses Section */}
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2 text-red-700">Expenses</h3>
+                        <Table>
+                          <TableBody>
+                            {Object.entries(profitLossData.expenses).length > 0 ? (
+                              Object.entries(profitLossData.expenses).map(([name, amount]) => (
+                                <TableRow key={name}>
+                                  <TableCell>{name}</TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {formatCurrency(amount)}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={2}
+                                  className="text-center text-muted-foreground"
+                                >
+                                  No expenses for this period
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={2} className="text-center text-muted-foreground">
-                                No expenses for this period
+                            )}
+                            <TableRow className="font-medium bg-red-50 dark:bg-red-950/20">
+                              <TableCell className="text-red-700">Total Expenses</TableCell>
+                              <TableCell className="text-right font-mono text-red-700">
+                                {formatCurrency(profitLossData.totalExpenses)}
                               </TableCell>
                             </TableRow>
-                          )}
-                          <TableRow className="font-medium bg-red-50 dark:bg-red-950/20">
-                            <TableCell className="text-red-700">Total Expenses</TableCell>
-                            <TableCell className="text-right font-mono text-red-700">
-                              {formatCurrency(profitLossData.totalExpenses)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableBody>
+                        </Table>
+                      </div>
 
-                    {/* Net Profit Section */}
-                    <div className="pt-4 border-t-2">
-                      <Table>
-                        <TableBody>
-                          <TableRow className="font-bold text-lg">
-                            <TableCell>Net Profit</TableCell>
-                            <TableCell
-                              className={`text-right font-mono ${profitLossData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                            >
-                              {formatCurrency(profitLossData.netProfit)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
+                      {/* Net Profit Section */}
+                      <div className="pt-4 border-t-2">
+                        <Table>
+                          <TableBody>
+                            <TableRow className="font-bold text-lg">
+                              <TableCell>Net Profit</TableCell>
+                              <TableCell
+                                className={`text-right font-mono ${profitLossData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                              >
+                                {formatCurrency(profitLossData.netProfit)}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <TabsContent value="balance-sheet">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Balance Sheet</CardTitle>
-                  <CardDescription>As of {format(new Date(dateTo), 'MMM d, yyyy')}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Assets Section */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2 text-blue-700">Assets</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(balanceSheetData.assets).length > 0 ? (
-                            Object.entries(balanceSheetData.assets).map(([name, amount]) => (
-                              <TableRow key={name}>
-                                <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {formatCurrency(amount)}
+              <TabsContent value="balance-sheet">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Balance Sheet</CardTitle>
+                    <CardDescription>
+                      As of {format(parseDateOnly(dateTo), 'MMM d, yyyy')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Assets Section */}
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2 text-blue-700">Assets</h3>
+                        <Table>
+                          <TableBody>
+                            {Object.entries(balanceSheetData.assets).length > 0 ? (
+                              Object.entries(balanceSheetData.assets).map(([name, amount]) => (
+                                <TableRow key={name}>
+                                  <TableCell>{name}</TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {formatCurrency(amount)}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={2}
+                                  className="text-center text-muted-foreground"
+                                >
+                                  No assets recorded
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={2} className="text-center text-muted-foreground">
-                                No assets recorded
+                            )}
+                            <TableRow className="font-medium bg-blue-50 dark:bg-blue-950/20">
+                              <TableCell className="text-blue-700">Total Assets</TableCell>
+                              <TableCell className="text-right font-mono text-blue-700">
+                                {formatCurrency(balanceSheetData.totalAssets)}
                               </TableCell>
                             </TableRow>
-                          )}
-                          <TableRow className="font-medium bg-blue-50 dark:bg-blue-950/20">
-                            <TableCell className="text-blue-700">Total Assets</TableCell>
-                            <TableCell className="text-right font-mono text-blue-700">
-                              {formatCurrency(balanceSheetData.totalAssets)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableBody>
+                        </Table>
+                      </div>
 
-                    {/* Liabilities Section */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2 text-orange-700">Liabilities</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(balanceSheetData.liabilities).length > 0 ? (
-                            Object.entries(balanceSheetData.liabilities).map(([name, amount]) => (
-                              <TableRow key={name}>
-                                <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {formatCurrency(amount)}
+                      {/* Liabilities Section */}
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2 text-orange-700">Liabilities</h3>
+                        <Table>
+                          <TableBody>
+                            {Object.entries(balanceSheetData.liabilities).length > 0 ? (
+                              Object.entries(balanceSheetData.liabilities).map(([name, amount]) => (
+                                <TableRow key={name}>
+                                  <TableCell>{name}</TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {formatCurrency(amount)}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={2}
+                                  className="text-center text-muted-foreground"
+                                >
+                                  No liabilities recorded
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={2} className="text-center text-muted-foreground">
-                                No liabilities recorded
+                            )}
+                            <TableRow className="font-medium bg-orange-50 dark:bg-orange-950/20">
+                              <TableCell className="text-orange-700">Total Liabilities</TableCell>
+                              <TableCell className="text-right font-mono text-orange-700">
+                                {formatCurrency(balanceSheetData.totalLiabilities)}
                               </TableCell>
                             </TableRow>
-                          )}
-                          <TableRow className="font-medium bg-orange-50 dark:bg-orange-950/20">
-                            <TableCell className="text-orange-700">Total Liabilities</TableCell>
-                            <TableCell className="text-right font-mono text-orange-700">
-                              {formatCurrency(balanceSheetData.totalLiabilities)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableBody>
+                        </Table>
+                      </div>
 
-                    {/* Equity Section */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2 text-purple-700">Equity</h3>
-                      <Table>
-                        <TableBody>
-                          {Object.entries(balanceSheetData.equity).length > 0 ? (
-                            Object.entries(balanceSheetData.equity).map(([name, amount]) => (
-                              <TableRow key={name}>
-                                <TableCell>{name}</TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {formatCurrency(amount)}
+                      {/* Equity Section */}
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2 text-purple-700">Equity</h3>
+                        <Table>
+                          <TableBody>
+                            {Object.entries(balanceSheetData.equity).length > 0 ? (
+                              Object.entries(balanceSheetData.equity).map(([name, amount]) => (
+                                <TableRow key={name}>
+                                  <TableCell>{name}</TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {formatCurrency(amount)}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={2}
+                                  className="text-center text-muted-foreground"
+                                >
+                                  No equity recorded
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={2} className="text-center text-muted-foreground">
-                                No equity recorded
+                            )}
+                            <TableRow className="font-medium bg-purple-50 dark:bg-purple-950/20">
+                              <TableCell className="text-purple-700">Total Equity</TableCell>
+                              <TableCell className="text-right font-mono text-purple-700">
+                                {formatCurrency(balanceSheetData.totalEquity)}
                               </TableCell>
                             </TableRow>
-                          )}
-                          <TableRow className="font-medium bg-purple-50 dark:bg-purple-950/20">
-                            <TableCell className="text-purple-700">Total Equity</TableCell>
-                            <TableCell className="text-right font-mono text-purple-700">
-                              {formatCurrency(balanceSheetData.totalEquity)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableBody>
+                        </Table>
+                      </div>
 
-                    {/* Total Liabilities & Equity */}
-                    <div className="pt-4 border-t-2">
-                      <Table>
-                        <TableBody>
-                          <TableRow className="font-bold text-lg">
-                            <TableCell>Total Liabilities & Equity</TableCell>
-                            <TableCell className="text-right font-mono">
-                              {formatCurrency(
-                                balanceSheetData.totalLiabilities + balanceSheetData.totalEquity
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-
-                      {/* Balance Check */}
-                      <div className="mt-4 p-3 rounded-lg bg-muted">
-                        <div className="flex items-center gap-2">
-                          {balanceSheetData.isBalanced ? (
-                            <>
-                              <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                              <span className="text-sm font-medium text-green-700">
-                                Balance Sheet is balanced ✓
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertCircle className="h-4 w-4 text-destructive" />
-                              <span className="text-sm font-medium text-destructive">
-                                Balance Sheet is not balanced - Assets:{' '}
-                                {formatCurrency(balanceSheetData.totalAssets)}, Liabilities +
-                                Equity:{' '}
+                      {/* Total Liabilities & Equity */}
+                      <div className="pt-4 border-t-2">
+                        <Table>
+                          <TableBody>
+                            <TableRow className="font-bold text-lg">
+                              <TableCell>Total Liabilities & Equity</TableCell>
+                              <TableCell className="text-right font-mono">
                                 {formatCurrency(
                                   balanceSheetData.totalLiabilities + balanceSheetData.totalEquity
                                 )}
-                              </span>
-                            </>
-                          )}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+
+                        {/* Balance Check */}
+                        <div className="mt-4 p-3 rounded-lg bg-muted">
+                          <div className="flex items-center gap-2">
+                            {balanceSheetData.isBalanced ? (
+                              <>
+                                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                <span className="text-sm font-medium text-green-700">
+                                  Balance Sheet is balanced ✓
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="h-4 w-4 text-destructive" />
+                                <span className="text-sm font-medium text-destructive">
+                                  Balance Sheet is not balanced - Assets:{' '}
+                                  {formatCurrency(balanceSheetData.totalAssets)}, Liabilities +
+                                  Equity:{' '}
+                                  {formatCurrency(
+                                    balanceSheetData.totalLiabilities + balanceSheetData.totalEquity
+                                  )}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
         </CardContent>
       </Card>
     </div>

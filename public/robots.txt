@@ -1,8 +1,6 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
-Disallow: /2023/
-Disallow: /2025/
 Disallow: /*?ref=*
 
 # Block search/filter pages with thin content
@@ -15,31 +13,52 @@ Sitemap: https://danpearson.net/news-sitemap.xml
 # ========================================
 # AI Search Crawlers (Beneficial - ALLOWED)
 # These crawlers power AI search features
-# and properly attribute content sources
+# and properly attribute content sources.
+#
+# A crawler obeys only the most specific group that names it and ignores
+# the * group entirely, so each group repeats the shared disallows above.
 # ========================================
 
 # OpenAI SearchBot (powers ChatGPT search)
 User-agent: OAI-SearchBot
 Allow: /
+Disallow: /admin/
+Disallow: /*?ref=*
+Disallow: /search?*
 Crawl-delay: 2
 
-# Google AI (Gemini search integration)
+# Google AI (Gemini training and grounding control token)
 User-agent: Google-Extended
 Allow: /
+Disallow: /admin/
+Disallow: /*?ref=*
+Disallow: /search?*
 
-# Anthropic Claude web search
-User-agent: anthropic-ai
+# Anthropic: ClaudeBot crawls, Claude-SearchBot indexes for search,
+# Claude-User fetches a page when a person asks Claude to read it
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
 Allow: /
+Disallow: /admin/
+Disallow: /*?ref=*
+Disallow: /search?*
 Crawl-delay: 2
 
 # Perplexity AI search
 User-agent: PerplexityBot
 Allow: /
+Disallow: /admin/
+Disallow: /*?ref=*
+Disallow: /search?*
 Crawl-delay: 2
 
 # Microsoft Copilot / Bing AI
 User-agent: Bingbot
 Allow: /
+Disallow: /admin/
+Disallow: /*?ref=*
+Disallow: /search?*
 
 # ========================================
 # AI Training Scrapers (Non-beneficial - BLOCKED)
@@ -54,10 +73,6 @@ Disallow: /
 # GPTBot (OpenAI training data collection)
 User-agent: GPTBot
 Disallow: /
-
-# Google AI training (separate from search)
-User-agent: Google-Extended
-Disallow: /admin/
 
 # Bytedance AI scraper
 User-agent: Bytespider

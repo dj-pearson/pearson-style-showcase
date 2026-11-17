@@ -1,5 +1,5 @@
 import LoadingSpinner from '@/components/LoadingSpinner';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimePayload } from '@/types/supabase-realtime';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { useConfirm } from '@/hooks/useConfirm';
+import { applyTicketFilters, pageRange, TICKET_PAGE_SIZE } from './ticketQuery';
 
 interface SupportTicket {
   id: string;
@@ -70,9 +72,22 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   selectedTicketId,
 }) => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [filteredTickets, setFilteredTickets] = useState<SupportTicket[]>([]);
+  const confirm = useConfirm();
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [stats, setStats] = useState({
+    open: 0,
+    inProgress: 0,
+    waitingForUser: 0,
+    waitingForAgent: 0,
+    unresponded: 0,
+    archived: 0,
+  });
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -81,10 +96,118 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
+  // Debounce typing so each keystroke doesn't hit the database.
   useEffect(() => {
-    loadTickets();
+    const id = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
 
-    // Subscribe to new tickets
+  // Responses from an older filter set must not overwrite a newer one.
+  const requestIdRef = useRef(0);
+
+  const loadTickets = useCallback(
+    async (nextPage = 0) => {
+      const requestId = ++requestIdRef.current;
+      if (nextPage === 0) setIsLoading(true);
+      else setIsLoadingMore(true);
+      try {
+        const [from, to] = pageRange(nextPage);
+        const base = supabase.from('support_tickets').select('*', { count: 'exact' });
+        const filtered = applyTicketFilters(base, {
+          search: debouncedSearch,
+          status: statusFilter,
+          category: categoryFilter,
+          priority: priorityFilter,
+          showArchived,
+        });
+        const { data, error, count } = await filtered
+          .order('last_activity_at', { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        if (requestId !== requestIdRef.current) return;
+
+        const rows = (data || []) as SupportTicket[];
+        setTickets((prev) => {
+          if (nextPage === 0) return rows;
+          // Offsets shift when tickets arrive mid-scroll; drop repeats.
+          const seen = new Set(prev.map((t) => t.id));
+          return [...prev, ...rows.filter((t) => !seen.has(t.id))];
+        });
+        setTotalCount(count ?? from + rows.length);
+        setPage(nextPage);
+        setLoadError(false);
+      } catch (error) {
+        if (requestId !== requestIdRef.current) return;
+        logger.error('Failed to load tickets:', error);
+        setLoadError(true);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [debouncedSearch, statusFilter, categoryFilter, priorityFilter, showArchived]
+  );
+
+  // Status tiles count every ticket, independent of the list filters.
+  const loadStats = useCallback(async () => {
+    const count = async (
+      build: (
+        q: ReturnType<ReturnType<typeof supabase.from>['select']>
+      ) => PromiseLike<{ count: number | null; error: unknown }>
+    ) => {
+      const { count: n, error } = await build(
+        supabase.from('support_tickets').select('id', { count: 'exact', head: true })
+      );
+      if (error) throw error;
+      return n ?? 0;
+    };
+    try {
+      const [open, inProgress, waitingForUser, waitingForAgent, archived, unresponded] =
+        await Promise.all([
+          count((q) => q.eq('status', 'open')),
+          count((q) => q.eq('status', 'in_progress')),
+          count((q) => q.eq('status', 'waiting_for_user')),
+          count((q) => q.eq('status', 'waiting_for_agent')),
+          count((q) => q.in('status', ['closed', 'resolved'])),
+          count((q) => q.is('first_response_at', null).neq('status', 'closed')),
+        ]);
+      setStats({ open, inProgress, waitingForUser, waitingForAgent, archived, unresponded });
+    } catch (error) {
+      logger.error('Failed to load ticket counts:', error);
+    }
+  }, []);
+
+  const refresh = useCallback(() => {
+    void loadTickets(0);
+    void loadStats();
+  }, [loadTickets, loadStats]);
+
+  useEffect(() => {
+    void loadTickets(0);
+  }, [loadTickets]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  // Realtime handlers are registered once; read the latest refresh via a ref.
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => {
+    const handleNewTicket = () => {
+      // A new ticket may or may not match the current filters; reload page 1.
+      refreshRef.current();
+    };
+    const handleTicketUpdate = (payload: RealtimePayload) => {
+      const ticket = payload.new as unknown as SupportTicket;
+      setTickets((prev) => prev.map((t) => (t.id === ticket.id ? ticket : t)));
+      void loadStats();
+    };
+
     const subscription = supabase
       .channel('support-tickets')
       .on(
@@ -110,87 +233,9 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadStats]);
 
-  useEffect(() => {
-    filterTickets();
-  }, [tickets, searchQuery, statusFilter, categoryFilter, priorityFilter, showArchived]);
-
-  const loadTickets = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('support_tickets')
-        .select('*')
-        .order('last_activity_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-
-      setTickets((data || []) as SupportTicket[]);
-      setIsLoading(false);
-    } catch (error) {
-      logger.error('Failed to load tickets:', error);
-      setIsLoading(false);
-    }
-  };
-
-  const handleNewTicket = (payload: RealtimePayload) => {
-    const ticket = payload.new as unknown as SupportTicket;
-    setTickets((prev) => [ticket, ...prev]);
-  };
-
-  const handleTicketUpdate = (payload: RealtimePayload) => {
-    const ticket = payload.new as unknown as SupportTicket;
-    setTickets((prev) => prev.map((t) => (t.id === ticket.id ? ticket : t)));
-  };
-
-  const filterTickets = () => {
-    let filtered = [...tickets];
-
-    // Archive filter - hide archived statuses by default
-    const archivedStatuses = ['closed', 'resolved', 'disregard', 'spam'];
-    if (!showArchived) {
-      filtered = filtered.filter((t) => !archivedStatuses.includes(t.status));
-    }
-
-    // Status filter with "active" preset
-    if (statusFilter === 'active') {
-      filtered = filtered.filter(
-        (t) =>
-          t.status === 'open' ||
-          t.status === 'in_progress' ||
-          t.status === 'waiting_for_user' ||
-          t.status === 'waiting_for_agent'
-      );
-    } else if (statusFilter !== 'all') {
-      filtered = filtered.filter((t) => t.status === statusFilter);
-    }
-
-    // Category filter
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter((t) => t.category === categoryFilter);
-    }
-
-    // Priority filter
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter((t) => t.priority === parseInt(priorityFilter));
-    }
-
-    // Enhanced search query - search across ticket number, subject, message, email, and name
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (t) =>
-          t.ticket_number?.toLowerCase().includes(query) ||
-          t.subject?.toLowerCase().includes(query) ||
-          t.message?.toLowerCase().includes(query) ||
-          t.user_email?.toLowerCase().includes(query) ||
-          t.user_name?.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredTickets(filtered);
-  };
+  const hasMore = tickets.length < totalCount;
 
   const getPriorityBadge = (priority: number) => {
     const config = {
@@ -260,10 +305,10 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   };
 
   const toggleSelectAll = () => {
-    if (selectedTickets.size === filteredTickets.length) {
+    if (selectedTickets.size === tickets.length) {
       setSelectedTickets(new Set());
     } else {
-      setSelectedTickets(new Set(filteredTickets.map((t) => t.id)));
+      setSelectedTickets(new Set(tickets.map((t) => t.id)));
     }
   };
 
@@ -285,7 +330,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
       });
 
       setSelectedTickets(new Set());
-      await loadTickets();
+      refresh();
     } catch (error) {
       logger.error('Bulk update failed:', error);
       toast({
@@ -301,13 +346,14 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
   const bulkDelete = async () => {
     if (selectedTickets.size === 0) return;
 
-    if (
-      !confirm(
-        `Are you sure you want to delete ${selectedTickets.size} ticket(s)? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+    const count = selectedTickets.size;
+    const ok = await confirm({
+      title: count === 1 ? 'Delete 1 ticket?' : `Delete ${count} tickets?`,
+      description: 'The selected tickets are deleted permanently. This cannot be undone.',
+      confirmLabel: count === 1 ? 'Delete ticket' : `Delete ${count} tickets`,
+      destructive: true,
+    });
+    if (!ok) return;
 
     setIsProcessing(true);
     try {
@@ -324,7 +370,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
       });
 
       setSelectedTickets(new Set());
-      await loadTickets();
+      refresh();
     } catch (error) {
       logger.error('Bulk delete failed:', error);
       toast({
@@ -337,19 +383,8 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
     }
   };
 
-  const stats = {
-    total: tickets.length,
-    open: tickets.filter((t) => t.status === 'open').length,
-    inProgress: tickets.filter((t) => t.status === 'in_progress').length,
-    waitingForUser: tickets.filter((t) => t.status === 'waiting_for_user').length,
-    waitingForAgent: tickets.filter((t) => t.status === 'waiting_for_agent').length,
-    unresponded: tickets.filter((t) => !t.first_response_at && t.status !== 'closed').length,
-    archived: tickets.filter((t) => t.status === 'closed' || t.status === 'resolved').length,
-  };
-
   const hasSelection = selectedTickets.size > 0;
-  const isAllSelected =
-    selectedTickets.size === filteredTickets.length && filteredTickets.length > 0;
+  const isAllSelected = selectedTickets.size === tickets.length && tickets.length > 0;
 
   return (
     <Card>
@@ -561,9 +596,21 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
         </div>
 
         {/* Ticket List */}
+        {loadError && !isLoading && (
+          <div
+            role="alert"
+            className="mb-4 flex items-center justify-between gap-2 rounded-lg border border-destructive/40 p-3 text-sm"
+          >
+            <span>Tickets could not be loaded.</span>
+            <Button variant="outline" size="sm" onClick={() => loadTickets(0)}>
+              Retry
+            </Button>
+          </div>
+        )}
+
         {isLoading ? (
           <LoadingSpinner className="py-8" />
-        ) : filteredTickets.length === 0 ? (
+        ) : tickets.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Inbox className="h-12 w-12 mx-auto mb-3 opacity-50" />
             <p>No tickets found</p>
@@ -574,7 +621,7 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
         ) : (
           <>
             {/* Select All */}
-            {filteredTickets.length > 0 && (
+            {tickets.length > 0 && (
               <div className="flex items-center gap-2 p-2 mb-2 border-b">
                 <Checkbox
                   id="select-all"
@@ -582,14 +629,19 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                   onCheckedChange={toggleSelectAll}
                 />
                 <Label htmlFor="select-all" className="text-sm cursor-pointer">
-                  Select all {filteredTickets.length} ticket(s)
+                  Select all {tickets.length} loaded
                 </Label>
+                <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">
+                  {totalCount === 1
+                    ? '1 ticket'
+                    : `Showing ${tickets.length} of ${totalCount} tickets`}
+                </span>
               </div>
             )}
 
             <ScrollArea className="h-[500px]">
               <div className="space-y-2">
-                {filteredTickets.map((ticket) => (
+                {tickets.map((ticket) => (
                   <div
                     key={ticket.id}
                     className={`p-3 rounded-lg border transition-colors ${
@@ -666,6 +718,20 @@ export const SupportTicketInbox: React.FC<SupportTicketInboxProps> = ({
                   </div>
                 ))}
               </div>
+              {hasMore && (
+                <div className="flex justify-center py-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadTickets(page + 1)}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore
+                      ? 'Loading...'
+                      : `Load ${Math.min(TICKET_PAGE_SIZE, totalCount - tickets.length)} more`}
+                  </Button>
+                </div>
+              )}
             </ScrollArea>
           </>
         )}

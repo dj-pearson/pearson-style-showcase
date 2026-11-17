@@ -24,11 +24,33 @@ import { join, dirname, resolve } from 'node:path';
 import { marked } from 'marked';
 import { transformSync, build } from 'esbuild';
 import { readArticles, extractFaqs } from './lib/content.mjs';
-import { fetchDbArticles, sanitizeArticleHtml, markAffiliateLinks } from './lib/db-articles.mjs';
+import {
+  fetchDbArticles,
+  sanitizeArticleHtml,
+  markAffiliateLinks,
+  DbArticlesError,
+} from './lib/db-articles.mjs';
+import { STATIC_ROUTES, NAV_LINKS, FOOTER_LINKS } from './lib/static-routes.mjs';
+import {
+  escapeHtml,
+  escapeXml,
+  plainText,
+  applyHead as applyHeadWith,
+  applyBody as applyBodyWith,
+  applyPrerenderData,
+  applyModulePreloads,
+  notFoundHtml,
+  spaShellHtml,
+  buildFeed,
+} from './lib/html.mjs';
 
 const DIST = 'dist';
 const SITE = 'https://danpearson.net';
+// The square icon stays the feed's channel image. Social cards and article
+// schema images get og-default.png: summary_large_image wants roughly 1.91:1,
+// and a 512x512 icon is cropped to a sliver in every link preview.
 const IMAGE = `${SITE}/android-chrome-512x512.png`;
+const OG_IMAGE = { url: `${SITE}/og-default.png`, width: 1200, height: 630 };
 const AUTHOR = 'Dan Pearson';
 const FEED_TITLE = 'Dan Pearson - AI CRM Automation and AI News';
 const FEED_DESCRIPTION =
@@ -43,11 +65,13 @@ marked.setOptions({ gfm: true, breaks: false });
  * esbuild (already present as a Vite dependency) can transpile it in memory
  * rather than duplicating the framework, tiers and FAQs into this script.
  */
-async function loadCrmData() {
-  const source = readFileSync('src/lib/crm-automation.ts', 'utf8');
+async function loadTsModule(file) {
+  const source = readFileSync(file, 'utf8');
   const { code } = transformSync(source, { loader: 'ts', format: 'esm' });
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
+
+const loadCrmData = () => loadTsModule('src/lib/crm-automation.ts');
 
 /**
  * Loads src/lib/prerenderData.ts (key builders, the static-article row shape,
@@ -97,97 +121,43 @@ async function loadPrerenderHelpers() {
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
-const escapeHtml = (value) =>
-  String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/** Class strings shared with the React components; see src/lib/prerender-classes.ts. */
+const UI = await loadTsModule('src/lib/prerender-classes.ts');
+
+/** Lucide icons as static SVG, with the attributes lucide-react renders. */
+const ICONS = {
+  arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  house:
+    '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  calendar:
+    '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+};
+const icon = (name, className) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">${ICONS[name]}</svg>`;
+
+// --- head and body ---------------------------------------------------------
 
 /**
- * XML text escaping. Unlike escapeHtml this also escapes the apostrophe, which
- * matters inside XML attribute values, and it is deliberately kept separate so
- * a change made for HTML cannot silently produce an invalid feed.
+ * Site constants for the helpers in scripts/lib/html.mjs. A getter for
+ * truncateDescription because `seo` is loaded further down, after these
+ * declarations but before anything renders.
  */
-const escapeXml = (value) =>
-  String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+const HTML_CTX = {
+  get truncateDescription() {
+    return seo.truncateDescription;
+  },
+  author: AUTHOR,
+  defaultImage: OG_IMAGE,
+  nav: UI.PRERENDER_NAV,
+  navLinks: NAV_LINKS,
+  footerLinks: FOOTER_LINKS,
+};
 
-/** Markdown link syntax stripped back to plain text, for schema string fields. */
-const plainText = (value) =>
-  String(value)
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/[*_`]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-// --- head rewriting -------------------------------------------------------
-
-function setTag(html, attr, name, content) {
-  const pattern = new RegExp(`<meta\\s+${attr}="${name}"[^>]*>`, 'i');
-  const tag = `<meta ${attr}="${name}" content="${escapeHtml(content)}" />`;
-  return pattern.test(html)
-    ? html.replace(pattern, tag)
-    : html.replace('</head>', `    ${tag}\n  </head>`);
-}
-
-function applyHead(template, { title, description, url, type = 'website', schemas }) {
-  let html = template;
-
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
-  html = html.replace(
-    /<link\s+rel="canonical"[^>]*>/i,
-    `<link rel="canonical" href="${escapeHtml(url)}" />`
-  );
-
-  html = setTag(html, 'name', 'description', description);
-  html = setTag(html, 'property', 'og:title', title);
-  html = setTag(html, 'property', 'og:description', description);
-  html = setTag(html, 'property', 'og:url', url);
-  html = setTag(html, 'property', 'og:type', type);
-  html = setTag(html, 'property', 'og:image', IMAGE);
-  html = setTag(html, 'name', 'twitter:title', title);
-  html = setTag(html, 'name', 'twitter:description', description);
-  html = setTag(html, 'name', 'twitter:image', IMAGE);
-
-  // One graph per page rather than several loose blocks: a single @graph is
-  // easier for parsers to resolve @id references across.
-  const graph = JSON.stringify(
-    { '@context': 'https://schema.org', '@graph': schemas },
-    null,
-    2
-  ).replace(/</g, '\\u003c');
-
-  return html.replace(
-    '</head>',
-    `    <script type="application/ld+json">\n${graph}\n    </script>\n  </head>`
-  );
-}
-
-function applyBody(html, body) {
-  return html.replace(/<div id="root"><\/div>/, `<div id="root">${body}</div>`);
-}
-
-/**
- * Embeds the page's query data for src/lib/prerenderData.ts to hand to
- * react-query as initialData. Outside #root so React's first commit cannot
- * remove it before the page reads it. `<` is escaped so a `</script>` inside
- * article content cannot close the block; a non-JavaScript type never
- * executes, so CSP's script-src does not apply.
- */
-function applyPrerenderData(html, payload, id) {
-  if (!payload) return html;
-  const json = JSON.stringify(payload).replace(/</g, '\\u003c');
-  // The last </body>, so nothing an article body contains can be matched first.
-  const at = html.lastIndexOf('</body>');
-  if (at === -1) return html;
-  const block = `  <script type="application/json" id="${id}">${json}</script>\n  `;
-  return html.slice(0, at) + block + html.slice(at);
-}
+const applyHead = (template, page) => applyHeadWith(template, page, HTML_CTX);
+const applyBody = (html, body, options) => applyBodyWith(html, body, options, HTML_CTX);
 
 // --- route chunk preloading ----------------------------------------------
 
@@ -195,7 +165,7 @@ function applyPrerenderData(html, payload, id) {
  * Maps each prerendered path to the source file of the page that renders it,
  * read from src/lib/routeComponents.ts (PRERENDERED_ROUTES for the path
  * pattern, routeComponents for the lazy import behind each name) so this stays
- * in step with what main.tsx preloads. '/' is Index, bundled into the entry.
+ * in step with what main.tsx preloads. '/' maps to the lazy Index chunk.
  */
 function loadRouteSources() {
   const source = readFileSync('src/lib/routeComponents.ts', 'utf8');
@@ -248,30 +218,17 @@ function chunkFiles(manifest, sourceFile) {
   return files;
 }
 
-/**
- * Adds <link rel="modulepreload"> for the route's page chunk and its static
- * imports. Without them the browser only finds the page chunk (and, for an
- * article, markdown-vendor) once the entry has run. Assets the head already
- * loads are skipped. `crossorigin` matches the entry script's, or the preload
- * would not be reused by the module fetch.
- */
-function applyModulePreloads(html, files) {
-  if (!files || files.length === 0) return html;
-  const links = [...new Set(files)]
-    .map((file) => `/${file}`)
-    .filter((href) => !html.includes(`"${href}"`))
-    .map((href) => `    <link rel="modulepreload" crossorigin href="${href}">\n`)
-    .join('');
-  return links ? html.replace(/[ \t]*<\/head>/, (head) => `${links}${head}`) : html;
-}
-
 // --- schema builders ------------------------------------------------------
 
 const PERSON = {
   '@type': 'Person',
   '@id': `${SITE}/#dan-pearson`,
   name: AUTHOR,
-  url: SITE,
+  // /about is the page that is about him; the home page is about the service.
+  // No `image` yet: the headshot lives in the profile_settings table, not in
+  // public/, so the build has no stable URL to give it.
+  url: `${SITE}/about`,
+  mainEntityOfPage: { '@id': `${SITE}/about#profile` },
   jobTitle: 'AI CRM Automation Consultant',
   description:
     'AI CRM automation consultant for revenue teams under 50 seats. Builds capture-layer automation so sellers stop doing data entry and the pipeline stops lying.',
@@ -313,9 +270,92 @@ const faqPage = (faqs) => ({
 
 const isCrm = (meta) => meta.source !== 'database' || meta.category === 'CRM';
 const categoryPath = (category) => `/news/category/${encodeURIComponent(category)}`;
-const absoluteImage = (src) => (/^https:\/\//.test(src || '') ? src : IMAGE);
+const absoluteImage = (src) => (/^https:\/\//.test(src || '') ? src : OG_IMAGE.url);
 
-function articlePage({ meta, body }) {
+/** Article.tsx's formatDate: the visitor's locale settings, en-US. */
+const formatArticleDate = (value) =>
+  new Date(value).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+/**
+ * The article page in Article.tsx's layout: the same wrappers, breadcrumbs and
+ * header classes, filled from the row React's first render reads (the
+ * embedded query data), so the title and lead paint where React draws them.
+ * Below the header it is the rendered body; React's image, takeaways and
+ * table of contents are not reproduced.
+ */
+function articleShell(meta, row, html, related) {
+  const A = UI.ARTICLE_LAYOUT;
+  const H = UI.ARTICLE_HEADER;
+  const B = UI.ARTICLE_BADGES;
+  const title = row?.title || meta.title;
+  const excerpt = row?.excerpt ?? meta.excerpt;
+  const category = row?.category || meta.category;
+  const created = row?.created_at || isoDate(meta.published_iso || meta.published_at);
+  const updated = row ? row.updated_at : undefined;
+  const tags = (row ? row.tags : meta.tags) || [];
+  const crumbs = [
+    { label: 'Home', path: '/' },
+    { label: 'News', path: '/news' },
+    { label: title, path: `/news/${meta.slug}` },
+  ];
+
+  const crumbItems = crumbs
+    .map(({ label, path }, index) => {
+      const separator = index > 0 ? icon('chevronRight', A.breadcrumbSeparator) : '';
+      const inner =
+        index === crumbs.length - 1
+          ? `<span class="${A.breadcrumbCurrent}" aria-current="page">${escapeHtml(label)}</span>`
+          : `<a href="${path}" class="${A.breadcrumbLink}">${index === 0 ? icon('house', A.breadcrumbIcon) : ''}<span>${escapeHtml(label)}</span></a>`;
+      return `<li class="${A.breadcrumbItem}">${separator}${inner}</li>`;
+    })
+    .join('');
+
+  const metaItems = [
+    `<div class="${H.metaItem}">${icon('calendar', H.metaIcon)}<time datetime="${escapeHtml(created)}"><span class="sr-only">Published on </span>${escapeHtml(formatArticleDate(created))}</time></div>`,
+    updated && updated !== created
+      ? `<div class="${H.metaItem}"><span class="${H.metaLabel}">Updated:</span><time datetime="${escapeHtml(updated)}">${escapeHtml(formatArticleDate(updated))}</time></div>`
+      : '',
+    `<div class="${H.metaItem}">${icon('clock', H.metaIcon)}<span><span class="sr-only">Reading time: </span>${escapeHtml(row?.read_time ?? meta.read_time ?? '')}</span></div>`,
+    `<div class="${H.metaItem}">${icon('eye', H.metaIcon)}<span><span class="sr-only">Article has </span>${Number(row?.view_count) || 0} views</span></div>`,
+    `<div><span>By <span>${escapeHtml(row?.author || meta.author || AUTHOR)}</span></span></div>`,
+  ].join('');
+
+  return `
+    <div class="${A.root}">
+      <main id="main-content" class="${A.main}">
+        <div class="${A.container}">
+          <div class="${A.breadcrumbsWrap}">
+            <nav aria-label="Breadcrumb" class="${A.breadcrumbs}">
+              <ol class="${A.breadcrumbList}">${crumbItems}</ol>
+            </nav>
+          </div>
+          <article class="${A.article}">
+            <header class="${H.header}">
+              <div class="${H.badges}">
+                <div class="${B.category}">${escapeHtml(category)}</div>${(row ? row.featured : meta.featured) ? `<div class="${B.featured}">Featured</div>` : ''}
+              </div>
+              <h1 class="${H.title}">${escapeHtml(title)}</h1>
+              <p class="${H.lead}">${escapeHtml(excerpt)}</p>
+              <div class="${H.meta}">${metaItems}</div>${
+                tags.length
+                  ? `
+              <div class="${H.badges}">${tags.map((tag) => `<div class="${B.tag}">${escapeHtml(tag)}</div>`).join('')}</div>`
+                  : ''
+              }
+            </header>
+            <div class="${A.body}">
+              ${html}
+            </div>
+            <nav aria-label="Related">
+              ${related}
+            </nav>
+          </article>
+        </div>
+      </main>
+    </div>`;
+}
+
+function articlePage({ meta, body }, row) {
   const url = `${SITE}/news/${meta.slug}`;
   const faqs = extractFaqs(body);
   const isNews = meta.category === NEWS_CATEGORY;
@@ -369,16 +409,7 @@ function articlePage({ meta, body }) {
     : `<a href="${categoryPath(meta.category)}">More ${escapeHtml(meta.category)}</a>
         <a href="/ai-crm-automation">AI CRM automation consulting</a>`;
 
-  const content = `
-    <article>
-      <h1>${escapeHtml(meta.title)}</h1>
-      <p><strong>${escapeHtml(meta.excerpt)}</strong></p>
-      <p>By ${escapeHtml(meta.author)} &middot; <time datetime="${escapeHtml(meta.published_at)}">${escapeHtml(meta.published_at)}</time>${meta.read_time ? ` &middot; ${escapeHtml(meta.read_time)}` : ''} &middot; ${escapeHtml(meta.category)}</p>
-      ${html}
-      <nav aria-label="Related">
-        ${related}
-      </nav>
-    </article>`;
+  const content = articleShell(meta, row, html, related);
 
   return {
     path: `/news/${meta.slug}`,
@@ -403,7 +434,24 @@ function articlePage({ meta, body }) {
     sitemap: crm
       ? { priority: meta.featured ? '0.9' : '0.8', changefreq: 'monthly' }
       : { priority: isNews ? '0.6' : '0.5', changefreq: 'monthly' },
+    // The article's own image when it has an absolute one, size unknown; the
+    // default card otherwise.
+    image: /^https:\/\//.test(meta.image_url || '') ? { url: meta.image_url } : OG_IMAGE,
+    article: {
+      published: isoDate(meta.published_iso || meta.published_at),
+      modified: isoDate(meta.updated_at || meta.published_at),
+      section: meta.category,
+      tags: meta.tags,
+    },
+    archive: { category: meta.category, tags: meta.tags || [] },
+    matched: true,
   };
+}
+
+/** Markdown front matter carries a bare date; OG wants a full ISO 8601 time. */
+function isoDate(value) {
+  if (!value) return undefined;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00Z` : value;
 }
 
 function moneyPage(crm, articles) {
@@ -556,21 +604,69 @@ function homePage(crm, articles) {
     breadcrumb([{ name: 'Home', path: '/' }]),
   ];
 
+  const L = UI.INDEX_LAYOUT;
+  const H = UI.HERO_CLASSES;
+  const S = UI.HERO_SHADOWS;
+  const C = UI.HERO_COPY;
+  const shadow = (value) => `style="text-shadow: ${value}"`;
+  const featured = articles
+    .filter(({ meta }) => meta.featured)
+    .map(
+      ({ meta }) =>
+        `<li><a href="/news/${meta.slug}" class="${L.sectionLink}">${escapeHtml(meta.title)}</a></li>`
+    )
+    .join('\n                ');
+
+  // HeroSection.tsx inside Index.tsx's wrappers, from the same class strings
+  // and copy, so the first paint is the element React draws (see
+  // src/lib/prerender-classes.ts). The positioning copy and the start-here
+  // links follow below the fold for crawlers.
   const content = `
-    <main>
-      <h1>Dan Pearson &mdash; AI CRM Automation Consultant</h1>
-      <p><strong>${escapeHtml(crm.POSITIONING_STATEMENT)}</strong></p>
-      <p>${escapeHtml(crm.THESIS)}</p>
-      <h2>Start here</h2>
-      <ul>
-        <li><a href="/ai-crm-automation">AI CRM automation consulting, the 12-point audit and pricing</a></li>
-        <li><a href="/topics/ai-crm-automation">Research and teardowns on AI CRM automation</a></li>
-        ${articles
-          .filter(({ meta }) => meta.featured)
-          .map(({ meta }) => `<li><a href="/news/${meta.slug}">${escapeHtml(meta.title)}</a></li>`)
-          .join('\n        ')}
-      </ul>
-    </main>`;
+    <div class="${L.root}">
+      <div class="${L.backdrop}" aria-hidden="true"><div class="${L.backdropGradient}"></div></div>
+      <main id="main-content" class="${L.main}">
+        <div class="${L.heroWrap}">
+          <section class="${H.section}" ${UI.PRERENDERED_HERO_ATTR}>
+            <div class="${H.content}">
+              <h1 class="${H.title}"><span class="${H.nameWrapper}"><span class="${H.firstName}" ${shadow(S.firstName)}>${C.firstName}</span></span> <span class="${H.nameWrapper}"><span class="${H.lastName}" ${shadow(S.lastName)}>${C.lastName}</span></span></h1>
+              <div class="${H.subtitleWrap}">
+                <p class="${H.subtitle}" ${shadow(S.subtitle)}>${escapeHtml(C.subtitle)}</p>
+              </div>
+              <div class="${H.descWrap}">
+                <p class="${H.desc}" ${shadow(S.desc)}>${escapeHtml(C.desc)}<br><span class="${H.descEmphasis}" ${shadow(S.descEmphasis)}>${escapeHtml(C.descEmphasis)}</span></p>
+              </div>
+              <div class="${H.ctaRow}">
+                <a href="${C.ctaPrimary.href}" class="${H.ctaPrimary}" style="box-shadow: ${S.ctaPrimary}">${escapeHtml(C.ctaPrimary.label)}${icon('arrowRight', H.ctaPrimaryIcon)}</a>
+                <a href="${C.ctaSecondary.href}" class="${H.ctaSecondary}">${escapeHtml(C.ctaSecondary.label)}</a>
+              </div>
+              <div class="${H.scrollHint}" aria-hidden="true">
+                <span class="${H.scrollHintLabel}">Scroll</span>
+                <div class="${H.scrollHintBar}"></div>
+              </div>
+            </div>
+            ${H.dots
+              .map(
+                (className, index) =>
+                  `<div class="${className}" aria-hidden="true"${H.dotDelays[index] ? ` style="animation-delay: ${H.dotDelays[index]}"` : ''}></div>`
+              )
+              .join('\n            ')}
+          </section>
+        </div>
+        <section class="${L.section}">
+          <div class="${L.sectionInner}">
+            <h2 class="${L.sectionHeading}">AI CRM automation consultant</h2>
+            <p class="${L.sectionLead}">${escapeHtml(crm.POSITIONING_STATEMENT)}</p>
+            <p class="${L.sectionBody}">${escapeHtml(crm.THESIS)}</p>
+            <h2 class="${L.sectionHeading}">Start here</h2>
+            <ul class="${L.sectionList}">
+              <li><a href="/ai-crm-automation" class="${L.sectionLink}">AI CRM automation consulting, the 12-point audit and pricing</a></li>
+              <li><a href="/topics/ai-crm-automation" class="${L.sectionLink}">Research and teardowns on AI CRM automation</a></li>
+              ${featured}
+            </ul>
+          </div>
+        </section>
+      </main>
+    </div>`;
 
   return {
     path: '/',
@@ -579,6 +675,7 @@ function homePage(crm, articles) {
     schemas,
     content,
     sitemap: { priority: '1.0', changefreq: 'weekly' },
+    matched: true,
   };
 }
 
@@ -640,52 +737,249 @@ function hubPage(articles) {
   };
 }
 
+/**
+ * The other topic hubs in TOPIC_HUBS. Title and description follow
+ * TopicHub.tsx; the article list is the same selection the hub embeds as
+ * prerender data, so the links here are the links React renders.
+ */
+function topicHubPage(topic, config, list) {
+  const path = `/topics/${topic}`;
+  const url = `${SITE}${path}`;
+
+  const schemas = [
+    {
+      '@type': 'CollectionPage',
+      '@id': `${url}#collection`,
+      url,
+      name: config.title,
+      description: config.description,
+      isPartOf: { '@id': `${SITE}/#website` },
+      about: { '@id': `${SITE}/#dan-pearson` },
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: list.length,
+        itemListElement: list.map((article, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: `${SITE}/news/${article.slug}`,
+          name: article.title,
+        })),
+      },
+    },
+    PERSON,
+    breadcrumb([
+      { name: 'Home', path: '/' },
+      { name: 'Topics', path: '/topics' },
+      { name: config.title, path },
+    ]),
+  ];
+
+  const items = list.length
+    ? `<ul>
+        ${list
+          .map(
+            (article) =>
+              `<li><h2><a href="/news/${article.slug}">${escapeHtml(article.title)}</a></h2>${article.excerpt ? `<p>${escapeHtml(plainText(article.excerpt))}</p>` : ''}</li>`
+          )
+          .join('\n        ')}
+      </ul>`
+    : `<p>No articles on this topic yet. <a href="/news">Browse all writing</a>.</p>`;
+
+  const content = `
+    <main>
+      <h1>${escapeHtml(config.title)}</h1>
+      <p>${escapeHtml(config.description)}</p>
+      ${items}
+      <p><a href="/topics">All topics</a></p>
+    </main>`;
+
+  return {
+    path,
+    title: `${config.title} - Complete Guide & Resources | ${AUTHOR}`,
+    description: config.description,
+    schemas,
+    content,
+    // A hub with nothing in it is a thin page; keep it out of the sitemap.
+    sitemap: list.length ? { priority: '0.6', changefreq: 'weekly' } : null,
+  };
+}
+
+/**
+ * Extra body copy for the static routes whose page is mostly a list: real
+ * links a crawler can follow, built from data the build already has.
+ */
+function staticRouteExtras(route, { articlePages, topicHubs }) {
+  switch (route.path) {
+    case '/news': {
+      const latest = articlePages
+        .filter((page) => page.feed)
+        .sort((a, b) => String(b.article.published).localeCompare(String(a.article.published)))
+        .slice(0, 30);
+      return `<h2>Latest writing</h2>
+      <ul>
+        ${latest.map((page) => `<li><a href="${page.path}">${escapeHtml(page.feed.title)}</a></li>`).join('\n        ')}
+      </ul>`;
+    }
+    case '/topics':
+      return `<ul>
+        ${Object.entries(topicHubs)
+          .map(
+            ([slug, hub]) =>
+              `<li><h2><a href="/topics/${slug}">${escapeHtml(hub.title)}</a></h2><p>${escapeHtml(hub.description)}</p></li>`
+          )
+          .join('\n        ')}
+      </ul>`;
+    case '/about':
+      return `<p>${escapeHtml(PERSON.description)}</p>
+      <ul>
+        <li><a href="/ai-crm-automation">AI CRM automation consulting and the 12-point audit</a></li>
+        <li><a href="/projects">The SaaS platforms behind the CRM automation work</a></li>
+        <li><a href="/connect">Book an audit or get in touch</a></li>
+      </ul>`;
+    case '/faq':
+      return `<p><a href="/ai-crm-automation">Questions on AI CRM automation, answered on the services page</a></p>`;
+    case '/connect':
+      return `<p><a href="/ai-crm-automation">What the CRM automation audit covers and what it costs</a></p>`;
+    default:
+      return '';
+  }
+}
+
+function staticPage(route, context) {
+  const url = `${SITE}${route.path}`;
+  const node = {
+    '@type': route.schemaType,
+    '@id': `${url}#${route.schemaType === 'ProfilePage' ? 'profile' : 'webpage'}`,
+    url,
+    name: route.title,
+    description: route.description,
+    isPartOf: { '@id': `${SITE}/#website` },
+    inLanguage: 'en',
+    ...(route.schemaType === 'ProfilePage'
+      ? { mainEntity: { '@id': `${SITE}/#dan-pearson` } }
+      : { about: { '@id': `${SITE}/#dan-pearson` } }),
+  };
+
+  const content = `
+    <main>
+      <h1>${escapeHtml(route.h1)}</h1>
+      <p>${escapeHtml(route.intro)}</p>
+      ${staticRouteExtras(route, context)}
+    </main>`;
+
+  return {
+    path: route.path,
+    title: route.title,
+    description: route.description,
+    schemas: [
+      node,
+      PERSON,
+      breadcrumb([
+        { name: 'Home', path: '/' },
+        { name: route.crumb, path: route.path },
+      ]),
+    ],
+    content,
+    sitemap: route.sitemap,
+  };
+}
+
+// --- 404 and the SPA shell -------------------------------------------------
+
+/**
+ * dist/404.html, served by Cloudflare Pages with a 404 status for any path
+ * that matches neither a file nor a rule in _redirects. See notFoundHtml.
+ */
+function writeNotFound(template) {
+  writeFileSync(join(DIST, '404.html'), notFoundHtml(template, HTML_CTX));
+}
+
+/** dist/spa.html, the shell for client-only routes. See spaShellHtml. */
+function writeSpaShell(template) {
+  writeFileSync(join(DIST, 'spa.html'), spaShellHtml(template, HTML_CTX));
+}
+
 // --- sitemap --------------------------------------------------------------
 
 /**
- * Rebuilds sitemap.xml from the prerendered routes, preserving any URL already
- * present in public/sitemap.xml.
+ * Category and tag archives with enough articles to be worth a crawl, at the
+ * URLs CategoryArchive.tsx and TagArchive.tsx give as canonical: the category
+ * as stored, and the tag lowercased with spaces turned into hyphens. A tag on
+ * a single article is a one-link page, so tags need two.
+ */
+function archiveEntries(pages) {
+  const categories = new Map();
+  const tags = new Map();
+  const bump = (map, key, lastmod) => {
+    const entry = map.get(key) || { count: 0, lastmod: '' };
+    entry.count += 1;
+    if (lastmod && lastmod > entry.lastmod) entry.lastmod = lastmod;
+    map.set(key, entry);
+  };
+  for (const page of pages) {
+    if (!page.archive) continue;
+    const lastmod = String(page.lastmod || '').slice(0, 10);
+    if (page.archive.category) bump(categories, page.archive.category, lastmod);
+    for (const tag of new Set(page.archive.tags.map((t) => t.toLowerCase().replace(/\s+/g, '-')))) {
+      bump(tags, tag, lastmod);
+    }
+  }
+  return [
+    ...[...categories].map(([category, { lastmod }]) => ({
+      loc: `${SITE}/news/category/${encodeURIComponent(category)}`,
+      lastmod,
+      changefreq: 'weekly',
+      priority: '0.5',
+    })),
+    ...[...tags]
+      .filter(([, { count }]) => count >= 2)
+      .map(([tag, { lastmod }]) => ({
+        loc: `${SITE}/news/tag/${encodeURIComponent(tag)}`,
+        lastmod,
+        changefreq: 'weekly',
+        priority: '0.4',
+      })),
+  ];
+}
+
+/**
+ * Rebuilds sitemap.xml from what this build serves: the routes written above
+ * (static pages, topic hubs, every article it could read) and the archives
+ * those articles fill.
  *
- * The preservation matters: legacy articles live only in the database, so this
- * script cannot see them, and dropping them would be a regression. Note that
+ * It used to carry forward every URL already in public/sitemap.xml so database
+ * articles survived a build without credentials. That also kept URLs alive
+ * that matched nothing, and with dist/404.html in place an article the build
+ * did not write is a 404 anyway. The production build reads the database, so
+ * its articles are pages here and land in the sitemap on their own. Note that
  * the React route at src/pages/SitemapXML.tsx never serves /sitemap.xml in
- * production - public/_redirects maps that path to the static file, so this is
- * the sitemap crawlers actually fetch.
+ * production: the static file wins, so this is the sitemap crawlers fetch.
  */
 function writeSitemap(pages) {
   const today = new Date().toISOString().split('T')[0];
   const entries = new Map();
 
   for (const page of pages) {
+    if (!page.sitemap) continue;
     const loc = page.path === '/' ? SITE : `${SITE}${page.path}`;
     entries.set(loc, {
       loc,
-      lastmod: page.lastmod || today,
+      lastmod: String(page.lastmod || today).slice(0, 10),
       changefreq: page.sitemap.changefreq,
       priority: page.sitemap.priority,
     });
   }
 
-  const existing = join('public', 'sitemap.xml');
-  if (existsSync(existing)) {
-    const previous = readFileSync(existing, 'utf8');
-    for (const block of previous.match(/<url>[\s\S]*?<\/url>/g) || []) {
-      const loc = block.match(/<loc>([^<]+)<\/loc>/)?.[1];
-      if (!loc || entries.has(loc)) continue;
-      entries.set(loc, {
-        loc,
-        lastmod: block.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1] || today,
-        changefreq: block.match(/<changefreq>([^<]+)<\/changefreq>/)?.[1] || 'monthly',
-        priority: block.match(/<priority>([^<]+)<\/priority>/)?.[1] || '0.5',
-      });
-    }
+  for (const entry of archiveEntries(pages)) {
+    if (!entries.has(entry.loc))
+      entries.set(entry.loc, { ...entry, lastmod: entry.lastmod || today });
   }
 
   const urls = [...entries.values()]
     .sort((a, b) => Number(b.priority) - Number(a.priority) || a.loc.localeCompare(b.loc))
     .map(
       (url) => `  <url>
-    <loc>${url.loc}</loc>
+    <loc>${escapeXml(url.loc)}</loc>
     <lastmod>${url.lastmod}</lastmod>
     <changefreq>${url.changefreq}</changefreq>
     <priority>${url.priority}</priority>
@@ -715,56 +1009,16 @@ ${urls.join('\n')}
  * and with the right content type.
  */
 function writeFeed(pages) {
-  const feedTime = (page) => page.feed.published_iso || `${page.feed.published_at}T12:00:00Z`;
-  const items = pages
-    .filter((page) => page.feed)
-    .sort((a, b) => new Date(feedTime(b)) - new Date(feedTime(a)))
-    .slice(0, FEED_LIMIT)
-    .map((page) => {
-      const url = `${SITE}${page.path}`;
-      // Markdown articles carry a date only, so they get midday UTC and the date
-      // does not slide backwards a day for readers west of Greenwich.
-      const pubDate = new Date(feedTime(page)).toUTCString();
-      const categories = [...new Set([page.feed.category, ...(page.feed.tags || [])])]
-        .filter(Boolean)
-        .map((name) => `      <category>${escapeXml(name)}</category>`)
-        .join('\n');
-
-      return `    <item>
-      <title>${escapeXml(page.feed.title)}</title>
-      <link>${url}</link>
-      <guid isPermaLink="true">${url}</guid>
-      <pubDate>${pubDate}</pubDate>
-      <dc:creator>${escapeXml(page.feed.author)}</dc:creator>
-      <description>${escapeXml(plainText(page.feed.description))}</description>
-${categories}
-    </item>`;
-    });
-
-  const built = new Date().toUTCString();
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>${escapeXml(FEED_TITLE)}</title>
-    <link>${SITE}</link>
-    <description>${escapeXml(FEED_DESCRIPTION)}</description>
-    <language>en-us</language>
-    <lastBuildDate>${built}</lastBuildDate>
-    <ttl>60</ttl>
-    <atom:link href="${SITE}/rss.xml" rel="self" type="application/rss+xml" />
-    <image>
-      <url>${IMAGE}</url>
-      <title>${escapeXml(FEED_TITLE)}</title>
-      <link>${SITE}</link>
-    </image>
-    <copyright>Copyright ${new Date().getFullYear()} ${AUTHOR}. All rights reserved.</copyright>
-${items.join('\n')}
-  </channel>
-</rss>
-`;
-
+  const { xml, count } = buildFeed(pages, {
+    site: SITE,
+    title: FEED_TITLE,
+    description: FEED_DESCRIPTION,
+    image: IMAGE,
+    author: AUTHOR,
+    limit: FEED_LIMIT,
+  });
   writeFileSync(join(DIST, 'rss.xml'), xml);
-  return items.length;
+  return count;
 }
 
 // --- news sitemap ---------------------------------------------------------
@@ -821,6 +1075,7 @@ function writeLlmsTxt(crm, crmArticles, dbArticles) {
     `# ${AUTHOR}`,
     `> ${plainText(crm.POSITIONING_STATEMENT)}`,
     plainText(crm.THESIS),
+    `## About\n\n- [About Dan Pearson](${SITE}/about): fifteen years in sales and business development, then seven SaaS platforms, then AI CRM automation.\n- [Projects](${SITE}/projects): the SaaS platforms and the CRM automation case studies behind them.\n- [News and insights](${SITE}/news): every article, newest first.\n- [AI CRM automation topic hub](${SITE}/topics/ai-crm-automation): all the CRM automation writing in one place.`,
     `## Services\n\n- [AI CRM automation consulting](${SITE}/ai-crm-automation): the Pipeline Automation Ladder, the 12-point audit and published pricing.\n- [Contact](${SITE}/connect)`,
     `## AI CRM automation\n\n${crmArticles.map(line).join('\n')}`,
   ];
@@ -840,6 +1095,7 @@ if (!existsSync(templatePath)) {
 }
 
 const template = readFileSync(templatePath, 'utf8');
+const seo = await loadTsModule('src/lib/seo.ts');
 const crm = await loadCrmData();
 const helpers = await loadPrerenderHelpers();
 const articles = readArticles().filter(({ meta }) => meta.published);
@@ -848,7 +1104,7 @@ const articles = readArticles().filter(({ meta }) => meta.published);
 // carry every column, not the subset fetchDbArticles asks for. Widening the
 // select on its request keeps this to one network call; the raw rows are
 // captured before fetchDbArticles filters and reshapes them. `null` means the
-// database was not read (no credentials, or the fetch failed).
+// database was not read (no credentials).
 let dbRows = null;
 const fetchAllColumns = async (endpoint, init) => {
   const response = await fetch(String(endpoint).replace(/([?&])select=[^&]*/, '$1select=*'), init);
@@ -865,9 +1121,21 @@ const fetchAllColumns = async (endpoint, init) => {
 // The markdown copy wins when a slug exists in both: it is the reviewed source
 // the database row was seeded from.
 const markdownSlugs = new Set(articles.map(({ meta }) => meta.slug));
-const dbArticles = (await fetchDbArticles({ fetchImpl: fetchAllColumns })).filter(
-  ({ meta }) => !markdownSlugs.has(meta.slug)
-);
+// With credentials set, a failed read stops the build (see db-articles.mjs):
+// shipping without the database articles would 404 every one of their URLs.
+const dbArticles = (
+  await fetchDbArticles({ fetchImpl: fetchAllColumns }).catch((error) => {
+    if (!(error instanceof DbArticlesError)) throw error;
+    console.error(
+      `prerender: ${error.message}.\n` +
+        'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set, so the build needs the database ' +
+        'articles; without them their pages, sitemap entries and feed items would be missing ' +
+        'and the live URLs would 404. Fix the credentials or the API, or unset both variables ' +
+        'to build from the markdown articles only.'
+    );
+    process.exit(1);
+  })
+).filter(({ meta }) => !markdownSlugs.has(meta.slug));
 
 // Data read from the database is stamped with the build time, so react-query
 // treats it as fresh for its staleTime and refetches after. Without the
@@ -907,15 +1175,32 @@ function topicData(topic) {
   };
 }
 
+const articlePages = [...articles, ...dbArticles].map((article) => {
+  const prerenderData = articleData(article.meta.slug);
+  return { ...articlePage(article, prerenderData?.data), prerenderData };
+});
+
+const otherHubs = Object.entries(helpers.TOPIC_HUBS)
+  .filter(([topic]) => topic !== 'ai-crm-automation')
+  .map(([topic, config]) => {
+    const prerenderData = topicData(topic);
+    return { ...topicHubPage(topic, config, prerenderData.data), prerenderData };
+  });
+
 const pages = [
   homePage(crm, articles),
   moneyPage(crm, articles),
   { ...hubPage(articles), prerenderData: topicData('ai-crm-automation') },
-  ...[...articles, ...dbArticles].map((article) => ({
-    ...articlePage(article),
-    prerenderData: articleData(article.meta.slug),
-  })),
+  ...otherHubs,
+  ...STATIC_ROUTES.map((route) =>
+    staticPage(route, { articlePages, topicHubs: helpers.TOPIC_HUBS })
+  ),
+  ...articlePages,
 ];
+
+// Written from the untouched template before index.html is overwritten below.
+writeNotFound(template);
+writeSpaShell(template);
 
 const routeSourceFor = loadRouteSources();
 const manifest = loadManifest();
@@ -931,10 +1216,14 @@ for (const page of pages) {
         title: page.title,
         description: page.description,
         url: page.path === '/' ? SITE : `${SITE}${page.path}`,
+        path: page.path,
         type: page.type,
         schemas: page.schemas,
+        image: page.image,
+        article: page.article,
       }),
-      page.content
+      page.content,
+      { matched: page.matched }
     ),
     page.prerenderData,
     helpers.PRERENDER_DATA_ID

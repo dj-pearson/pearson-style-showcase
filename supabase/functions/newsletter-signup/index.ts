@@ -2,34 +2,46 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { Resend } from 'npm:resend@2.0.0';
 import { validateEmail } from './validation.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, getClientIdentifier } from '../_shared/rate-limiter.ts';
+import { generateConfirmationToken } from '../_shared/newsletter-tokens.ts';
+import {
+  NEWSLETTER_FROM,
+  NEWSLETTER_REPLY_TO,
+  confirmPageUrl,
+  confirmationEmail,
+} from '../_shared/newsletter-emails.ts';
+import { decideSignupAction, type ExistingSubscriber } from './policy.ts';
 
 interface SubscribeRequest {
   email: string;
 }
 
-// Rate limiting map: IP -> { count, resetTime }
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_MAX = 5; // 5 requests
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+// 5 signups per client IP per hour. Keyed with the shared getClientIdentifier,
+// which ignores the client-supplied first X-Forwarded-For hop.
+const NEWSLETTER_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 5,
+  burstAllowance: 0,
+  keyPrefix: 'newsletter',
+};
 
 // DISPOSABLE_DOMAINS + validateEmail extracted to ./validation.ts for unit tests (US-012).
+// The welcome email moved to _shared/newsletter-emails.ts and is sent by
+// newsletter-confirm once the address is confirmed (US-107).
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-
-  if (record.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-
-  record.count++;
-  return true;
+function json(body: unknown, status: number, headers: Record<string, string>): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...headers, 'Content-Type': 'application/json' },
+  });
 }
+
+// Same body for a fresh send and a cooldown, so the response doesn't say
+// whether a confirmation went out a minute ago.
+const CONFIRMATION_SENT = {
+  status: 'confirmation_sent',
+  message: 'Check your inbox for a link to confirm.',
+};
 
 const handler = async (req: Request): Promise<Response> => {
   // CORS from the shared allow-list (per request; never a wildcard).
@@ -39,29 +51,31 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  if (req.method !== 'POST') {
+    return json({ error: 'Method not allowed' }, 405, { ...corsHeaders, Allow: 'POST, OPTIONS' });
+  }
 
   try {
-    // Get client IP for rate limiting
-    const clientIP =
-      req.headers.get('x-forwarded-for')?.split(',')[0] ||
-      req.headers.get('x-real-ip') ||
-      'unknown';
-
-    // Check rate limit
-    if (!checkRateLimit(clientIP)) {
-      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+    const clientIP = getClientIdentifier(req);
+    const rateLimit = checkRateLimit(clientIP, NEWSLETTER_RATE_LIMIT);
+    if (!rateLimit.allowed) {
+      console.warn('Newsletter signup rate limit exceeded');
       return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
         status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, ...rateLimit.headers, 'Content-Type': 'application/json' },
       });
     }
 
-    const { email: rawEmail }: SubscribeRequest = await req.json();
+    const body: Partial<SubscribeRequest> | null = await req.json().catch(() => null);
+    const rawEmail = body?.email;
+    if (typeof rawEmail !== 'string') {
+      return json({ error: 'Invalid email format' }, 400, corsHeaders);
+    }
 
     // Validate and normalize email
     const validation = validateEmail(rawEmail);
     if (!validation.valid) {
-      console.warn(`Invalid email submission: ${rawEmail} - ${validation.error}`);
+      console.warn(`Invalid email submission: ${validation.error}`);
       return new Response(JSON.stringify({ error: validation.error }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -70,120 +84,91 @@ const handler = async (req: Request): Promise<Response> => {
 
     const email = rawEmail.trim().toLowerCase();
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
-    // Check if email already exists
-    const { data: existingSubscriber } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from('newsletter_subscribers')
-      .select('id, active')
+      .select('id, active, confirmed_at, confirmation_sent_at')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    if (existingSubscriber) {
-      if (existingSubscriber.active) {
-        return new Response(JSON.stringify({ message: "You're already subscribed!" }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        });
-      } else {
-        // Reactivate subscription
-        await supabase
-          .from('newsletter_subscribers')
-          .update({ active: true, subscribed_at: new Date().toISOString() })
-          .eq('email', email);
-      }
-    } else {
-      // Add new subscriber
+    if (lookupError) {
+      console.error('Newsletter lookup failed:', lookupError);
+      return json({ error: 'Failed to subscribe' }, 500, corsHeaders);
+    }
+
+    const action = decideSignupAction(existing as ExistingSubscriber | null);
+
+    if (action === 'already_subscribed') {
+      return json(
+        { status: 'already_subscribed', message: "You're already subscribed!" },
+        200,
+        corsHeaders
+      );
+    }
+    if (action === 'cooldown') {
+      return json(CONFIRMATION_SENT, 200, corsHeaders);
+    }
+
+    const { token, hash } = await generateConfirmationToken();
+    const pending = {
+      active: false,
+      confirmed_at: null,
+      confirmation_token_hash: hash,
+      confirmation_sent_at: new Date().toISOString(),
+    };
+
+    if (action === 'insert') {
       const { error: insertError } = await supabase
         .from('newsletter_subscribers')
-        .insert([{ email }]);
+        .insert([{ email, ...pending }]);
 
       if (insertError) {
-        console.error('Database error:', insertError);
-        return new Response(JSON.stringify({ error: 'Failed to subscribe' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        });
+        // 23505: a concurrent request for the same address inserted first and
+        // is sending the confirmation itself.
+        if (insertError.code === '23505') return json(CONFIRMATION_SENT, 200, corsHeaders);
+        console.error('Newsletter insert failed:', insertError);
+        return json({ error: 'Failed to subscribe' }, 500, corsHeaders);
+      }
+    } else {
+      // Pending past the cooldown, or previously unsubscribed: a new token,
+      // still inactive until confirmed. Never a silent reactivation.
+      const { error: updateError } = await supabase
+        .from('newsletter_subscribers')
+        .update(pending)
+        .eq('email', email);
+
+      if (updateError) {
+        console.error('Newsletter update failed:', updateError);
+        return json({ error: 'Failed to subscribe' }, 500, corsHeaders);
       }
     }
 
-    // Send welcome email
+    const confirmation = confirmationEmail(confirmPageUrl(token));
     const resend = new Resend(Deno.env.get('RESEND_API'));
-
-    const welcomeEmailResponse = await resend.emails.send({
-      from: 'Dan Pearson <noreply@danpearson.net>',
+    const { error: sendError } = await resend.emails.send({
+      from: NEWSLETTER_FROM,
       to: [email],
-      subject: "Welcome to Dan Pearson's Newsletter! 🚀",
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to Dan Pearson's Newsletter</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
-            <h1 style="margin: 0; font-size: 28px;">Welcome aboard! 🎉</h1>
-            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Thanks for joining the Dan Pearson community</p>
-          </div>
-          
-          <div style="background: #f8fafc; padding: 25px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-            <h2 style="color: #1e293b; margin-top: 0;">What to expect:</h2>
-            <ul style="color: #64748b; padding-left: 20px;">
-              <li><strong>🚀 Project Updates:</strong> Behind-the-scenes looks at my latest AI and blockchain projects</li>
-              <li><strong>💡 Tech Insights:</strong> Lessons learned from building innovative solutions</li>
-              <li><strong>📈 Business Tips:</strong> Strategies for growing tech businesses</li>
-              <li><strong>🔮 Industry Trends:</strong> My take on where AI and web3 are heading</li>
-            </ul>
-          </div>
-          
-          <div style="margin: 30px 0; text-align: center;">
-            <h3 style="color: #1e293b;">Explore My Work</h3>
-            <div style="display: inline-block; margin: 10px;">
-              <a href="https://danpearson.net/projects" style="display: inline-block; background: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Projects</a>
-            </div>
-            <div style="display: inline-block; margin: 10px;">
-              <a href="https://danpearson.net/ai-tools" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">AI Tools</a>
-            </div>
-          </div>
-          
-          <div style="text-align: center; padding: 20px 0; border-top: 1px solid #e2e8f0; margin-top: 30px; color: #64748b;">
-            <p style="margin: 0;">Follow me for more updates:</p>
-            <div style="margin: 15px 0;">
-              <a href="https://linkedin.com/in/danpearson" style="color: #0ea5e9; text-decoration: none; margin: 0 10px;">LinkedIn</a> |
-              <a href="https://twitter.com/danpearson" style="color: #0ea5e9; text-decoration: none; margin: 0 10px;">Twitter</a> |
-              <a href="https://github.com/danpearson" style="color: #0ea5e9; text-decoration: none; margin: 0 10px;">GitHub</a>
-            </div>
-            <p style="font-size: 12px; color: #94a3b8; margin: 15px 0 0 0;">
-              You're receiving this because you subscribed to updates from danpearson.net
-              <br>
-              <a href="mailto:dan@danpearson.net" style="color: #94a3b8;">Unsubscribe</a>
-            </p>
-          </div>
-        </body>
-        </html>
-      `,
+      reply_to: NEWSLETTER_REPLY_TO,
+      subject: confirmation.subject,
+      html: confirmation.html,
+      text: confirmation.text,
     });
 
-    console.log('Welcome email sent:', welcomeEmailResponse);
+    if (sendError) {
+      console.error('Confirmation email failed:', sendError);
+      // Lift the cooldown so the visitor can retry straight away.
+      await supabase
+        .from('newsletter_subscribers')
+        .update({ confirmation_sent_at: null })
+        .eq('email', email);
+      return json({ error: 'Failed to send the confirmation email' }, 502, corsHeaders);
+    }
 
-    // Mark welcome email as sent
-    await supabase
-      .from('newsletter_subscribers')
-      .update({ welcome_email_sent: true })
-      .eq('email', email);
-
-    return new Response(
-      JSON.stringify({
-        message: 'Successfully subscribed! Check your inbox for a welcome email.',
-        emailSent: true,
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    );
+    return json(CONFIRMATION_SENT, 200, corsHeaders);
   } catch (error) {
     console.error('Error in newsletter signup:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {

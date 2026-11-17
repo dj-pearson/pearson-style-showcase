@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { fetchJsonWithTimeout, FetchHttpError } from './fetch-with-timeout.ts';
 
 // Types
 export type ModelTier = 'lightweight' | 'normal';
@@ -23,6 +24,12 @@ export interface AICallOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
+  /** Deadline for each provider call (default 120s for text, 60s for vision) */
+  timeoutMs?: number;
+  /** Deadline across all configs tried (default AI_DEFAULT_TOTAL_BUDGET_MS) */
+  totalBudgetMs?: number;
+  /** Run openai/lovable configs on Claude instead (see callSingleConfig) */
+  redirectDeprecatedToClaude?: boolean;
 }
 
 export interface AICallResult {
@@ -107,13 +114,315 @@ export async function getAIConfigs(
   return orderedConfigs;
 }
 
+/** Per-call deadline for text generation, headers and body included. */
+export const AI_GENERATION_TIMEOUT_MS = 120_000;
+/** Per-call deadline for vision/OCR calls. */
+export const AI_VISION_TIMEOUT_MS = 60_000;
+/**
+ * Default ceiling for one callAIWithConfig/callAIWithVision across every
+ * config it tries. Pipelines that reclaim stale runs must wait longer than
+ * this (see generate-ai-article and amazon-article-pipeline).
+ */
+export const AI_DEFAULT_TOTAL_BUDGET_MS = 300_000;
+
+/** Used when a config names no model or a deprecated provider is redirected. */
+export const DEFAULT_CLAUDE_MODEL_FALLBACK = 'claude-sonnet-4-6';
+
+/** Claude model for fallbacks: env AI_DEFAULT_CLAUDE_MODEL, else DEFAULT_CLAUDE_MODEL_FALLBACK. */
+export function getDefaultClaudeModel(): string {
+  try {
+    return Deno.env.get('AI_DEFAULT_CLAUDE_MODEL')?.trim() || DEFAULT_CLAUDE_MODEL_FALLBACK;
+  } catch {
+    // No env permission (tests): use the built-in default.
+    return DEFAULT_CLAUDE_MODEL_FALLBACK;
+  }
+}
+
+/** The fields a single provider call needs from a config row. */
+export type ProviderTarget = Pick<AIConfig, 'provider' | 'model_name' | 'api_key_secret_name'> & {
+  configuration?: Record<string, any> | null;
+};
+
+export interface ProviderRequest {
+  system?: string;
+  prompt: string;
+  /** data: URL (base64) for vision calls */
+  imageDataUrl?: string;
+  temperature?: number;
+  maxTokens: number;
+  jsonMode?: boolean;
+}
+
+/** A provider call that produced no text. `status` is set when the provider answered. */
+export class AIProviderError extends Error {
+  provider: string;
+  status?: number;
+  body?: string;
+  constructor(provider: string, message: string, status?: number, body?: string) {
+    super(message);
+    this.name = 'AIProviderError';
+    this.provider = provider;
+    this.status = status;
+    this.body = body;
+  }
+}
+
+const DEPRECATED_PROVIDERS: Provider[] = ['openai', 'lovable'];
+const GEMINI_REJECTED_KEYS = ['thinking', 'last_error', 'thinkingConfig'];
+
+function geminiGenerationConfig(configuration?: Record<string, any> | null): Record<string, any> {
+  if (!configuration) return {};
+  return Object.fromEntries(
+    Object.entries(configuration).filter(([key]) => !GEMINI_REJECTED_KEYS.includes(key))
+  );
+}
+
+function splitDataUrl(dataUrl: string): { mediaType: string; data: string } | null {
+  const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  return matches ? { mediaType: matches[1], data: matches[2] } : null;
+}
+
+interface BuiltRequest {
+  url: string;
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+  extract: (result: any) => string | undefined;
+}
+
+function buildRequest(
+  provider: Provider,
+  model: string,
+  apiKey: string,
+  req: ProviderRequest,
+  configuration?: Record<string, any> | null
+): BuiltRequest {
+  const image = req.imageDataUrl ? splitDataUrl(req.imageDataUrl) : null;
+  if (req.imageDataUrl && !image) {
+    throw new AIProviderError(provider, 'Invalid image data URL format');
+  }
+
+  switch (provider) {
+    case 'gemini-paid':
+    case 'gemini-free': {
+      const text = req.system ? `${req.system}\n\n${req.prompt}` : req.prompt;
+      const parts: Record<string, unknown>[] = [{ text }];
+      if (image) parts.push({ inline_data: { mime_type: image.mediaType, data: image.data } });
+      return {
+        // The key goes in a header, not the query string, so it never lands in
+        // URL logs or error messages.
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: {
+          contents: [{ parts }],
+          generationConfig: {
+            ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+            maxOutputTokens: req.maxTokens,
+            ...geminiGenerationConfig(configuration),
+          },
+        },
+        extract: (r) => r?.candidates?.[0]?.content?.parts?.[0]?.text,
+      };
+    }
+
+    case 'claude': {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      };
+      let content: unknown = req.prompt;
+      if (image) {
+        const isPdf = image.mediaType === 'application/pdf';
+        // PDF support requires the beta header
+        if (isPdf) headers['anthropic-beta'] = 'pdfs-2024-09-25';
+        // Claude only accepts these image media types
+        const supportedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const block = isPdf
+          ? {
+              type: 'document',
+              source: { type: 'base64', media_type: 'application/pdf', data: image.data },
+            }
+          : {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: supportedImageTypes.includes(image.mediaType)
+                  ? image.mediaType
+                  : 'image/png',
+                data: image.data,
+              },
+            };
+        content = [block, { type: 'text', text: req.prompt }];
+      }
+      return {
+        url: 'https://api.anthropic.com/v1/messages',
+        headers,
+        body: {
+          model,
+          max_tokens: req.maxTokens,
+          // Claude takes the system prompt as a top-level field. Concatenating
+          // it into the user turn instead measurably weakens instruction
+          // following, so keep it separate here.
+          ...(req.system ? { system: req.system } : {}),
+          messages: [{ role: 'user', content }],
+          ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        },
+        extract: (r) =>
+          (Array.isArray(r?.content)
+            ? r.content.find((b: { type?: string }) => b?.type === 'text')?.text
+            : undefined) ?? r?.content?.[0]?.text,
+      };
+    }
+
+    case 'openai':
+    case 'lovable': {
+      const userContent = image
+        ? [
+            { type: 'text', text: req.prompt },
+            { type: 'image_url', image_url: { url: req.imageDataUrl } },
+          ]
+        : req.prompt;
+      return {
+        url:
+          provider === 'openai'
+            ? 'https://api.openai.com/v1/chat/completions'
+            : 'https://ai.gateway.lovable.dev/v1/chat/completions',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: {
+          model,
+          messages: [
+            ...(req.system ? [{ role: 'system', content: req.system }] : []),
+            { role: 'user', content: userContent },
+          ],
+          ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+          max_tokens: req.maxTokens,
+          ...(req.jsonMode && !image ? { response_format: { type: 'json_object' } } : {}),
+        },
+        extract: (r) => r?.choices?.[0]?.message?.content,
+      };
+    }
+
+    default:
+      throw new AIProviderError(String(provider), `Unsupported provider: ${provider}`);
+  }
+}
+
+/**
+ * Make one provider call and return its text. Goes through fetchWithTimeout
+ * with a hard deadline; a paid POST is never repeated after a timeout and is
+ * retried at most once, only when the provider rejected it (429/503/529).
+ * Throws AIProviderError (or FetchTimeoutError) when there is no text.
+ */
+export async function callProvider(
+  provider: Provider,
+  model: string,
+  apiKey: string,
+  req: ProviderRequest,
+  options: { configuration?: Record<string, any> | null; timeoutMs?: number } = {}
+): Promise<string> {
+  const built = buildRequest(provider, model, apiKey, req, options.configuration);
+  try {
+    const { data } = await fetchJsonWithTimeout<any>(
+      built.url,
+      { method: 'POST', headers: built.headers, body: JSON.stringify(built.body) },
+      {
+        timeoutMs: options.timeoutMs ?? AI_GENERATION_TIMEOUT_MS,
+        maxRetries: 2,
+        idempotent: false,
+        retryOnRejected: true,
+        label: `ai:${provider}`,
+      }
+    );
+    const text = built.extract(data);
+    if (!text) throw new AIProviderError(provider, `${provider} returned no text`);
+    return text;
+  } catch (err) {
+    if (err instanceof FetchHttpError) {
+      throw new AIProviderError(provider, err.message, err.status, err.body);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Call one config. With `redirectDeprecatedToClaude`, openai/lovable configs
+ * run on Claude (CLAUDE_API_KEY, getDefaultClaudeModel()) and the returned
+ * usedConfig names what actually ran.
+ */
+export async function callSingleConfig<T extends ProviderTarget>(
+  config: T,
+  req: ProviderRequest,
+  options: { timeoutMs?: number; redirectDeprecatedToClaude?: boolean } = {}
+): Promise<{ response: string; usedConfig: T }> {
+  let target: T = config;
+  if (options.redirectDeprecatedToClaude && DEPRECATED_PROVIDERS.includes(config.provider)) {
+    console.warn(`[AI] Provider "${config.provider}" is deprecated, using Claude instead`);
+    target = {
+      ...config,
+      provider: 'claude',
+      model_name: getDefaultClaudeModel(),
+      api_key_secret_name: 'CLAUDE_API_KEY',
+    };
+  }
+
+  const apiKey = Deno.env.get(target.api_key_secret_name);
+  if (!apiKey) {
+    throw new AIProviderError(target.provider, `API key ${target.api_key_secret_name} not found`);
+  }
+
+  const response = await callProvider(
+    target.provider,
+    target.model_name || getDefaultClaudeModel(),
+    apiKey,
+    req,
+    { configuration: target.configuration, timeoutMs: options.timeoutMs }
+  );
+  return { response, usedConfig: target };
+}
+
+async function callWithFallback(
+  tag: string,
+  configs: AIConfig[],
+  req: ProviderRequest,
+  options: AICallOptions,
+  defaultTimeoutMs: number
+): Promise<AICallResult> {
+  const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
+  const deadline = Date.now() + (options.totalBudgetMs ?? AI_DEFAULT_TOTAL_BUDGET_MS);
+
+  for (const config of configs) {
+    const remaining = deadline - Date.now();
+    if (remaining < 5_000) {
+      console.error(`[${tag}] Time budget used up before trying ${config.provider}`);
+      break;
+    }
+    console.log(`[${tag}] Trying model: ${config.provider} - ${config.model_name}`);
+    try {
+      const result = await callSingleConfig(config, req, {
+        timeoutMs: Math.min(timeoutMs, remaining),
+        redirectDeprecatedToClaude: options.redirectDeprecatedToClaude,
+      });
+      console.log(
+        `[${tag}] Success with ${result.usedConfig.provider} - ${result.usedConfig.model_name}`
+      );
+      return result;
+    } catch (error) {
+      console.error(
+        `[${tag}] Failed with ${config.provider}:`,
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+  throw new Error('All AI models failed to generate a response');
+}
+
 /**
  * Call AI using centralized configuration with fallback support
  *
  * @param configs - Array of AI configurations to try in order
  * @param systemPrompt - System prompt for the AI
  * @param userPrompt - User prompt for the AI
- * @param options - Optional parameters (temperature, maxTokens, jsonMode)
+ * @param options - temperature, maxTokens, jsonMode, timeouts
  */
 export async function callAIWithConfig(
   configs: AIConfig[],
@@ -122,162 +431,13 @@ export async function callAIWithConfig(
   options: AICallOptions = {}
 ): Promise<AICallResult> {
   const { temperature = 0.7, maxTokens = 4000, jsonMode = false } = options;
-
-  for (const config of configs) {
-    console.log(`[AI] Trying model: ${config.provider} - ${config.model_name}`);
-
-    try {
-      const apiKey = Deno.env.get(config.api_key_secret_name);
-      if (!apiKey) {
-        console.error(`[AI] API key ${config.api_key_secret_name} not found`);
-        continue;
-      }
-
-      let response: Response;
-      let generatedResponse: string | null = null;
-
-      switch (config.provider) {
-        case 'gemini-paid':
-        case 'gemini-free': {
-          // Filter out non-standard fields from configuration that Gemini rejects
-          const geminiGenConfig = config.configuration
-            ? Object.fromEntries(
-                Object.entries(config.configuration).filter(
-                  ([key]) => !['thinking', 'last_error', 'thinkingConfig'].includes(key)
-                )
-              )
-            : {};
-
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
-                  },
-                ],
-                generationConfig: {
-                  temperature,
-                  maxOutputTokens: maxTokens,
-                  ...geminiGenConfig,
-                },
-              }),
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI] Gemini API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-
-        case 'claude': {
-          response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: config.model_name,
-              max_tokens: maxTokens,
-              // Claude takes the system prompt as a top-level field. Concatenating
-              // it into the user turn instead measurably weakens instruction
-              // following, so keep it separate here.
-              system: systemPrompt,
-              messages: [{ role: 'user', content: userPrompt }],
-              temperature,
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.content?.[0]?.text;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI] Claude API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-
-        case 'openai': {
-          response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: config.model_name,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-              ],
-              temperature,
-              max_tokens: maxTokens,
-              ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.choices?.[0]?.message?.content;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI] OpenAI API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-
-        case 'lovable': {
-          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: config.model_name,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-              ],
-              temperature,
-              max_tokens: maxTokens,
-              ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.choices?.[0]?.message?.content;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI] Lovable API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-      }
-
-      if (generatedResponse) {
-        console.log(`[AI] Success with ${config.provider} - ${config.model_name}`);
-        return { response: generatedResponse, usedConfig: config };
-      }
-    } catch (error) {
-      console.error(`[AI] Failed with ${config.provider}:`, error);
-      continue;
-    }
-  }
-
-  throw new Error('All AI models failed to generate a response');
+  return await callWithFallback(
+    'AI',
+    configs,
+    { system: systemPrompt, prompt: userPrompt, temperature, maxTokens, jsonMode },
+    options,
+    AI_GENERATION_TIMEOUT_MS
+  );
 }
 
 /**
@@ -291,229 +451,17 @@ export async function callAIWithVision(
   options: AICallOptions = {}
 ): Promise<AICallResult> {
   const { temperature = 0.1, maxTokens = 4000 } = options;
-
-  for (const config of configs) {
-    console.log(`[AI Vision] Trying model: ${config.provider} - ${config.model_name}`);
-
-    try {
-      const apiKey = Deno.env.get(config.api_key_secret_name);
-      if (!apiKey) {
-        console.error(`[AI Vision] API key ${config.api_key_secret_name} not found`);
-        continue;
-      }
-
-      let response: Response;
-      let generatedResponse: string | null = null;
-
-      switch (config.provider) {
-        case 'gemini-paid':
-        case 'gemini-free': {
-          // Extract base64 and mime type from data URL
-          const matches = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
-          if (!matches) {
-            console.error('[AI Vision] Invalid image data URL format');
-            continue;
-          }
-          const [, mimeType, base64Data] = matches;
-
-          // Filter out non-standard fields from configuration that Gemini rejects
-          const geminiConfig = config.configuration
-            ? Object.fromEntries(
-                Object.entries(config.configuration).filter(
-                  ([key]) => !['thinking', 'last_error', 'thinkingConfig'].includes(key)
-                )
-              )
-            : {};
-
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${config.model_name}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      { text: prompt },
-                      {
-                        inline_data: {
-                          mime_type: mimeType,
-                          data: base64Data,
-                        },
-                      },
-                    ],
-                  },
-                ],
-                generationConfig: {
-                  temperature,
-                  maxOutputTokens: maxTokens,
-                  ...geminiConfig,
-                },
-              }),
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI Vision] Gemini API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-
-        case 'openai': {
-          // OpenAI GPT-4 Vision
-          response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: config.model_name,
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: prompt },
-                    { type: 'image_url', image_url: { url: imageDataUrl } },
-                  ],
-                },
-              ],
-              temperature,
-              max_tokens: maxTokens,
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.choices?.[0]?.message?.content;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI Vision] OpenAI API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-
-        case 'lovable': {
-          // Lovable gateway (OpenAI-compatible)
-          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: config.model_name,
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: prompt },
-                    { type: 'image_url', image_url: { url: imageDataUrl } },
-                  ],
-                },
-              ],
-              temperature,
-              max_tokens: maxTokens,
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.choices?.[0]?.message?.content;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI Vision] Lovable API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-
-        case 'claude': {
-          // Claude with vision - handles both images and PDFs
-          const matches = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
-          if (!matches) {
-            console.error('[AI Vision] Invalid image data URL format');
-            continue;
-          }
-          const [, mediaType, base64Data] = matches;
-
-          const isPdf = mediaType === 'application/pdf';
-          const claudeHeaders: Record<string, string> = {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          };
-
-          // PDF support requires the beta header
-          if (isPdf) {
-            claudeHeaders['anthropic-beta'] = 'pdfs-2024-09-25';
-          }
-
-          // Build content block: PDFs use 'document' type, images use 'image' type
-          let contentBlock;
-          if (isPdf) {
-            contentBlock = {
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64Data,
-              },
-            };
-          } else {
-            // Claude only accepts these image media types
-            const supportedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            const safeMediaType = supportedImageTypes.includes(mediaType) ? mediaType : 'image/png';
-            contentBlock = {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: safeMediaType,
-                data: base64Data,
-              },
-            };
-          }
-
-          response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: claudeHeaders,
-            body: JSON.stringify({
-              model: config.model_name,
-              max_tokens: maxTokens,
-              messages: [
-                {
-                  role: 'user',
-                  content: [contentBlock, { type: 'text', text: prompt }],
-                },
-              ],
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            generatedResponse = result.content?.[0]?.text;
-          } else {
-            const errorText = await response.text();
-            console.error(`[AI Vision] Claude API error: ${response.status}`, errorText);
-          }
-          break;
-        }
-      }
-
-      if (generatedResponse) {
-        console.log(`[AI Vision] Success with ${config.provider} - ${config.model_name}`);
-        return { response: generatedResponse, usedConfig: config };
-      }
-    } catch (error) {
-      console.error(`[AI Vision] Failed with ${config.provider}:`, error);
-      continue;
-    }
+  try {
+    return await callWithFallback(
+      'AI Vision',
+      configs,
+      { prompt, imageDataUrl, temperature, maxTokens },
+      options,
+      AI_VISION_TIMEOUT_MS
+    );
+  } catch {
+    throw new Error('All AI models failed to process the image');
   }
-
-  throw new Error('All AI models failed to process the image');
 }
 
 /**

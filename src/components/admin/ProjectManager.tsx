@@ -44,6 +44,9 @@ import {
   ChevronDown,
   GripVertical,
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 
 interface Project {
   id: string;
@@ -62,7 +65,19 @@ interface Project {
 
 const PROJECT_STATUSES = ['Active', 'In Development', 'On Hold', 'Completed', 'Archived'];
 
+const EMPTY_FORM: Partial<Project> = {
+  title: '',
+  description: '',
+  image_url: '',
+  github_link: '',
+  live_link: '',
+  tags: [],
+  status: 'Active',
+  featured: false,
+};
+
 export const ProjectManager: React.FC = () => {
+  const confirm = useConfirm();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -74,16 +89,18 @@ export const ProjectManager: React.FC = () => {
   const { toast } = useToast();
 
   // Form state
-  const [formData, setFormData] = useState<Partial<Project>>({
-    title: '',
-    description: '',
-    image_url: '',
-    github_link: '',
-    live_link: '',
-    tags: [],
-    status: 'Active',
-    featured: false,
-  });
+  const [formData, setFormData] = useState<Partial<Project>>(EMPTY_FORM);
+  // Snapshot taken when the dialog opens; once formData moves away from it,
+  // Esc / outside click / Close prompt before the input is thrown away.
+  const [baseline, setBaseline] = useState(() => JSON.stringify(EMPTY_FORM));
+  const isDirty = isDialogOpen && JSON.stringify(formData) !== baseline;
+  const {
+    isBlocking: isCloseBlocked,
+    requestNavigation: requestClose,
+    confirmDiscard: confirmClose,
+    cancelDiscard: cancelClose,
+  } = useUnsavedChanges(isDirty);
+  const guardedClose = () => requestClose(() => setIsDialogOpen(false));
 
   const loadProjects = useCallback(async () => {
     try {
@@ -293,16 +310,8 @@ export const ProjectManager: React.FC = () => {
 
       setIsDialogOpen(false);
       setSelectedProject(null);
-      setFormData({
-        title: '',
-        description: '',
-        image_url: '',
-        github_link: '',
-        live_link: '',
-        tags: [],
-        status: 'Active',
-        featured: false,
-      });
+      setFormData(EMPTY_FORM);
+      setBaseline(JSON.stringify(EMPTY_FORM));
       loadProjects();
     } catch (error) {
       logger.error('Error saving project:', error);
@@ -317,11 +326,19 @@ export const ProjectManager: React.FC = () => {
   const editProject = (project: Project) => {
     setSelectedProject(project);
     setFormData(project);
+    setBaseline(JSON.stringify(project));
     setIsDialogOpen(true);
   };
 
   const deleteProject = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
+    const title = projects.find((p) => p.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete project "${title}"?` : 'Delete this project?',
+      description: 'It comes off the projects page. This cannot be undone.',
+      confirmLabel: 'Delete project',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('projects').delete().eq('id', id);
@@ -392,16 +409,8 @@ export const ProjectManager: React.FC = () => {
 
   const openNewProjectDialog = () => {
     setSelectedProject(null);
-    setFormData({
-      title: '',
-      description: '',
-      image_url: '',
-      github_link: '',
-      live_link: '',
-      tags: [],
-      status: 'Active',
-      featured: false,
-    });
+    setFormData(EMPTY_FORM);
+    setBaseline(JSON.stringify(EMPTY_FORM));
     setIsDialogOpen(true);
   };
 
@@ -412,7 +421,14 @@ export const ProjectManager: React.FC = () => {
           <h2 className="text-3xl font-bold">Project Management</h2>
           <p className="text-muted-foreground">Manage your portfolio projects</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            // Esc, outside click and the X go through the unsaved guard.
+            if (open) setIsDialogOpen(true);
+            else guardedClose();
+          }}
+        >
           <DialogTrigger asChild>
             <Button onClick={openNewProjectDialog}>
               <Plus className="h-4 w-4 mr-2" />
@@ -568,7 +584,7 @@ export const ProjectManager: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={guardedClose}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
@@ -579,6 +595,11 @@ export const ProjectManager: React.FC = () => {
             </div>
           </DialogContent>
         </Dialog>
+        <UnsavedChangesDialog
+          open={isCloseBlocked}
+          onDiscard={confirmClose}
+          onKeepEditing={cancelClose}
+        />
       </div>
 
       {/* Search */}
@@ -632,6 +653,7 @@ export const ProjectManager: React.FC = () => {
                       <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
                       <div className="flex flex-col space-y-1">
                         <Button
+                          aria-label={`Move ${project.title} up`}
                           variant="ghost"
                           size="sm"
                           onClick={() => moveProject(project.id, 'up')}
@@ -641,6 +663,7 @@ export const ProjectManager: React.FC = () => {
                           <ChevronUp className="h-3 w-3" />
                         </Button>
                         <Button
+                          aria-label={`Move ${project.title} down`}
                           variant="ghost"
                           size="sm"
                           onClick={() => moveProject(project.id, 'down')}
@@ -710,6 +733,7 @@ export const ProjectManager: React.FC = () => {
                   <div className="flex items-center space-x-2 ml-4">
                     {project.live_link && (
                       <Button
+                        aria-label={`Open ${project.title} live site in a new tab`}
                         variant="outline"
                         size="sm"
                         onClick={() => window.open(project.live_link!, '_blank')}
@@ -717,10 +741,20 @@ export const ProjectManager: React.FC = () => {
                         <Eye className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => editProject(project)}>
+                    <Button
+                      aria-label={`Edit ${project.title}`}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => editProject(project)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => deleteProject(project.id)}>
+                    <Button
+                      aria-label={`Delete ${project.title}`}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteProject(project.id)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

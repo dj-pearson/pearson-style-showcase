@@ -375,7 +375,12 @@ const ActivityLogViewer: React.FC = () => {
                     <TableCell className="text-right">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedEntry(log)}>
+                          <Button
+                            aria-label="View activity details"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedEntry(log)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </DialogTrigger>
@@ -503,6 +508,7 @@ const ActivityLogViewer: React.FC = () => {
               </p>
               <div className="flex items-center gap-2">
                 <Button
+                  aria-label="Previous page"
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -514,6 +520,7 @@ const ActivityLogViewer: React.FC = () => {
                   Page {page} of {totalPages}
                 </span>
                 <Button
+                  aria-label="Next page"
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

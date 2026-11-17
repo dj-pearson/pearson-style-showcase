@@ -6,7 +6,7 @@ import path from 'path';
 
 // Bundle composition baseline (captured via `npm run build:analyze`, brotli
 // gzip sizes). Top 5 largest client chunks:
-//   1. three-vendor      ~853 KB  (~230 KB gzip)  three.js + r3f + drei
+//   1. three-vendor      ~492 KB  (~123 KB gzip)  three.js + OrbitControls
 //   2. markdown-vendor    ~778 KB  (~270 KB gzip)  react-markdown + syntax highlighter
 //   3. index (main)       ~462 KB  (~143 KB gzip)  app entry
 //   4. charts-vendor      ~401 KB  (~109 KB gzip)  recharts
@@ -112,11 +112,14 @@ export default defineConfig(({ mode }) => {
             // react-is, object-assign and tslib are the same shape of hazard.
             if (inPkg('prop-types', 'react-is', 'object-assign', 'tslib')) return 'utils-vendor';
 
-            if (inPkg('three', '@react-three/fiber', '@react-three/drei')) return 'three-vendor';
+            if (inPkg('three')) return 'three-vendor';
             if (inPkg('react', 'react-dom', 'react-router', 'react-router-dom', 'scheduler'))
               return 'react-vendor';
-            if (id.includes('node_modules/@radix-ui/')) return 'ui-vendor';
-            if (inPkg('lucide-react')) return 'icons-vendor';
+            // @radix-ui/* and lucide-react are deliberately left unassigned. As
+            // single ui-vendor / icons-vendor chunks they were modulepreloaded on
+            // every page (47 kB and 11 kB gzip), although the public pages use
+            // only a few primitives and icons. Unassigned, each primitive and icon
+            // ships with the chunks that import it.
             // Kept apart from markdown-vendor on purpose. react-markdown is needed
             // by any article, but the Prism build behind react-syntax-highlighter
             // is roughly 780 kB of language definitions and is loaded lazily by

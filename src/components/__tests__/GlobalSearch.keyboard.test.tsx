@@ -7,6 +7,7 @@ vi.mock('@/integrations/supabase/client', async () => {
   const { createSupabaseMock } = await import('@/test/mocks/supabase');
   return { supabase: createSupabaseMock() };
 });
+vi.mock('@/integrations/supabase/public-client', () => import('@/test/mocks/public-client'));
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 vi.mock('react-router-dom', async () => {
@@ -76,5 +77,32 @@ describe('GlobalSearch keyboard selection', () => {
     await waitFor(() =>
       expect(input).toHaveAttribute('aria-activedescendant', 'global-search-result-1')
     );
+  });
+});
+
+describe('GlobalSearch failure state', () => {
+  beforeEach(() => {
+    supabase.setTableResult('articles', { data: null, error: { message: 'boom' } });
+    supabase.setTableResult('projects', { data: [], error: null });
+    supabase.setTableResult('ai_tools', { data: [], error: null });
+  });
+
+  it('says the search failed, not that nothing matched, and offers a retry', async () => {
+    const user = userEvent.setup();
+    render(<GlobalSearch open onOpenChange={() => {}} />);
+    await user.type(screen.getByRole('combobox'), 'zzqxv');
+    expect(await screen.findByText('Search failed. Try again.')).toBeInTheDocument();
+    expect(screen.queryByText(/No results found/)).not.toBeInTheDocument();
+
+    supabase.setTableResult('articles', { data: articles, error: null });
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0));
+  });
+
+  it('labels the clear button', async () => {
+    const user = userEvent.setup();
+    render(<GlobalSearch open onOpenChange={() => {}} />);
+    await user.type(screen.getByRole('combobox'), 'x');
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument();
   });
 });

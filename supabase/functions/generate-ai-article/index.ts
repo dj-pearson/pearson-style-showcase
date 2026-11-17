@@ -72,6 +72,14 @@ const DEFAULT_FEEDS = [
 
 /** A source page shorter than this is a teaser or a paywall, not an article. */
 const MIN_SOURCE_CHARS = 1500;
+/**
+ * A 'running' run older than this is treated as dead and a new one may start.
+ * It has to stay well above the longest a run can take (about 11 minutes:
+ * feeds, a two minute editor budget, up to five source fetches, and the
+ * five minute writer budget from AI_DEFAULT_TOTAL_BUDGET_MS). At 20 minutes
+ * a slow run and its replacement could both publish.
+ */
+const STALE_RUN_MS = 30 * 60_000;
 
 interface RequestOptions {
   force?: boolean;
@@ -226,7 +234,7 @@ Return JSON only:
       configs,
       'You are the news editor for a business-focused AI publication. You return only JSON.',
       prompt,
-      { temperature: 0.2, maxTokens: 400, jsonMode: true }
+      { temperature: 0.2, maxTokens: 400, jsonMode: true, totalBudgetMs: 120_000 }
     );
     const parsed = parseJSONResponse(response);
     const lead = Number(parsed.lead);
@@ -346,7 +354,7 @@ export default async (req: Request): Promise<Response> => {
     const done = (existing || []).find((r: { status: string }) => r.status !== 'running');
     const inFlight = (existing || []).find(
       (r: { status: string; started_at: string }) =>
-        r.status === 'running' && Date.now() - new Date(r.started_at).getTime() < 20 * 60_000
+        r.status === 'running' && Date.now() - new Date(r.started_at).getTime() < STALE_RUN_MS
     );
     if (done || inFlight) {
       return json(

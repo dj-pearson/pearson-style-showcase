@@ -28,6 +28,9 @@ import { BookOpen, Plus, Trash2, Edit, Eye, ThumbsUp, ExternalLink } from 'lucid
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import UnsavedChangesDialog from '@/components/UnsavedChangesDialog';
 
 interface KBArticle {
   id: string;
@@ -44,22 +47,36 @@ interface KBArticle {
   created_at: string;
 }
 
+const EMPTY_FORM = {
+  title: '',
+  slug: '',
+  content: '',
+  excerpt: '',
+  category: 'general',
+  keywords: '',
+  published: false,
+};
+
 export const KnowledgeBaseManager: React.FC = () => {
   const fieldId = useId();
   const [articles, setArticles] = useState<KBArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<KBArticle | null>(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    slug: '',
-    content: '',
-    excerpt: '',
-    category: 'general',
-    keywords: '',
-    published: false,
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  // Snapshot of the form when the dialog opened; differs from formData once
+  // the user types, which arms the close guard below.
+  const [baseline, setBaseline] = useState(() => JSON.stringify(EMPTY_FORM));
+  const isDirty = isDialogOpen && JSON.stringify(formData) !== baseline;
+  const {
+    isBlocking: isCloseBlocked,
+    requestNavigation: requestClose,
+    confirmDiscard: confirmClose,
+    cancelDiscard: cancelClose,
+  } = useUnsavedChanges(isDirty);
+  const guardedClose = () => requestClose(() => setIsDialogOpen(false));
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     loadArticles();
@@ -149,15 +166,8 @@ export const KnowledgeBaseManager: React.FC = () => {
 
       setIsDialogOpen(false);
       setEditingArticle(null);
-      setFormData({
-        title: '',
-        slug: '',
-        content: '',
-        excerpt: '',
-        category: 'general',
-        keywords: '',
-        published: false,
-      });
+      setFormData(EMPTY_FORM);
+      setBaseline(JSON.stringify(EMPTY_FORM));
       loadArticles();
     } catch (error: any) {
       logger.error('Failed to save KB article:', error);
@@ -170,8 +180,7 @@ export const KnowledgeBaseManager: React.FC = () => {
   };
 
   const handleEdit = (article: KBArticle) => {
-    setEditingArticle(article);
-    setFormData({
+    const next = {
       title: article.title,
       slug: article.slug,
       content: article.content,
@@ -179,14 +188,22 @@ export const KnowledgeBaseManager: React.FC = () => {
       category: article.category || 'general',
       keywords: article.keywords.join(', '),
       published: article.published,
-    });
+    };
+    setEditingArticle(article);
+    setFormData(next);
+    setBaseline(JSON.stringify(next));
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) {
-      return;
-    }
+    const title = articles.find((a) => a.id === id)?.title;
+    const ok = await confirm({
+      title: title ? `Delete knowledge base article "${title}"?` : 'Delete this article?',
+      description: 'It is removed from the knowledge base. This cannot be undone.',
+      confirmLabel: 'Delete article',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('kb_articles').delete().eq('id', id);
@@ -252,20 +269,20 @@ export const KnowledgeBaseManager: React.FC = () => {
             </CardTitle>
             <CardDescription>Self-service help articles for users</CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              // Esc, outside click and the X go through the unsaved guard.
+              if (open) setIsDialogOpen(true);
+              else guardedClose();
+            }}
+          >
             <DialogTrigger asChild>
               <Button
                 onClick={() => {
                   setEditingArticle(null);
-                  setFormData({
-                    title: '',
-                    slug: '',
-                    content: '',
-                    excerpt: '',
-                    category: 'general',
-                    keywords: '',
-                    published: false,
-                  });
+                  setFormData(EMPTY_FORM);
+                  setBaseline(JSON.stringify(EMPTY_FORM));
                 }}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -402,13 +419,18 @@ Write your help article content here. You can use Markdown formatting.
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button variant="outline" onClick={guardedClose}>
                   Cancel
                 </Button>
                 <Button onClick={handleSave}>{editingArticle ? 'Update' : 'Create'} Article</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          <UnsavedChangesDialog
+            open={isCloseBlocked}
+            onDiscard={confirmClose}
+            onKeepEditing={cancelClose}
+          />
         </div>
       </CardHeader>
 

@@ -44,7 +44,7 @@ test.describe('Admin dashboard', () => {
     await page.goto('/admin/dashboard');
     await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: /Logout/i }).click();
+    await page.getByRole('button', { name: /Log ?out/i }).click();
 
     await expect(page).toHaveURL(/\/admin\/login$/);
     await expect(page.getByRole('heading', { name: /Admin Access/i })).toBeVisible();

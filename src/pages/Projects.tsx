@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import SEO from '../components/SEO';
@@ -16,16 +16,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, Filter, X, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { Tables } from '@/integrations/supabase/types';
 import { ProjectListSkeleton } from '@/components/skeletons';
 import { cn } from '@/lib/utils';
+import { useAnalytics } from '@/components/Analytics';
 
 type Project = Tables<'projects'>;
 
 const STORAGE_KEY_PREFIX = 'projectsFilters';
 
 const Projects = () => {
+  const { trackCTA } = useAnalytics();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState(() => {
     return localStorage.getItem(`${STORAGE_KEY_PREFIX}_search`) || '';
@@ -99,7 +101,7 @@ const Projects = () => {
        * fetching a page at a time meant search, the tag list and the result
        * count only ever saw the current nine rows.
        */
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('projects')
         .select(
           'id, title, description, image_url, live_link, github_link, tags, featured, sort_order, created_at, status, updated_at'
@@ -478,12 +480,13 @@ const Projects = () => {
                 Tell me what you're building or what's slowing your team down, and I'll tell you how
                 I'd approach it.
               </p>
-              <Button
-                size="lg"
-                className="mobile-button text-base sm:text-lg font-bold"
-                onClick={() => (window.location.href = '/connect')}
-              >
-                Get In Touch
+              <Button size="lg" className="mobile-button text-base sm:text-lg font-bold" asChild>
+                <Link
+                  to="/connect"
+                  onClick={() => trackCTA('Book a CRM automation audit', 'Projects')}
+                >
+                  Book a CRM automation audit
+                </Link>
               </Button>
             </div>
           </div>

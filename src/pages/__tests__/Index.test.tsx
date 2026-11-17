@@ -64,4 +64,32 @@ describe('Index page', () => {
     expect(container.querySelector('main, section, div')).not.toBeNull();
     expect(screen.getByTestId('hero-section')).toBeInTheDocument();
   });
+
+  it('holds below-the-fold sections as placeholders until they near the viewport', () => {
+    // The setup file's IntersectionObserver never fires, so nothing has scrolled
+    // into range: each deferred section is still its sized placeholder, and the
+    // anchor ids exist so an in-page link still has somewhere to land.
+    const { container } = render(<Index />, { initialEntries: ['/'] });
+    for (const selector of [
+      '#authority',
+      '#current-ventures',
+      '#case-studies',
+      '#testimonials',
+      '#newsletter',
+    ]) {
+      expect(container.querySelector(selector), selector).not.toBeNull();
+    }
+    expect(container.querySelector('#authority > [aria-hidden="true"]')).not.toBeNull();
+    expect(container.querySelector('#case-studies > [aria-hidden="true"]')).not.toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: /how i work, and how you can check it/i })
+    ).toBeNull();
+  });
+
+  it('mounts a deferred section at once when the URL hash targets it', async () => {
+    render(<Index />, { initialEntries: ['/#authority'] });
+    expect(
+      await screen.findByRole('heading', { name: /how i work, and how you can check it/i })
+    ).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import gsap from 'gsap';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import HeroSection from '../components/HeroSection';
 import HeroErrorBoundary from '../components/HeroErrorBoundary';
@@ -14,8 +14,10 @@ import { PIPELINE_AUTOMATION_LADDER, SERVICE_TIERS, THESIS } from '@/lib/crm-aut
 import { useAnalytics } from '../components/Analytics';
 import { shouldSuppressForOddTraffic } from '@/lib/traffic-detection';
 import { useAccessibility } from '@/contexts/AccessibilityContext';
+import LazySection from '@/components/LazySection';
 
-// Lazy load below-the-fold components to improve FID
+// Below-the-fold sections. Each one except FAQSection sits in a LazySection,
+// so its chunk and its Supabase query wait until the reader scrolls near it.
 const CaseStudies = lazy(() => import('../components/CaseStudies'));
 const NewsletterSignup = lazy(() => import('../components/NewsletterSignup'));
 const Testimonials = lazy(() => import('../components/Testimonials'));
@@ -55,7 +57,6 @@ function shouldDisableHeavyAnimations(): boolean {
 
 const Index = () => {
   const { trackCTA } = useAnalytics();
-  const navigate = useNavigate();
   const mainRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -129,15 +130,59 @@ const Index = () => {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [shouldLoadOrb]);
 
-  // Scroll-linked hero exit + section reveals. ScrollTrigger is imported on
-  // demand so it stays out of the homepage's critical path. Skipped entirely
-  // for reduced motion (OS setting or in-app toggle): content stays static.
+  // Scroll-linked hero exit + section reveals. Skipped entirely for reduced
+  // motion (OS setting or in-app toggle): content stays static.
+  //
+  // The reveals used to be scrubbed ScrollTriggers measured once on mount.
+  // Each LazySection below reserves a tall placeholder that later shrinks to
+  // its real content (or to nothing, when a query comes back empty), so those
+  // measured start positions ended up past the end of the document and the
+  // last sections sat at opacity 0 for good. Reveals now run off an
+  // IntersectionObserver, which reads live geometry, play once, and count a
+  // section that is already above the viewport as revealed. Only the hero
+  // exit still uses ScrollTrigger (imported on demand, out of the critical
+  // path), and it is re-measured whenever the page's height changes.
   const reduceMotion = preferences.reducedMotion || prefersReducedMotionOS();
   useEffect(() => {
-    if (reduceMotion || !mainRef.current) return;
+    const root = mainRef.current;
+    if (reduceMotion || !root) return;
 
     let cancelled = false;
     let ctx: gsap.Context | undefined;
+    let resizeObserver: ResizeObserver | undefined;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let revealObserver: IntersectionObserver | undefined;
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      // Anything already on screen, or above it, at mount stays as it is.
+      const pending = Array.from(root.querySelectorAll<HTMLElement>('.animate-section')).filter(
+        (section) => section.getBoundingClientRect().top > window.innerHeight * 0.85
+      );
+      // y only, no scale: scaling a full-width section above 1 widened the
+      // page past the viewport on phones.
+      gsap.set(pending, { opacity: 0, y: 40 });
+
+      revealObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            const passed = entry.boundingClientRect.top < 0;
+            if (!entry.isIntersecting && !passed) continue;
+            revealObserver?.unobserve(entry.target);
+            gsap.to(entry.target, {
+              opacity: 1,
+              y: 0,
+              duration: 0.7,
+              ease: 'power2.out',
+              overwrite: true,
+              clearProps: 'opacity,transform',
+            });
+          }
+        },
+        // Fires when a section's top crosses 85% of the viewport height.
+        { rootMargin: '0px 0px -15% 0px' }
+      );
+      pending.forEach((section) => revealObserver?.observe(section));
+    }
 
     import('gsap/ScrollTrigger')
       .then(({ ScrollTrigger }) => {
@@ -145,8 +190,7 @@ const Index = () => {
         gsap.registerPlugin(ScrollTrigger);
 
         ctx = gsap.context(() => {
-          // Hero Exit Animation
-          // As user scrolls down, Hero content fades out and scales down (zooms out)
+          // As the reader scrolls down, the hero fades out and zooms out.
           gsap.to(heroRef.current, {
             scrollTrigger: {
               trigger: heroRef.current,
@@ -158,48 +202,39 @@ const Index = () => {
             scale: 0.8,
             ease: 'power1.inOut',
           });
-
-          // Sections Entry Animation (Zoom Out / Settle effect)
-          const sections = gsap.utils.toArray<HTMLElement>('.animate-section');
-
-          sections.forEach((section) => {
-            gsap.fromTo(
-              section,
-              {
-                opacity: 0,
-                scale: 1.1,
-                y: 50,
-              },
-              {
-                scrollTrigger: {
-                  trigger: section,
-                  start: 'top 85%', // Start animation when top of section hits 85% of viewport
-                  end: 'top 50%',
-                  scrub: 1,
-                  toggleActions: 'play none none reverse',
-                },
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                duration: 1,
-                ease: 'power2.out',
-              }
-            );
-          });
         }, mainRef);
+
+        // Lazy sections mount and settle long after this runs, so re-measure
+        // the triggers once the page's height stops changing.
+        if (typeof ResizeObserver !== 'undefined') {
+          resizeObserver = new ResizeObserver(() => {
+            clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
+          });
+          resizeObserver.observe(mainRef.current);
+        }
       })
       .catch(() => {
-        // Chunk failed to load: sections simply render without the reveal.
+        // Chunk failed to load: the hero simply stays put.
       });
 
     return () => {
       cancelled = true;
+      clearTimeout(refreshTimer);
+      resizeObserver?.disconnect();
+      revealObserver?.disconnect();
       ctx?.revert();
+      // A section still waiting for its reveal must not stay hidden after
+      // the effect goes away (reduced motion switched on mid-page).
+      gsap.set(root.querySelectorAll('.animate-section'), { clearProps: 'opacity,transform' });
     };
   }, [reduceMotion]);
 
   return (
-    <div ref={mainRef} className="min-h-screen flex flex-col relative bg-background">
+    <div
+      ref={mainRef}
+      className="min-h-screen flex flex-col relative bg-background overflow-x-clip"
+    >
       {/* Fixed 3D Background - Interactive (skipped for reduced motion/low performance) */}
       <div className="fixed inset-0 z-0" aria-hidden="true" role="presentation">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background/90 to-secondary/20 z-10 pointer-events-none"></div>
@@ -376,17 +411,14 @@ const Index = () => {
         </div>
 
         {/* Authority Section - SEO Enhancement */}
-        <div className="animate-section pointer-events-auto">
-          <Suspense
-            fallback={
-              <div className="mobile-section text-center">
-                <div className="skeleton w-full h-96"></div>
-              </div>
-            }
-          >
-            <AuthoritySection />
-          </Suspense>
-        </div>
+        <LazySection
+          id="authority"
+          anchorIds={['authority-heading']}
+          className="animate-section pointer-events-auto"
+          reserveClassName="min-h-[2570px] sm:min-h-[1960px] md:min-h-[1730px] lg:min-h-[1630px]"
+        >
+          <AuthoritySection />
+        </LazySection>
 
         {/* The thesis — the most-quoted text on the site. Deliberately prose,
             deliberately early, deliberately not in a card. */}
@@ -507,24 +539,25 @@ const Index = () => {
                   <Button
                     size="lg"
                     className="mobile-button btn-futuristic text-base sm:text-lg font-bold"
-                    onClick={() => {
-                      trackCTA('Book an audit', 'Homepage CTA');
-                      navigate('/connect');
-                    }}
+                    asChild
                   >
-                    Book a CRM automation audit
-                    <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
+                    <Link to="/connect" onClick={() => trackCTA('Book an audit', 'Homepage CTA')}>
+                      Book a CRM automation audit
+                      <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
+                    </Link>
                   </Button>
                   <Button
                     variant="outline"
                     size="lg"
                     className="mobile-button text-base sm:text-lg font-semibold border-primary/50 hover:bg-primary/10 active:bg-primary/20 hover:border-primary"
-                    onClick={() => {
-                      trackCTA('See how it works', 'Homepage CTA');
-                      navigate('/ai-crm-automation');
-                    }}
+                    asChild
                   >
-                    See how it works
+                    <Link
+                      to="/ai-crm-automation"
+                      onClick={() => trackCTA('See how it works', 'Homepage CTA')}
+                    >
+                      See how it works
+                    </Link>
                   </Button>
                 </div>
               </CardContent>
@@ -533,7 +566,10 @@ const Index = () => {
         </section>
 
         {/* Current Ventures Section */}
-        <section className="mobile-section mobile-container animate-section pointer-events-auto">
+        <section
+          id="current-ventures"
+          className="mobile-section mobile-container animate-section pointer-events-auto"
+        >
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-10 sm:mb-12">
               <h2 className="mobile-heading-lg text-primary mb-4">Current Ventures</h2>
@@ -542,58 +578,33 @@ const Index = () => {
                 working on right now.
               </p>
             </div>
-            <Suspense
-              fallback={
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="skeleton w-full h-96 rounded-lg"></div>
-                  ))}
-                </div>
-              }
+            <LazySection
+              anchorIds={['current-ventures']}
+              reserveClassName="min-h-[2280px] sm:min-h-[1990px] md:min-h-[1430px] lg:min-h-[1150px]"
             >
               <CurrentVentures />
-            </Suspense>
+            </LazySection>
           </div>
         </section>
 
         {/* Case Studies Section */}
-        <div className="animate-section pointer-events-auto">
-          <Suspense
-            fallback={
-              <div className="mobile-section text-center">
-                <div className="skeleton w-16 h-16 mx-auto mb-4 rounded-full"></div>
-                <div className="skeleton w-48 h-6 mx-auto"></div>
-              </div>
-            }
-          >
-            <CaseStudies />
-          </Suspense>
-        </div>
+        <LazySection
+          id="case-studies"
+          className="animate-section pointer-events-auto"
+          reserveClassName="min-h-[3100px] sm:min-h-[2860px] md:min-h-[2740px] lg:min-h-[2080px]"
+        >
+          <CaseStudies />
+        </LazySection>
 
-        {/* Testimonials Section */}
-        <section className="mobile-section mobile-container animate-section pointer-events-auto">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-10 sm:mb-12">
-              <h2 className="mobile-heading-lg text-primary mb-4">What Clients Say</h2>
-              <p className="mobile-body text-muted-foreground max-w-3xl mx-auto">
-                Don't just take my word for it. Here's what people I've worked with have to say.
-              </p>
-            </div>
-            <Suspense
-              fallback={
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="skeleton w-full h-64 rounded-lg"></div>
-                  ))}
-                </div>
-              }
-            >
-              <Testimonials />
-            </Suspense>
-          </div>
-        </section>
+        {/* Testimonials Section: renders nothing until there are published
+            testimonials, so it reserves no space rather than risk a gap. */}
+        <LazySection id="testimonials" reserveClassName="">
+          <Testimonials />
+        </LazySection>
 
-        {/* FAQ Section - SEO Enhancement */}
+        {/* FAQ Section - SEO Enhancement. Mounted eagerly, not in a LazySection:
+            the prerendered homepage carries none of this text or its FAQPage
+            JSON-LD, so a crawler that never scrolls should still render it. */}
         <div className="animate-section pointer-events-auto">
           <Suspense
             fallback={
@@ -607,18 +618,17 @@ const Index = () => {
         </div>
 
         {/* Newsletter Signup Section */}
-        <section className="mobile-section mobile-container bg-muted/30 animate-section pointer-events-auto">
+        <section
+          id="newsletter"
+          className="mobile-section mobile-container bg-muted/30 animate-section pointer-events-auto"
+        >
           <div className="max-w-2xl mx-auto">
-            <Suspense
-              fallback={
-                <div className="text-center">
-                  <div className="skeleton w-full h-32 mb-4"></div>
-                  <div className="skeleton w-full h-12"></div>
-                </div>
-              }
+            <LazySection
+              anchorIds={['newsletter']}
+              reserveClassName="min-h-[420px] sm:min-h-[320px]"
             >
               <NewsletterSignup />
-            </Suspense>
+            </LazySection>
           </div>
         </section>
       </main>

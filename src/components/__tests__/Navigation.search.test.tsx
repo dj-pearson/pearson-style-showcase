@@ -6,6 +6,7 @@ vi.mock('@/integrations/supabase/client', async () => {
   const { createSupabaseMock } = await import('@/test/mocks/supabase');
   return { supabase: createSupabaseMock() };
 });
+vi.mock('@/integrations/supabase/public-client', () => import('@/test/mocks/public-client'));
 
 import Navigation from '../Navigation';
 
@@ -44,5 +45,35 @@ describe('Navigation admin entry point', () => {
     await user.click(screen.getByRole('button', { name: 'Open navigation menu' }));
 
     expect(container.querySelector('a[href^="/admin"]')).toBeNull();
+  });
+});
+
+describe('Navigation mobile panel', () => {
+  it('moves focus into the panel on open and back to the toggle on Escape', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Navigation />);
+
+    const toggle = screen.getByRole('button', { name: 'Open navigation menu' });
+    await user.click(toggle);
+
+    const panel = container.querySelector('#mobile-navigation-menu');
+    expect(panel).not.toBeNull();
+    expect(panel).not.toHaveAttribute('role', 'menu');
+    expect(panel!.contains(document.activeElement)).toBe(true);
+
+    await user.keyboard('{Escape}');
+    expect(container.querySelector('#mobile-navigation-menu')).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('offers "Book an audit" as the link to /connect', async () => {
+    const user = userEvent.setup();
+    render(<Navigation />);
+    await user.click(screen.getByRole('button', { name: 'Open navigation menu' }));
+
+    const ctas = screen.getAllByRole('link', { name: 'Book an audit' });
+    expect(ctas.length).toBe(2);
+    ctas.forEach((cta) => expect(cta).toHaveAttribute('href', '/connect'));
+    expect(screen.queryByRole('link', { name: 'Connect' })).toBeNull();
   });
 });

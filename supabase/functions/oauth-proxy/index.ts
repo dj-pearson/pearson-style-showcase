@@ -31,6 +31,53 @@ const APPLE_CLIENT_SECRET = Deno.env.get('APPLE_CLIENT_SECRET') || '';
 // secret; the handler now fails loudly if OAUTH_STATE_SECRET is not configured.
 const OAUTH_STATE_SECRET = Deno.env.get('OAUTH_STATE_SECRET') || '';
 
+// Accepted ID-token issuers per provider.
+const TOKEN_ISSUERS: Record<string, string[]> = {
+  google: ['https://accounts.google.com', 'accounts.google.com'],
+  apple: ['https://appleid.apple.com'],
+};
+
+/** Decode a JWT payload segment (base64url, unpadded). */
+function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
+  const part = jwt.split('.')[1];
+  if (!part) return null;
+  try {
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const parsed = JSON.parse(atob(padded));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check the ID token claims we rely on. The token comes straight from the
+ * provider's token endpoint over TLS, so its signature is not re-verified
+ * here, but the issuer, audience and verified-email flag still must match:
+ * an unverified address must never be trusted as an identity.
+ */
+function idTokenProblem(provider: string, payload: Record<string, unknown>): string | null {
+  const issuers = TOKEN_ISSUERS[provider];
+  if (!issuers || !issuers.includes(String(payload.iss ?? ''))) return 'invalid_issuer';
+
+  const expectedAud = provider === 'google' ? GOOGLE_CLIENT_ID : APPLE_CLIENT_ID;
+  if (expectedAud) {
+    const aud = payload.aud;
+    const audiences = Array.isArray(aud) ? aud.map(String) : [String(aud ?? '')];
+    if (!audiences.includes(expectedAud)) return 'invalid_audience';
+  }
+
+  if (typeof payload.email !== 'string' || !payload.email) return 'missing_email';
+
+  // Google sends a boolean. Apple has historically sent the string "true".
+  if (payload.email_verified !== true && payload.email_verified !== 'true') {
+    return 'email_not_verified';
+  }
+
+  return null;
+}
+
 /**
  * Sign the OAuth state with HMAC-SHA256 to prevent tampering.
  * Format: base64(json).signature
@@ -221,29 +268,56 @@ export default async function handler(req: Request): Promise<Response> {
         tokenData = await tokenResponse.json();
       }
 
-      if (tokenData.error) {
-        console.error('Token error:', tokenData);
+      if (!tokenData || tokenData.error || typeof tokenData.id_token !== 'string') {
+        console.error('Token error:', tokenData?.error ?? 'no id_token');
         const errorUrl = new URL(`${FRONTEND_URL}/auth/callback`);
-        errorUrl.searchParams.set('error', tokenData.error);
+        errorUrl.searchParams.set('error', String(tokenData?.error ?? 'token_exchange_failed'));
         return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
       }
 
       // Decode ID token to get user info
-      const payload = JSON.parse(atob(tokenData.id_token.split('.')[1]));
+      const payload = decodeJwtPayload(tokenData.id_token);
+      const claimProblem = payload ? idTokenProblem(stateProvider, payload) : 'invalid_id_token';
+      if (!payload || claimProblem) {
+        console.warn('Rejected OAuth ID token:', claimProblem);
+        const errorUrl = new URL(`${FRONTEND_URL}/auth/callback`);
+        errorUrl.searchParams.set('error', claimProblem ?? 'invalid_id_token');
+        return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
+      }
+      const email = String(payload.email);
 
       // Create Supabase admin client
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
 
+      // OAuth here exists only for admin sign-in. Anyone not on the whitelist
+      // gets no account and no magic link.
+      const { data: whitelistRow, error: whitelistError } = await supabase
+        .from('admin_whitelist')
+        .select('id')
+        .in('email', Array.from(new Set([email, email.toLowerCase()])))
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+
+      if (whitelistError || !whitelistRow) {
+        if (whitelistError) console.error('Whitelist lookup failed:', whitelistError);
+        const errorUrl = new URL(`${FRONTEND_URL}/auth/callback`);
+        errorUrl.searchParams.set('error', 'access_denied');
+        return new Response(null, { status: 302, headers: { Location: errorUrl.toString() } });
+      }
+
       // Check if user exists
       const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find((u) => u.email === payload.email);
+      const existingUser = existingUsers?.users?.find(
+        (u) => u.email?.toLowerCase() === email.toLowerCase()
+      );
 
       if (!existingUser) {
         // Create new user
         const { error: createError } = await supabase.auth.admin.createUser({
-          email: payload.email,
+          email,
           email_confirm: true,
           user_metadata: {
             full_name: payload.name,
@@ -266,7 +340,7 @@ export default async function handler(req: Request): Promise<Response> {
       // Generate magic link for session
       const { data, error: linkError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
-        email: payload.email,
+        email,
         options: { redirectTo: `${FRONTEND_URL}${finalRedirect}` },
       });
 

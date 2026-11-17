@@ -79,9 +79,11 @@ test-results/
 # Bundle analyzer output
 stats.html
 
-# Written by `deno check` on supabase/functions. The image runs deno without
-# a lockfile, so committing one would only drift.
+# Written by `deno check` on supabase/functions. Only the edge-function
+# image's lockfile is committed: its Dockerfile verifies remote imports
+# against it at build time.
 deno.lock
+!danpearson-edge-functions/deno.lock
 
 # Database dumps must never be committed
 backup/

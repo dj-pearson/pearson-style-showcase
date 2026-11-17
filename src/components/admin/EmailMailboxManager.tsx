@@ -5,13 +5,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Inbox, Plus, Edit, Trash2, Mail, RefreshCw } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface Mailbox {
   id: string;
@@ -29,6 +43,7 @@ interface Mailbox {
 }
 
 export const EmailMailboxManager = () => {
+  const confirm = useConfirm();
   const { toast } = useToast();
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +91,7 @@ export const EmailMailboxManager = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       if (editingMailbox) {
         const { error } = await supabase
@@ -91,9 +106,7 @@ export const EmailMailboxManager = () => {
           description: 'Mailbox updated successfully',
         });
       } else {
-        const { error } = await supabase
-          .from('email_mailboxes')
-          .insert([formData]);
+        const { error } = await supabase.from('email_mailboxes').insert([formData]);
 
         if (error) throw error;
 
@@ -135,13 +148,18 @@ export const EmailMailboxManager = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this mailbox?')) return;
+    const mailbox = mailboxes.find((m) => m.id === id);
+    const ok = await confirm({
+      title: mailbox ? `Delete mailbox ${mailbox.email_address}?` : 'Delete this mailbox?',
+      description:
+        'Its SMTP settings are removed and replies can no longer be sent from this address.',
+      confirmLabel: 'Delete mailbox',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
-      const { error } = await supabase
-        .from('email_mailboxes')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('email_mailboxes').delete().eq('id', id);
 
       if (error) throw error;
 
@@ -186,14 +204,15 @@ export const EmailMailboxManager = () => {
               <Inbox className="h-5 w-5 text-primary" />
               <CardTitle>Email Mailboxes</CardTitle>
             </div>
-            <CardDescription>
-              Manage mailboxes for receiving and sending emails
-            </CardDescription>
+            <CardDescription>Manage mailboxes for receiving and sending emails</CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -202,9 +221,7 @@ export const EmailMailboxManager = () => {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
-                  {editingMailbox ? 'Edit Mailbox' : 'Add New Mailbox'}
-                </DialogTitle>
+                <DialogTitle>{editingMailbox ? 'Edit Mailbox' : 'Add New Mailbox'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -213,7 +230,7 @@ export const EmailMailboxManager = () => {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                       placeholder="e.g., Support Inbox"
                       required
                     />
@@ -224,7 +241,9 @@ export const EmailMailboxManager = () => {
                       id="email"
                       type="email"
                       value={formData.email_address}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email_address: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, email_address: e.target.value }))
+                      }
                       placeholder="support@example.com"
                       required
                     />
@@ -236,7 +255,9 @@ export const EmailMailboxManager = () => {
                   <Input
                     id="description"
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, description: e.target.value }))
+                    }
                     placeholder="Brief description of this mailbox"
                   />
                 </div>
@@ -249,7 +270,9 @@ export const EmailMailboxManager = () => {
                       <Input
                         id="smtp_host"
                         value={formData.smtp_host}
-                        onChange={(e) => setFormData(prev => ({ ...prev, smtp_host: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, smtp_host: e.target.value }))
+                        }
                         placeholder="smtp.gmail.com"
                         required
                       />
@@ -260,7 +283,9 @@ export const EmailMailboxManager = () => {
                         id="smtp_port"
                         type="number"
                         value={formData.smtp_port}
-                        onChange={(e) => setFormData(prev => ({ ...prev, smtp_port: parseInt(e.target.value) }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, smtp_port: parseInt(e.target.value) }))
+                        }
                         required
                       />
                     </div>
@@ -269,7 +294,9 @@ export const EmailMailboxManager = () => {
                       <Input
                         id="smtp_username"
                         value={formData.smtp_username}
-                        onChange={(e) => setFormData(prev => ({ ...prev, smtp_username: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, smtp_username: e.target.value }))
+                        }
                         placeholder="your-email@example.com"
                         required
                       />
@@ -280,7 +307,9 @@ export const EmailMailboxManager = () => {
                         id="smtp_password"
                         type="password"
                         value={formData.smtp_password}
-                        onChange={(e) => setFormData(prev => ({ ...prev, smtp_password: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, smtp_password: e.target.value }))
+                        }
                         required
                       />
                     </div>
@@ -292,7 +321,9 @@ export const EmailMailboxManager = () => {
                   <Textarea
                     id="signature"
                     value={formData.signature}
-                    onChange={(e) => setFormData(prev => ({ ...prev, signature: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, signature: e.target.value }))
+                    }
                     placeholder="Enter your email signature..."
                     rows={4}
                   />
@@ -303,7 +334,9 @@ export const EmailMailboxManager = () => {
                     <Switch
                       id="smtp_use_tls"
                       checked={formData.smtp_use_tls}
-                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, smtp_use_tls: checked }))}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, smtp_use_tls: checked }))
+                      }
                     />
                     <Label htmlFor="smtp_use_tls">Use TLS</Label>
                   </div>
@@ -311,7 +344,9 @@ export const EmailMailboxManager = () => {
                     <Switch
                       id="is_active"
                       checked={formData.is_active}
-                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, is_active: checked }))
+                      }
                     />
                     <Label htmlFor="is_active">Active</Label>
                   </div>
@@ -319,7 +354,9 @@ export const EmailMailboxManager = () => {
                     <Switch
                       id="is_default"
                       checked={formData.is_default}
-                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_default: checked }))}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, is_default: checked }))
+                      }
                     />
                     <Label htmlFor="is_default">Default</Label>
                   </div>
@@ -329,9 +366,7 @@ export const EmailMailboxManager = () => {
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    {editingMailbox ? 'Update' : 'Create'} Mailbox
-                  </Button>
+                  <Button type="submit">{editingMailbox ? 'Update' : 'Create'} Mailbox</Button>
                 </div>
               </form>
             </DialogContent>
@@ -367,7 +402,9 @@ export const EmailMailboxManager = () => {
                     <div className="flex items-center gap-2">
                       {mailbox.name}
                       {mailbox.is_default && (
-                        <Badge variant="outline" className="text-xs">Default</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Default
+                        </Badge>
                       )}
                     </div>
                   </TableCell>
@@ -383,6 +420,7 @@ export const EmailMailboxManager = () => {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
+                        aria-label={`Edit mailbox ${mailbox.name}`}
                         size="icon"
                         variant="ghost"
                         onClick={() => handleEdit(mailbox)}
@@ -390,6 +428,7 @@ export const EmailMailboxManager = () => {
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete mailbox ${mailbox.name}`}
                         size="icon"
                         variant="ghost"
                         onClick={() => handleDelete(mailbox.id)}

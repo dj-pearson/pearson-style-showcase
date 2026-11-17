@@ -26,12 +26,16 @@ export function assertExists<T>(actual: T, msg?: string): void {
 }
 
 export function assertThrows(fn: () => unknown, msg?: string): void {
-  nodeThrows(fn, msg ? { message: msg } : undefined);
+  // Two calls rather than `nodeThrows(fn, msg ? {...} : undefined)`: Deno 2.5's
+  // node:assert types have no overload that takes `undefined` as the second
+  // argument, so the ternary fails `deno check`.
+  if (msg) {
+    nodeThrows(fn, { message: msg });
+  } else {
+    nodeThrows(fn);
+  }
 }
 
 export function assertStringIncludes(actual: string, expected: string, msg?: string): void {
-  ok(
-    actual.includes(expected),
-    msg ?? `Expected "${actual}" to include "${expected}"`
-  );
+  ok(actual.includes(expected), msg ?? `Expected "${actual}" to include "${expected}"`);
 }

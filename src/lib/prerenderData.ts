@@ -185,8 +185,7 @@ export const TOPIC_HUBS: Record<string, TopicHubConfig> = {
   },
   'digital-transformation': {
     title: 'Digital Transformation',
-    description:
-      'Navigate your digital transformation journey with insights on technology adoption, change management, and modernizing business processes.',
+    description: 'How teams adopt new tools without breaking the processes that already work.',
     keywords: [
       'digital transformation',
       'modernization',

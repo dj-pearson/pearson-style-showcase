@@ -20,6 +20,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { getRateLimitStats } from '../_shared/rate-limiter.ts';
 import { requireAdmin } from '../_shared/require-admin.ts';
+import { getDefaultClaudeModel } from '../_shared/ai-helper.ts';
+import { fetchWithTimeout } from '../_shared/fetch-with-timeout.ts';
 
 // Health status types
 type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
@@ -152,19 +154,24 @@ async function checkExternalAPIs(): Promise<ServiceHealth[]> {
   if (claudeApiKey) {
     const startCheck = Date.now();
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
+      // Bounded so a stalled provider cannot hang the health check.
+      const response = await fetchWithTimeout(
+        'https://api.anthropic.com/v1/messages',
+        {
+          method: 'POST',
+          headers: {
+            'x-api-key': claudeApiKey,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: getDefaultClaudeModel(),
+            max_tokens: 10,
+            messages: [{ role: 'user', content: 'ping' }],
+          }),
         },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 10,
-          messages: [{ role: 'user', content: 'ping' }],
-        }),
-      });
+        { timeoutMs: 10_000, maxRetries: 0, label: 'health-check:claude' }
+      );
 
       const latency = Date.now() - startCheck;
       const status = response.ok ? 'healthy' : 'degraded';

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
 import { Loader2, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import {
   Form,
@@ -18,11 +17,8 @@ import {
 } from '@/components/ui/form';
 import { Progress } from '@/components/ui/progress';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
-
-// Type for gtag analytics
-type WindowWithGtag = Window & {
-  gtag?: (...args: unknown[]) => void;
-};
+import { logger } from '@/lib/logger';
+import { useAnalytics } from '@/components/Analytics';
 
 /*
  * Letters from any script, plus the combining marks that accented and
@@ -58,9 +54,16 @@ export const contactSchema = z.object({
 
 type ContactFormData = z.infer<typeof contactSchema>;
 
+// The address the rest of the site publishes (Footer, Connect, AuthorByline).
+const CONTACT_EMAIL = 'dan@danpearson.net';
+
 const ContactForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState(false);
+  const startTracked = useRef(false);
+  const sentHeadingRef = useRef<HTMLHeadingElement>(null);
+  const { trackContactForm } = useAnalytics();
 
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -80,21 +83,20 @@ const ContactForm = () => {
     return Math.round((completedFields / fields.length) * 100);
   }, [watchedFields]);
 
+  // "start" means someone began filling the form in, not that they pressed
+  // submit; fire it once, on the first field that takes focus.
+  const handleFirstFocus = () => {
+    if (startTracked.current) return;
+    startTracked.current = true;
+    trackContactForm('start');
+  };
+
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true);
-
-    const windowWithGtag = window as WindowWithGtag;
+    setSubmitError(false);
+    trackContactForm('submit');
 
     try {
-      // Track form submission attempt
-      if (typeof window !== 'undefined' && windowWithGtag.gtag) {
-        windowWithGtag.gtag('event', 'form_start', {
-          event_category: 'Contact',
-          event_label: 'Contact Form Submission Started',
-        });
-      }
-
-      // Send email via edge function
       const { error } = await invokeEdgeFunction('send-contact-email', {
         body: {
           name: data.name,
@@ -108,47 +110,68 @@ const ContactForm = () => {
         throw error;
       }
 
-      // Track successful submission
-      if (typeof window !== 'undefined' && windowWithGtag.gtag) {
-        windowWithGtag.gtag('event', 'form_submit', {
-          event_category: 'Contact',
-          event_label: 'Contact Form Submitted Successfully',
-          value: 1,
-        });
-      }
-
-      toast({
-        title: 'Message sent successfully!',
-        description: "Thank you for reaching out. I'll get back to you within 24 hours.",
-        action: <CheckCircle className="w-5 h-5 text-green-500" />,
-      });
-
-      form.reset();
+      trackContactForm('success');
+      setSentTo(data.email);
     } catch (error) {
-      // Track failed submission
-      if (typeof window !== 'undefined' && windowWithGtag.gtag) {
-        windowWithGtag.gtag('event', 'form_error', {
-          event_category: 'Contact',
-          event_label: 'Contact Form Submission Failed',
-        });
-      }
-
-      toast({
-        title: 'Error sending message',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Please try again or contact me directly via email.',
-        variant: 'destructive',
-        action: <AlertCircle className="w-5 h-5 text-red-500" />,
-      });
+      // The raw error is for the log; the reader gets a way to reach me.
+      logger.error('Contact form submission failed:', error);
+      trackContactForm('failure');
+      setSubmitError(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // The confirmation replaces a form the reader may have scrolled well past
+  // on a phone, and the button that had focus is gone. Move focus to the new
+  // heading and bring it into view so neither keyboard nor touch users are
+  // left looking at the page footer.
+  useEffect(() => {
+    if (!sentTo) return;
+    const heading = sentHeadingRef.current;
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: 'center' });
+  }, [sentTo]);
+
+  // One live region that stays mounted for the component's lifetime. A region
+  // inserted together with its text is often not announced at all, so the
+  // text changes here instead.
+  const statusMessage = sentTo
+    ? `Message sent. I'll reply to ${sentTo} within one business day.`
+    : isSubmitting
+      ? 'Sending your message...'
+      : '';
+  const liveRegion = (
+    <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      {statusMessage}
+    </p>
+  );
+
+  if (sentTo) {
+    return (
+      <div className="max-w-lg mx-auto">
+        {liveRegion}
+        <div className="mobile-card bg-card border rounded-xl">
+          <CheckCircle className="w-10 h-10 text-primary mb-4" aria-hidden="true" />
+          <h2
+            ref={sentHeadingRef}
+            tabIndex={-1}
+            className="mobile-heading-sm mb-2 focus:outline-none"
+          >
+            Message sent.
+          </h2>
+          <p className="text-base text-muted-foreground">
+            I&apos;ll reply to <span className="font-medium text-foreground">{sentTo}</span> within
+            one business day.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto">
+      {liveRegion}
       <div className="mobile-card bg-card border rounded-xl">
         {/* Form Completion Indicator */}
         <div className="mb-6">
@@ -170,7 +193,7 @@ const ContactForm = () => {
             progress to report. A spinner says the same thing honestly. */}
         {isSubmitting && (
           <div
-            role="status"
+            aria-hidden="true"
             className="mb-6 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4"
           >
             <Loader2
@@ -182,7 +205,11 @@ const ContactForm = () => {
         )}
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            onFocusCapture={handleFirstFocus}
+            className="space-y-5"
+          >
             <FormField
               control={form.control}
               name="name"
@@ -262,6 +289,28 @@ const ContactForm = () => {
                 </FormItem>
               )}
             />
+
+            {submitError && (
+              <div
+                role="alert"
+                className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm"
+              >
+                <AlertCircle
+                  className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5"
+                  aria-hidden="true"
+                />
+                <p>
+                  Your message didn&apos;t go through. Try again, or email me at{' '}
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}`}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    {CONTACT_EMAIL}
+                  </a>
+                  .
+                </p>
+              </div>
+            )}
 
             <Button
               type="submit"

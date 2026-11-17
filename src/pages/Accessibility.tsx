@@ -13,15 +13,18 @@ import {
   Phone,
   CheckCircle,
   AlertCircle,
-  ExternalLink,
+  ArrowRight,
 } from 'lucide-react';
 import ExternalLinkComponent from '@/components/ui/external-link';
+import { Link } from 'react-router-dom';
+import { useAnalytics } from '@/components/Analytics';
 
 // Date of the most recent accessibility review. Update this when the statement
 // is re-audited — it must reflect the actual review date, not today's date.
 const LAST_REVIEWED = 'July 23, 2026';
 
 const Accessibility = () => {
+  const { trackCTA } = useAnalytics();
   const currentDate = LAST_REVIEWED;
 
   return (
@@ -449,15 +452,13 @@ const Accessibility = () => {
             {/* CTA */}
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-6">
-                Have questions or need assistance? We're here to help.
+                Hit an accessibility problem on this site? Tell me and I'll fix it.
               </p>
-              <Button
-                size="lg"
-                className="btn-futuristic"
-                onClick={() => (window.location.href = '/connect')}
-              >
-                Contact Us
-                <ExternalLink className="w-5 h-5 ml-2" aria-hidden="true" />
+              <Button size="lg" className="btn-futuristic" asChild>
+                <Link to="/connect" onClick={() => trackCTA('Contact', 'Accessibility')}>
+                  Contact me
+                  <ArrowRight className="w-5 h-5 ml-2" aria-hidden="true" />
+                </Link>
               </Button>
             </div>
           </div>

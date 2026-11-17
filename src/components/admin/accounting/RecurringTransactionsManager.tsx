@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { todayDateOnly } from '@/lib/accounting/dates';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface RecurringTransaction {
   id: string;
@@ -64,6 +66,7 @@ interface RecurringTransaction {
 
 const RecurringTransactionsManager: React.FC = () => {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<RecurringTransaction | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
@@ -79,7 +82,7 @@ const RecurringTransactionsManager: React.FC = () => {
     account_id: '',
     frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly',
     interval_count: '1',
-    start_date: new Date().toISOString().split('T')[0],
+    start_date: todayDateOnly(),
     end_date: '',
     auto_create: true,
     auto_post: false,
@@ -215,10 +218,7 @@ const RecurringTransactionsManager: React.FC = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('recurring_transactions')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('recurring_transactions').delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -243,7 +243,7 @@ const RecurringTransactionsManager: React.FC = () => {
       account_id: '',
       frequency: 'monthly',
       interval_count: '1',
-      start_date: new Date().toISOString().split('T')[0],
+      start_date: todayDateOnly(),
       end_date: '',
       auto_create: true,
       auto_post: false,
@@ -315,7 +315,7 @@ const RecurringTransactionsManager: React.FC = () => {
     }
   };
 
-  const filteredTransactions = transactions?.filter(transaction => {
+  const filteredTransactions = transactions?.filter((transaction) => {
     if (filterType === 'all') return true;
     return transaction.transaction_type === filterType;
   });
@@ -334,10 +334,13 @@ const RecurringTransactionsManager: React.FC = () => {
             Manage automated recurring income and expenses
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -349,9 +352,7 @@ const RecurringTransactionsManager: React.FC = () => {
               <DialogTitle>
                 {editingTransaction ? 'Edit Recurring Transaction' : 'Add Recurring Transaction'}
               </DialogTitle>
-              <DialogDescription>
-                Set up automated recurring income or expenses
-              </DialogDescription>
+              <DialogDescription>Set up automated recurring income or expenses</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -402,23 +403,23 @@ const RecurringTransactionsManager: React.FC = () => {
                   <Label htmlFor="platform_id">Platform</Label>
                   <Select
                     value={formData.platform_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, platform_id: value })
-                    }
+                    onValueChange={(value) => setFormData({ ...formData, platform_id: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select platform" />
                     </SelectTrigger>
                     <SelectContent>
-                      {platforms?.filter(p =>
-                        formData.transaction_type === 'income'
-                          ? p.platform_type === 'revenue' || p.platform_type === 'both'
-                          : p.platform_type === 'expense' || p.platform_type === 'both'
-                      ).map((platform) => (
-                        <SelectItem key={platform.id} value={platform.id}>
-                          {platform.name}
-                        </SelectItem>
-                      ))}
+                      {platforms
+                        ?.filter((p) =>
+                          formData.transaction_type === 'income'
+                            ? p.platform_type === 'revenue' || p.platform_type === 'both'
+                            : p.platform_type === 'expense' || p.platform_type === 'both'
+                        )
+                        .map((platform) => (
+                          <SelectItem key={platform.id} value={platform.id}>
+                            {platform.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -451,21 +452,21 @@ const RecurringTransactionsManager: React.FC = () => {
                     <Label htmlFor="contact_id">Customer</Label>
                     <Select
                       value={formData.contact_id}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, contact_id: value })
-                      }
+                      onValueChange={(value) => setFormData({ ...formData, contact_id: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
                       <SelectContent>
-                        {contacts?.filter((c: any) =>
-                          c.contact_type === 'customer' || c.contact_type === 'both'
-                        ).map((contact: any) => (
-                          <SelectItem key={contact.id} value={contact.id}>
-                            {contact.company_name || contact.contact_name}
-                          </SelectItem>
-                        ))}
+                        {contacts
+                          ?.filter(
+                            (c: any) => c.contact_type === 'customer' || c.contact_type === 'both'
+                          )
+                          .map((contact: any) => (
+                            <SelectItem key={contact.id} value={contact.id}>
+                              {contact.company_name || contact.contact_name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -477,9 +478,7 @@ const RecurringTransactionsManager: React.FC = () => {
                   <Label htmlFor="frequency">Frequency *</Label>
                   <Select
                     value={formData.frequency}
-                    onValueChange={(value: any) =>
-                      setFormData({ ...formData, frequency: value })
-                    }
+                    onValueChange={(value: any) => setFormData({ ...formData, frequency: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -608,9 +607,7 @@ const RecurringTransactionsManager: React.FC = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingTransaction ? 'Update' : 'Create'}
-                </Button>
+                <Button type="submit">{editingTransaction ? 'Update' : 'Create'}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -664,13 +661,15 @@ const RecurringTransactionsManager: React.FC = () => {
                 <TableRow key={transaction.id}>
                   <TableCell className="font-medium">{transaction.name}</TableCell>
                   <TableCell>
-                    <Badge variant={transaction.transaction_type === 'income' ? 'default' : 'destructive'}>
+                    <Badge
+                      variant={
+                        transaction.transaction_type === 'income' ? 'default' : 'destructive'
+                      }
+                    >
                       {transaction.transaction_type}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-mono">
-                    ${transaction.amount.toFixed(2)}
-                  </TableCell>
+                  <TableCell className="font-mono">${transaction.amount.toFixed(2)}</TableCell>
                   <TableCell>
                     {getFrequencyLabel(transaction.frequency, transaction.interval_count)}
                   </TableCell>
@@ -692,6 +691,7 @@ const RecurringTransactionsManager: React.FC = () => {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
+                        aria-label={`Edit ${transaction.name}`}
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEdit(transaction)}
@@ -699,12 +699,18 @@ const RecurringTransactionsManager: React.FC = () => {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
+                        aria-label={`Delete ${transaction.name}`}
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this recurring transaction?')) {
-                            deleteMutation.mutate(transaction.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Delete recurring transaction "${transaction.name}"?`,
+                            description:
+                              'No further entries are generated from it. Entries already recorded stay.',
+                            confirmLabel: 'Delete transaction',
+                            destructive: true,
+                          });
+                          if (ok) deleteMutation.mutate(transaction.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

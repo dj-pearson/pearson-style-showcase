@@ -1,7 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getCorsHeaders, handleCors, corsJsonResponse } from '../_shared/cors.ts';
-import { verifyWebhookSignature, verifySecret } from '../_shared/webhook-security.ts';
+import { verifyWebhookSignature } from '../_shared/webhook-security.ts';
 import { invokeFunctionAndForget } from '../_shared/invoke-function.ts';
+import { createEdgeFunctionLogger } from '../_shared/production-logger.ts';
+
+const baseLogger = createEdgeFunctionLogger('email-webhook-receiver');
+const UNIQUE_VIOLATION = '23505';
 
 interface EmailWebhookPayload {
   from: string;
@@ -21,6 +25,29 @@ interface EmailWebhookPayload {
   }>;
 }
 
+/**
+ * Find an inbound message that was already processed, by its Message-ID, so a
+ * retried webhook doesn't open a second ticket.
+ */
+async function findProcessed(supabase: any, messageId: string): Promise<string | null> {
+  const { data: thread } = await supabase
+    .from('email_threads')
+    .select('ticket_id')
+    .eq('message_id', messageId)
+    .eq('direction', 'inbound')
+    .limit(1)
+    .maybeSingle();
+  if (thread) return thread.ticket_id;
+
+  const { data: ticket } = await supabase
+    .from('support_tickets')
+    .select('id')
+    .eq('email_message_id', messageId)
+    .limit(1)
+    .maybeSingle();
+  return ticket ? ticket.id : null;
+}
+
 export default async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -28,6 +55,16 @@ export default async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  const log = baseLogger.forRequest(req);
+
+  const duplicateResponse = (ticketId: string) => {
+    log.info('Duplicate inbound email ignored', { ticket_id: ticketId });
+    return new Response(JSON.stringify({ success: true, duplicate: true, ticket_id: ticketId }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  };
 
   try {
     const supabase = createClient(
@@ -43,7 +80,7 @@ export default async (req: Request): Promise<Response> => {
       .single();
 
     if (!settings) {
-      console.error('No active webhook settings found');
+      log.error('No active webhook settings found');
       return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -53,47 +90,38 @@ export default async (req: Request): Promise<Response> => {
     // Get the raw request body for signature verification
     const rawBody = await req.text();
 
-    // Check for HMAC signature first (preferred method)
+    // An empty secret would make every HMAC trivially forgeable.
+    const webhookSecret =
+      typeof settings.webhook_secret === 'string' ? settings.webhook_secret : '';
+    if (!webhookSecret.trim()) {
+      log.error('Webhook secret is not configured');
+      return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // HMAC over "<timestamp>.<body>" is the only accepted scheme. The static
+    // x-webhook-secret header and untimestamped signatures were dropped: both
+    // could be replayed indefinitely once captured.
     const signature = req.headers.get('x-webhook-signature');
     const timestamp = req.headers.get('x-webhook-timestamp');
 
-    if (signature) {
-      // Verify HMAC signature
-      const signatureResult = await verifyWebhookSignature(
-        rawBody,
-        signature,
-        settings.webhook_secret,
-        timestamp,
-        300,
-        // Legacy senders sign without a timestamp; keep accepting them here.
-        // TODO: drop this once senders send x-webhook-timestamp.
-        { requireTimestamp: false }
-      );
+    const signatureResult = await verifyWebhookSignature(
+      rawBody,
+      signature,
+      webhookSecret,
+      timestamp,
+      300,
+      { requireTimestamp: true }
+    );
 
-      if (!signatureResult.valid) {
-        console.error('Webhook signature verification failed:', signatureResult.error);
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized', message: signatureResult.error }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-      console.log('Webhook signature verified successfully');
-    } else {
-      // Fallback to simple secret header check (legacy support)
-      const webhookSecret = req.headers.get('x-webhook-secret');
-      if (!verifySecret(webhookSecret, settings.webhook_secret)) {
-        console.error('Invalid webhook secret');
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      console.warn(
-        'Using legacy webhook secret verification - consider upgrading to HMAC signature'
-      );
+    if (!signatureResult.valid) {
+      log.warn('Webhook signature verification failed', { reason: signatureResult.error });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Parse the payload
@@ -101,23 +129,17 @@ export default async (req: Request): Promise<Response> => {
     try {
       payload = JSON.parse(rawBody);
     } catch (e) {
-      console.error('Failed to parse webhook payload');
+      log.warn('Failed to parse webhook payload');
       return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log('Received email webhook:', {
-      from: payload.from,
-      to: payload.to,
-      subject: payload.subject,
-    });
-
     // Validate email format for the 'from' field
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const senderEmail = payload.from?.trim();
     if (!senderEmail || !emailRegex.test(senderEmail) || senderEmail.length > 254) {
-      console.error('Invalid sender email format');
+      log.warn('Invalid sender email format');
       return new Response(JSON.stringify({ error: 'Invalid sender email format' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -127,7 +149,7 @@ export default async (req: Request): Promise<Response> => {
     // Validate 'to' email
     const recipientEmail = payload.to?.trim();
     if (!recipientEmail || !emailRegex.test(recipientEmail) || recipientEmail.length > 254) {
-      console.error('Invalid recipient email format');
+      log.warn('Invalid recipient email format');
       return new Response(JSON.stringify({ error: 'Invalid recipient email format' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -137,6 +159,16 @@ export default async (req: Request): Promise<Response> => {
     // Validate subject length to prevent abuse
     if (payload.subject && payload.subject.length > 998) {
       payload.subject = payload.subject.substring(0, 998);
+    }
+
+    // Message-ID is the dedupe key; an empty one can't dedupe anything.
+    const messageId =
+      typeof payload.message_id === 'string' && payload.message_id.trim()
+        ? payload.message_id.trim()
+        : null;
+    if (messageId) {
+      const existingTicketId = await findProcessed(supabase, messageId);
+      if (existingTicketId) return duplicateResponse(existingTicketId);
     }
 
     // Find the appropriate mailbox based on the 'to' address
@@ -159,7 +191,9 @@ export default async (req: Request): Promise<Response> => {
         .single();
 
       if (!defaultMailbox) {
-        console.error('No mailbox found for:', payload.to);
+        log.warn('No mailbox configured for recipient', {
+          domain: recipientEmail.split('@')[1],
+        });
         return new Response(JSON.stringify({ error: 'No mailbox configured' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -175,12 +209,16 @@ export default async (req: Request): Promise<Response> => {
         .from('email_threads')
         .select('ticket_id')
         .eq('message_id', payload.in_reply_to)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (existingThread) {
         ticketId = existingThread.ticket_id;
       }
     }
+
+    const isReply = Boolean(ticketId);
+    let ticketNumber: string | null = null;
 
     // Create new ticket if not a reply
     if (!ticketId) {
@@ -206,73 +244,28 @@ export default async (req: Request): Promise<Response> => {
           status: 'open',
           priority: 2,
           mailbox_id: targetMailbox.id,
-          email_message_id: payload.message_id,
+          email_message_id: messageId,
           email_in_reply_to: payload.in_reply_to,
         })
         .select()
         .single();
 
       if (ticketError) {
-        console.error('Error creating ticket:', ticketError);
+        // A concurrent retry of the same message won the insert.
+        if (ticketError.code === UNIQUE_VIOLATION && messageId) {
+          const existingTicketId = await findProcessed(supabase, messageId);
+          if (existingTicketId) return duplicateResponse(existingTicketId);
+        }
+        log.error('Error creating ticket', ticketError);
         throw ticketError;
       }
 
       ticketId = ticket.id;
-      console.log('Created new ticket:', ticketId);
-
-      // Send notification for new ticket
-      try {
-        await invokeFunctionAndForget('send-notification-email', {
-          type: 'new_ticket',
-          ticket_number: ticket.ticket_number,
-          ticket_id: ticket.id,
-          ticket_subject: payload.subject,
-          from_email: senderEmail,
-          from_name: senderEmail.split('@')[0],
-          message_preview: payload.body_text || payload.body_html || '',
-        });
-        console.log('Sent new ticket notification');
-      } catch (notifError) {
-        console.error('Failed to send notification:', notifError);
-        // Don't fail the whole request if notification fails
-      }
-    } else {
-      // Update ticket with new activity
-      await supabase
-        .from('support_tickets')
-        .update({
-          last_activity_at: new Date().toISOString(),
-          status: 'waiting_for_agent',
-        })
-        .eq('id', ticketId);
-
-      // Send notification for new response
-      try {
-        const { data: ticket } = await supabase
-          .from('support_tickets')
-          .select('ticket_number, subject')
-          .eq('id', ticketId)
-          .single();
-
-        if (ticket) {
-          await invokeFunctionAndForget('send-notification-email', {
-            type: 'new_response',
-            ticket_number: ticket.ticket_number,
-            ticket_id: ticketId,
-            ticket_subject: ticket.subject,
-            from_email: senderEmail,
-            from_name: senderEmail.split('@')[0],
-            message_preview: payload.body_text || payload.body_html || '',
-          });
-          console.log('Sent new response notification');
-        }
-      } catch (notifError) {
-        console.error('Failed to send notification:', notifError);
-        // Don't fail the whole request if notification fails
-      }
+      ticketNumber = ticket.ticket_number;
     }
 
-    // Create email thread entry
+    // Create the email thread entry. For a reply this is the dedupe claim (the
+    // unique index on inbound message_id), so it goes before any other write.
     const { error: threadError } = await supabase.from('email_threads').insert({
       ticket_id: ticketId,
       mailbox_id: targetMailbox.id,
@@ -280,7 +273,7 @@ export default async (req: Request): Promise<Response> => {
       to_email: recipientEmail,
       cc_emails: payload.cc || [],
       subject: payload.subject,
-      message_id: payload.message_id,
+      message_id: messageId,
       in_reply_to: payload.in_reply_to,
       email_references: payload.references || [],
       body_text: payload.body_text,
@@ -292,8 +285,56 @@ export default async (req: Request): Promise<Response> => {
     });
 
     if (threadError) {
-      console.error('Error creating email thread:', threadError);
+      if (threadError.code === UNIQUE_VIOLATION && messageId) {
+        const existingTicketId = await findProcessed(supabase, messageId);
+        if (existingTicketId) return duplicateResponse(existingTicketId);
+      }
+      log.error('Error creating email thread', threadError, { ticket_id: ticketId });
       throw threadError;
+    }
+
+    if (isReply) {
+      // Update ticket with new activity
+      const { error: activityError } = await supabase
+        .from('support_tickets')
+        .update({
+          last_activity_at: new Date().toISOString(),
+          status: 'waiting_for_agent',
+        })
+        .eq('id', ticketId);
+      if (activityError) {
+        log.error('Error updating ticket activity', activityError, { ticket_id: ticketId });
+      }
+    }
+
+    // Notify. Fire-and-forget: the webhook answers without waiting on SMTP, so
+    // the sender has no reason to retry.
+    try {
+      let ticketSubject = payload.subject;
+      if (isReply) {
+        const { data: ticket } = await supabase
+          .from('support_tickets')
+          .select('ticket_number, subject')
+          .eq('id', ticketId)
+          .single();
+        ticketNumber = ticket?.ticket_number ?? null;
+        ticketSubject = ticket?.subject ?? ticketSubject;
+      }
+
+      if (ticketNumber) {
+        invokeFunctionAndForget('send-notification-email', {
+          type: isReply ? 'new_response' : 'new_ticket',
+          ticket_number: ticketNumber,
+          ticket_id: ticketId,
+          ticket_subject: ticketSubject,
+          from_email: senderEmail,
+          from_name: senderEmail.split('@')[0],
+          message_preview: payload.body_text || payload.body_html || '',
+        });
+      }
+    } catch (notifError) {
+      // Don't fail the whole request if notification fails
+      log.error('Failed to queue notification', notifError);
     }
 
     // Update webhook last received timestamp
@@ -302,15 +343,20 @@ export default async (req: Request): Promise<Response> => {
       .update({ last_received_at: new Date().toISOString() })
       .eq('id', settings.id);
 
-    console.log('Successfully processed email webhook');
+    log.info('Inbound email processed', {
+      ticket_id: ticketId,
+      mailbox_id: targetMailbox.id,
+      is_reply: isReply,
+      has_message_id: Boolean(messageId),
+    });
 
     return new Response(JSON.stringify({ success: true, ticket_id: ticketId }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    console.error('Error processing email webhook:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    log.error('Error processing email webhook', error);
+    return new Response(JSON.stringify({ error: 'Failed to process email' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

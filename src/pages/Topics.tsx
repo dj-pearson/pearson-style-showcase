@@ -33,7 +33,7 @@ const Topics = () => {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <SEO
         title="Topics - AI & Business Insights Hub | Dan Pearson"
-        description="Explore comprehensive guides and resources on AI automation, machine learning, business optimization, and digital transformation. Expert insights organized by topic."
+        description="Guides and teardowns on AI CRM automation, machine learning, business automation and digital transformation, grouped by topic."
         keywords="AI topics, business automation guides, machine learning resources, digital transformation, technology insights"
         url={getCanonicalUrl('/topics')}
         type="website"
@@ -48,7 +48,7 @@ const Topics = () => {
         data={{
           name: 'Dan Pearson - Topics Hub',
           description:
-            'Explore comprehensive guides and resources on AI automation and business optimization.',
+            'Guides and teardowns on AI CRM automation and business automation, grouped by topic.',
           url: getCanonicalUrl('/topics'),
           author: {
             '@type': 'Person',
@@ -74,8 +74,8 @@ const Topics = () => {
             </h1>
 
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Deep-dive into comprehensive guides on AI, automation, and business transformation.
-              Each topic hub contains curated articles, tutorials, and expert insights.
+              Guides and teardowns grouped by topic. Start with AI CRM automation if you run a sales
+              team.
             </p>
           </header>
 

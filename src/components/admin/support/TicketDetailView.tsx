@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { RealtimePayload } from '@/types/supabase-realtime';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,8 @@ import { logger } from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { invokeEdgeFunction } from '@/lib/edge-functions';
+
+import { clearReplyDraft, loadReplyDraft, saveReplyDraft } from './ticketReplyDraft';
 
 interface Ticket {
   id: string;
@@ -74,7 +76,18 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
 }) => {
   const fieldId = useId();
   const [responses, setResponses] = useState<Response[]>([]);
-  const [replyMessage, setReplyMessage] = useState('');
+  const [replyMessage, setReplyMessage] = useState(() => loadReplyDraft(ticket.id));
+  // The same instance is reused when another ticket is selected, so the
+  // draft is swapped per ticket and a slow send can tell if it still owns it.
+  const ticketIdRef = useRef(ticket.id);
+  useEffect(() => {
+    ticketIdRef.current = ticket.id;
+    setReplyMessage(loadReplyDraft(ticket.id));
+  }, [ticket.id]);
+  const updateReply = (message: string) => {
+    setReplyMessage(message);
+    saveReplyDraft(ticket.id, message);
+  };
   const [emailSubject, setEmailSubject] = useState(`Re: ${ticket.subject}`);
   const [sendAsEmail, setSendAsEmail] = useState(true);
   const [isInternal, setIsInternal] = useState(false);
@@ -85,6 +98,10 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
   const [selectedMailbox, setSelectedMailbox] = useState<string>('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiGeneratedResponse, setAiGeneratedResponse] = useState<string | null>(null);
+  // One idempotency key per outgoing email. A retry of the same draft reuses
+  // it, so send-ticket-email returns the first result instead of mailing the
+  // customer twice; editing the draft or a successful send starts a new key.
+  const sendKeyRef = useRef<{ key: string; draft: string } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -235,25 +252,37 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
 
       if (sendAsEmail && !isInternal) {
         // Send via email using Edge Function
-        const { error } = await invokeEdgeFunction('send-ticket-email', {
-          body: {
-            ticket_id: ticket.id,
-            from_mailbox_id: selectedMailbox,
-            to_email: ticket.user_email,
-            subject: emailSubject,
-            message: replyMessage,
-            is_internal: false,
-          },
-        });
+        // Ticket id included: the same text sent to two tickets is two emails.
+        const draft = `${ticket.id}\n${selectedMailbox}\n${emailSubject}\n${replyMessage}`;
+        if (sendKeyRef.current?.draft !== draft) {
+          sendKeyRef.current = { key: crypto.randomUUID(), draft };
+        }
+        const { data, error } = await invokeEdgeFunction<{ partial?: boolean }>(
+          'send-ticket-email',
+          {
+            body: {
+              ticket_id: ticket.id,
+              from_mailbox_id: selectedMailbox,
+              to_email: ticket.user_email,
+              subject: emailSubject,
+              message: replyMessage,
+              is_internal: false,
+              idempotency_key: sendKeyRef.current.key,
+            },
+          }
+        );
 
         if (error) {
           logger.error('Email send error:', error);
           throw new Error(error.message || 'Failed to send email');
         }
+        sendKeyRef.current = null;
 
         toast({
           title: 'Email Sent',
-          description: `Email sent successfully to ${ticket.user_email}`,
+          description: data?.partial
+            ? `Email sent to ${ticket.user_email}, but the ticket history did not fully update. Refresh before replying again.`
+            : `Email sent successfully to ${ticket.user_email}`,
         });
       } else {
         // Save as internal note or response without email
@@ -283,7 +312,8 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
         });
       }
 
-      setReplyMessage('');
+      clearReplyDraft(ticket.id);
+      if (ticketIdRef.current === ticket.id) setReplyMessage('');
       onUpdate();
     } catch (error: any) {
       logger.error('Failed to send reply:', error);
@@ -310,7 +340,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
 
       if (data?.response) {
         setAiGeneratedResponse(data.response);
-        setReplyMessage(data.response);
+        updateReply(data.response);
         toast({
           title: 'AI Response Generated',
           description: `Using ${data.model_used}. Review and edit before sending.`,
@@ -350,7 +380,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
   };
 
   const handleSuggestedResponse = (response: string) => {
-    setReplyMessage(response);
+    updateReply(response);
   };
 
   return (
@@ -366,7 +396,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
               </CardTitle>
               <CardDescription className="mt-1">{ticket.subject}</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button aria-label="Close ticket view" variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -669,7 +699,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                           : 'Type your response...'
                     }
                     value={replyMessage}
-                    onChange={(e) => setReplyMessage(e.target.value)}
+                    onChange={(e) => updateReply(e.target.value)}
                     rows={6}
                   />
                 </div>

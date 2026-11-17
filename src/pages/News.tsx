@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { logger } from '@/lib/logger';
 import { useState, useEffect, useMemo } from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
+import NewsletterSignup from '../components/NewsletterSignup';
 import SEO from '../components/SEO';
 import { ArticleCard } from '../components/ArticleCard';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Search, Filter, X, Loader2, RefreshCw, ChevronDown } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Search, Filter, X, RefreshCw, ChevronDown } from 'lucide-react';
+import { publicDb } from '@/integrations/supabase/public-client';
 import { sanitizeSearchQuery } from '@/lib/security';
 import { mergeStaticArticles, STATIC_ARTICLE_SLUGS } from '@/lib/static-articles';
 
@@ -26,8 +26,6 @@ const LISTING_COLUMNS =
   'id, slug, title, excerpt, category, tags, image_url, created_at, read_time, view_count, featured, author';
 import { Tables } from '@/integrations/supabase/types';
 import { ArticleListSkeleton } from '@/components/skeletons';
-import { useToast } from '@/hooks/use-toast';
-import { invokeEdgeFunction } from '@/lib/edge-functions';
 
 type Article = Tables<'articles'>;
 
@@ -65,9 +63,6 @@ function matchesFilters(article: Article, search: string, category: string): boo
 }
 
 const News = () => {
-  const [email, setEmail] = useState('');
-  const [isSubscribing, setIsSubscribing] = useState(false);
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState(() => {
     return localStorage.getItem(`${STORAGE_KEY_PREFIX}_search`) || '';
@@ -169,7 +164,7 @@ const News = () => {
       // handful of known slugs, so this is a cheap lookup, and it returns
       // nothing once the seed migrations have been applied - at which point
       // every branch below collapses back to plain server-side pagination.
-      const { data: seeded, error: seededError } = await supabase
+      const { data: seeded, error: seededError } = await publicDb
         .from('articles')
         .select('slug')
         .in('slug', STATIC_ARTICLE_SLUGS);
@@ -180,7 +175,7 @@ const News = () => {
       const missingCount = STATIC_ARTICLE_SLUGS.filter((slug) => !seededSlugs.has(slug)).length;
 
       // Get total count for pagination
-      const { count, error: countError } = await supabase
+      const { count, error: countError } = await publicDb
         .from('articles')
         .select('*', { count: 'exact', head: true })
         .eq('published', true);
@@ -193,7 +188,7 @@ const News = () => {
         // The count query carries the same filters, or the pager would offer
         // pages the filtered set does not have.
         const { count: matchingCount, error: filteredCountError } = await applyFilters(
-          supabase
+          publicDb
             .from('articles')
             .select('*', { count: 'exact', head: true })
             .eq('published', true)
@@ -202,7 +197,7 @@ const News = () => {
         if (filteredCountError) throw filteredCountError;
 
         const { data, error } = await applyOrder(
-          applyFilters(supabase.from('articles').select(LISTING_COLUMNS).eq('published', true))
+          applyFilters(publicDb.from('articles').select(LISTING_COLUMNS).eq('published', true))
         ).range(from, to);
 
         if (error) throw error;
@@ -216,7 +211,7 @@ const News = () => {
       // That is one bounded query over a few hundred small rows, it only runs
       // while rows are genuinely missing, and it keeps page boundaries exact
       // rather than approximately right.
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select(LISTING_COLUMNS)
         .eq('published', true)
@@ -256,7 +251,7 @@ const News = () => {
   const { data: categoryRows } = useQuery({
     queryKey: ['articles', 'categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicDb
         .from('articles')
         .select('category')
         .eq('published', true);
@@ -288,47 +283,11 @@ const News = () => {
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}_sort`);
   };
 
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!email.trim()) return;
-
-    setIsSubscribing(true);
-
-    try {
-      const { data: result, error } = await invokeEdgeFunction('newsletter-signup', {
-        body: { email: email.trim() },
-      });
-
-      if (error) {
-        logger.error('Newsletter signup error:', error);
-        throw new Error(error.message || 'Failed to subscribe');
-      }
-
-      toast({
-        title: 'Successfully subscribed!',
-        description:
-          result.message || 'Thank you for subscribing. Check your inbox for a welcome email!',
-      });
-
-      setEmail('');
-    } catch (error) {
-      logger.error('Newsletter signup failed:', error);
-      toast({
-        title: 'Subscription failed',
-        description: error instanceof Error ? error.message : 'Please try again later.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubscribing(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col">
       <SEO
         title="AI Automation & Business Technology Insights | Expert Analysis | Dan Pearson"
-        description="Expert insights on AI automation, business technology, and digital transformation. Learn proven strategies to implement AI, reduce costs, and streamline operations. Real-world teardowns and practical guides from a consultant who spent 15 years carrying a quota before building the automation."
+        description="Teardowns and field notes on AI CRM automation: what works inside HubSpot and Salesforce, what it costs, and why most projects stall at data capture."
         keywords="AI automation guides, business automation insights, AI implementation strategies, digital transformation tips, AI tools comparison, business process automation, AI consultant insights, automation case studies, AI integration tutorials, business technology trends"
         url="https://danpearson.net/news"
         type="website"
@@ -639,46 +598,12 @@ const News = () => {
             )}
           </div>
 
-          {/* Newsletter Signup */}
-          <div className="text-center py-8 sm:py-12 md:py-16 border-t border-gray-800">
-            <div className="bg-gray-800/50 border border-cyan-500/20 rounded-lg p-4 sm:p-6 md:p-8 max-w-2xl mx-auto">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 text-white leading-tight">
-                Stay Connected
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-5 md:mb-6 leading-relaxed">
-                Subscribe to get the latest insights on AI, technology, and business strategy
-                delivered to your inbox.
-              </p>
-              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
-                <label htmlFor="newsletter-email" className="sr-only">
-                  Email address for newsletter
-                </label>
-                <Input
-                  id="newsletter-email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 bg-gray-700 border-gray-600 focus:border-cyan-500 min-h-[48px] text-base"
-                  required
-                  disabled={isSubscribing}
-                  aria-label="Email address for newsletter subscription"
-                />
-                <Button
-                  type="submit"
-                  className="font-semibold min-h-[48px] w-full sm:w-auto sm:px-8 active:scale-[0.98] transition-transform"
-                  disabled={isSubscribing}
-                >
-                  {isSubscribing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Subscribing...
-                    </>
-                  ) : (
-                    'Subscribe'
-                  )}
-                </Button>
-              </form>
+          {/* Newsletter signup: the shared double opt-in form, which says
+              "check your inbox" instead of claiming the address is already
+              subscribed. */}
+          <div className="py-8 sm:py-12 md:py-16 border-t border-gray-800">
+            <div className="max-w-2xl mx-auto">
+              <NewsletterSignup />
             </div>
           </div>
         </div>

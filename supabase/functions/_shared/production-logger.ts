@@ -1,12 +1,15 @@
 /**
  * Production-ready structured logging for Supabase Edge Functions
  *
- * Features:
- * - Structured JSON logging for CloudFlare/Supabase integration
- * - Log levels (debug, info, warn, error)
- * - Automatic PII masking
- * - Request correlation IDs
- * - Performance timing
+ * One JSON line per entry, PII masked, filtered by LOG_LEVEL.
+ *
+ * Every function runs inside one shared Deno process (danpearson-edge-functions/
+ * server.ts), so request context lives on the logger instance, never in module
+ * state: a module-level "current request" would be overwritten by whichever
+ * concurrent request started last. Get a per-request logger with
+ * `createEdgeFunctionLogger('fn-name').forRequest(req)`; it picks up the
+ * x-request-id header the server stamps on every request, so function log
+ * lines join up with the server's access line.
  */
 
 // Log levels with numeric values for filtering
@@ -31,10 +34,27 @@ const PII_PATTERNS = {
 
 // Fields that should be completely redacted
 const SENSITIVE_FIELDS = [
-  'password', 'passwd', 'pwd', 'secret', 'token', 'api_key', 'apiKey',
-  'auth_token', 'authToken', 'access_token', 'accessToken', 'refresh_token',
-  'refreshToken', 'private_key', 'privateKey', 'credit_card', 'creditCard',
-  'ssn', 'social_security', 'socialSecurity', 'authorization',
+  'password',
+  'passwd',
+  'pwd',
+  'secret',
+  'token',
+  'api_key',
+  'apiKey',
+  'auth_token',
+  'authToken',
+  'access_token',
+  'accessToken',
+  'refresh_token',
+  'refreshToken',
+  'private_key',
+  'privateKey',
+  'credit_card',
+  'creditCard',
+  'ssn',
+  'social_security',
+  'socialSecurity',
+  'authorization',
 ];
 
 /**
@@ -96,14 +116,14 @@ export function sanitizeObject(obj: unknown, depth = 0): unknown {
   if (typeof obj === 'number' || typeof obj === 'boolean') return obj;
 
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item, depth + 1));
+    return obj.map((item) => sanitizeObject(item, depth + 1));
   }
 
   if (typeof obj === 'object') {
     const sanitized: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       const lowerKey = key.toLowerCase();
-      if (SENSITIVE_FIELDS.some(field => lowerKey.includes(field.toLowerCase()))) {
+      if (SENSITIVE_FIELDS.some((field) => lowerKey.includes(field.toLowerCase()))) {
         sanitized[key] = '[REDACTED]';
       } else {
         sanitized[key] = sanitizeObject(value, depth + 1);
@@ -123,55 +143,25 @@ export interface LogEntry {
   level: string;
   message: string;
   function_name?: string;
-  correlation_id?: string;
   request_id?: string;
   user_id?: string;
-  ip_address?: string;
   duration_ms?: number;
   metadata?: Record<string, unknown>;
   error?: {
     name: string;
     message: string;
+    code?: string;
     stack?: string;
   };
 }
 
 /**
- * Logger context
+ * Logger context, bound to one logger instance.
  */
 export interface LoggerContext {
   functionName?: string;
-  correlationId?: string;
   requestId?: string;
   userId?: string;
-  ipAddress?: string;
-}
-
-// Global context for the current request
-let globalContext: LoggerContext = {};
-
-/**
- * Set request context (call at start of each request)
- */
-export function setRequestContext(ctx: LoggerContext): void {
-  globalContext = {
-    ...ctx,
-    correlationId: ctx.correlationId || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-  };
-}
-
-/**
- * Get current request context
- */
-export function getRequestContext(): LoggerContext {
-  return globalContext;
-}
-
-/**
- * Clear request context
- */
-export function clearRequestContext(): void {
-  globalContext = {};
 }
 
 /**
@@ -192,42 +182,63 @@ function getLogLevel(): LogLevel {
  * Check if running in production
  */
 function isProduction(): boolean {
-  return Deno.env.get('DENO_ENV') === 'production' ||
-         Deno.env.get('ENV') === 'production' ||
-         Deno.env.get('NODE_ENV') === 'production';
+  return (
+    Deno.env.get('DENO_ENV') === 'production' ||
+    Deno.env.get('ENV') === 'production' ||
+    Deno.env.get('NODE_ENV') === 'production'
+  );
+}
+
+/**
+ * Normalise anything thrown or returned as an error. Supabase/PostgREST errors
+ * are plain objects ({ message, code, details }), not Error instances, and used
+ * to be dropped from the log entry entirely.
+ */
+function describeError(error: unknown): LogEntry['error'] | undefined {
+  if (error === undefined || error === null) return undefined;
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: maskPII(error.message),
+      stack: isProduction() ? undefined : error.stack,
+    };
+  }
+  if (typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    return {
+      name: typeof e.name === 'string' ? e.name : 'Error',
+      message: maskPII(typeof e.message === 'string' ? e.message : JSON.stringify(e).slice(0, 500)),
+      code: typeof e.code === 'string' ? e.code : undefined,
+    };
+  }
+  return { name: 'Error', message: maskPII(String(error)) };
 }
 
 /**
  * Create log entry
  */
 function createLogEntry(
+  ctx: LoggerContext,
   level: string,
   message: string,
   metadata?: Record<string, unknown>,
-  error?: Error
+  error?: unknown
 ): LogEntry {
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
     message: maskPII(message),
-    function_name: globalContext.functionName,
-    correlation_id: globalContext.correlationId,
-    request_id: globalContext.requestId,
-    user_id: globalContext.userId ? maskPII(globalContext.userId) : undefined,
-    ip_address: globalContext.ipAddress ? maskPII(globalContext.ipAddress) : undefined,
+    function_name: ctx.functionName,
+    request_id: ctx.requestId,
+    user_id: ctx.userId,
   };
 
   if (metadata) {
     entry.metadata = sanitizeObject(metadata) as Record<string, unknown>;
   }
 
-  if (error) {
-    entry.error = {
-      name: error.name,
-      message: maskPII(error.message),
-      stack: isProduction() ? undefined : error.stack,
-    };
-  }
+  const err = describeError(error);
+  if (err) entry.error = err;
 
   return entry;
 }
@@ -236,10 +247,8 @@ function createLogEntry(
  * Output log entry
  */
 function outputLog(level: LogLevel, entry: LogEntry): void {
-  const configuredLevel = getLogLevel();
-  if (level < configuredLevel) return;
+  if (level < getLogLevel()) return;
 
-  // Always output structured JSON in Edge Functions for CloudFlare/Supabase logging
   const jsonLog = JSON.stringify(entry);
 
   switch (level) {
@@ -257,114 +266,53 @@ function outputLog(level: LogLevel, entry: LogEntry): void {
   }
 }
 
+/** Accept only a short, header-safe request id; anything else is replaced. */
+export function requestIdFrom(req: Request): string {
+  const supplied = req.headers.get('x-request-id') || req.headers.get('x-correlation-id') || '';
+  return /^[A-Za-z0-9._:-]{1,100}$/.test(supplied) ? supplied : crypto.randomUUID();
+}
+
 /**
  * Edge Function Logger
  */
 export class EdgeFunctionLogger {
-  private functionName: string;
+  private readonly ctx: LoggerContext;
 
-  constructor(functionName: string) {
-    this.functionName = functionName;
+  constructor(functionName: string, ctx: Omit<LoggerContext, 'functionName'> = {}) {
+    this.ctx = { ...ctx, functionName };
   }
 
-  /**
-   * Initialize logger for a request
-   */
-  initRequest(req: Request): string {
-    const correlationId = req.headers.get('x-correlation-id') ||
-                         req.headers.get('x-request-id') ||
-                         `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-    setRequestContext({
-      functionName: this.functionName,
-      correlationId,
-      requestId: correlationId,
-      ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || undefined,
+  /** A logger bound to one request (request id from the x-request-id header). */
+  forRequest(req: Request): EdgeFunctionLogger {
+    return new EdgeFunctionLogger(this.ctx.functionName ?? 'unknown', {
+      ...this.ctx,
+      requestId: requestIdFrom(req),
     });
+  }
 
-    return correlationId;
+  /** A copy of this logger that also tags entries with the acting user id. */
+  withUser(userId: string | undefined): EdgeFunctionLogger {
+    return new EdgeFunctionLogger(this.ctx.functionName ?? 'unknown', { ...this.ctx, userId });
+  }
+
+  get requestId(): string | undefined {
+    return this.ctx.requestId;
   }
 
   debug(message: string, metadata?: Record<string, unknown>): void {
-    const entry = createLogEntry('debug', message, metadata);
-    outputLog(LogLevel.DEBUG, entry);
+    outputLog(LogLevel.DEBUG, createLogEntry(this.ctx, 'debug', message, metadata));
   }
 
   info(message: string, metadata?: Record<string, unknown>): void {
-    const entry = createLogEntry('info', message, metadata);
-    outputLog(LogLevel.INFO, entry);
+    outputLog(LogLevel.INFO, createLogEntry(this.ctx, 'info', message, metadata));
   }
 
   warn(message: string, metadata?: Record<string, unknown>): void {
-    const entry = createLogEntry('warn', message, metadata);
-    outputLog(LogLevel.WARN, entry);
+    outputLog(LogLevel.WARN, createLogEntry(this.ctx, 'warn', message, metadata));
   }
 
-  error(message: string, error?: Error | unknown, metadata?: Record<string, unknown>): void {
-    const errorObj = error instanceof Error ? error : undefined;
-    const entry = createLogEntry('error', message, metadata, errorObj);
-    outputLog(LogLevel.ERROR, entry);
-  }
-
-  /**
-   * Log request completion
-   */
-  logRequest(method: string, path: string, statusCode: number, durationMs: number): void {
-    const entry = createLogEntry(
-      statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info',
-      `${method} ${path} ${statusCode}`,
-      { method, path, status_code: statusCode, duration_ms: durationMs }
-    );
-    entry.duration_ms = durationMs;
-    outputLog(statusCode >= 500 ? LogLevel.ERROR : statusCode >= 400 ? LogLevel.WARN : LogLevel.INFO, entry);
-  }
-
-  /**
-   * Wrap handler with request logging
-   */
-  wrapHandler(handler: (req: Request) => Promise<Response>): (req: Request) => Promise<Response> {
-    return async (req: Request) => {
-      const start = Date.now();
-      const correlationId = this.initRequest(req);
-      const url = new URL(req.url);
-
-      this.info(`Request started: ${req.method} ${url.pathname}`);
-
-      try {
-        const response = await handler(req);
-        const duration = Date.now() - start;
-
-        this.logRequest(req.method, url.pathname, response.status, duration);
-
-        // Add correlation ID to response headers
-        const headers = new Headers(response.headers);
-        headers.set('x-correlation-id', correlationId);
-
-        return new Response(response.body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers,
-        });
-      } catch (error) {
-        const duration = Date.now() - start;
-        this.error(`Request failed: ${req.method} ${url.pathname}`, error, { duration_ms: duration });
-
-        clearRequestContext();
-
-        return new Response(
-          JSON.stringify({ error: 'Internal server error' }),
-          {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-correlation-id': correlationId,
-            },
-          }
-        );
-      } finally {
-        clearRequestContext();
-      }
-    };
+  error(message: string, error?: unknown, metadata?: Record<string, unknown>): void {
+    outputLog(LogLevel.ERROR, createLogEntry(this.ctx, 'error', message, metadata, error));
   }
 }
 
@@ -374,26 +322,3 @@ export class EdgeFunctionLogger {
 export function createEdgeFunctionLogger(functionName: string): EdgeFunctionLogger {
   return new EdgeFunctionLogger(functionName);
 }
-
-/**
- * Simple logging functions for backward compatibility
- */
-export const log = {
-  debug: (message: string, metadata?: Record<string, unknown>) => {
-    const entry = createLogEntry('debug', message, metadata);
-    outputLog(LogLevel.DEBUG, entry);
-  },
-  info: (message: string, metadata?: Record<string, unknown>) => {
-    const entry = createLogEntry('info', message, metadata);
-    outputLog(LogLevel.INFO, entry);
-  },
-  warn: (message: string, metadata?: Record<string, unknown>) => {
-    const entry = createLogEntry('warn', message, metadata);
-    outputLog(LogLevel.WARN, entry);
-  },
-  error: (message: string, error?: Error | unknown, metadata?: Record<string, unknown>) => {
-    const errorObj = error instanceof Error ? error : undefined;
-    const entry = createLogEntry('error', message, metadata, errorObj);
-    outputLog(LogLevel.ERROR, entry);
-  },
-};
