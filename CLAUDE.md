@@ -23,6 +23,7 @@
 10. [Important Files](#important-files)
 11. [Things to Avoid](#things-to-avoid)
 12. [Troubleshooting](#troubleshooting)
+13. [Database Migrations](#database-migrations)
 
 ---
 
@@ -863,6 +864,35 @@ interface SEOData {
 - Three.js integration for 3D orb
 - Device capability detection to disable on low-end devices
 - Lazy loading to prevent blocking initial render
+
+---
+
+## Database Migrations
+
+Production is the self-hosted Supabase at `api.danpearson.net` (Coolify service `danpearson-main`, container `supabase-db-d484so0g4swk0k0c8s0ggg88`). Migrations are files in `supabase/migrations/`, tracked in `supabase_migrations.schema_migrations` on prod. Never `supabase db push`.
+
+**Tracked from 2026-11-17 onward.** Every file older than that was recorded as applied in one baseline, so the tracker only looks forward: a file is pending when its version is not in the tracker, and nothing older is ever re-run. (The Lovable-era tracker had lagged reality: 40 versions recorded against 86 files.)
+
+**How they get applied:** the Repo tray's **Push migrations (prod)** item on Dan Pearson, which runs `node scripts/_migrate-prod.mjs danpearson` from the Server repo. Dry run by default; apply takes a `pg_dump` snapshot to `/root/backups` first, then runs each pending file in its own transaction and records it. It refuses when the local checkout does not contain `origin/develop` (pull first) or when a pending file is already live in the schema.
+
+### Every migration must be idempotent
+
+Assume any file can run twice: a retry after a timeout, a re-run after a partial failure, a tracker row that did not get written. Running it a second time must change nothing and must not error.
+
+- `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`
+- `CREATE OR REPLACE FUNCTION` / `CREATE OR REPLACE VIEW`
+- `DROP POLICY IF EXISTS` before every `CREATE POLICY`; `DROP TRIGGER IF EXISTS` before every `CREATE TRIGGER`
+- `INSERT ... ON CONFLICT DO NOTHING` (or `DO UPDATE`) for seed rows, never a bare `INSERT`
+- Enum values: `ALTER TYPE ... ADD VALUE IF NOT EXISTS`
+- Data changes (`UPDATE`, `DELETE`) must be written so a second run is a no-op, for example by filtering on the old value
+- Wrap the file in `BEGIN; ... COMMIT;` and add a matching rollback under `supabase/migrations/rollbacks/`
+
+### Making a new migration
+
+1. Reserve the number: `node "C:/Users/dpearson/Documents/Server/hub/coord/cli.mjs" reserve migration`. Never pick it by reading the highest file.
+2. Write `supabase/migrations/<number>_<snake_name>.sql` and its rollback, following the idempotent rules above.
+3. Land it on develop with the code that needs it (`coord finish`). Code that depends on the new schema must not reach production before the migration does.
+4. Apply it from the tray, and read the dry-run list before saying yes.
 
 ---
 
