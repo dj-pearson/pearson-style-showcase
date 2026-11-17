@@ -17,7 +17,8 @@ export const HARD_RULES = `1. **No invented claims.** Any personal fact (about D
 export function hardRulesFromDesignDoc(): string | null {
   const file = join(PACKAGE_ROOT, '..', '..', 'docs', 'voice-engine', 'DESIGN.md');
   if (!existsSync(file)) return null;
-  const doc = readFileSync(file, 'utf8');
+  // A Windows checkout gets CRLF from git's autocrlf; the regex below expects LF.
+  const doc = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
   const m = doc.match(/## Hard rules \(anti-goals\)\n\n([\s\S]*?)\n\n## /);
   return m ? m[1]!.trim() : null;
 }

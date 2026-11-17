@@ -1,6 +1,6 @@
 {
-  "comment": "Dan Pearson's voice guide. The engine enforces this file; it is not an instruction to imitate anyone. Dan edits it during sign-off (VOICE-018). neverSays and anonymity were meant to be copied from the Server repo's hub/voices/danpearson.json at a named commit. That repo was not reachable from the session that wrote this file (2026-11-16), so the lists below are drawn from docs/voice-engine/DESIGN.md and this repo's CLAUDE.md only. Merge the hub's entries in and record the source commit here before go-live.",
-  "sourceCommit": null,
+  "comment": "Dan Pearson's voice guide. The engine enforces this file; it is not an instruction to imitate anyone. Dan edits it during sign-off (VOICE-018). neverSays was merged on 2026-11-17 with the Server repo's hub/voices/danpearson.json at sourceCommit (that file last changed 2026-09-25). Not taken from it: 'as a founder' and 'in my experience', which the hub itself allows on social surfaces as honest at caption length. 'my journey' and 'the secret sauce' are already blocked by 'journey' and 'secret'. The hub file is copied here, never read at runtime.",
+  "sourceCommit": "66d8b2dcaf21ecebae7ea4abb0b85561b9670f62",
   "speaker": "Dan Pearson",
   "person": "First person singular. I, not we. Dan is one person who sells for a living and builds software on the side; he does not speak as a company.",
   "notes": [
@@ -50,7 +50,21 @@
     "Let's break it down",
     "I'm excited to announce",
     "humbled",
-    "thrilled"
+    "thrilled",
+    "I've helped hundreds",
+    "here's what I learned",
+    "lessons learned",
+    "thought leader",
+    "growth hacking",
+    "10x engineer",
+    "game changer",
+    "AI-powered",
+    "revolutionize",
+    "capture layer",
+    "reporting layer",
+    "capture coverage",
+    "$2,500",
+    "$2500"
   ],
   "anonymity": [
     "Dan's employer is never named, described closely enough to identify, or hinted at.",
