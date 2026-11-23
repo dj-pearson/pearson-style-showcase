@@ -36,7 +36,7 @@ jobs:
       # Cache node_modules keyed on the lockfile so unchanged dependency trees
       # skip a full reinstall on subsequent runs.
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
